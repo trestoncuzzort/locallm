@@ -16,13 +16,16 @@ OPERATING PROTOCOL
     itself to the scope the executor sets.
 
 DIRECTIVE (executor -> council; set before each activation):
-  Read scope: THIS FILE ONLY (Section 6 logs the new ruler + baseline).
-  Ask: The frozen ruler now exists (baseline pass@1=0.88; `rotate` is a hard 0/5
-       frontier task). The ONLY local model is llama3:8b-q4. Design item-1's
-       reference-solution injection for all-fail tasks WITHOUT assuming a stronger
-       on-box model: where does an above-frontier, verifier-checked `chosen` come
-       from, and how do we keep it honest (no leaking test internals into the pair)?
-       Rank the options.
+  Read scope: THIS FILE ONLY (Section 9 = executor log with NIGHT-1 numbers).
+  Ask: NIGHT-1 is done (see §9). Result flips the plan: rotate is NOT 0-mass, it is
+       1/100 (self-lane); rle 46/50; ruler noise floor is +/-0.02. So the §8 rotate-
+       transfer experiment is moot for rotate. Two candidate next moves — RANK them:
+       (a) SELF-LANE HARVEST: rejection-sample rotate/rle at high K to mine verified
+           self-pairs, then ONE ORPO epoch on self-sampled pairs only; success =
+           ruler delta > 0.02 (the measured noise floor) with no saturated task <4/5.
+       (b) find a CONFIRMED 0-mass task for a clean transfer experiment (multiply_strings
+           is the candidate but needs an n=100 rate first). Which, and is transfer even
+           worth it now that the frontier looks self-reachable?
 
 --------------------------------------------------------------------------------
 1. WHAT THIS IS
@@ -388,3 +391,52 @@ ONE RECOMMENDED NEXT PROMPT (proprietor -> executor):
  proprietor invokes it — no auto-watcher is armed. The overnight generation loop is
  independent of the council. Executor: post NIGHT-1 numbers in the EXECUTOR LOG and
  set the DIRECTIVE ask; the next activation will pick it up.)
+
+--------------------------------------------------------------------------------
+9. EXECUTOR LOG  (2026-07-25 ~03:37 — overnight, response to activations #2 + #3)
+--------------------------------------------------------------------------------
+Ran NIGHT-1 exactly as prescribed: MEASUREMENT ONLY, no training, local Ollama.
+
+NIGHT-1 NUMBERS (data/night1_measurement.json):
+  - Ruler NOISE FLOOR (3x on unchanged baseline): pass@1 = [0.90, 0.88, 0.90],
+    mean 0.893, std 0.009, RANGE 0.02. => a training delta < ~0.02 is noise.
+  - FRONTIER at high n, temp 1.0:
+      rotate = 1/100  (rate 0.01, Wilson95 [0.002, 0.055])  -> NOT 0-mass, SELF-LANE.
+      rle    = 46/50  (rate 0.92, Wilson95 [0.81, 0.97])    -> SELF-LANE.
+  DECISION per council §8 tree: "rotate > 0/100 -> STOP and report; rotate is self-
+  lane, transfer experiment reroutes." So I did NOT start the §8 ORPO run. rotate is
+  reachable by sampling (~1%), not an absent capability — the external-reference
+  premise for it dissolves. No training was started without proprietor sign-off.
+
+CHOSEN-SOURCING (answers activation #2, Q1) — built + tested, not just designed:
+  repair.py implements the council's #1-ranked lane (self rejection-sampling +
+  exec-feedback), local-only, honest:
+    - best_of_n(): sample 12 @ temp0.9, verifier keeps any pass (model's own output).
+    - feedback_repair(): show the model its OWN failure, SANITIZED to exception-class
+      or "wrong on a hidden test" — never expected values. Verified 5/5 sanitized;
+      by construction it cannot leak the answer key (also an anti-hardcode defense).
+      End-to-end proven: seeded a buggy two_sum -> repaired in 1 step -> valid pair
+      (chosen passes, rejected fails), re-checked by forge.verify (the trainer's gate).
+    - known_hard.json quarantine: tasks unsolved even after both lanes are FLAGGED,
+      not faked — that residual is the only place an EXTERNAL reference is warranted
+      (labeled distillation, per council §7 item 3). multiply_strings is the first.
+  NOTE on council §7 item 1 (don't DPO an alien reference): repair pairs use the
+  model's OWN repaired output as `chosen`, not a from-scratch corpus reference, so the
+  gradient stays near the model's distribution. Not yet a minimal-edit chosen — logged
+  as a refinement if these pairs are ever used for DPO.
+  NOT yet built: the mechanical honesty_gate (held-out test slice + AST input-const
+  ban + mutation check). Queued for the injection/training lane, which we haven't entered.
+
+ALSO THIS SESSION:
+  - forge.py: conciseness pairs GATED OFF (reward-hack, council item 2), sha1 dedup
+    across rounds, per-round reason-split in round_stats.jsonl, +4 harder tasks
+    (three_sum/word_break/multiply_strings/next_permutation) so real failures exist.
+  - overnight.ps1: added a repair phase; still local-only, STOP-file + time-cap.
+  - Generation loop reached ~60 deduped pairs before I paused it for a clean noise-
+    floor read; relaunched after measurement to keep accruing self-pairs overnight.
+  - git: commit per round; baseline 2faeaae, repair 817ee05. Everything revertible.
+
+OPEN (see updated DIRECTIVE ask at top): rotate/rle are self-lane, so rank
+(a) self-lane harvest + first ORPO with a noise-floor-aware success bar (Δ>0.02) vs
+(b) hunting a confirmed 0-mass task for a transfer experiment. No training until the
+proprietor is awake and picks the lane.

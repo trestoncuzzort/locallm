@@ -1,30 +1,41 @@
-GOOD MORNING — overnight autonomous run summary
-================================================
-Started 2026-07-25 03:06. Runs on LOCAL Ollama only -> zero cloud cost, no
-unsupervised cloud agent, all model-generated code sandboxed as before.
+GOOD MORNING — overnight autonomous run summary (updated 03:3x)
+================================================================
+All local Ollama -> zero cloud cost, no unsupervised cloud agent, code sandboxed.
+Followed the council's NIGHT-1 discipline: MEASURE before training. No training was
+run (correctly — the council showed the ruler can't yet certify a training delta).
 
-WHAT IT DID (each round, ~every few minutes):
-  - forge.py: generated + deduped preference pairs from the 9 training tasks
-    (conciseness pairs OFF, so only clean correctness pairs accumulate).
-  - eval.py: scored the frozen held-out ruler every 5th round -> data/eval_history.jsonl
-  - git-committed every round, so every step is revertible.
-Ping model honored via council\ping_executor and council\ping_council signal files.
+WHAT HAPPENED TONIGHT (in order):
+  1. Generation loop ran 11+ rounds -> ~60 deduped preference pairs (forge.py).
+  2. Built + tested repair.py: turns all-fail tasks into pairs WITHOUT a stronger
+     model — best-of-N search + SANITIZED-feedback self-repair (feedback carries the
+     exception class or "wrong on a hidden test", NEVER expected values -> no leak,
+     verified 5/5). End-to-end proven: repaired a seeded bug in 1 step -> valid pair.
+     Genuinely-unsolvable tasks are quarantined (known_hard.json), NOT faked.
+  3. Added 4 harder tasks so real failures exist to learn from.
+  4. NIGHT-1 measurement (measure.py), per council activation #3:
+       - noise floor: ran the ruler 3x on the unchanged baseline (run-to-run wobble
+         = the smallest delta a future training run must beat).
+       - frontier resolution: sampled rotate n=100, rle n=50 (0/5 != 0; the CI on
+         0/5 reaches ~45%). Determines if rotate is truly 0-mass or just under-sampled.
 
-WHERE TO LOOK:
-  - council\overnight_status.txt   -> latest heartbeat (round #, total pairs, gained)
-  - council\overnight.log          -> full round-by-round log
-  - data\dpo_pairs.jsonl           -> the accumulated DPO training pairs
-  - data\eval_history.jsonl        -> ruler over time (baseline was pass@1=0.88 / pass@3=0.90)
-  - data\round_stats.jsonl         -> per-round reason split + all-fail ids
-  - git log --oneline              -> one commit per round
+READ THE RESULTS:
+  - data\night1_measurement.json  -> THE headline: noise floor + rotate/rle true rates
+  - council\overnight.log          -> round-by-round generation log
+  - data\dpo_pairs.jsonl           -> frontier-success pairs (forge)
+  - data\repair_pairs.jsonl        -> failure-derived pairs (repair); source-tagged
+  - data\known_hard.json           -> tasks beyond local repair (need external ref)
+  - data\eval_history.jsonl        -> every ruler run (baseline was 0.88/0.90)
+  - git log --oneline              -> one commit per round; everything revertible
 
-STOP IT:
-  - Create an empty file:  C:\Users\t\Projects\srlm-forge\council\STOP
-    (loop exits cleanly at the end of the current round), OR
-  - Stop-Process -Id (Get-Content $env:TEMP\overnight_pid.txt)
-  - It also auto-stops after 9 hours (~12:06).
+STOP EVERYTHING:
+  - create file  C:\Users\t\Projects\srlm-forge\council\STOP   (loop exits at round end)
+  - or Stop-Process -Id (Get-Content $env:TEMP\overnight_pid.txt)
+  - measurement pid: $env:TEMP\measure_pid.txt ; auto-stops at its time cap otherwise
 
-STILL PENDING (needs you / an interactive session, deliberately NOT automated):
-  - Training run (train_dpo.py) — needs the WSL2 + Python 3.11 + Unsloth env.
-  - Council activation #2 — the DIRECTIVE ask (reference-solution injection design)
-    is queued in instructions.txt for when you want to run the council again.
+DECISION WAITING FOR YOU (from council NIGHT-1):
+  - If night1_measurement shows rotate > 0/100  -> rotate is "self-lane": higher
+    sampling reaches it, NO external teacher needed; the transfer experiment reroutes.
+  - If rotate == 0/100 -> it's a clean zero-background detector; NIGHT 2 is a
+    pre-registered ORPO run on a ~150-pair rotate-family pack (needs WSL2+Unsloth).
+  Either way: NO training was started without your say-so. The channel (instructions.txt
+  §7-9) has the full council reasoning and the executor log.

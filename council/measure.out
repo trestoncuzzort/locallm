@@ -1,0 +1,42 @@
+[1/2] noise floor: 3 baseline eval runs...
+  run 1/3
+  gcd            ##### 5/5
+  is_prime       ##### 5/5
+  reverse_words  ##### 5/5
+  rle            ##### 5/5
+  flatten        ##### 5/5
+  nth_fib        ##### 5/5
+  count_vowels   ##### 5/5
+  kadane         ##### 5/5
+  rotate         ..... 0/5
+  dedup          ##### 5/5
+  run 2/3
+  gcd            ##### 5/5
+  is_prime       ##### 5/5
+  reverse_words  ##### 5/5
+  rle            ####. 4/5
+  flatten        ##### 5/5
+  nth_fib        ##### 5/5
+  count_vowels   ##### 5/5
+  kadane         ##### 5/5
+  rotate         ..... 0/5
+  dedup          ##### 5/5
+  run 3/3
+  gcd            ##### 5/5
+  is_prime       ##### 5/5
+  reverse_words  ##### 5/5
+  rle            ##### 5/5
+  flatten        ##### 5/5
+  nth_fib        ##### 5/5
+  count_vowels   ##### 5/5
+  kadane         ##### 5/5
+  rotate         ..... 0/5
+  dedup          ##### 5/5
+[2/2] frontier resolution...
+  rotate: 1/100  rate=0.010  95%CI=[0.0018,0.0545]
+  rle: 46/50  rate=0.920  95%CI=[0.8116,0.9685]
+
+=== NIGHT 1 SUMMARY ===
+noise floor pass@1: [0.9, 0.88, 0.9] (range 0.02, std 0.0094)
+VERDICT: rotate is SELF-lane -> reroute (no external reference needed)
+wrote C:\Users\t\Projects\srlm-forge\data\night1_measurement.json  (200.1s)

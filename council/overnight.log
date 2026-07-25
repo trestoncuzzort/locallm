@@ -201,3 +201,5 @@ aggregate: {'pass@1': 0.88, 'pass@3': 0.9}
 appended to C:\Users\t\Projects\srlm-forge\data\eval_history.jsonl
 This is the yardstick. Compare every future round's numbers to it.
 2026-07-25 03:36:51  round 5 done : total_pairs=72
+2026-07-25 03:37:11  STOP file present -> exiting
+2026-07-25 03:37:11  === overnight end | rounds=5 | final_pairs=72 ===
