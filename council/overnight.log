@@ -6211,3 +6211,54 @@ DPO data : C:\Users\t\Projects\srlm-forge\data\dpo_pairs.jsonl
 Curriculum: C:\Users\t\Projects\srlm-forge\data\failures.jsonl
 Round log : C:\Users\t\Projects\srlm-forge\data\round_stats.jsonl
 2026-07-25 07:51:38  round 139 done : total_pairs=719
+2026-07-25 07:51:59  round 140 : forge generate
+[two_sum] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[roman] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[balanced] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[spiral] generating 4 candidates...
+  -> correctness pair. rationale: Solution B fails because it does not properly handle the case where there are re
+[atoi] generating 4 candidates...
+  -> correctness pair. rationale: Solution B fails to correctly handle leading spaces because it does not check fo
+[lps] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[merge_intervals] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[simplify_path] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[decode_ways] generating 4 candidates...
+  -> correctness pair. rationale: Solution B fails because it does not handle the case where a single '0' is encou
+[three_sum] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[word_break] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[multiply_strings] generating 4 candidates...
+  -> unsolved, added to curriculum
+[next_permutation] generating 4 candidates...
+  -> duplicate pair, skipped
+  -> solved, no pair (candidates tied)
+
+done. tasks=13 solved=12 pairs=3 (correctness=3 conciseness=0) unsolved=['multiply_strings']
+DPO data : C:\Users\t\Projects\srlm-forge\data\dpo_pairs.jsonl
+Curriculum: C:\Users\t\Projects\srlm-forge\data\failures.jsonl
+Round log : C:\Users\t\Projects\srlm-forge\data\round_stats.jsonl
+2026-07-25 07:53:10  round 140 : eval ruler
+Scoring 'llama3:8b-instruct-q4_K_M' on 10 held-out tasks (5 samples each)...
+
+  gcd            ##### 5/5
+  is_prime       ##### 5/5
+  reverse_words  ##### 5/5
+  rle            ##### 5/5
+  flatten        ##### 5/5
+  nth_fib        ##### 5/5
+  count_vowels   ##### 5/5
+  kadane         ##### 5/5
+  rotate         ..... 0/5
+  dedup          ##### 5/5
+
+aggregate: {'pass@1': 0.9, 'pass@3': 0.9}
+appended to C:\Users\t\Projects\srlm-forge\data\eval_history.jsonl
+This is the yardstick. Compare every future round's numbers to it.
+2026-07-25 07:53:44  round 140 done : total_pairs=722
