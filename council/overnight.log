@@ -6916,3 +6916,57 @@ aggregate: {'pass@1': 0.88, 'pass@3': 0.9}
 appended to C:\Users\t\Projects\srlm-forge\data\eval_history.jsonl
 This is the yardstick. Compare every future round's numbers to it.
 2026-07-25 08:20:37  round 155 done : total_pairs=781
+2026-07-25 08:20:57  round 156 : forge generate
+[two_sum] generating 4 candidates...
+  -> correctness pair. rationale: Solution B fails because it does not handle the case where a single element in `
+[roman] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[balanced] generating 4 candidates...
+  -> correctness pair. rationale: Solution B fails because it does not correctly handle the case where a closing b
+[spiral] generating 4 candidates...
+  -> correctness pair. rationale: Solution B fails because it does not properly handle the case where there are re
+[atoi] generating 4 candidates...
+  -> correctness pair. rationale: Solution B fails to correctly handle the case where the input string contains no
+[lps] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[merge_intervals] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[simplify_path] generating 4 candidates...
+  -> duplicate pair, skipped
+  -> solved, no pair (candidates tied)
+[decode_ways] generating 4 candidates...
+  -> correctness pair. rationale: Solution B's recursive function `dfs` attempts to access indices outside the bou
+[three_sum] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[word_break] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[multiply_strings] generating 4 candidates...
+  -> unsolved, added to curriculum
+[next_permutation] generating 4 candidates...
+  -> duplicate pair, skipped
+  -> solved, no pair (candidates tied)
+
+done. tasks=13 solved=12 pairs=5 (correctness=5 conciseness=0) unsolved=['multiply_strings']
+DPO data : C:\Users\t\Projects\srlm-forge\data\dpo_pairs.jsonl
+Curriculum: C:\Users\t\Projects\srlm-forge\data\failures.jsonl
+Round log : C:\Users\t\Projects\srlm-forge\data\round_stats.jsonl
+2026-07-25 08:22:12  round 156 : repair (failure mining)
+[two_sum         ] already_solved
+[roman           ] already_solved
+[balanced        ] already_solved
+[spiral          ] solved via best_of_n (steps=0)
+[atoi            ] already_solved
+[lps             ] already_solved
+[merge_intervals ] already_solved
+[simplify_path   ] already_solved
+[decode_ways     ] already_solved
+[three_sum       ] already_solved
+[word_break      ] already_solved
+[multiply_strings] skipped_known_hard
+[next_permutation] already_solved
+
+repair done. new failure-derived pairs: 1
+known-hard (need external reference): ['multiply_strings']
+pairs: C:\Users\t\Projects\srlm-forge\data\repair_pairs.jsonl
+log:   C:\Users\t\Projects\srlm-forge\data\repair_log.jsonl
+2026-07-25 08:22:37  round 156 done : total_pairs=786
