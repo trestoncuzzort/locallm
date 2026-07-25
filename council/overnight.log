@@ -660,3 +660,55 @@ DPO data : C:\Users\t\Projects\srlm-forge\data\dpo_pairs.jsonl
 Curriculum: C:\Users\t\Projects\srlm-forge\data\failures.jsonl
 Round log : C:\Users\t\Projects\srlm-forge\data\round_stats.jsonl
 2026-07-25 04:01:40  round 11 done : total_pairs=123
+2026-07-25 04:02:00  round 12 : forge generate
+[two_sum] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[roman] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[balanced] generating 4 candidates...
+  -> correctness pair. rationale: Solution B fails because it attempts to concatenate a string with an integer usi
+[spiral] generating 4 candidates...
+  -> correctness pair. rationale: Solution B fails because it does not properly handle the case where a row or col
+[atoi] generating 4 candidates...
+  -> correctness pair. rationale: Solution B fails to correctly handle the case where a sign is present at the beg
+[lps] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[merge_intervals] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[simplify_path] generating 4 candidates...
+  -> correctness pair. rationale: Solution B fails to handle the case where the input path ends with a trailing sl
+[decode_ways] generating 4 candidates...
+  -> correctness pair. rationale: Solution B fails to correctly handle cases where a single digit '1' is present a
+[three_sum] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[word_break] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[multiply_strings] generating 4 candidates...
+  -> correctness pair. rationale: Solution B fails because it does not correctly handle the case where one of the 
+[next_permutation] generating 4 candidates...
+  -> correctness pair. rationale: Solution B fails because it does not correctly handle the case where `nums` is a
+
+done. tasks=13 solved=13 pairs=7 (correctness=7 conciseness=0) unsolved=[]
+DPO data : C:\Users\t\Projects\srlm-forge\data\dpo_pairs.jsonl
+Curriculum: C:\Users\t\Projects\srlm-forge\data\failures.jsonl
+Round log : C:\Users\t\Projects\srlm-forge\data\round_stats.jsonl
+2026-07-25 04:03:22  round 12 : repair (failure mining)
+[two_sum         ] already_solved
+[roman           ] already_solved
+[balanced        ] already_solved
+[spiral          ] solved via best_of_n (steps=0)
+[atoi            ] already_solved
+[lps             ] already_solved
+[merge_intervals ] already_solved
+[simplify_path   ] already_solved
+[decode_ways     ] already_solved
+[three_sum       ] already_solved
+[word_break      ] already_solved
+[multiply_strings] skipped_known_hard
+[next_permutation] already_solved
+
+repair done. new failure-derived pairs: 1
+known-hard (need external reference): ['multiply_strings']
+pairs: C:\Users\t\Projects\srlm-forge\data\repair_pairs.jsonl
+log:   C:\Users\t\Projects\srlm-forge\data\repair_log.jsonl
+2026-07-25 04:03:52  round 12 done : total_pairs=130
