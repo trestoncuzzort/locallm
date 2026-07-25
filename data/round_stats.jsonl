@@ -130,3 +130,4 @@
 {"ts": "2026-07-25T07:04:37", "model": "llama3:8b-instruct-q4_K_M", "tasks": 13, "solved": 11, "pairs": 4, "pairs_by_reason": {"correctness": 4, "conciseness": 0}, "all_fail_ids": ["spiral", "multiply_strings"]}
 {"ts": "2026-07-25T07:06:12", "model": "llama3:8b-instruct-q4_K_M", "tasks": 13, "solved": 12, "pairs": 6, "pairs_by_reason": {"correctness": 6, "conciseness": 0}, "all_fail_ids": ["multiply_strings"]}
 {"ts": "2026-07-25T07:08:03", "model": "llama3:8b-instruct-q4_K_M", "tasks": 13, "solved": 11, "pairs": 3, "pairs_by_reason": {"correctness": 3, "conciseness": 0}, "all_fail_ids": ["spiral", "multiply_strings"]}
+{"ts": "2026-07-25T07:10:16", "model": "llama3:8b-instruct-q4_K_M", "tasks": 13, "solved": 12, "pairs": 8, "pairs_by_reason": {"correctness": 8, "conciseness": 0}, "all_fail_ids": ["multiply_strings"]}
