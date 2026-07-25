@@ -6866,3 +6866,53 @@ DPO data : C:\Users\t\Projects\srlm-forge\data\dpo_pairs.jsonl
 Curriculum: C:\Users\t\Projects\srlm-forge\data\failures.jsonl
 Round log : C:\Users\t\Projects\srlm-forge\data\round_stats.jsonl
 2026-07-25 08:18:31  round 154 done : total_pairs=777
+2026-07-25 08:18:51  round 155 : forge generate
+[two_sum] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[roman] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[balanced] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[spiral] generating 4 candidates...
+  -> correctness pair. rationale: Solution B attempts to use a `put` method on a list, which does not exist, where
+[atoi] generating 4 candidates...
+  -> correctness pair. rationale: Solution B fails to correctly handle cases where a non-digit character is encoun
+[lps] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[merge_intervals] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[simplify_path] generating 4 candidates...
+  -> correctness pair. rationale: Solution B fails to handle the case where the input path is an absolute root dir
+[decode_ways] generating 4 candidates...
+  -> correctness pair. rationale: Solution B fails because it does not properly handle the case where a single '0'
+[three_sum] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[word_break] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[multiply_strings] generating 4 candidates...
+  -> unsolved, added to curriculum
+[next_permutation] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+
+done. tasks=13 solved=12 pairs=4 (correctness=4 conciseness=0) unsolved=['multiply_strings']
+DPO data : C:\Users\t\Projects\srlm-forge\data\dpo_pairs.jsonl
+Curriculum: C:\Users\t\Projects\srlm-forge\data\failures.jsonl
+Round log : C:\Users\t\Projects\srlm-forge\data\round_stats.jsonl
+2026-07-25 08:20:03  round 155 : eval ruler
+Scoring 'llama3:8b-instruct-q4_K_M' on 10 held-out tasks (5 samples each)...
+
+  gcd            ##### 5/5
+  is_prime       ##### 5/5
+  reverse_words  ##### 5/5
+  rle            ##### 5/5
+  flatten        ##### 5/5
+  nth_fib        ####. 4/5
+  count_vowels   ##### 5/5
+  kadane         ##### 5/5
+  rotate         ..... 0/5
+  dedup          ##### 5/5
+
+aggregate: {'pass@1': 0.88, 'pass@3': 0.9}
+appended to C:\Users\t\Projects\srlm-forge\data\eval_history.jsonl
+This is the yardstick. Compare every future round's numbers to it.
+2026-07-25 08:20:37  round 155 done : total_pairs=781
