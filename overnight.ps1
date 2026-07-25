@@ -14,7 +14,8 @@
 param(
   [int]$MaxHours = 9,
   [int]$SleepSeconds = 20,
-  [int]$EvalEvery = 5
+  [int]$EvalEvery = 5,
+  [int]$RepairEvery = 3
 )
 
 $ErrorActionPreference = 'Continue'
@@ -33,6 +34,10 @@ function Log($m) {
 function Pairs {
   $pp = Join-Path $root 'data\dpo_pairs.jsonl'
   if (Test-Path $pp) { (Get-Content $pp | Measure-Object -Line).Lines } else { 0 }
+}
+function RepairPairs {
+  $rp = Join-Path $root 'data\repair_pairs.jsonl'
+  if (Test-Path $rp) { (Get-Content $rp | Measure-Object -Line).Lines } else { 0 }
 }
 
 # Make sure Ollama is serving.
@@ -64,8 +69,15 @@ while ((Get-Date) -lt $deadline) {
     & $py (Join-Path $root 'eval.py') *>> $log
   }
 
+  # ---- periodic repair phase: mine current failures into pairs ----
+  if ($round % $RepairEvery -eq 0) {
+    "round $round | $(Get-Date -Format o) | executor: repair (failure mining)" | Set-Content (Join-Path $council 'ping_executor')
+    Log "round $round : repair (failure mining)"
+    & $py (Join-Path $root 'repair.py') *>> $log
+  }
+
   $p = Pairs
-  $hb = "heartbeat $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') | round=$round | total_pairs=$p | gained=$([int]$p - [int]$startPairs)"
+  $hb = "heartbeat $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') | round=$round | total_pairs=$p | repair_pairs=$(RepairPairs) | gained=$([int]$p - [int]$startPairs)"
   $hb | Set-Content $status
   Log "round $round done : total_pairs=$p"
 

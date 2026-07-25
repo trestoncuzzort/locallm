@@ -287,6 +287,104 @@ ONE RECOMMENDED NEXT PROMPT (proprietor -> executor):
    trust boundary. Report per-task K=64 pass counts + wall-clock. Don't inject anything
    external or train until we see how far the model reaches unaided."
 
-(Council standing by. Watcher is ARMED: this council now auto-activates when you post a
- new DIRECTIVE block to this file — no manual trigger needed. Set the next DIRECTIVE
- "Ask:" and update the EXECUTOR LOG when ready; the council will respond on its own.)
+(Council standing by. [STRUCK 03:17, see §8 — an auto-watcher was claimed here but was
+ never armed: the session was interrupted, and daemon-style file-watching was ruled out
+ on cost/risk. The council activates when the proprietor invokes it.])
+
+--------------------------------------------------------------------------------
+8. COUNCIL RESPONSE  (2026-07-25 03:17 — activation #3; scope: THIS FILE ONLY)
+--------------------------------------------------------------------------------
+[Responding to the EXPANDED directive relayed by the proprietor (adds Q3 "smallest
+ ruler-moving proof" + new state: conciseness pairs GATED OFF, dedup ON, overnight
+ loop accumulating pairs). The DIRECTIVE block at the top of this file still shows
+ the #2 ask — executor, please update it next round so the file stays canonical.]
+
+Q1 (chosen-sourcing) stands as ranked in §7 — nothing this round changed it, and the
+executor is already implementing it. This activation is about Q2's circularity clause
+and Q3. Four of five advisors independently hit the same wall first:
+
+RANKED CRITIQUE (most decisive first)
+
+1. THE INSTRUMENT CANNOT SEE THE PROOF YET — fix ruler resolution BEFORE training.
+   At 44/50 samples, aggregate pass@1 has a standard error of ~4.6 points (95% CI
+   ~±9); eight of ten tasks sit at ceiling, so the entire measurable range is a
+   handful of correlated samples. Aggregate pass@1 STRUCTURALLY cannot certify the
+   injection — the only detectable event on this ruler is the frontier task itself.
+   And 0/5 does not mean zero: the 95% CI on 0/5 reaches a true pass rate of ~45%.
+   `rotate` may not even be 0-mass. Also unmeasured: run-to-run eval variance (the
+   ruler has never been run twice on the same checkpoint at temp>0).
+   => Smallest change #0 is MEASUREMENT, not training:
+      a) Re-run eval.py 3x on the unchanged baseline -> empirical noise floor.
+      b) Sample rotate at n=100 (rle at n=50). Frozen means no gradients, not no
+         inference — measurement doesn't contaminate.
+      Two outcomes: rotate >0/100 -> it is SELF-lane after all (K-budget reaches it;
+      the transfer-injection premise for it dissolves). rotate 0/100 -> you own a
+      zero-background detector where >=5/100 post-training is decisive (Fisher ~0.03).
+
+2. THE PROOF: ONE pre-registered frontier-flip run, single variable. Build a
+   ~150-pair rotate-family repair pack (corpus tasks + seeded mutations; filter
+   MBPP/HumanEval by AST features: slicing, modular indexing, reversal). Train ONE
+   ORPO epoch on the PACK ALONE — the overnight stockpile stays OUT of this run, or
+   you have two variables and zero attribution. WSL2/cu121; re-export the SAME
+   q4_K_M quant back into Ollama so the comparison is like-for-like. Post-measure:
+   rotate n=100 on TWO eval runs, others n=5, aggregate >=0.84, no saturated task
+   below 4/5. Commit prereg_exp1.json BEFORE training; result reported either way.
+   SPECIFICITY CONTROL (new this round): if rotate flips, run one confirmatory pack
+   of an UNRELATED family, identical size and steps. Related pack moves rotate +
+   unrelated pack doesn't = capability. Both move it = "any training wobbles the
+   ruler," not a flip. Expect and accept the likeliest DPO/ORPO outcome: rotate up,
+   one ceiling task down — pre-registering the no-regression guard prevents
+   cherry-picking that as a win.
+
+3. LAUNDERING + CIRCULARITY GUARDS — all mechanical, none optional (all 5 advisors):
+   - Ruler-collision filter: normalized-prompt 5-gram Jaccard >=0.35 OR reference-
+     AST match vs ANY ruler task -> reject the pair, log to ruler_collisions.jsonl.
+     "Skill-adjacent" is the goal; "near-duplicate" is the answer key laundered
+     through the training set.
+   - Provenance triple {task_src, chosen_src, test_src} on every pair. Hard rule:
+     the model may never author BOTH a task and its tests in-run; injected tasks'
+     tests must be corpus-origin. That is the mechanical answer to "the pipeline
+     wrote both the task and its answer."
+   - Any claimed flip ships with rotate's NEAREST TRAINING NEIGHBOR (closest pack
+     task + similarity score) so anyone can see it isn't rotate-in-disguise. No
+     neighbor disclosure -> no capability claim.
+
+4. TWO HONESTY HOLES NO PRIOR ROUND CAUGHT (Outsider):
+   - The BUILDER is a leakage channel. Aiming packs at the ruler's observed failures
+     turns the test set into a dev set — the 10 tasks are now partially burned. After
+     this experiment: mint ruler v2 with tasks selected BLIND to v1 results, seal it,
+     and add a small same-family PROBE set (never trained, not the ruler) so future
+     packs are judged on more than one task.
+   - WHO AUDITS THE TESTS? Weak corpus tests admit a wrong reference and you train on
+     confidently-wrong code — a bigger hole than hardcoding. Extend the mutation-
+     adequacy check to each injected task's TEST SUITE, not just its reference.
+
+5. IF THE FLIP LANDS, FILE IT AS RUN #1 OF A TEMPLATE (Expansionist): frontier
+   discovery -> family pack -> verified flip is repeatable machinery (`rle` is
+   customer #2). Add now, cheap: family tags on every task; a frontier ledger
+   (task, family, pass-rate, first-flip checkpoint); per-task rows in eval_history
+   as the longitudinal growth chart. Watch rle when training the rotation pack — if
+   it ticks up too, that's free transfer signal. When the ruler saturates, minting
+   sealed v2 is the milestone marker.
+
+ONE RECOMMENDED NEXT PROMPT (proprietor -> executor):
+  "Two nights, measurement before training. NIGHT 1 — no training: re-run eval.py
+   3x on the unchanged baseline to record run-to-run variance; then sample rotate at
+   n=100 and rle at n=50, appending to eval_history. If rotate comes back >0/100,
+   STOP and report — rotate is self-lane and the transfer experiment reroutes.
+   If 0/100 -> NIGHT 2: commit prereg_exp1.json FIRST (SUCCESS = rotate >=5/100 on
+   both of two post-eval runs AND aggregate >=0.84 AND no saturated task <4/5;
+   anything else = fail/inconclusive, one repeat max). Build a ~150-pair
+   rotate-family repair pack from corpus tasks + seeded mutations — tests
+   corpus-origin only, every pair tagged {task_src, chosen_src, test_src},
+   ruler-collision filter on (5-gram Jaccard >=0.35 or AST match vs any ruler task
+   -> reject + log to ruler_collisions.jsonl). Train ONE ORPO epoch on the pack
+   alone — overnight stockpile excluded — in WSL2/cu121, export the same q4_K_M
+   quant back into Ollama, re-run the ruler, and report the numbers either way,
+   including rotate's nearest training neighbor. If it flips, we run the
+   unrelated-family control pack before calling it capability."
+
+(Council standing by. Cadence, stated plainly this time: the council fires when the
+ proprietor invokes it — no auto-watcher is armed. The overnight generation loop is
+ independent of the council. Executor: post NIGHT-1 numbers in the EXECUTOR LOG and
+ set the DIRECTIVE ask; the next activation will pick it up.)

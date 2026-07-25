@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Council · srlm-forge · Pass #3</title>
+<style>
+  :root{
+    --bg:#0f1115; --card:#171a21; --card2:#1c2029; --ink:#e8eaed; --muted:#9aa3b2;
+    --line:#2a2f3a; --accent:#7aa2f7; --good:#7ee787; --warn:#f0b429; --bad:#ff7b72;
+    --contra:#ff7b72; --first:#7aa2f7; --expand:#7ee787; --outsider:#d2a8ff; --exec:#f0b429;
+  }
+  @media (prefers-color-scheme: light){
+    :root{--bg:#f6f7f9;--card:#fff;--card2:#f0f2f5;--ink:#1a1d24;--muted:#5a6472;--line:#e2e5ea;}
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased}
+  .wrap{max-width:860px;margin:0 auto;padding:32px 20px 80px}
+  header{border-bottom:1px solid var(--line);padding-bottom:20px;margin-bottom:28px}
+  .kicker{color:var(--accent);font-weight:600;font-size:13px;letter-spacing:.08em;text-transform:uppercase}
+  h1{font-size:26px;margin:.3em 0 .2em}
+  .sub{color:var(--muted);font-size:14px}
+  .q{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin:22px 0}
+  .q b{color:var(--accent)}
+  h2{font-size:15px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:34px 0 12px;font-weight:700}
+  .verdict{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:10px;padding:20px 22px;margin-bottom:14px}
+  .verdict h3{margin:0 0 8px;font-size:16px}
+  .agree{border-left-color:var(--good)} .clash{border-left-color:var(--warn)}
+  .blind{border-left-color:var(--outsider)} .rec{border-left-color:var(--accent)}
+  .first-step{background:linear-gradient(135deg,rgba(122,162,247,.14),rgba(126,231,135,.10));
+    border:1px solid var(--line);border-radius:10px;padding:20px 22px;margin:14px 0 8px}
+  .first-step .lbl{color:var(--accent);font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:.06em}
+  ul{margin:8px 0;padding-left:20px} li{margin:6px 0}
+  .stat{display:inline-block;background:var(--card2);border:1px solid var(--line);border-radius:8px;
+    padding:8px 14px;margin:4px 6px 4px 0;font-size:13.5px}
+  .stat b{font-size:16px}
+  .map{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:10px 0}
+  .adv{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+  .adv .name{font-weight:700;font-size:13px} .adv .take{color:var(--muted);font-size:12.5px;margin-top:4px}
+  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:middle}
+  .d-contra{background:var(--contra)} .d-first{background:var(--first)} .d-expand{background:var(--expand)}
+  .d-outsider{background:var(--outsider)} .d-exec{background:var(--exec)}
+  details{background:var(--card);border:1px solid var(--line);border-radius:10px;margin:8px 0;overflow:hidden}
+  summary{cursor:pointer;padding:13px 16px;font-weight:600;list-style:none;display:flex;align-items:center;gap:8px}
+  summary::-webkit-details-marker{display:none}
+  summary::after{content:"+";margin-left:auto;color:var(--muted);font-size:18px}
+  details[open] summary::after{content:"–"}
+  details .body{padding:2px 18px 16px;border-top:1px solid var(--line)}
+  .prompt{background:var(--card2);border:1px solid var(--line);border-radius:8px;padding:14px 16px;
+    font:13px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre-wrap;overflow-x:auto}
+  footer{margin-top:40px;padding-top:16px;border-top:1px solid var(--line);color:var(--muted);font-size:12.5px}
+  .tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:20px;border:1px solid var(--line);color:var(--muted);margin-left:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="kicker">LLM Council · Monitoring Pass #3</div>
+    <h1>srlm-forge <span class="tag">the smallest proof that injection works</span></h1>
+    <div class="sub">2026-07-25 03:17 · scope: instructions.txt (channel) · advisory only · verdict written to channel §8</div>
+  </header>
+
+  <div class="q">
+    <b>Executor's ask:</b> Ruler live (pass@1 0.88 · rotate 0/5 frontier · conciseness gated ·
+    dedup on · overnight loop accumulating pairs). Design the all-fail reference injection:
+    (1) source of a verified above-frontier <code>chosen</code>; (2) honesty — no test leakage,
+    no "pipeline wrote both the task and its answer"; <b>(3) the smallest change that proves it
+    moves the ruler above baseline noise, before investing in scale.</b>
+  </div>
+
+  <div>
+    <span class="stat">baseline <b>44/50</b> samples pass</span>
+    <span class="stat">aggregate SE <b>±4.6 pts</b> — can't see &lt;+9</span>
+    <span class="stat">0/5 true-rate CI reaches <b>~45%</b></span>
+    <span class="stat">rotate n=100: ≥5 passes = <b>decisive</b></span>
+  </div>
+
+  <h2>Council Verdict</h2>
+
+  <div class="verdict agree">
+    <h3>✔ Where the council agrees (4/5 independently)</h3>
+    <ul>
+      <li><b>The instrument can't see the proof yet.</b> Eight of ten tasks sit at ceiling; aggregate pass@1's ±9-point CI structurally cannot certify anything. The only detectable event is the frontier task itself.</li>
+      <li><b>0/5 is not zero.</b> rotate's true pass rate could be as high as ~45%. It may be self-lane after all — which would dissolve the transfer-injection premise for it. Measure at n=100 before designing around "can't."</li>
+      <li><b>Pre-registration is mandatory.</b> Success/fail thresholds committed to a file before training; results reported either way.</li>
+      <li><b>The near-duplicate laundering trap is the experiment's #1 failure mode</b> — a mechanical ruler-collision filter plus nearest-neighbor disclosure is the price of any capability claim.</li>
+    </ul>
+  </div>
+
+  <div class="verdict clash">
+    <h3>⚡ Where the council clashes</h3>
+    <ul>
+      <li><b>Sample size on the frontier task.</b> Executor: n=20 (≥6/20, p≈0.01) keeps the run sheet tight. First Principles/Outsider: n=100 — a zero-background detector where ≥5/100 is decisive. Chairman sides with n=100: it costs under an hour of local sampling and can reroute the whole experiment.</li>
+      <li><b>Pause the overnight loop?</b> Contrarian: snapshot + pause for attribution. Expansionist: let the flywheel spin. Resolved without pausing: the experiment trains on the curated pack <i>only</i> — the stockpile simply stays out of this run.</li>
+    </ul>
+  </div>
+
+  <div class="verdict blind">
+    <h3>◎ Blind spots caught this round</h3>
+    <ul>
+      <li><b>The builder is a leakage channel</b> (Outsider): aiming packs at the ruler's observed failures turns the test set into a dev set — the 10 tasks are partially burned. Mint and seal a ruler v2, selected blind to v1 results, after this experiment.</li>
+      <li><b>Nobody audits the tests</b> (Outsider): weak corpus tests admit a wrong reference → training on confidently-wrong code. Extend mutation-adequacy to each injected task's test suite.</li>
+      <li><b>A flip alone proves nothing without a control</b> (First Principles): an unrelated-family pack of identical size must NOT move rotate — otherwise "any training wobbles the ruler."</li>
+    </ul>
+  </div>
+
+  <div class="verdict rec">
+    <h3>➜ The recommendation</h3>
+    <p><b>Measurement before training, then one pre-registered single-variable frontier-flip run.</b>
+    Night 1: 3× baseline eval reruns (noise floor) + rotate n=100 / rle n=50 — if rotate &gt;0/100 it's
+    self-lane, stop and reroute. Night 2 (only if 0/100): ~150-pair rotate-family repair pack
+    (corpus-origin tests, provenance triple on every pair, ruler-collision filter), one ORPO epoch on
+    the pack alone, same q4_K_M quant back into Ollama, two post-eval runs. Success = rotate ≥5/100
+    twice, aggregate ≥0.84, no ceiling task below 4/5. A flip then earns the unrelated-family control
+    before any capability claim — and afterwards, seal ruler v2.</p>
+  </div>
+
+  <div class="first-step">
+    <div class="lbl">The one thing to do first</div>
+    <p style="margin:.5em 0 0"><b>Night 1 — pin the instrument, train nothing:</b> rerun eval.py 3× on the
+    unchanged baseline, then sample rotate at n=100 and rle at n=50. That single measurement either
+    reroutes rotate to the self-lane or hands you a zero-background detector that makes the smallest
+    possible training run provable. Full two-night prompt written to instructions.txt §8.</p>
+  </div>
+
+  <h2>Advisor Alignment Map</h2>
+  <div class="map">
+    <div class="adv"><div class="name"><span class="dot d-contra"></span>Contrarian</div><div class="take">Six-sample instrument, unmeasured noise floor. Rerun baseline 5×, snapshot corpus, pre-register similarity thresholds.</div></div>
+    <div class="adv"><div class="name"><span class="dot d-first"></span>First Principles</div><div class="take">0/5's CI reaches 45% — n=100 first. Proof = two-arm specificity, not movement.</div></div>
+    <div class="adv"><div class="name"><span class="dot d-expand"></span>Expansionist</div><div class="take">The flip is run #1 of a template: frontier ledger, family tags, growth chart, ruler v2 milestones.</div></div>
+    <div class="adv"><div class="name"><span class="dot d-outsider"></span>Outsider</div><div class="take">"88% is fifty coin flips in a lab coat." Builder is the leak; who audits the tests?</div></div>
+    <div class="adv"><div class="name"><span class="dot d-exec"></span>Executor</div><div class="take">~7h run sheet: 150-pair family pack, ORPO 1 epoch, prereg_exp1.json, collision filter, abort criteria.</div></div>
+  </div>
+
+  <h2>Full Advisor Responses</h2>
+
+  <details><summary><span class="dot d-contra"></span>The Contrarian</summary><div class="body">
+    <p>Your ruler cannot see the thing you're about to chase. At 44/50, the entire measurable range is six samples, clustered in two tasks. Binomial SE at 0.88, n=50 is ~4.6 points — a single run can't distinguish 0.88 from anything below ~0.97. The noise floor was never measured: has eval.py ever been run twice on the same checkpoint at temp&gt;0?</p>
+    <p>Smallest proving change is not an injection: (1) rerun the frozen ruler on the baseline for empirical variance; (2) raise n on the frozen tasks so rotate has resolution; (3) snapshot the corpus during the experiment — if the overnight loop keeps appending while you inject, you have two variables and zero attribution, and an unattended Ollama hiccup can stuff failures.jsonl with degenerate junk the retry loop will dutifully target.</p>
+    <p>The laundering trap: inject rotate-adjacent tasks, rotate flips, you call it generalization — null hypothesis: you trained a paraphrase of the ruler task and memorized the answer key. Pre-register an AST/n-gram similarity threshold before training; victory = movement replicates across two eval seeds AND zero regression on the eight ceiling tasks. DPO's likeliest outcome: rotate up, one 5/5 down — net zero, cherry-picked as a win.</p>
+  </div></details>
+
+  <details><summary><span class="dot d-first"></span>The First Principles Thinker</summary><div class="body">
+    <p>"What moves the ruler" is the wrong question until you ask what the ruler can physically detect. Aggregate is fake resolution: eight of ten tasks at 5/5; you'd need ~+9 points to clear noise with ~12 available, nearly all from one task. The ruler's only detectable event is rotate.</p>
+    <p>But 0/5 is not zero — the 95% CI extends to ~45% true pass rate. So the smallest change is to the instrument: sample rotate at n=100 (frozen means no gradients, not no inference). Nonzero → rotate is self-lane and the injection premise weakens. 0/100 → a zero-background detector where a pre-registered ≥5/100 is significant (Fisher ~0.03).</p>
+    <p>Proof = specificity: two arms, identical pair count and steps — rotation-family vs unrelated-family reference. Capability is proven only if A moves rotate, B doesn't, and the saturated tasks hold. Report nearest-neighbor similarity or the result is uninterpretable. Pre-commit on negative: "one reference at this dose doesn't cross the task boundary" (next lever: dose-response), not "injection dead." And a one-task frontier can't certify a method — build a same-family probe set before scaling.</p>
+  </div></details>
+
+  <details><summary><span class="dot d-expand"></span>The Expansionist</summary><div class="body">
+    <p>If rotate flips, file it as the first execution of a template: ruler finds a 0/5 frontier task → targeted family pack → verified flip. Nothing in that loop is rotate-specific; rle is customer #2. The unit of progress becomes "frontier tasks flipped," and it compounds — each flip strengthens the overnight factory's actor, which re-mines failures.jsonl: the failure log turns from graveyard into frontier queue.</p>
+    <p>eval_history.jsonl is the sleeper asset: per-task, it's a longitudinal growth chart — families that move together reveal shared skill substrate and pick the next pack. When rotate flips, read the rest of the ruler: rle ticking up too = the pack taught a skill, not a task.</p>
+    <p>Cheap now: family tags on every task; a frontier ledger (task, family, pass-rate, first-flip checkpoint); nightly per-task eval rows with checkpoint hash. Upside: the ruler becomes the curriculum generator, and versioned sealed rulers become capability milestones.</p>
+  </div></details>
+
+  <details><summary><span class="dot d-outsider"></span>The Outsider</summary><div class="body">
+    <p>Studying practices the skill; cheating practices the answer. It's cheating if any training task is a near-duplicate of an exam question — and as described, nobody checks that. Missing: an automated similarity audit printing each new training example's nearest exam match for a human to eyeball.</p>
+    <p>Subtler leak: the model never trains on the exam, but <i>you</i> read the exam and aim the pipeline at its failures. That turns the test set into a dev set — the human is the leakage channel; the 10 questions are partially burned. And who audits the tests? A weak suite lets a wrong imported solution in — training on confidently-wrong code is a bigger hole than hardcoding.</p>
+    <p>Statistics: 88% is 44 of 50 attempts; five tries per question is judging a shooter on five free throws. Smallest convincing experiment: pre-register; run rotate 100 times now (expect 0/100), train only on the new data, run 100 again. 0/100 → 60+/100 with the other nine holding, plus the nearest-training-example shown — a stranger believes that. Then retire these 10 and seal a fresh exam. Oversold: the crisp "88%" — fifty noisy coin flips wearing a lab coat.</p>
+  </div></details>
+
+  <details><summary><span class="dot d-exec"></span>The Executor</summary><div class="body">
+    <p><b>Family:</b> rotate-class repairs (slice/modular-index/reversal). <b>Data (~4h):</b> filter MBPP+HumanEval by AST features → ~120 tasks; seed 2 mutations each → ~240 repair tasks; corpus tests = verifier; local K=8 routes each to self-lane (solvable) or transfer-lane (0/8: chosen = minimal-edit reference revert, rejected = top failing sample). Ship ≥150 pairs.</p>
+    <p><b>Guards:</b> provenance triple {task_src, chosen_src, test_src}; hard-reject if model authored task and tests in-run; ruler-collision filter (5-gram Jaccard ≥0.35 or AST-hash match → reject, log). <b>Stats:</b> n=5 detects nothing — bump rotate+rle, re-baseline before training. <b>Prereg (commit first):</b> success = rotate flip with aggregate ≥0.84 and no saturated task &lt;4/5; between = one repeat max.</p>
+    <p><b>Env:</b> WSL2 Ubuntu 22.04, py3.11, cu121 torch, Unsloth ORPO 1 epoch, merge → GGUF q4_K_M → Ollama (same quant, like-for-like). <b>Abort:</b> &lt;150 pairs post-guards; 2 training crashes; post-aggregate &lt;0.80 → drop adapter, keep data. <b>Wall-clock:</b> ~7h — one overnight.</p>
+  </div></details>
+
+  <footer>
+    Council monitoring pass #3 · srlm-forge · 2026-07-25 03:17 ·
+    5 advisors → chairman synthesis (peer critique folded, per monitoring mode) ·
+    Verdict + two-night prompt written to instructions.txt §8 ·
+    Prior passes: §5 (ruler-first) · §7 (two-lane injection) ·
+    Council is advisory; the executor owns all code. No auto-watcher is armed — the council fires on invocation.
+  </footer>
+</div>
+</body>
+</html>

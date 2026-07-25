@@ -308,3 +308,7 @@ DPO data : C:\Users\t\Projects\srlm-forge\data\dpo_pairs.jsonl
 Curriculum: C:\Users\t\Projects\srlm-forge\data\failures.jsonl
 Round log : C:\Users\t\Projects\srlm-forge\data\round_stats.jsonl
 2026-07-25 03:20:02  round 11 done : total_pairs=50
+2026-07-25 03:20:22  STOP file present -> exiting
+2026-07-25 03:20:22  === overnight end | rounds=11 | final_pairs=50 ===
+2026-07-25 03:27:58  === overnight start | deadline=07/25/2026 03:27:58 | start_pairs=50 ===
+2026-07-25 03:27:58  === overnight end | rounds=0 | final_pairs=50 ===

@@ -77,11 +77,56 @@ def sanitized_feedback(code: str, task: forge.Task) -> str:
     return "failed to run"
 
 
-def harvest_task(actor: forge.Actor, task: forge.Task) -> tuple[dict, dict | None]:
-    """Probe the task; if all-fail, escalate. Returns (log, pair|None)."""
-    log = {"tid": task.tid, "ts": time.strftime("%H:%M:%S")}
+def best_of_n(actor: forge.Actor, task: forge.Task, n: int = SEARCH_N) -> str | None:
+    """Sample n candidates; return the first the verifier passes, else None.
+    Pure search over the model's own outputs -- ground truth still decides."""
+    for _ in range(n):
+        try:
+            code = forge.extract_code(
+                actor.generate(task.prompt, forge.ACTOR_SYSTEM, SEARCH_TEMP))
+        except Exception:  # noqa: BLE001
+            continue
+        if forge.verify(code, task).ok:
+            return code
+    return None
 
-    # Base probe at the normal budget. A pass here means it isn't a failure now.
+
+def feedback_repair(actor: forge.Actor, task: forge.Task, initial_bad: str,
+                    max_steps: int = MAX_STEPS) -> tuple[str | None, int]:
+    """Iterate: show the model its SANITIZED failure, let it correct. Returns
+    (passing_code|None, steps_used). Feedback never contains expected values."""
+    attempt = initial_bad
+    for step in range(1, max_steps + 1):
+        fb = sanitized_feedback(attempt, task)
+        prompt = (
+            "Your previous solution to this task is incorrect.\n\n"
+            f"Task: {task.prompt}\n\n"
+            f"Your solution:\n```python\n{attempt}\n```\n\n"
+            f"Result: {fb}\n\n"
+            "Provide a corrected, complete solution in one ```python block. "
+            "Define exactly the requested function."
+        )
+        try:
+            cand = forge.extract_code(
+                actor.generate(prompt, forge.ACTOR_SYSTEM, REPAIR_TEMP))
+        except Exception:  # noqa: BLE001
+            continue
+        if forge.verify(cand, task).ok:
+            return cand, step
+        attempt = cand
+    return None, max_steps
+
+
+def harvest_task(actor: forge.Actor, task: forge.Task,
+                 known_hard: set[str]) -> tuple[dict, dict | None]:
+    """Probe the task; if all-fail, escalate via best-of-N then feedback repair.
+    Returns (log, pair|None). Tasks already in known_hard are skipped."""
+    log = {"tid": task.tid, "ts": time.strftime("%H:%M:%S")}
+    if task.tid in known_hard:
+        log["status"] = "skipped_known_hard"
+        return log, None
+
+    # Base probe at forge's budget. A pass here means it isn't a failure now.
     fails: list[str] = []
     for i in range(forge.NUM_CANDIDATES):
         temp = 0.0 if i == 0 else forge.GEN_TEMP
@@ -99,44 +144,17 @@ def harvest_task(actor: forge.Actor, task: forge.Task) -> tuple[dict, dict | Non
         return log, None
     rejected = fails[0]  # a verified failure (every base attempt failed)
 
-    chosen, source, steps = None, None, 0
-
-    # Ladder 1: best-of-N search -- the model's own samples, verifier-gated.
-    for _ in range(SEARCH_N):
-        try:
-            code = forge.extract_code(
-                actor.generate(task.prompt, forge.ACTOR_SYSTEM, SEARCH_TEMP))
-        except Exception:  # noqa: BLE001
-            continue
-        if forge.verify(code, task).ok:
-            chosen, source = code, "best_of_n"
-            break
-
-    # Ladder 2: sanitized-feedback self-repair.
+    chosen = best_of_n(actor, task)
+    source, steps = "best_of_n", 0
     if not chosen:
-        attempt = rejected
-        for step in range(1, MAX_STEPS + 1):
-            fb = sanitized_feedback(attempt, task)
-            prompt = (
-                "Your previous solution to this task is incorrect.\n\n"
-                f"Task: {task.prompt}\n\n"
-                f"Your solution:\n```python\n{attempt}\n```\n\n"
-                f"Result: {fb}\n\n"
-                "Provide a corrected, complete solution in one ```python block. "
-                "Define exactly the requested function."
-            )
-            try:
-                cand = forge.extract_code(
-                    actor.generate(prompt, forge.ACTOR_SYSTEM, REPAIR_TEMP))
-            except Exception:  # noqa: BLE001
-                continue
-            if forge.verify(cand, task).ok:
-                chosen, source, steps = cand, "feedback_repair", step
-                break
-            attempt = cand
+        chosen, steps = feedback_repair(actor, task, rejected)
+        source = "feedback_repair"
 
     if not chosen:
-        log["status"] = "still_frontier"  # unsolved even with help -> real curriculum
+        # Unsolvable even with help -> quarantine; this is the residual tail that
+        # needs an EXTERNAL reference solution (out of local self-improvement scope).
+        log["status"] = "still_frontier"
+        known_hard.add(task.tid)
         return log, None
 
     # Invariant: chosen truly passes, rejected truly fails (ground-truth recheck).
@@ -160,6 +178,8 @@ def main(tasks: list[forge.Task] | None = None) -> None:
     OUT_DIR.mkdir(exist_ok=True)
     pair_path = OUT_DIR / "repair_pairs.jsonl"
     log_path = OUT_DIR / "repair_log.jsonl"
+    hard_path = OUT_DIR / "known_hard.json"
+    known_hard: set[str] = set(json.loads(hard_path.read_text())) if hard_path.exists() else set()
 
     actor = forge.Actor(forge.OLLAMA_URL, forge.MODEL_NAME)
     try:
@@ -185,7 +205,7 @@ def main(tasks: list[forge.Task] | None = None) -> None:
     with pair_path.open("a", encoding="utf-8") as pf, \
          log_path.open("a", encoding="utf-8") as lf:
         for task in tasks:
-            log, pair = harvest_task(actor, task)
+            log, pair = harvest_task(actor, task, known_hard)
             lf.write(json.dumps(log, ensure_ascii=False) + "\n")
             tag = log["status"]
             if pair:
@@ -202,7 +222,9 @@ def main(tasks: list[forge.Task] | None = None) -> None:
             print(f"[{task.tid:16}] {tag}")
 
     actor.release()
+    hard_path.write_text(json.dumps(sorted(known_hard)))
     print(f"\nrepair done. new failure-derived pairs: {solved}")
+    print(f"known-hard (need external reference): {sorted(known_hard) or 'none'}")
     print(f"pairs: {pair_path}\nlog:   {log_path}")
 
 
