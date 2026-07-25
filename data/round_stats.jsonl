@@ -24,3 +24,4 @@
 {"ts": "2026-07-25T03:54:33", "model": "llama3:8b-instruct-q4_K_M", "tasks": 13, "solved": 12, "pairs": 6, "pairs_by_reason": {"correctness": 6, "conciseness": 0}, "all_fail_ids": ["multiply_strings"]}
 {"ts": "2026-07-25T03:56:05", "model": "llama3:8b-instruct-q4_K_M", "tasks": 13, "solved": 12, "pairs": 5, "pairs_by_reason": {"correctness": 5, "conciseness": 0}, "all_fail_ids": ["multiply_strings"]}
 {"ts": "2026-07-25T03:57:42", "model": "llama3:8b-instruct-q4_K_M", "tasks": 13, "solved": 12, "pairs": 6, "pairs_by_reason": {"correctness": 6, "conciseness": 0}, "all_fail_ids": ["multiply_strings"]}
+{"ts": "2026-07-25T03:59:35", "model": "llama3:8b-instruct-q4_K_M", "tasks": 13, "solved": 11, "pairs": 3, "pairs_by_reason": {"correctness": 3, "conciseness": 0}, "all_fail_ids": ["spiral", "multiply_strings"]}
