@@ -221,6 +221,68 @@ def run_tests(decode_ways):
     assert decode_ways("1") == 1
 """,
     ),
+    # --- harder frontier tasks: 8b-q4 fails some of these one-shot, so they
+    #     produce genuine failures for repair.py to learn from ---
+    Task(
+        "three_sum",
+        "Write `three_sum(nums)` returning all unique triplets [a, b, c] from "
+        "nums with a + b + c == 0. Order of triplets and of elements within a "
+        "triplet does not matter; no duplicate triplets.",
+        "three_sum",
+        """
+def run_tests(three_sum):
+    def norm(x): return sorted(sorted(t) for t in x)
+    assert norm(three_sum([-1,0,1,2,-1,-4])) == norm([[-1,-1,2],[-1,0,1]])
+    assert norm(three_sum([0,1,1])) == []
+    assert norm(three_sum([0,0,0])) == [[0,0,0]]
+    assert norm(three_sum([-2,0,1,1,2])) == norm([[-2,0,2],[-2,1,1]])
+""",
+    ),
+    Task(
+        "word_break",
+        "Write `word_break(s, words)` returning True iff s can be segmented into "
+        "a space-separated sequence of one or more words from the list `words` "
+        "(each word reusable). The empty string is segmentable.",
+        "word_break",
+        """
+def run_tests(word_break):
+    assert word_break("leetcode", ["leet","code"]) is True
+    assert word_break("applepenapple", ["apple","pen"]) is True
+    assert word_break("catsandog", ["cats","dog","sand","and","cat"]) is False
+    assert word_break("", ["a"]) is True
+    assert word_break("a", ["b"]) is False
+""",
+    ),
+    Task(
+        "multiply_strings",
+        "Write `multiply_strings(a, b)` returning the product of two non-negative "
+        "integers given as strings, as a string, WITHOUT using int()/float()/eval "
+        "on the whole number (grade-school multiplication).",
+        "multiply_strings",
+        """
+def run_tests(multiply_strings):
+    assert multiply_strings("2","3") == "6"
+    assert multiply_strings("123","456") == "56088"
+    assert multiply_strings("0","999") == "0"
+    assert multiply_strings("99","99") == "9801"
+    assert multiply_strings("123456789","987654321") == "121932631112635269"
+""",
+    ),
+    Task(
+        "next_permutation",
+        "Write `next_permutation(nums)` returning the next lexicographically "
+        "greater permutation of the list nums as a NEW list; if nums is the "
+        "largest permutation, return the smallest (ascending) one.",
+        "next_permutation",
+        """
+def run_tests(next_permutation):
+    assert next_permutation([1,2,3]) == [1,3,2]
+    assert next_permutation([3,2,1]) == [1,2,3]
+    assert next_permutation([1,1,5]) == [1,5,1]
+    assert next_permutation([1,3,2]) == [2,1,3]
+    assert next_permutation([2,3,1]) == [3,1,2]
+""",
+    ),
 ]
 
 
