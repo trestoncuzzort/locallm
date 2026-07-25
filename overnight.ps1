@@ -71,7 +71,7 @@ while ((Get-Date) -lt $deadline) {
 
   # revertible snapshot
   git -C $root add -A 2>$null | Out-Null
-  git -C $root commit -m "overnight round $round: pairs=$p" 2>$null | Out-Null
+  git -C $root commit -m "overnight round ${round}: pairs=$p" 2>$null | Out-Null
 
   Start-Sleep -Seconds $SleepSeconds
 }
