@@ -839,3 +839,16 @@
 {"tid": "word_break", "ts": "09:16:59", "status": "already_solved"}
 {"tid": "multiply_strings", "ts": "09:17:00", "status": "skipped_known_hard"}
 {"tid": "next_permutation", "ts": "09:17:00", "status": "already_solved"}
+{"tid": "two_sum", "ts": "09:21:35", "status": "already_solved"}
+{"tid": "roman", "ts": "09:21:38", "status": "already_solved"}
+{"tid": "balanced", "ts": "09:21:39", "status": "already_solved"}
+{"tid": "spiral", "ts": "09:21:40", "status": "solved", "source": "best_of_n", "steps": 0}
+{"tid": "atoi", "ts": "09:21:56", "status": "already_solved"}
+{"tid": "lps", "ts": "09:21:57", "status": "already_solved"}
+{"tid": "merge_intervals", "ts": "09:21:59", "status": "already_solved"}
+{"tid": "simplify_path", "ts": "09:22:00", "status": "already_solved"}
+{"tid": "decode_ways", "ts": "09:22:00", "status": "already_solved"}
+{"tid": "three_sum", "ts": "09:22:02", "status": "already_solved"}
+{"tid": "word_break", "ts": "09:22:03", "status": "already_solved"}
+{"tid": "multiply_strings", "ts": "09:22:04", "status": "skipped_known_hard"}
+{"tid": "next_permutation", "ts": "09:22:04", "status": "already_solved"}
