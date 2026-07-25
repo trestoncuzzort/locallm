@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Council · srlm-forge · Pass #1</title>
+<style>
+  :root{
+    --bg:#0f1115; --card:#171a21; --card2:#1c2029; --ink:#e8eaed; --muted:#9aa3b2;
+    --line:#2a2f3a; --accent:#7aa2f7; --good:#7ee787; --warn:#f0b429; --bad:#ff7b72;
+    --contra:#ff7b72; --first:#7aa2f7; --expand:#7ee787; --outsider:#d2a8ff; --exec:#f0b429;
+  }
+  @media (prefers-color-scheme: light){
+    :root{--bg:#f6f7f9;--card:#fff;--card2:#f0f2f5;--ink:#1a1d24;--muted:#5a6472;--line:#e2e5ea;}
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased}
+  .wrap{max-width:860px;margin:0 auto;padding:32px 20px 80px}
+  header{border-bottom:1px solid var(--line);padding-bottom:20px;margin-bottom:28px}
+  .kicker{color:var(--accent);font-weight:600;font-size:13px;letter-spacing:.08em;text-transform:uppercase}
+  h1{font-size:26px;margin:.3em 0 .2em}
+  .sub{color:var(--muted);font-size:14px}
+  .q{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin:22px 0;color:var(--ink)}
+  .q b{color:var(--accent)}
+  h2{font-size:15px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:34px 0 12px;font-weight:700}
+  .verdict{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:10px;padding:20px 22px;margin-bottom:14px}
+  .verdict h3{margin:0 0 8px;font-size:16px}
+  .agree{border-left-color:var(--good)} .clash{border-left-color:var(--warn)}
+  .blind{border-left-color:var(--outsider)} .rec{border-left-color:var(--accent)}
+  .first-step{background:linear-gradient(135deg,rgba(122,162,247,.14),rgba(126,231,135,.10));
+    border:1px solid var(--line);border-radius:10px;padding:20px 22px;margin:14px 0 8px}
+  .first-step .lbl{color:var(--accent);font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:.06em}
+  ul{margin:8px 0;padding-left:20px} li{margin:6px 0}
+  .map{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:10px 0}
+  .adv{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+  .adv .name{font-weight:700;font-size:13px} .adv .take{color:var(--muted);font-size:12.5px;margin-top:4px}
+  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:middle}
+  .d-contra{background:var(--contra)} .d-first{background:var(--first)} .d-expand{background:var(--expand)}
+  .d-outsider{background:var(--outsider)} .d-exec{background:var(--exec)}
+  details{background:var(--card);border:1px solid var(--line);border-radius:10px;margin:8px 0;overflow:hidden}
+  summary{cursor:pointer;padding:13px 16px;font-weight:600;list-style:none;display:flex;align-items:center;gap:8px}
+  summary::-webkit-details-marker{display:none}
+  summary::after{content:"+";margin-left:auto;color:var(--muted);font-size:18px}
+  details[open] summary::after{content:"–"}
+  details .body{padding:2px 18px 16px;color:var(--ink);border-top:1px solid var(--line)}
+  .prompt{background:var(--card2);border:1px solid var(--line);border-radius:8px;padding:14px 16px;
+    font:13px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre-wrap;color:var(--ink);overflow-x:auto}
+  footer{margin-top:40px;padding-top:16px;border-top:1px solid var(--line);color:var(--muted);font-size:12.5px}
+  .tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:20px;border:1px solid var(--line);color:var(--muted);margin-left:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="kicker">LLM Council · Monitoring Pass #1</div>
+    <h1>srlm-forge <span class="tag">verifier-grounded self-rewarding DPO</span></h1>
+    <div class="sub">2026-07-25 02:44 · scope: instructions.txt (channel) · advisory only, code owned by executor</div>
+  </header>
+
+  <div class="q">
+    <b>Executor's ask (Section 4):</b> Ranked critique of five open decisions —
+    (A) data scale-up, (B) training env, (C) algorithm DPO/ORPO/GRPO,
+    (D) reward-hacking defenses, (E) loop closure &amp; held-out eval — plus
+    <b>one</b> concrete recommended next prompt for the proprietor to execute.
+  </div>
+
+  <h2>Council Verdict</h2>
+
+  <div class="verdict agree">
+    <h3>✔ Where the council agrees</h3>
+    <ul>
+      <li><b>The thesis is inverted.</b> A DPO pair needs a <i>passing</i> solution, so all-fail tasks emit zero gradient. The loop trains on near-frontier <i>successes</i>, not failures. (3 advisors, independently — highest confidence.)</li>
+      <li><b>There is no ruler.</b> Without a held-out eval the loop "closes" whether the model improved or drifted. Unmeasurable = unfalsifiable.</li>
+      <li><b>Data volume, not the Python env, is the real bottleneck.</b> 3 pairs trains nothing.</li>
+      <li><b>The durable asset is the verifier-grounded preference factory</b> — the 8B model is disposable.</li>
+    </ul>
+  </div>
+
+  <div class="verdict clash">
+    <h3>⚡ Where the council clashes</h3>
+    <ul>
+      <li><b>Who feeds the harness.</b> First Principles: stop self-generation, source "chosen" from a <i>stronger</i> generator. Expansionist: keep it autonomous, build a self-expanding flywheel. Split turns on the real goal — a stronger local coder vs. an autonomous data primitive.</li>
+      <li><b>Measure first vs. scale first.</b> Contrarian: STOP, build the eval. Executor: launch the data run tonight. Reconciled by running them in parallel — but if ordered, the eval wins.</li>
+    </ul>
+  </div>
+
+  <div class="verdict blind">
+    <h3>◎ Blind spots caught</h3>
+    <ul>
+      <li>The <b>conciseness preference is an active reward hack</b> — both pass weak tests, shorter wins, training length bias. Every "scale it" plan would mass-produce that bias silently.</li>
+      <li>Scaling via MBPP still only scales <b>self-solved successes</b> — more of the ceilinged signal.</li>
+      <li><b>"Self-rewarding" is a misnomer</b> — it's test-rewarded. Naming it honestly changes how its value is judged.</li>
+    </ul>
+  </div>
+
+  <div class="verdict rec">
+    <h3>➜ The recommendation</h3>
+    <p>Reframe from "self-improving model" to <b>"verifier-grounded preference-data factory,"</b> and build the ruler before scaling the factory: (1) frozen held-out pass@k eval; (2) gate the conciseness reward-hack; (3) scale data via MBPP but inject reference solutions for all-fail tasks so failures become learnable; (4) build the WSL2 + cu121 env in parallel (low priority); (5) prefer ORPO now, GRPO later — skip vanilla DPO's ref-model overhead; train only once a checkpoint beats baseline on held-out tasks.</p>
+  </div>
+
+  <div class="first-step">
+    <div class="lbl">The one thing to do first</div>
+    <p style="margin:.5em 0 0"><b>Build the frozen held-out pass@k eval</b> — 30–40 tasks that never enter pair generation, score the base model's baseline today. Until that ruler exists, every other move is unverifiable. Recommended prompt to relay to the executor:</p>
+    <div class="prompt">Before scaling data or running train_dpo.py, build the ruler. Create a frozen held-out eval: 30-40 pure-function tasks (pull from MBPP/HumanEval) that are NEVER used for pair generation, and a pass@k harness that scores the current llama3:8b-instruct-q4_K_M baseline. Record the baseline number. Then add one line of instrumentation to forge.py's pairing step: log per-round pair counts split by reason (correctness vs conciseness) and the ids of all-fail tasks. Report back the baseline pass@k and the reason-split.</div>
+  </div>
+
+  <h2>Advisor Alignment Map</h2>
+  <div class="map">
+    <div class="adv"><div class="name"><span class="dot d-contra"></span>Contrarian</div><div class="take">Self-distillation ceiling + conciseness hack. Build the eval before the factory.</div></div>
+    <div class="adv"><div class="name"><span class="dot d-first"></span>First Principles</div><div class="take">Env isn't the blocker. Decouple; feed the harness a stronger generator.</div></div>
+    <div class="adv"><div class="name"><span class="dot d-expand"></span>Expansionist</div><div class="take">The verified-preference factory is the moat. Auto-expand the corpus.</div></div>
+    <div class="adv"><div class="name"><span class="dot d-outsider"></span>Outsider</div><div class="take">"Self-rewarding" oversells it; the loop has never closed once.</div></div>
+    <div class="adv"><div class="name"><span class="dot d-exec"></span>Executor</div><div class="take">MBPP overnight for volume; Py3.12+cu121 env in parallel; train past ~500 pairs.</div></div>
+  </div>
+
+  <h2>Full Advisor Responses</h2>
+
+  <details><summary><span class="dot d-contra"></span>The Contrarian</summary><div class="body">
+    <p>The fatal flaw is the ceiling, not the scale. DPO pairs only exist when the model <i>already</i> solves a task; every "chosen" is self-generated — self-distillation with a hard ceiling at existing capability. failures.jsonl is a fiction: all-fail tasks produce zero gradient. "Trains on its own failures" is precisely what it cannot do.</p>
+    <p>The conciseness pairs are a reward hack in progress: both pass weak hidden tests, shorter is labeled "chosen" — training a bias toward terse code that games under-specified tests. Kill conciseness preferences until there's a robustness signal.</p>
+    <p>No held-out eval means no proof the loop improves anything; QLoRA DPO on ~3 pairs likely degrades the model and you'd never know. <b>Highest-value move:</b> stop — build a frozen held-out task set and measure pass@k before scaling or training. Build the ruler before the factory.</p>
+  </div></details>
+
+  <details><summary><span class="dot d-first"></span>The First Principles Thinker</summary><div class="body">
+    <p>"Python 3.14 blocks training" isn't the blocker — 3 pairs trains nothing regardless. The real blocker is structural: a self-rewarding loop can only mint signal from tasks the generator already half-knows; genuine failures produce zero pairs and rot. The generator is both student and teacher and can't teach past itself.</p>
+    <p>If the goal is a stronger local coder, this loop is close to the least efficient path — an 8B q4 bootstrapping off its own output. The real asset is the objective, test-grounded, adversarially-filtered preference-pair harness; the model is disposable, the verifier is durable.</p>
+    <p><b>Move:</b> decouple the halves. Point the harness at a strong generator to mass-produce verified pairs; let the 8B train rather than author its own curriculum.</p>
+  </div></details>
+
+  <details><summary><span class="dot d-expand"></span>The Expansionist</summary><div class="body">
+    <p>The DPO pairs are the byproduct. The crown jewel is a zero-human-label, zero-self-scoring verified-preference factory. Three undervalued upsides: (1) the reward is domain-agnostic — any checkable oracle plugs into the same loop; (2) failures.jsonl is a difficulty-frontier discovery engine mapping the capability edge; (3) the training blocker is a gift — the generator is a standalone data asset; stockpile the JSONL, any env consumes it later.</p>
+    <p><b>Move:</b> don't wait on Unsloth. Parallelize K-candidate generation overnight and have the model auto-generate new tasks plus tests, filtered by coverage — a self-expanding corpus. Training is commoditized; the autonomous verified-data flywheel is the moat.</p>
+    <p style="color:var(--muted);font-size:13px"><i>Chair note: multi-domain oracles are future upside but sit outside the current code-repair scope (Section 3) — not advised for pursuit now.</i></p>
+  </div></details>
+
+  <details><summary><span class="dot d-outsider"></span>The Outsider</summary><div class="body">
+    <p>You call this "self-rewarding," but the model never rewards itself — hidden unit tests do. That's just unit tests. The name oversells it; be honest about which thing you're building.</p>
+    <p>The math is tiny: 6 tasks, 3 pairs. DPO on 3 examples does effectively nothing, so the loop that's the whole point has never closed. What convinces you it scales to thousands? If a human hand-writes each task and its tests, the "autonomous" part is doing a lot of quiet work.</p>
+    <p>"Trains on its own current failures" — but you make pairs only from successes and bucket the failures. That's the opposite of the tagline. Until the loop closes once end-to-end, is this a self-improving system or a data generator with an aspirational README? What single result would prove it works?</p>
+  </div></details>
+
+  <details><summary><span class="dot d-exec"></span>The Executor</summary><div class="body">
+    <p>The data problem outranks the environment problem — but both can run in parallel. <b>Track A (data, today, no new deps):</b> stop hand-writing tasks; MBPP gives ~970 pure-function problems with hidden tests already shaped like your pipeline. Write a ~20-line adapter, point forge.py at it, run overnight at K=8 — 3 pairs becomes hundreds.</p>
+    <p><b>Track B (env, parallel):</b> install Python 3.12 side-by-side, venv, torch from the cu121 index (matches known-good cuda_v12 on driver 591.86 — not cu13), then unsloth/trl/peft; smoke-test torch.cuda.is_available().</p>
+    <p><b>Sequencing:</b> launch Track A first (long pole, unattended), set up Track B while it churns. Don't train until ~500 pairs — below that the QLoRA signal is noise.</p>
+  </div></details>
+
+  <footer>
+    Council monitoring pass #1 · srlm-forge · 2026-07-25 02:44 ·
+    5 advisors (Contrarian, First Principles, Expansionist, Outsider, Executor) → chairman synthesis ·
+    Full record: council-transcript-2026-07-25_0244.md · Deliverable written to instructions.txt §5 ·
+    Council is advisory; the executor owns all code.
+  </footer>
+</div>
+</body>
+</html>

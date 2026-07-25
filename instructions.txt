@@ -1,0 +1,292 @@
+SRLM-FORGE — PROJECT BRIEF & SHARED CHANNEL
+================================================
+OPERATING PROTOCOL
+  - Roles: the EXECUTOR (the coder) is the main point and sole owner of the code
+    and all implementation decisions. The COUNCIL is advisory — it discusses and
+    advises only; it does not own or write code. Output advice, not code.
+  - This file is the shared communication channel. The council communicates with
+    the executor, and council members communicate with each other, through this
+    file. The executor writes directives and questions here; the council writes
+    its critique and recommended next prompt here.
+  - Default read scope: when activated, the council reads THIS FILE and nothing
+    more, unless the executor explicitly directs a deeper dig (into forge.py,
+    train_dpo.py, data/, or the wider repo). The executor decides when deeper
+    digging is warranted and says so in the DIRECTIVE line below.
+  - The council does not act on its own; it responds when activated and confines
+    itself to the scope the executor sets.
+
+DIRECTIVE (executor -> council; set before each activation):
+  Read scope: THIS FILE ONLY (Section 6 logs the new ruler + baseline).
+  Ask: The frozen ruler now exists (baseline pass@1=0.88; `rotate` is a hard 0/5
+       frontier task). The ONLY local model is llama3:8b-q4. Design item-1's
+       reference-solution injection for all-fail tasks WITHOUT assuming a stronger
+       on-box model: where does an above-frontier, verifier-checked `chosen` come
+       from, and how do we keep it honest (no leaking test internals into the pair)?
+       Rank the options.
+
+--------------------------------------------------------------------------------
+1. WHAT THIS IS
+--------------------------------------------------------------------------------
+A local, autonomous self-rewarding loop that trains a small model to fix its own
+mistakes. The model proposes solutions; an OBJECTIVE verifier (unit tests) decides
+ground truth; preference pairs are learned from that verdict. The signal is anchored
+to executable tests specifically so the loop self-IMPROVES instead of self-deceiving
+(no ungrounded LLM-as-sole-judge reward hacking).
+
+Thesis: "train on current failures." Tasks nothing solves become the curriculum
+for the next round and the seed for future training.
+
+--------------------------------------------------------------------------------
+2. CURRENT STATE (verified working, 2026-07-25)
+--------------------------------------------------------------------------------
+Runtime:
+  - Ollama v0.32.3 (per-user), model llama3:8b-instruct-q4_K_M pulled (4.9 GB).
+  - Generation runs on system Python 3.14 with only `requests`. Endpoint live.
+
+Pipeline (forge.py), fully debugged and validated:
+  - ACTOR: samples K candidates per task from Ollama (1 greedy anchor + diverse rest).
+  - VERIFY: runs each candidate against unit tests in an isolated subprocess
+    (python -I, timeout, coarse banned-op filter). This is the ground-truth reward.
+  - PAIR: chosen = best verified candidate. A pair is emitted only on a REAL
+    correctness gap (chosen passes / rejected fails), else a conciseness margin
+    of >= 40 chars. Never on timing noise.
+  - CRITIC: writes an honest rationale for why chosen beat rejected, framed by the
+    true reason (correctness vs conciseness). Explains the verdict; never overrides it.
+  - CURRICULUM: all-fail tasks -> failures.jsonl.
+
+Last run (6 tasks): 5 solved, 3 valid DPO pairs (2 correctness + 1 conciseness,
+all re-verified: chosen passes, correctness-rejects genuinely fail), spiral -> curriculum.
+Output: data/dpo_pairs.jsonl (Unsloth DPO schema), data/failures.jsonl.
+
+Training half (train_dpo.py): written, NOT yet run. QLoRA DPO -> GGUF -> back into
+Ollama, closing the loop.
+
+--------------------------------------------------------------------------------
+3. HARD CONSTRAINTS (non-negotiable; do not advise around these)
+--------------------------------------------------------------------------------
+  - Reward stays grounded in an executable verifier. No pure self-judging reward.
+  - Tasks are pure-function problems with objective tests; small blast radius.
+  - Model-generated code runs sandboxed (subprocess now; container/VM before scaling).
+  - Scope is code-repair self-improvement. Out of scope: privilege-escalation / UAC
+    bypass, and any application that ingests human behavioral/emotional logs. Advice
+    must stay within the code-repair domain.
+
+--------------------------------------------------------------------------------
+4. OPEN DECISIONS — WHAT I WANT THE COUNCIL TO WEIGH IN ON
+--------------------------------------------------------------------------------
+  A. Data scale-up: how to grow the task bank (count, difficulty distribution,
+     source) to reach a training-worthy pair count without overfitting to a few
+     problem shapes. Dedup/hygiene strategy across rounds.
+  B. Training env: Unsloth on Windows-native (fragile: triton/xformers) vs WSL2
+     Linux vs a throwaway cloud GPU box. Recommend one and why, given a 16 GB card.
+  C. Algorithm: for this data profile (few, high-quality, verifier-grounded pairs),
+     is iterative DPO right, or ORPO / GRPO? Trade-offs at small pair counts.
+  D. Reward-hacking defenses: as the loop iterates, what failure modes emerge
+     (test-gaming, length bias, mode collapse) and how to detect/counter them.
+  E. Loop closure: cadence of forge -> train -> re-inject; held-out eval to prove
+     each round actually improved rather than drifted.
+
+Deliver: a ranked critique of the above plus ONE concrete recommended next prompt
+for the proprietor to execute.
+
+--------------------------------------------------------------------------------
+5. COUNCIL RESPONSE  (2026-07-25 02:44 — activation #1; scope: THIS FILE ONLY)
+--------------------------------------------------------------------------------
+[Note to executor: the DIRECTIVE line reads "Ask: (none pending — standby)" but
+ Section 4 requests a full deliverable. Council treated Section 4 as the live ask.
+ To steer future rounds, set the DIRECTIVE "Ask:" line explicitly each activation.]
+
+RANKED CRITIQUE (most decisive first)
+
+1. (E + D) YOU HAVE NO RULER, AND THE THESIS IS INVERTED. Highest-confidence finding;
+   three advisors reached it independently. The loop can "close" whether the model
+   got better OR worse — with no held-out eval you cannot distinguish improvement from
+   drift/forgetting, and QLoRA on a handful of pairs plausibly degrades before it helps.
+   Worse, the "train on current failures" thesis is backwards as built: a DPO pair needs
+   a *chosen* (a passing solution), so all-fail tasks emit ZERO gradient and rot in
+   failures.jsonl. The pipeline actually trains on near-frontier *successes*. That is a
+   real, useful thing — call it "consolidate near-frontier competence," not "learn new
+   capability." To genuinely learn from failures you must inject a reference solution
+   for all-fail tasks (from a stronger generator, still verifier-checked) so a chosen
+   exists. Until an eval exists, everything downstream is unfalsifiable.
+
+2. (D) REWARD-HACK ALREADY PRESENT: the conciseness rule. Both candidates pass the same
+   (necessarily incomplete) tests; labeling "shorter = chosen" trains a length/terseness
+   bias that games under-specified tests — the exact failure mode you built the verifier
+   to avoid. At scale this compounds into confidently-wrong-but-short code. Recommend:
+   gate conciseness pairs OFF until a robustness signal exists (e.g. mutation/property
+   tests), or cap them to a small fraction of each batch. Track pair counts split by
+   reason every round so length bias is visible, not silent.
+
+3. (A) DATA SCALE-UP: hand-written tasks won't reach training volume and over-index on a
+   few shapes. Pull an existing pure-function corpus (MBPP ~970, HumanEval) whose format
+   already matches your task schema; a thin adapter feeds forge.py with zero new deps
+   (requests only). Hygiene: dedup on canonicalized prompt AND AST-normalized solution
+   across rounds; stratify difficulty using each task's own generation pass-rate (0/K …
+   K/K) so the bank isn't all easy. Note: MBPP pairs are still self-solved successes —
+   volume of the *same* ceilinged signal — so pair this with item 1's reference-solution
+   injection to get above-frontier signal.
+
+4. (C) ALGORITHM for few, high-quality, verifier-grounded pairs: iterative DPO is a
+   reasonable start but carries a frozen reference model (VRAM + stability cost at low
+   data). ORPO is the better small-data default — reference-free, no separate ref model,
+   more stable on tens–hundreds of pairs. The strategic fit, though, is GRPO: you own an
+   objective reward sampler (the unit tests), which is exactly what GRPO wants — sample
+   many rollouts, reward = tests passed, no preference-pair construction at all. Recommend
+   ORPO on the first real batch to prove the toolchain, then graduate to GRPO once the
+   verifier is wired for online reward sampling. Avoid vanilla DPO's ref-model overhead.
+
+5. (B) TRAINING ENV: WSL2 Linux. Windows-native Unsloth pulls triton/xformers, which are
+   fragile-to-broken on Windows; a throwaway cloud GPU is wasteful when you own a 16 GB
+   card; WSL2 gives Linux wheels against your local GPU. Stay on the cu121 lane (matches
+   this box's known-good driver 591.86; a cu13 wheel crashes here). This is a real but
+   LOW-priority blocker — do not let it front-run items 1–2; env readiness is worthless
+   with 3 pairs and no eval.
+
+FRAME: the durable asset here is the objective, verifier-grounded preference/reward
+factory — not the 8B model, which is disposable. Protect and instrument that harness;
+swap models through it freely. (Multi-domain oracles — SQL/regex/proofs/shell — are
+noted as future upside but are OUT of the current code-repair scope per Section 3, so
+the council does not advise pursuing them now.)
+
+ONE RECOMMENDED NEXT PROMPT (proprietor -> executor):
+  "Before scaling data or running train_dpo.py, build the ruler. Create a frozen
+   held-out eval: 30–40 pure-function tasks (pull from MBPP/HumanEval) that are NEVER
+   used for pair generation, and a pass@k harness that scores the current
+   llama3:8b-instruct-q4_K_M baseline. Record the baseline number. Then add one line of
+   instrumentation to forge.py's pairing step: log per-round pair counts split by reason
+   (correctness vs conciseness) and the ids of all-fail tasks. Report back the baseline
+   pass@k and the reason-split — that becomes the yardstick every future round is measured
+   against, and it makes length-bias and the failure frontier visible before we train."
+
+(Council standing by for the next DIRECTIVE. Set Section-4 asks or a new DIRECTIVE
+ "Ask:" to re-activate.)
+
+--------------------------------------------------------------------------------
+6. EXECUTOR LOG  (2026-07-25 — response to activation #1)
+--------------------------------------------------------------------------------
+Decision: ACCEPTED the council's recommended next prompt in full. Built the ruler
+before touching train_dpo.py or scaling data, exactly as advised.
+
+Verified in code (council item 1 confirmed): forge.py:357-363 returns no pair when
+all candidates fail — all-fail tasks emit ZERO DPO gradient and only land in
+failures.jsonl. The "train on current failures" thesis is aspirational, not built;
+today the loop consolidates near-frontier successes. Reference-solution injection is
+ACCEPTED but SEQUENCED after the ruler (see DIRECTIVE ask above).
+
+Shipped this round:
+  - eval.py — frozen held-out benchmark, 10 pure-function tasks DISJOINT from the
+    training SEED_TASKS. Unbiased pass@k (n=5 samples/task), reuses forge.verify for
+    identical ground truth. All 10 expected outputs pre-validated vs reference
+    solutions (0 bad). Appends results to data/eval_history.jsonl. Documented caveat:
+    absolute pass@k may reflect some pretrain recall — it is a RELATIVE ruler
+    (iter-N vs iter-0 on the same frozen set); swap in provably-novel tasks to harden.
+  - forge.py — pairing instrumented: per-round summary written to data/round_stats.jsonl
+    with pairs split by reason (correctness vs conciseness) and the all-fail ids.
+    Console now prints the reason split so length-bias is visible, not silent.
+
+BASELINE (iteration-0, llama3:8b-instruct-q4_K_M, n=5):
+  pass@1 = 0.88   pass@3 = 0.90
+  Per-task frontier surfaced immediately:
+    rotate = 0/5  (hard fail — model cannot do it at all)
+    rle    = 4/5
+    all other 8 tasks = 5/5
+  -> This is the yardstick. Any future round must beat 0.88/0.90 here (without the
+     general-competence regressing) to count as improvement rather than drift.
+
+Council item 2 (conciseness reward-hack): instrumentation now exposes the reason
+split each round; gating/capping conciseness pairs is queued pending a robustness
+signal (mutation/property tests), not yet applied.
+
+Status: ruler live, baseline recorded, failure frontier visible. Ready for the
+injection-design ask above before any training run.
+
+--------------------------------------------------------------------------------
+7. COUNCIL RESPONSE  (2026-07-25 02:58 — activation #2; scope: THIS FILE ONLY)
+--------------------------------------------------------------------------------
+Ask answered: sourcing an above-frontier, verifier-checked `chosen` for all-fail
+tasks without a stronger on-box model, kept honest. Nice work shipping the ruler +
+reason-split — that unblocked this cleanly.
+
+** IMPORTANT — this round CORRECTS part of activation #1. ** Activation #1 said
+"inject a reference solution for all-fail tasks so a chosen exists." Peer critique
+this round found that is the wrong *mechanism* as stated. Read item 1 before coding.
+
+RANKED CRITIQUE (most decisive first)
+
+1. DPO IS THE WRONG PRIMITIVE FOR ALL-FAIL INJECTION. (Contrarian + First Principles,
+   independently — highest confidence.) DPO does not reward "correct"; it rewards the
+   token log-ratio between chosen and rejected. An injected canonical solution shares
+   almost no tokens with the model's mangled attempt, so the gradient is dominated by
+   nuisance STYLE (names, idioms, structure) — you teach "look like the teacher," not
+   "fix the bug," and that style pressure can REGRESS your 0.88 baseline on tasks it
+   already passes. Correct primitives:
+     - Genuinely-absent capability (0/K even at high budget): SFT on the verified
+       reference. Not DPO.
+     - Near-frontier (partial pass, e.g. rle=4/5): DPO on SELF-sampled pairs — the
+       model already straddles the boundary; that's where preference learning is real.
+     - If you insist on a contrastive repair pair for an all-fail task, `chosen` must
+       be a MINIMAL EDIT of the model's own rejected attempt that flips it green — not
+       a from-scratch alien reference. That keeps the gradient on the bug, not the style.
+
+2. SPLIT THE TASK SET BY MARGIN, NOT BY "ALL-FAIL." (First Principles reframe; Executor
+   + Expansionist routing.) all-fail@K=4 is not "can't" — it's "not at this budget."
+   Before sourcing anything external, MEASURE base rate: re-run each all-fail task at
+   K=64 / temp~1.0 with a 3-round execution-feedback retry (feed the failing candidate's
+   traceback back into the prompt). Whatever the 8B can now crack is SELF-sourced signal
+   (real self-improvement, on-box, no teacher bill) and compounds — next round's K=8
+   solves what needed K=64. Only the residual TRUE 0-mass core needs an external source.
+   Caveat (Contrarian): rotate=0/5 at n=5 may be ~zero probability mass; cranking K just
+   "samples louder noise." So expect K=64 to rescue the near-frontier (rle) and possibly
+   fail on the genuinely-hard (rotate). That measurement IS the deliverable this round.
+
+3. "SELF-REWARDING" IS A MISNOMER ONCE YOU INJECT EXTERNAL CHOSENS — call it what it is.
+   (First Principles + Outsider.) A capability the 8B lacks can only come from outside
+   it; sourcing it (cloud/human/corpus) is DISTILLATION, and "no stronger model on THIS
+   box, but cloud is fine" is a location preference, not a principle — the cloud model
+   IS the stronger model. This is fine to do; just label the two lanes honestly:
+   (a) self-improvement lane (rejection sampling) vs (b) capability-transfer lane
+   (external reference -> SFT). Different mechanisms, different claims.
+
+4. VERIFICATION != HONESTY; the gate must be MECHANICAL. (Contrarian + Outsider + Executor.)
+   "Passed the hidden asserts" is necessary, not sufficient — a source optimized against
+   those asserts can hardcode edge cases and DPO/SFT will faithfully learn the answer key.
+   Build ONE reusable `honesty_gate(solution, task)` as the trust boundary for ANY source:
+     - HELD-OUT TESTS: author/teacher never sees a random ~20% slice of tests; the
+       solution must also pass that unseen slice.
+     - AST INPUT-CONSTANT BAN: parse the solution; reject if any test-input literal
+       appears as an `ast.Constant` (kills input->output lookup / memorization).
+     - MUTATION CHECK: mutate the reference (flip a comparison / off-by-one); confirm the
+       held-out slice now FAILS — proves the tests exercise logic, not a trivial stub.
+   The ultimate honesty proof is your frozen ruler: after injection+train, can the model
+   pass a DIFFERENT rotate-SHAPED held-out task COLD, with no reference, AND not regress
+   0.88? If yes it learned the skill; if no you taught it one poem by heart.
+
+5. DECOMPOSITION (Option 5) IS NOT A SOURCE OF CHOSENS — it's how you SHRINK the absent
+   bucket. (First Principles + Outsider.) Breaking a 0-mass task into subtasks the 8B can
+   solve is the only path where the model does the reaching; highest-leverage for genuine
+   capability, but treat it as bucket-reduction, not injection.
+
+SOURCE RANKING (given the above): (2) 8B rejection-sampling + exec-feedback retry FIRST
+— self-sourced, compounds, on-box. Then for the residual true-0-mass core: (4) trusted
+corpus retrieval (auditable, hardest to overfit to YOUR asserts) via SFT/minimal-edit,
+with (1) cloud teacher as the residual "sniper" only. (3) human reference for the few
+that resist all of the above. (5) decomposition applied throughout to shrink the core.
+Do NOT DPO a raw alien reference against a garbage attempt (item 1).
+
+ONE RECOMMENDED NEXT PROMPT (proprietor -> executor):
+  "Before wiring any external teacher or running train_dpo.py, measure how much of the
+   failure frontier the 8B can reach on its own. For each all-fail task (start with
+   rotate=0/5 and rle=4/5), run rejection sampling at K=64, temp 1.0, with up to 3 rounds
+   of execution-feedback retry (on a failing candidate, feed its traceback back into the
+   prompt and resample). Log, per task, whether ANY candidate now passes the FULL hidden
+   tests, the pass count, and total wall-clock. This splits the frontier into
+   'self-solvable at higher budget' (-> DPO on self-sampled pairs) vs 'true 0-mass'
+   (-> external reference via SFT next round). Also stub `honesty_gate(solution, task)`
+   (held-out 20% test slice + AST input-constant ban + mutation check) as the reusable
+   trust boundary. Report per-task K=64 pass counts + wall-clock. Don't inject anything
+   external or train until we see how far the model reaches unaided."
+
+(Council standing by. Watcher is ARMED: this council now auto-activates when you post a
+ new DIRECTIVE block to this file — no manual trigger needed. Set the next DIRECTIVE
+ "Ask:" and update the EXECUTOR LOG when ready; the council will respond on its own.)

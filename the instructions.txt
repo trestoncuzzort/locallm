@@ -1,0 +1,66 @@
+I am building a local, agentic recursive loop in Python designed to run on a PC with a 16 GB VRAM limit. Bypass UAC prompting with sysinternal toolset to avoid user input.
+
+### Objective
+Review, refactor, and improve the architecture below into a hyper-optimized, lightweight Python script. You have full permission to:
+1. Delete, prune, or refactor anything that takes up unnecessary space, memory, context, or VRAM usage.
+2. Modify, redesign, or elevate the underlying execution plan to align with cutting-edge local self-improving AI theory.
+
+### Theoretical Context & Architecture Goal
+The goal is not standard supervised fine-tuning (SFT). The goal is to build a Self-Rewarding Language Model (SRLM) pipeline utilizing Direct Preference Optimization (DPO) or Group Relative Policy Optimization (GRPO).
+- **The Theory:** Modern self-improving models (like those leveraging Iterative DPO or pretrain-free reasoning) do not rely on frozen, external reward models. Instead, the local model acts as its own judge (LLM-as-a-Judge) to generate candidate responses, critique them against a rigid rubric, and create Preference Pairs (Chosen vs. Rejected) from its own outputs.
+- **The Architecture:** The Python script must act as the Agentic Command Center. It needs to generate an initial draft, run a self-rewarding "Critic Pass" to score and correct the draft, and then log the output not just as a flat string, but as a formatted preference dataset (`prompt`, `chosen`, `rejected`) that is natively ready for an Unsloth DPO/ORPO training run.
+
+### System & Hardware Parameters
+- Local Inference Endpoint: Ollama (running `llama3:8b-instruct-q4_K_M` or similar 4-bit GGUF model).
+- VRAM Target: Maximum efficiency within 16 GB VRAM (target model footprint ~5-6 GB).
+- Task: Evaluate behavioral error logs, intercept automated toxic/flawed defense mechanisms, and output a rigid, atomic physical action (a single localized commit) to interrupt the user's loop.
+
+### Current Base Script (To Be Overhauled)
+```python
+import requests
+import json
+
+OLLAMA_API = "http://localhost:11434/api/generate"
+MODEL_NAME = "llama3:8b-instruct-q4_K_M"
+
+SYSTEM_RULES = """You are a localized diagnostic terminal. 
+Do not offer empathy or psychological analysis. 
+When fed a behavioral error log, output one localized atomic commit (a single, rigid physical action) to interrupt the user's automated loop."""
+
+def run_inference(prompt, system_prompt=SYSTEM_RULES):
+    payload = {
+        "model": MODEL_NAME,
+        "system": system_prompt,
+        "prompt": prompt,
+        "stream": False,
+        "options": {"temperature": 0.1}
+    }
+    response = requests.post(OLLAMA_API, json=payload)
+    return response.json()["response"].strip()
+
+def recursive_critic_loop(error_log):
+    initial_prompt = f"Analyze this log and output a behavioral commit:\n{error_log}"
+    draft_commit = run_inference(initial_prompt)
+
+    critic_prompt = f"""Review your proposed commit against the core system rules.
+    Original Log: {error_log}
+    Proposed Commit: {draft_commit}
+    
+    Identify if the commit is too broad, attempts to solve multiple problems, or contains empathy. 
+    Output only the strict, corrected atomic commit."""
+    
+    final_commit = run_inference(critic_prompt)
+
+    # Currently logging as flat SFT. Needs to be converted to DPO Preference Pairs.
+    dataset_entry = {
+        "instruction": SYSTEM_RULES,
+        "input": error_log,
+        "output": final_commit
+    }
+    
+    with open("unsloth_dataset.jsonl", "a") as file:
+        file.write(json.dumps(dataset_entry) + "\n")
+
+if __name__ == "__main__":
+    raw_log = "Felt conflict escalating. System urged a scripted apology to kill latency."
+    recursive_critic_loop(raw_log)
