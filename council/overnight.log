@@ -8350,3 +8350,55 @@ DPO data : C:\Users\t\Projects\srlm-forge\data\dpo_pairs.jsonl
 Curriculum: C:\Users\t\Projects\srlm-forge\data\failures.jsonl
 Round log : C:\Users\t\Projects\srlm-forge\data\round_stats.jsonl
 2026-07-25 09:20:01  round 188 done : total_pairs=920
+2026-07-25 09:20:21  round 189 : forge generate
+[two_sum] generating 4 candidates...
+  -> correctness pair. rationale: Solution B fails because it does not handle the case where `num` is equal to `(t
+[roman] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[balanced] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[spiral] generating 4 candidates...
+  -> unsolved, added to curriculum
+[atoi] generating 4 candidates...
+  -> correctness pair. rationale: Solution B fails to correctly handle the case where a sign is present but no dig
+[lps] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[merge_intervals] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[simplify_path] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[decode_ways] generating 4 candidates...
+  -> correctness pair. rationale: Solution B fails because it does not handle the case where a single '0' is encou
+[three_sum] generating 4 candidates...
+  -> correctness pair. rationale: Solution B fails because it does not update the pointers correctly when a triple
+[word_break] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[multiply_strings] generating 4 candidates...
+  -> unsolved, added to curriculum
+[next_permutation] generating 4 candidates...
+  -> correctness pair. rationale: Solution B fails because it incorrectly swaps the first element with the last el
+
+done. tasks=13 solved=11 pairs=5 (correctness=5 conciseness=0) unsolved=['spiral', 'multiply_strings']
+DPO data : C:\Users\t\Projects\srlm-forge\data\dpo_pairs.jsonl
+Curriculum: C:\Users\t\Projects\srlm-forge\data\failures.jsonl
+Round log : C:\Users\t\Projects\srlm-forge\data\round_stats.jsonl
+2026-07-25 09:21:33  round 189 : repair (failure mining)
+[two_sum         ] already_solved
+[roman           ] already_solved
+[balanced        ] already_solved
+[spiral          ] solved via best_of_n (steps=0)
+[atoi            ] already_solved
+[lps             ] already_solved
+[merge_intervals ] already_solved
+[simplify_path   ] already_solved
+[decode_ways     ] already_solved
+[three_sum       ] already_solved
+[word_break      ] already_solved
+[multiply_strings] skipped_known_hard
+[next_permutation] already_solved
+
+repair done. new failure-derived pairs: 1
+known-hard (need external reference): ['multiply_strings']
+pairs: C:\Users\t\Projects\srlm-forge\data\repair_pairs.jsonl
+log:   C:\Users\t\Projects\srlm-forge\data\repair_log.jsonl
+2026-07-25 09:22:06  round 189 done : total_pairs=925
