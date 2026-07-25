@@ -1168,3 +1168,57 @@ DPO data : C:\Users\t\Projects\srlm-forge\data\dpo_pairs.jsonl
 Curriculum: C:\Users\t\Projects\srlm-forge\data\failures.jsonl
 Round log : C:\Users\t\Projects\srlm-forge\data\round_stats.jsonl
 2026-07-25 04:23:14  round 23 done : total_pairs=181
+2026-07-25 04:23:35  round 24 : forge generate
+[two_sum] generating 4 candidates...
+  -> duplicate pair, skipped
+  -> solved, no pair (candidates tied)
+[roman] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[balanced] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[spiral] generating 4 candidates...
+  -> unsolved, added to curriculum
+[atoi] generating 4 candidates...
+  -> correctness pair. rationale: Solution B fails to correctly handle leading whitespace characters when a sign i
+[lps] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[merge_intervals] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[simplify_path] generating 4 candidates...
+  -> correctness pair. rationale: Solution B fails to handle the case where the input path ends with a slash, wher
+[decode_ways] generating 4 candidates...
+  -> correctness pair. rationale: Solution B's defect is that it incorrectly increments `dp[i]` when `s[:i]` repre
+[three_sum] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[word_break] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[multiply_strings] generating 4 candidates...
+  -> correctness pair. rationale: Solution B has a syntax error due to missing parentheses around the `for` loop i
+[next_permutation] generating 4 candidates...
+  -> duplicate pair, skipped
+  -> solved, no pair (candidates tied)
+
+done. tasks=13 solved=12 pairs=4 (correctness=4 conciseness=0) unsolved=['spiral']
+DPO data : C:\Users\t\Projects\srlm-forge\data\dpo_pairs.jsonl
+Curriculum: C:\Users\t\Projects\srlm-forge\data\failures.jsonl
+Round log : C:\Users\t\Projects\srlm-forge\data\round_stats.jsonl
+2026-07-25 04:24:47  round 24 : repair (failure mining)
+[two_sum         ] already_solved
+[roman           ] already_solved
+[balanced        ] already_solved
+[spiral          ] solved via best_of_n (steps=0)
+[atoi            ] already_solved
+[lps             ] already_solved
+[merge_intervals ] already_solved
+[simplify_path   ] already_solved
+[decode_ways     ] already_solved
+[three_sum       ] already_solved
+[word_break      ] already_solved
+[multiply_strings] skipped_known_hard
+[next_permutation] already_solved
+
+repair done. new failure-derived pairs: 1
+known-hard (need external reference): ['multiply_strings']
+pairs: C:\Users\t\Projects\srlm-forge\data\repair_pairs.jsonl
+log:   C:\Users\t\Projects\srlm-forge\data\repair_log.jsonl
+2026-07-25 04:25:11  round 24 done : total_pairs=185
