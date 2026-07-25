@@ -4477,3 +4477,53 @@ known-hard (need external reference): ['multiply_strings']
 pairs: C:\Users\t\Projects\srlm-forge\data\repair_pairs.jsonl
 log:   C:\Users\t\Projects\srlm-forge\data\repair_log.jsonl
 2026-07-25 06:39:37  round 99 done : total_pairs=530
+2026-07-25 06:39:58  round 100 : forge generate
+[two_sum] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[roman] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[balanced] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[spiral] generating 4 candidates...
+  -> unsolved, added to curriculum
+[atoi] generating 4 candidates...
+  -> correctness pair. rationale: Solution B fails to correctly handle the case where the input string starts with
+[lps] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[merge_intervals] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[simplify_path] generating 4 candidates...
+  -> correctness pair. rationale: Solution B fails to handle the case where a path ends with a slash, whereas Solu
+[decode_ways] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[three_sum] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[word_break] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[multiply_strings] generating 4 candidates...
+  -> unsolved, added to curriculum
+[next_permutation] generating 4 candidates...
+  -> correctness pair. rationale: Solution B fails because it modifies the input list in-place when returning the 
+
+done. tasks=13 solved=11 pairs=3 (correctness=3 conciseness=0) unsolved=['spiral', 'multiply_strings']
+DPO data : C:\Users\t\Projects\srlm-forge\data\dpo_pairs.jsonl
+Curriculum: C:\Users\t\Projects\srlm-forge\data\failures.jsonl
+Round log : C:\Users\t\Projects\srlm-forge\data\round_stats.jsonl
+2026-07-25 06:41:12  round 100 : eval ruler
+Scoring 'llama3:8b-instruct-q4_K_M' on 10 held-out tasks (5 samples each)...
+
+  gcd            ##### 5/5
+  is_prime       ##### 5/5
+  reverse_words  ##### 5/5
+  rle            ##### 5/5
+  flatten        ##### 5/5
+  nth_fib        ####. 4/5
+  count_vowels   ##### 5/5
+  kadane         ##### 5/5
+  rotate         #.... 1/5
+  dedup          ##### 5/5
+
+aggregate: {'pass@1': 0.9, 'pass@3': 0.96}
+appended to C:\Users\t\Projects\srlm-forge\data\eval_history.jsonl
+This is the yardstick. Compare every future round's numbers to it.
+2026-07-25 06:41:47  round 100 done : total_pairs=533
