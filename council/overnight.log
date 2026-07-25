@@ -241,3 +241,45 @@ DPO data : C:\Users\t\Projects\srlm-forge\data\dpo_pairs.jsonl
 Curriculum: C:\Users\t\Projects\srlm-forge\data\failures.jsonl
 Round log : C:\Users\t\Projects\srlm-forge\data\round_stats.jsonl
 2026-07-25 03:17:12  round 9 done : total_pairs=43
+2026-07-25 03:17:32  round 10 : forge generate
+[two_sum] generating 4 candidates...
+  -> correctness pair. rationale: Solution B fails because it does not handle the case where a single element in `
+[roman] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[balanced] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[spiral] generating 4 candidates...
+  -> correctness pair. rationale: Solution B fails because it does not correctly handle the case where a row or co
+[atoi] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[lps] generating 4 candidates...
+  -> correctness pair. rationale: Solution B fails because it does not properly handle the case when the palindrom
+[merge_intervals] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[simplify_path] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[decode_ways] generating 4 candidates...
+  -> correctness pair. rationale: Solution B fails because it incorrectly allows a single '0' character to be deco
+
+done. tasks=9 solved=9 pairs=4 (correctness=4 conciseness=0) unsolved=[]
+DPO data : C:\Users\t\Projects\srlm-forge\data\dpo_pairs.jsonl
+Curriculum: C:\Users\t\Projects\srlm-forge\data\failures.jsonl
+Round log : C:\Users\t\Projects\srlm-forge\data\round_stats.jsonl
+2026-07-25 03:18:19  round 10 : eval ruler
+Scoring 'llama3:8b-instruct-q4_K_M' on 10 held-out tasks (5 samples each)...
+
+  gcd            ##### 5/5
+  is_prime       ##### 5/5
+  reverse_words  ##### 5/5
+  rle            ##### 5/5
+  flatten        ##### 5/5
+  nth_fib        ##### 5/5
+  count_vowels   ##### 5/5
+  kadane         ##### 5/5
+  rotate         ..... 0/5
+  dedup          ##### 5/5
+
+aggregate: {'pass@1': 0.9, 'pass@3': 0.9}
+appended to C:\Users\t\Projects\srlm-forge\data\eval_history.jsonl
+This is the yardstick. Compare every future round's numbers to it.
+2026-07-25 03:18:53  round 10 done : total_pairs=47
