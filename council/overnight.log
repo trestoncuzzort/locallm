@@ -7519,3 +7519,53 @@ DPO data : C:\Users\t\Projects\srlm-forge\data\dpo_pairs.jsonl
 Curriculum: C:\Users\t\Projects\srlm-forge\data\failures.jsonl
 Round log : C:\Users\t\Projects\srlm-forge\data\round_stats.jsonl
 2026-07-25 08:45:30  round 169 done : total_pairs=839
+2026-07-25 08:45:50  round 170 : forge generate
+[two_sum] generating 4 candidates...
+  -> correctness pair. rationale: Solution B has a defect where it returns `[i, i]` when `num * 2 == target`, whic
+[roman] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[balanced] generating 4 candidates...
+  -> correctness pair. rationale: Solution B fails because it does not properly handle the case where a closing br
+[spiral] generating 4 candidates...
+  -> unsolved, added to curriculum
+[atoi] generating 4 candidates...
+  -> correctness pair. rationale: Solution B fails to correctly handle cases where the input string contains non-d
+[lps] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[merge_intervals] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[simplify_path] generating 4 candidates...
+  -> correctness pair. rationale: Solution B fails to handle an empty string (`''`) as a valid path component, whe
+[decode_ways] generating 4 candidates...
+  -> correctness pair. rationale: Solution B fails to correctly handle cases where a single digit '0' is encounter
+[three_sum] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[word_break] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[multiply_strings] generating 4 candidates...
+  -> correctness pair. rationale: Solution B fails because it converts the input strings to lists of integers usin
+[next_permutation] generating 4 candidates...
+  -> correctness pair. rationale: Solution B fails because it returns a list with only one element when the input 
+
+done. tasks=13 solved=12 pairs=7 (correctness=7 conciseness=0) unsolved=['spiral']
+DPO data : C:\Users\t\Projects\srlm-forge\data\dpo_pairs.jsonl
+Curriculum: C:\Users\t\Projects\srlm-forge\data\failures.jsonl
+Round log : C:\Users\t\Projects\srlm-forge\data\round_stats.jsonl
+2026-07-25 08:47:04  round 170 : eval ruler
+Scoring 'llama3:8b-instruct-q4_K_M' on 10 held-out tasks (5 samples each)...
+
+  gcd            ##### 5/5
+  is_prime       ##### 5/5
+  reverse_words  ##### 5/5
+  rle            ####. 4/5
+  flatten        ##### 5/5
+  nth_fib        ##### 5/5
+  count_vowels   ##### 5/5
+  kadane         ####. 4/5
+  rotate         ..... 0/5
+  dedup          ##### 5/5
+
+aggregate: {'pass@1': 0.86, 'pass@3': 0.9}
+appended to C:\Users\t\Projects\srlm-forge\data\eval_history.jsonl
+This is the yardstick. Compare every future round's numbers to it.
+2026-07-25 08:47:38  round 170 done : total_pairs=846
