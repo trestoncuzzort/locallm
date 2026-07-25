@@ -1222,3 +1222,54 @@ known-hard (need external reference): ['multiply_strings']
 pairs: C:\Users\t\Projects\srlm-forge\data\repair_pairs.jsonl
 log:   C:\Users\t\Projects\srlm-forge\data\repair_log.jsonl
 2026-07-25 04:25:11  round 24 done : total_pairs=185
+2026-07-25 04:25:31  round 25 : forge generate
+[two_sum] generating 4 candidates...
+  -> correctness pair. rationale: Solution B fails because it does not handle the case where `num` is equal to `(t
+[roman] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[balanced] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[spiral] generating 4 candidates...
+  -> unsolved, added to curriculum
+[atoi] generating 4 candidates...
+  -> correctness pair. rationale: Solution B fails to correctly handle the case where the input string starts with
+[lps] generating 4 candidates...
+  -> correctness pair. rationale: Solution B fails because it updates `max_palindrome` only when a longer palindro
+[merge_intervals] generating 4 candidates...
+  -> duplicate pair, skipped
+  -> solved, no pair (candidates tied)
+[simplify_path] generating 4 candidates...
+  -> correctness pair. rationale: Solution B fails because it does not handle the case where a trailing slash is p
+[decode_ways] generating 4 candidates...
+  -> correctness pair. rationale: Solution B's recursive helper function does not correctly handle the case where 
+[three_sum] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[word_break] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[multiply_strings] generating 4 candidates...
+  -> correctness pair. rationale: Solution B fails because it does not handle the case where a digit in the result
+[next_permutation] generating 4 candidates...
+  -> correctness pair. rationale: Solution B fails because it does not correctly handle the case where the input l
+
+done. tasks=13 solved=12 pairs=7 (correctness=7 conciseness=0) unsolved=['spiral']
+DPO data : C:\Users\t\Projects\srlm-forge\data\dpo_pairs.jsonl
+Curriculum: C:\Users\t\Projects\srlm-forge\data\failures.jsonl
+Round log : C:\Users\t\Projects\srlm-forge\data\round_stats.jsonl
+2026-07-25 04:26:45  round 25 : eval ruler
+Scoring 'llama3:8b-instruct-q4_K_M' on 10 held-out tasks (5 samples each)...
+
+  gcd            ##### 5/5
+  is_prime       ##### 5/5
+  reverse_words  ##### 5/5
+  rle            ####. 4/5
+  flatten        ##### 5/5
+  nth_fib        ##### 5/5
+  count_vowels   ##### 5/5
+  kadane         ##### 5/5
+  rotate         ..... 0/5
+  dedup          ##### 5/5
+
+aggregate: {'pass@1': 0.88, 'pass@3': 0.9}
+appended to C:\Users\t\Projects\srlm-forge\data\eval_history.jsonl
+This is the yardstick. Compare every future round's numbers to it.
+2026-07-25 04:27:20  round 25 done : total_pairs=192
