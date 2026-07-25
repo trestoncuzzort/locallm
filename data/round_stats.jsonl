@@ -13,3 +13,4 @@
 {"ts": "2026-07-25T03:29:27", "model": "llama3:8b-instruct-q4_K_M", "tasks": 13, "solved": 12, "pairs": 7, "pairs_by_reason": {"correctness": 7, "conciseness": 0}, "all_fail_ids": ["multiply_strings"]}
 {"ts": "2026-07-25T03:31:01", "model": "llama3:8b-instruct-q4_K_M", "tasks": 13, "solved": 12, "pairs": 4, "pairs_by_reason": {"correctness": 4, "conciseness": 0}, "all_fail_ids": ["multiply_strings"]}
 {"ts": "2026-07-25T03:32:33", "model": "llama3:8b-instruct-q4_K_M", "tasks": 13, "solved": 13, "pairs": 4, "pairs_by_reason": {"correctness": 4, "conciseness": 0}, "all_fail_ids": []}
+{"ts": "2026-07-25T03:34:44", "model": "llama3:8b-instruct-q4_K_M", "tasks": 13, "solved": 11, "pairs": 4, "pairs_by_reason": {"correctness": 4, "conciseness": 0}, "all_fail_ids": ["spiral", "multiply_strings"]}
