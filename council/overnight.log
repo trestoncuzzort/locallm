@@ -2948,3 +2948,55 @@ DPO data : C:\Users\t\Projects\srlm-forge\data\dpo_pairs.jsonl
 Curriculum: C:\Users\t\Projects\srlm-forge\data\failures.jsonl
 Round log : C:\Users\t\Projects\srlm-forge\data\round_stats.jsonl
 2026-07-25 05:36:59  round 64 done : total_pairs=367
+2026-07-25 05:37:19  round 65 : forge generate
+[two_sum] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[roman] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[balanced] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[spiral] generating 4 candidates...
+  -> duplicate pair, skipped
+  -> solved, no pair (candidates tied)
+[atoi] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[lps] generating 4 candidates...
+  -> correctness pair. rationale: Solution B fails because it attempts to call `expand_around_center` before defin
+[merge_intervals] generating 4 candidates...
+  -> duplicate pair, skipped
+  -> solved, no pair (candidates tied)
+[simplify_path] generating 4 candidates...
+  -> correctness pair. rationale: Solution B fails because it attempts to access a variable `stack` before it is d
+[decode_ways] generating 4 candidates...
+  -> correctness pair. rationale: Solution B fails because it does not correctly handle the case where a single '0
+[three_sum] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[word_break] generating 4 candidates...
+  -> solved, no pair (candidates tied)
+[multiply_strings] generating 4 candidates...
+  -> unsolved, added to curriculum
+[next_permutation] generating 4 candidates...
+  -> correctness pair. rationale: Solution B fails because it incorrectly initializes the smallest permutation by 
+
+done. tasks=13 solved=12 pairs=4 (correctness=4 conciseness=0) unsolved=['multiply_strings']
+DPO data : C:\Users\t\Projects\srlm-forge\data\dpo_pairs.jsonl
+Curriculum: C:\Users\t\Projects\srlm-forge\data\failures.jsonl
+Round log : C:\Users\t\Projects\srlm-forge\data\round_stats.jsonl
+2026-07-25 05:38:32  round 65 : eval ruler
+Scoring 'llama3:8b-instruct-q4_K_M' on 10 held-out tasks (5 samples each)...
+
+  gcd            ##### 5/5
+  is_prime       ##### 5/5
+  reverse_words  ##### 5/5
+  rle            ####. 4/5
+  flatten        ##### 5/5
+  nth_fib        ##### 5/5
+  count_vowels   ##### 5/5
+  kadane         ##### 5/5
+  rotate         ..... 0/5
+  dedup          ##### 5/5
+
+aggregate: {'pass@1': 0.88, 'pass@3': 0.9}
+appended to C:\Users\t\Projects\srlm-forge\data\eval_history.jsonl
+This is the yardstick. Compare every future round's numbers to it.
+2026-07-25 05:39:07  round 65 done : total_pairs=371
