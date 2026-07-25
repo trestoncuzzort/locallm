@@ -1,0 +1,30 @@
+GOOD MORNING — overnight autonomous run summary
+================================================
+Started 2026-07-25 03:06. Runs on LOCAL Ollama only -> zero cloud cost, no
+unsupervised cloud agent, all model-generated code sandboxed as before.
+
+WHAT IT DID (each round, ~every few minutes):
+  - forge.py: generated + deduped preference pairs from the 9 training tasks
+    (conciseness pairs OFF, so only clean correctness pairs accumulate).
+  - eval.py: scored the frozen held-out ruler every 5th round -> data/eval_history.jsonl
+  - git-committed every round, so every step is revertible.
+Ping model honored via council\ping_executor and council\ping_council signal files.
+
+WHERE TO LOOK:
+  - council\overnight_status.txt   -> latest heartbeat (round #, total pairs, gained)
+  - council\overnight.log          -> full round-by-round log
+  - data\dpo_pairs.jsonl           -> the accumulated DPO training pairs
+  - data\eval_history.jsonl        -> ruler over time (baseline was pass@1=0.88 / pass@3=0.90)
+  - data\round_stats.jsonl         -> per-round reason split + all-fail ids
+  - git log --oneline              -> one commit per round
+
+STOP IT:
+  - Create an empty file:  C:\Users\t\Projects\srlm-forge\council\STOP
+    (loop exits cleanly at the end of the current round), OR
+  - Stop-Process -Id (Get-Content $env:TEMP\overnight_pid.txt)
+  - It also auto-stops after 9 hours (~12:06).
+
+STILL PENDING (needs you / an interactive session, deliberately NOT automated):
+  - Training run (train_dpo.py) — needs the WSL2 + Python 3.11 + Unsloth env.
+  - Council activation #2 — the DIRECTIVE ask (reference-solution injection design)
+    is queued in instructions.txt for when you want to run the council again.
