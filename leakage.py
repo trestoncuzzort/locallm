@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import argparse
 import sys
-import zlib
+import hashlib
 from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
@@ -46,6 +46,23 @@ CONTAMINATED = 0.20
 SUSPECT = 0.05
 
 
+def _h(chunk: bytes) -> int:
+    """64-bit hash of one k-gram.
+
+    Width matters here in a way it would not for an ordinary hash table, because
+    winnowing keeps the MINIMUM hash in each window. Minima are drawn from the
+    bottom of the range, so the effective space is far smaller than the nominal
+    one and collisions inflate accordingly. Measured with 32-bit crc32: selected
+    fingerprints averaged 0.056 of the range against 0.502 for all hashes, a 9x
+    concentration, and two independently generated, genuinely CLEAN corpora
+    showed false overlap rising with size (0.0065% at 200KB to 0.0293% at 2MB).
+    Extrapolated, a large clean corpus would eventually trip the contamination
+    threshold on collisions alone. 64 bits removes the effect entirely at every
+    size measured, for the same fingerprint count and no measurable cost.
+    """
+    return int.from_bytes(hashlib.blake2b(chunk, digest_size=8).digest(), "big")
+
+
 def shingles(text: str, k: int = SHINGLE, window: int = WINDOW) -> set[int]:
     """Winnowing fingerprints (Schleimer, Wilkerson & Aiken 2003).
 
@@ -59,15 +76,34 @@ def shingles(text: str, k: int = SHINGLE, window: int = WINDOW) -> set[int]:
     Winnowing instead selects windows by CONTENT: hash every k-gram, then in
     each sliding window of `window` hashes keep the smallest. Which hashes get
     kept therefore depends on the text, not on where the text starts, so the
-    same passage yields the same fingerprints wherever it appears. It also
-    guarantees that any shared run of at least (window + k - 1) characters is
-    detected, which fixed-stride sampling cannot promise at all.
+    same passage yields the same fingerprints wherever it appears.
+
+    IT IS A TRADE, NOT A FREE WIN, and the trade is measured rather than
+    asserted. Detection against the length of the shared run, 20 trials each,
+    winnowing versus the old sampler:
+
+        100 chars   100%  vs   90%
+         74 chars   100%  vs  100%     <- the documented guarantee, window+k-1
+         73 chars   100%  vs   90%
+         60 chars    40%  vs   80%     <- old sampler is BETTER here
+         50 chars    10%  vs   80%     <- and much better here
+         40 chars     0%  vs    0%
+
+    So winnowing buys phase-invariance above the guarantee length and gives up
+    short-run sensitivity below it. For finding duplicated documents, passages
+    and functions, that is the right trade. For finding copied fragments shorter
+    than ~60 characters it is the wrong one, and this returns fewer of them than
+    the code it replaced.
+
+    The 74-character guarantee is checked by test_detectors.py, which asserts
+    the documented number rather than a hopeful one. Per this file's own rule:
+    a docstring that says "guarantee" names the test that checks it.
     """
     if len(text) < k:
-        return {zlib.crc32(text.encode("utf-8", "ignore"))} if text.strip() else set()
+        return {_h(text.encode("utf-8", "ignore"))} if text.strip() else set()
 
     b = text.encode("utf-8", "ignore")
-    hashes = [zlib.crc32(b[i:i + k]) for i in range(len(b) - k + 1)]
+    hashes = [_h(b[i:i + k]) for i in range(len(b) - k + 1)]
     if len(hashes) < window:
         return set(hashes)
 

@@ -40,6 +40,7 @@ A small, readable, from-scratch GPT and a GUI so you don't need a terminal to us
 | `studio.py` | The GUI. Build the architecture, train it, watch the loss curve, sample from it. |
 | `leakage.py` | Finds training text hiding in your validation set, and says so. |
 | `bench_device.py` | Times a real training step on your hardware and tells you what it can handle. |
+| `test_detectors.py` | Tests for the leakage detector. `python test_detectors.py`, no framework. |
 | `exp_lr_width.py` | A preregistered experiment harness (see below). |
 
 Dependencies: **PyTorch and Tk.** That's it. Tk ships with Python.
@@ -79,6 +80,13 @@ This one is built to stop you fooling yourself:
 - **Evaluation can't disturb training.** Eval batches come from a dedicated
   `torch.Generator`, never the global RNG, so every arm sees byte-identical batches.
 - **Multiple seeds, and ranges reported.** One run is an anecdote.
+- **The detector is itself tested, against a copy of its own old bug.**
+  `test_detectors.py` keeps the previous, broken fingerprinter in the file on purpose and
+  runs every test against both: the current one must pass and the broken one must fail. A
+  test that both pass is not testing anything. Test inputs are drawn randomly rather than
+  hand picked, because the original bug was a stride of 10 and every offset a person
+  reaches for by hand (0, 100, 500, 1000) is a multiple of 10 and passes on the broken
+  code.
 
 ### A worked result
 
