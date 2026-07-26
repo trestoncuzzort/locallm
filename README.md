@@ -58,49 +58,6 @@ Then in the GUI: **Scan** your corpus → set the architecture → **Train from 
 Checkpoints are plain `ckpt.pt` + `tokenizer.json` in your output folder. They're yours.
 `generate.py --out <folder>` reads them back.
 
-## Why a program like this is useful
-
-### Immunity to "Enshittification" and API Decay
-
-Every hosted AI service follows the same arc. It launches good and cheap, because it is
-buying users. Then the free tier shrinks. Then the model behind the endpoint is quietly
-swapped for a smaller one, and the thing you built and tuned against changes underneath
-you without a version bump. Then the API you depend on is deprecated, rate limited,
-moved behind a higher tier, or switched off. Your work was never yours. It was rented,
-and the landlord kept the keys.
-
-A model you trained yourself cannot be degraded by someone else's quarterly targets.
-The weights are a file on your disk. The tokenizer is a file on your disk. The training
-code is a few hundred readable lines you can open right now. Nothing phones home,
-nothing needs an account, nothing expires, and no terms of service update can reach
-backwards and take it away. Run it in ten years on a disconnected laptop and it behaves
-exactly as it does today, because every part of it is already in your hands.
-
-That is the whole point. Not that a small model trained on your own text will beat a
-frontier model. It will not, and this README says so plainly further down. The point is
-that it is *yours*, permanently, and that you can see and change every part of how it
-works.
-
-### The goal
-
-Make training your own language model something an ordinary person can actually do.
-
-Not "download someone else's weights and run them locally", which is already a solved
-problem with good tools. This is the other thing: start from random numbers, learn from
-text you chose, on hardware you own, and watch it happen. Understanding how the thing
-works should not require a research group, a cloud account, or a credit card.
-
-The direction of travel is a single installer, no terminal, no Python, no configuration
-files. Point it at a folder of your own writing and press train. See the
-[Roadmap](#roadmap) for where that stands.
-
-### Free for everyone
-
-This is free. Not free-tier, not free-for-now, not free-until-we-raise-a-round. There is
-no account, no telemetry, no usage limit, no paid version holding the good features, and
-nothing about it that stops working if this project goes quiet. It runs on hardware
-people already have, including without a GPU.
-
 ## What makes it different
 
 Most small-model repos show you a loss curve going down and let you feel good about it.
@@ -178,10 +135,17 @@ the GPU build as an opt in, and the Python runtime bundled so the user never see
 
 **2. Leakage scan and group aware splitting. DONE.**
 Shipped in `leakage.py`, and wired into the GUI and the training loop. Measured on this
-project's own corpus: the old positional split put 70.1% of validation text inside
-training. Splitting by document drops that to 0.0%. The effect on the numbers is the
+project's own corpus: the old positional split put 82.6% of validation content inside
+training. Splitting by document drops that to 1.5%. The effect on the numbers is the
 point: under the contaminated split, val loss came out *lower* than train loss, which is
 backwards. With a clean split there is an honest gap.
+
+Those two figures were first published as 70.1% and 0.0%, measured with a detector that
+was itself broken. It sampled fingerprints at a fixed stride, so it only compared two
+copies of a passage when both happened to start on the same stride phase: a document
+copied verbatim into training was caught at 1 byte offset out of 10. Fingerprints are now
+selected by content (winnowing), which is phase invariant, catches that case at 10 offsets
+out of 10, and is cheaper than the sampler it replaced.
 
 **3. Noise floor by default.**
 Multiple seeds on every comparison, mean plus or minus 3 sigma, with test retest variance
@@ -195,6 +159,49 @@ Further out: an assistant layer that can reason and act on your machine. That is
 track, built against whatever local model is strongest, because a small from-scratch model
 cannot do that job and pretending otherwise would be dishonest. If a model trained here
 ever becomes good enough, it earns its way in on measured results.
+
+## Why a program like this is useful
+
+### Immunity to "Enshittification" and API Decay
+
+Every hosted AI service follows the same arc. It launches good and cheap, because it is
+buying users. Then the free tier shrinks. Then the model behind the endpoint is quietly
+swapped for a smaller one, and the thing you built and tuned against changes underneath
+you without a version bump. Then the API you depend on is deprecated, rate limited,
+moved behind a higher tier, or switched off. Your work was never yours. It was rented,
+and the landlord kept the keys.
+
+A model you trained yourself cannot be degraded by someone else's quarterly targets.
+The weights are a file on your disk. The tokenizer is a file on your disk. The training
+code is a few hundred readable lines you can open right now. Nothing phones home,
+nothing needs an account, nothing expires, and no terms of service update can reach
+backwards and take it away. Run it in ten years on a disconnected laptop and it behaves
+exactly as it does today, because every part of it is already in your hands.
+
+That is the whole point. Not that a small model trained on your own text will beat a
+frontier model. It will not, and this README says so plainly further down. The point is
+that it is *yours*, permanently, and that you can see and change every part of how it
+works.
+
+### The goal
+
+Make training your own language model something an ordinary person can actually do.
+
+Not "download someone else's weights and run them locally", which is already a solved
+problem with good tools. This is the other thing: start from random numbers, learn from
+text you chose, on hardware you own, and watch it happen. Understanding how the thing
+works should not require a research group, a cloud account, or a credit card.
+
+The direction of travel is a single installer, no terminal, no Python, no configuration
+files. Point it at a folder of your own writing and press train. See the
+[Roadmap](#roadmap) for where that stands.
+
+### Free for everyone
+
+This is free. Not free-tier, not free-for-now, not free-until-we-raise-a-round. There is
+no account, no telemetry, no usage limit, no paid version holding the good features, and
+nothing about it that stops working if this project goes quiet. It runs on hardware
+people already have, including without a GPU.
 
 ## Why from scratch
 
