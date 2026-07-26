@@ -38,6 +38,7 @@ A small, readable, from-scratch GPT and a GUI so you don't need a terminal to us
 | `generate.py` | Sample from a model you trained. |
 | `make_corpus.py` | Point it at a folder; it builds `corpus.txt` from your files. |
 | `studio.py` | The GUI. Build the architecture, train it, watch the loss curve, sample from it. |
+| `leakage.py` | Finds training text hiding in your validation set, and says so. |
 | `exp_lr_width.py` | A preregistered experiment harness (see below). |
 
 Dependencies: **PyTorch and Tk.** That's it. Tk ships with Python.
@@ -62,6 +63,11 @@ Checkpoints are plain `ckpt.pt` + `tokenizer.json` in your output folder. They'r
 Most small-model repos show you a loss curve going down and let you feel good about it.
 This one is built to stop you fooling yourself:
 
+- **It refuses to hand you a fake number.** Before training, it checks whether your
+  validation text also appears in your training text. If it does, val loss is measuring
+  memorisation rather than generalisation, and the tool tells you so instead of letting
+  you believe the number. Splitting is by whole document, after de-duplication, so
+  repeated material cannot land on both sides.
 - **The learning rate follows your architecture.** A fixed `3e-4` is a GPT-2-scale constant
   (width 768–1600) and is badly wrong at the widths this trains. `auto_lr(n_embd)` scales
   with width, and the GUI retargets it when you change the model but never overwrites a
@@ -99,11 +105,12 @@ Read this part before you expect too much.
   and it is not close. That is compute and data scale, not a bug to engineer around.
 - **Character-level tokenizer.** Simple and dependency-free, but less efficient per token
   than BPE.
-- **`make_corpus.py` + `data.py` use a positional 90/10 train/val split.** If your corpus
-  contains duplicated or near-duplicated documents, validation text can also appear in
-  training, and val loss will look better than it deserves. **A group-aware split and a
-  leakage scan are the next thing being built.** Until then, prefer train loss when
-  comparing configurations, which is exactly why the experiment above uses it.
+- **A tiny corpus, or one dominated by a single huge document, cannot be split cleanly.**
+  Whole-document splitting cannot hit a 10% target when there are only three documents.
+  The scanner reports the validation fraction it actually achieved and warns you when the
+  document sizes, not your setting, are in charge.
+- **The leakage scan is string matching, not semantics.** It catches verbatim and
+  near-verbatim reuse, which is the common case. It will not catch a paraphrase.
 - No resume-from-checkpoint yet, no gradient accumulation, no multi-GPU.
 - Large architectures will run out of VRAM rather than warning you first.
 - **You currently need Python and a terminal to install and start it.** The GUI itself
@@ -121,10 +128,12 @@ roughly 2.5 GB, which no amount of packaging polish makes friendly. The plan is 
 capable default (a small character model trains perfectly well on CPU, just slower), with
 the GPU build as an opt in, and the Python runtime bundled so the user never sees it.
 
-**2. Leakage scan and group aware splitting.**
-Detect when validation text also appears in training, say so plainly, and refuse to report
-a val loss that has been contaminated. Split by document, never mid document, so
-duplicated material cannot straddle the split. *This is the current work.*
+**2. Leakage scan and group aware splitting. DONE.**
+Shipped in `leakage.py`, and wired into the GUI and the training loop. Measured on this
+project's own corpus: the old positional split put 70.1% of validation text inside
+training. Splitting by document drops that to 0.0%. The effect on the numbers is the
+point: under the contaminated split, val loss came out *lower* than train loss, which is
+backwards. With a clean split there is an honest gap.
 
 **3. Noise floor by default.**
 Multiple seeds on every comparison, mean plus or minus 3 sigma, with test retest variance
