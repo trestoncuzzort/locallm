@@ -96,54 +96,67 @@ OPERATING PROTOCOL
     Being asked to review something is not permission to run it.
 
 DIRECTIVE (executor -> council; set before each activation):
-  Read scope: THIS FILE (§17 = executor log) + CODE AT COMMIT ccbee91:
-       localllm/studio.py, localllm/model.py, localllm/train.py, localllm/data.py.
-       Read that commit, not my summary of it.
+  Read scope: THIS FILE (§25 = executor log) + CODE AT HEAD cda6827:
+       localllm/leakage.py, localllm/data.py, localllm/studio.py, train_native.py,
+       sync_public.py. Read that commit, not my summary of it.
 
-  ASK — THE PROGRAM HAS TWO TRACKS AND ONLY ONE PROPRIETOR. RANK THEM.
-    Track A (§14, ruled, unstarted): llama3:8b QLoRA DPO+NLL, N=918, prereg,
-      frozen ruler. Every blocking pre-step from §14 is still open — the
-      train_native.py:113 merge bug, the capped file, the smoke sheet, the null
-      re-export baseline. Zero gradient steps have ever been taken on this track.
-    Track B (new, commit ccbee91): from-scratch char-GPT, random init, now with a
-      GUI to build and train it. The proprietor's stated goal is AI-engineering
-      capability and a direct attack on "why does training take so long" — his
-      words: flip it on its head, nothing is impossible with mathematics.
-    Q1. Does Track A still execute as ruled, or is it PARKED? If parked, say so in
-        writing with the WHY and the WHERE — a deferral that lives only in
-        conversation does not exist, and this council has ruled on that before.
-    Q2. FOR THE PHD, and this is the live one: what single, citation-backed
-        modification to a ~0.4M-param char-GPT would most improve loss-per-FLOP
-        (or loss-per-wall-second) on one RTX 4080, falsifiable in under an hour,
-        with a success bar preregistered before the run? Track B trains a 0.41M
-        model to a real loss curve in 2 seconds — that is a laboratory, and I want
-        the first experiment in it to be a real one, not a vibe.
-    Q3. TRACK B HAS NO RULER, and that is your own §5 finding applied to new
-        ground. Its only signal is val loss on a 10% split of ONE corpus, and the
-        seed-to-seed noise floor has never been measured — so I currently cannot
-        tell an improvement from a reseed. What is the minimum honest instrument
-        before any Track-B result counts? I would rather build it now than
-        rediscover §5 the expensive way.
+  ASK — I SHIPPED THE LEAKAGE SCANNER. THREE THINGS I DO NOT TRUST ABOUT IT.
+    Context: §22 adopted, --merge deleted, Track A still parked. The scanner is
+    built, published (locallm 1092c7c), and its red witness is in §25:
+    positional split 70.1% shingle overlap -> grouped split 0.0%.
 
-  NON-CLAIMS (checked as carefully as claims — what I am NOT asserting):
-    - NOT claiming the smoke run's 2.2354 train loss means anything about quality.
-      200 steps, 0.41M params, output is gibberish; it proves the PATH, not merit.
-    - NOT claiming param_count() is correct for bias=False. Untested — the GUI
-      never sets it and GPTConfig defaults True. Live gap, stated on purpose.
-    - NOT claiming the GUI is robust. No VRAM guard: a large config OOMs rather
-      than warning. No resume-from-checkpoint, no gradient accumulation.
-    - NOT claiming Track B is novel or a research contribution. It is a teaching
-      rig that happens to be fast enough to run real experiments on.
-    - NOT claiming Track A is broken. It is untouched and unstarted, not defective.
+    Q1. MY THRESHOLDS ARE MADE UP. leakage.py calls >=20% shingle overlap
+        CONTAMINATED and >=5% SUSPECT. I picked both numbers by eye. They are
+        load-bearing: they decide whether the tool tells a user their val loss is
+        worthless. Is there a principled basis (a published dedup threshold, a
+        null distribution from shuffled text, anything), or should the tool stop
+        emitting a verdict and just report the fraction and let the user judge?
+        A confident wrong threshold is worse than no threshold.
+
+    Q2. TRACK B'S OWN CORPUS CANNOT BE SPLIT PROPERLY AND I AM NOT SURE IT
+        MATTERS YET. corpus.txt is 13 documents and one dominates. First-fit
+        packing gets 9.9% val, but that val is a handful of whole files, so its
+        loss is high-variance and unrepresentative by construction. Options I see:
+        (a) build a corpus of many small documents before any val-based claim,
+        (b) stay on train-loss endpoints and treat val as decorative for now,
+        (c) something I have not thought of. Which, and what is the actual bar
+        for "this corpus can support a val number"?
+
+    Q3. THE NOISE FLOOR IS NEXT AND IT IS THE SECOND APPEARANCE OF A CLASS.
+        §18 finding 4 called "no ruler" a class after it recurred on Track B, and
+        prescribed ONE shared utility both tracks call: dedicated eval Generator,
+        k>=5 seeds, mean +/- 3 sigma, test-retest sigma reported separately from
+        between-config sigma. I have the Generator (in exp_lr_width.py) and
+        nothing else. Before I build it: does it belong in the PUBLIC product
+        (it is arguably wedge W2 and the thing that differentiates this from
+        nanoGPT), or internal only? And what is the minimum that is honest, given
+        Track B runs in ~15s and Track A runs in hours, so "k>=5 seeds" costs
+        nothing on one track and is prohibitive on the other?
+
+  NON-CLAIMS (what I am NOT asserting):
+    - NOT claiming the corpus is clean. The scan covers the TRAIN/VAL SPLIT only.
+      Intra-train duplication is unmeasured, and §18's own leftover risks flagged
+      that as unchecked. It is still unchecked.
+    - NOT claiming the scan catches paraphrase. It is string matching. Verbatim
+      and near-verbatim reuse only.
+    - NOT claiming val loss is now meaningful on this corpus. See Q2. The 0.0%
+      result says the split is clean, NOT that the val set is representative.
+    - NOT claiming Track A works. It is parked, has never taken a gradient step,
+      and export_adapter.py + the tokenizer-identity check are not built.
+    - NOT claiming sync_public.py cannot leak. It is a whitelist plus a
+      word-boundary term scan; a new internal term nobody listed would pass.
 
   CLOSED-CLASS CLAIM + ITS RED WITNESS (the one thing I do assert):
-    Claim: studio.param_count() equals an instantiated GPT.num_params() exactly.
-    RED  (formula corrupted x1.03): 5/5 MISMATCH, exit=1 — e.g. 65/128/4L4H256D
-         real=3,176,192 est=3,271,477.
-    GREEN(clean): 5/5 exact, exit=0 — same config real=est=3,176,192.
-    Enumerated, and HAND-PICKED not generated, so it is not coverage: (65,128,4,4,256)
-    (100,256,6,8,256) (256,64,2,2,128) (97,512,8,8,512) (40,32,1,1,64). It would miss
-    bias=False and any shape outside those five.
+    Claim: validation text is no longer duplicated from training under the
+    default split.
+    RED   positional (the old default): shingles 3,141/4,478 in train = 70.1%,
+          lines 1,929/1,968 = 98.0% -> CONTAMINATED.
+    GREEN grouped (new default): shingles 2/5,355 = 0.0%, train 494,786 /
+          val 54,235 -> CLEAN.
+    Corroboration: the council measured 68.3%/98.2% by a different method; this
+    is 70.1%/98.0%, so §19's PENDING contamination claim is now settled.
+    Scope: measured on THIS corpus, by shingle/line/document matching. It would
+    miss paraphrase, and it says nothing about intra-train duplication.
 
 --------------------------------------------------------------------------------
 1. WHAT THIS IS
