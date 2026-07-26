@@ -30,7 +30,7 @@ import torch  # noqa: E402
 
 from model import GPT, GPTConfig  # noqa: E402
 from data import CharTokenizer, Corpus  # noqa: E402
-from train import cosine_lr, estimate_loss  # noqa: E402
+from train import auto_lr, cosine_lr, estimate_loss  # noqa: E402
 
 
 # --------------------------------------------------------------------------
@@ -299,13 +299,14 @@ class Studio(ttk.Frame):
         tr.grid(row=2, column=0, sticky="ew", pady=(0, 8))
         self.v_steps = tk.StringVar(value="2000")
         self.v_batch = tk.StringVar(value="32")
-        self.v_lr = tk.StringVar(value="3e-4")
+        self.v_lr = tk.StringVar(value=f"{auto_lr(256):.2g}")
+        self._auto_lr_shown = self.v_lr.get()  # so a user override is never clobbered
         self.v_eval = tk.StringVar(value="100")
         self.v_seed = tk.StringVar(value="1337")
         self.v_out = tk.StringVar(value="out_gui")
         f.add(tr, 0, "steps", self.v_steps)
         f.add(tr, 1, "batch size", self.v_batch)
-        f.add(tr, 2, "learn rate", self.v_lr, hint="cosine + warmup")
+        f.add(tr, 2, "learn rate", self.v_lr, hint="auto: scales with width")
         f.add(tr, 3, "eval every", self.v_eval, hint="steps")
         f.add(tr, 4, "seed", self.v_seed)
         f.add(tr, 5, "save to", self.v_out, width=16)
@@ -415,6 +416,12 @@ class Studio(ttk.Frame):
             n = param_count(max(self.vocab, 1), block, n_layer, n_head, n_embd)
             self.l_params.config(text=f"≈ {n / 1e6:.2f}M parameters  "
                                       f"({n:,} weights, yours)", foreground="#2d7d46")
+            # Track the width: 3e-4 is a GPT-2-scale constant and is wrong here.
+            # Only retarget the LR if the user has not typed their own value.
+            if getattr(self, "_auto_lr_shown", None) == self.v_lr.get():
+                new = f"{auto_lr(n_embd):.2g}"
+                self.v_lr.set(new)
+                self._auto_lr_shown = new
         except (ValueError, ZeroDivisionError):
             self.l_params.config(text="…", foreground="#888")
 

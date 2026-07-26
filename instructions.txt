@@ -1151,3 +1151,413 @@ fools himself fastest. Track A earned its discipline from §5's "you have no rul
 Track B has no ruler either — one corpus, one 10% val split, unmeasured seed
 variance. I am asking for the instrument BEFORE I start reporting numbers, and for
 the PhD's first real experiment. See the DIRECTIVE at the top of this file.
+
+--------------------------------------------------------------------------------
+18. COUNCIL RESPONSE  (2026-07-26 ~06:50 — activation #7; scope: THIS FILE +
+    CODE AT COMMIT ccbee91 (localllm/{studio,model,train,data}.py), plus
+    orchestrator- and Asshole-initiated reads of train_native.py, config.py,
+    data/dpo_pairs.jsonl, localllm/make_corpus.py, and installed TRL 0.12.2 /
+    PEFT 0.14.0 source, all logged below under EVIDENCE READ)
+--------------------------------------------------------------------------------
+Roster this pass: Contrarian, First Principles, Expansionist, Outsider,
+Pragmatist (haiku, no tools, brief-only) — audited by The Asshole (opus, full
+repo + web) — closed by The PhD (opus, full repo + web), whose citations were
+then spot-checked by a second Asshole pass. Full six-plus-orchestrator record in
+council\council-transcript-2026-07-26_0650.md.
+
+RANKED CRITIQUE (most decisive first)
+
+1. (THE PHD, leads — Q2 answered, and it reframes the whole round) THE SINGLE
+   HIGHEST-LEVERAGE CHANGE ON TRACK B IS NOT ARCHITECTURE, IT'S LEARNING RATE
+   VS WIDTH. train.py:57 hardcodes lr=3e-4, a constant tuned for GPT-2-scale
+   width (768-1600). This rig runs width 128-256. Under standard
+   parameterization the optimum LR moves DOWN roughly an order of magnitude as
+   width goes 256->8192 (Yang et al. 2022, "Tensor Programs V" / muP,
+   arXiv:2203.03466 — claim VERIFIED at the byte, in §3/Fig.3, not Fig.1 as
+   first mis-cited and corrected on spot-check). The PhD reproduced this
+   directly on the project's own RTX 4080: at width 128 the optimum is
+   lr~2e-2, not 3e-4; at the current default, 3e-4 needs ~5x more optimizer
+   steps to match what the tuned LR reaches in 2000 (measured: 16,000 steps to
+   match what lr=2e-2 reaches at 2000). No architecture change on the table
+   (RoPE/RMSNorm/SwiGLU/ALiBi) is within an order of magnitude of that. This
+   is falsifiable in under 2 minutes wall-clock (5 seeds/arm, ~90s total) and,
+   critically, its primary endpoint is TRAIN loss — which sidesteps finding 2
+   below entirely, so it is the one experiment safe to run before anything
+   else on Track B is fixed. PREREGISTERED BAR (PhD): treatment beats control
+   by >=0.020 mean train loss (>3x the measured SE of the difference, 0.0060)
+   with zero overlap across 5-seed ranges. Durable fix: adopt muP's
+   width-scaling (LR ~ 1/width) rather than hand-tuning a new constant that
+   will be wrong again the next time a user drags the width slider.
+   CORRECTIONS TO THIS ROUND'S OWN ARITHMETIC, folded in: the Asshole's MFU
+   figure (8.5%) used the wrong "GUI default" config (4L4H128D, 805,760
+   params); the real default (studio.py:282-285) is 4L4H256D = 3,184,384
+   params, measured MFU ~24.6%, not 8.5% — still launch/memory-bound at the
+   bottom of the range but far less severe than first reported. Batch 32->128
+   buys 67% MFU for near-free (cheaper than any architecture change).
+   torch.compile is NOT available as a fallback throughput fix — confirmed by
+   direct attempt: Triton has no working Windows install in .venv-train.
+   Second PhD correction, tempering (not reversing) finding 3: the DPOP/Pal
+   citation's low-edit-distance failure mode applies to ~13% of Track A's
+   1,234 pairs by measured chosen/rejected similarity (median 0.378, only
+   13.2% exceed 0.8), not the corpus generally — rpo_alpha=1.0 is still cheap
+   and worth keeping for that tail, but the original urgency framing
+   overstated its scope.
+
+2. (THE ASSHOLE'S CORRECTIONS — finding of the round) TRACK B'S VALIDATION
+   SET IS 68.3% VERBATIM-DUPLICATED FROM ITS OWN TRAINING SET. No advisor
+   opened localllm/make_corpus.py; it appends the `chosen` field of all 1,234
+   rows of data/dpo_pairs.jsonl (Track A's own training data) onto the
+   project's .py source, then data.py's FIXED 90/10 tail split (not random,
+   not grouped) puts 0% source / 100% dpo-solutions in val. Measured: 95/139
+   held-out solutions (68.3%) are byte-identical to a train solution; 98.2%
+   of held-out LINES appear verbatim in train. Current val loss (~0.30) is
+   substantially memorization read-back, not generalization (Lee et al. 2021,
+   arXiv:2107.06499, cited for the general harm: contamination biases
+   hyperparameter/architecture search toward the memorizing config — VERIFIED
+   by spot-check consensus, not independently re-fetched this pass). NO
+   architecture or hyperparameter comparison that relies on val loss is valid
+   until this is fixed: dedup + split by task id (a natural group key already
+   in dpo_pairs.jsonl), not by character position. Finding 1's LR experiment
+   is the sole exception (train-loss-only endpoint).
+
+3. (THE ASSHOLE — Q1 answered) TRACK A IS PARKED, and the reason is stronger
+   than "blockers pending": the code does not implement the approved recipe
+   at all. train_native.py (git log: one commit, 9aeef51, ~18:49 — written
+   essentially concurrently with the §14 ruling it was supposed to follow,
+   never touched since, confirmed identical to HEAD) runs vanilla DPO, not
+   the mandated DPO+NLL: `git grep rpo_alpha` returns zero hits, and reading
+   TRL 0.12.2's own dpo_trainer.py confirms the NLL branch never executes
+   when rpo_alpha is unset (the default). Of "THE RECIPE"'s ~9 parameters,
+   ONE matches (target_modules, all 7 proj targets, confirmed in config.py),
+   ONE partially matches (warmup fraction, not schedule shape — linear not
+   cosine, no lr_scheduler_type set), and SEVEN are wrong, missing, or
+   cosmetic: rpo_alpha absent (method-level), lr default 8e-6 not 5e-6 (the
+   exact "vibes" number §14 corrected), LoRA alpha=16/dropout=0.0 not
+   32/0.05, max_length=2048/1024 not 1024/512 (config.py's max_seq=2048
+   default), optim="paged_adamw_8bit" (Asshole's own correction: this is
+   COSMETIC not substantive — bitsandbytes' docs confirm paging is a no-op
+   when it never fires, so demote this one item off the deviation list). Plus
+   the two structural blockers already known: the merge bug at :113 (still
+   present) and the N=918 stratified cap (still unenforced — dpo_pairs.jsonl
+   is 1,234 lines, loaded whole, only a raw first-N --limit exists). Six of
+   the eight real deviations are single keyword arguments (~20 min); the
+   merge fix and the stratified-cap builder are the actual work (Asshole's
+   honest estimate: half a day). Zero training artifacts exist (no adapter
+   dir, no run_meta.json, empty smoke log) despite the base model being fully
+   downloaded and ready — "zero gradient steps" is confirmed by absence of
+   output, not just by the executor's own assertion. ADOPT-DON'T-BUILD (new
+   this pass, upgrades §14's own mandate): skip the bf16-reload-merge
+   entirely. llama.cpp's convert_lora_to_gguf.py + Ollama's Modelfile
+   ADAPTER directive apply the LoRA at runtime against the untouched base
+   GGUF — no dequantize/add/requantize round-trip, no second 16GB load, and
+   the null baseline becomes trivially "the same code path, no adapter,"
+   which is more rigorous than what §14 asked for and cheaper to guarantee.
+   §14's own citation for the merge bug (PEFT #2321) was itself weak — an
+   unanswered user question, not a maintainer confirmation; stronger
+   citations substituted: transformers#31293, PEFT#2105, and Kaitchup's
+   "Don't Merge Your LoRA Adapter Into a 4-bit LLM."
+
+4. (THE ASSHOLE — close the class) THIS IS THE SECOND TIME "NO RULER" HAS
+   APPEARED ON THIS PROJECT. §5 ruled it for Track A in round 1; it has now
+   recurred, independently, on Track B. Per this project's own stop-the-tar-
+   pit rule (§ channel OPERATING PROTOCOL: "second time the same shape of
+   finding appears, stop folding instance-by-instance and fix the class"):
+   build ONE shared noise-floor/eval utility both tracks call — a dedicated
+   torch.Generator for deterministic eval batches (NOT global
+   torch.manual_seed; see finding 6), k>=5 seed replication, and a reported
+   mean +/- 3-sigma with TEST-RETEST sigma separated from BETWEEN-CONFIG
+   sigma. The magnitudes are suspicious-close: Track A's ruler cross-run std
+   was 0.009 (§5, 3 runs); Track B's measured run-to-run std is 0.0093 (6
+   seeds) with true between-seed effect ~0.0051 after subtracting eval noise
+   in quadrature — i.e. ~70% of Track B's apparent run-to-run spread is
+   measurement noise, not real variability. Same failure mode, same fix,
+   build it once.
+
+5. (STYLE ADVISORS, folded — corrected, not taken at face value) The
+   Pragmatist's proposed "one-line fix" (torch.manual_seed(k) inside
+   estimate_loss()) is an ACTIVE BUG, not a fix — the Asshole ran it:
+   Corpus.get_batch() draws from the same global RNG as training, so seeding
+   inside eval collapses TRAINING to 3 repeating batches forever. Use a
+   dedicated Generator (finding 4). The Expansionist's proposals contained
+   real arithmetic errors caught by direct measurement (real throughput
+   ~194 experiments/GPU-hour, not "~1,800"; 50 variants = 15.4 min, not
+   "under a minute") and two mechanically impossible cross-track transfer
+   ideas (seed-variance-as-Track-A-proxy; reward-signal rehearsal on the
+   char-GPT) given zero shared code, tokenizer, or objective between the two
+   stacks (verified: localllm/*.py imports only torch/model/data/train;
+   train_native.py imports trl/peft/transformers/datasets — no overlap) —
+   struck. The First Principles reframe ("wrong question; run B first for
+   instrumentation maturity") inflated Track A's blocker list from the
+   ruling's 2 items to 5 and rested on an unfalsifiable psychological claim
+   ("he'll execute it as theater") — the Asshole calls this a dodge, and the
+   chairman agrees the psychology is unevidenced. But a NARROW version
+   survives on its own technical merits, independent of psychology: finding
+   4's shared noise-floor utility IS a small, legitimate piece of "Track B
+   work" that Track A also needs and doesn't have either — that is the one
+   piece of sequencing worth doing before either track's next real run, not
+   a wholesale reordering. The Outsider's "Track B is consuming the GPU
+   while Track A waits" is factually wrong — no resource contention exists
+   (Track B measured at ~18.5s/full run) — but the deeper claim (friction-
+   avoidance: preregistration is supposed to create friction, and it's
+   working as designed) is separately supported by finding 3's artifact-
+   absence evidence, so keep the observation, drop the resource-contention
+   mechanism.
+
+6. (ORCHESTRATOR, EXECUTED, confirmed independently by the Asshole) The
+   executor's own non-claim — "NOT claiming param_count() is correct for
+   bias=False... untested" — is upgraded to CONFIRMED CORRECT: 3
+   architectures x {bias=True, bias=False} = 6/6 exact match against
+   instantiated GPT.num_params(), run twice independently (orchestrator, then
+   Asshole). The formula is right because studio.py's LayerNorm term is
+   correctly left ungated by the bias flag, mirroring model.py's actual
+   nn.LayerNorm behavior. Still unreachable from the GUI today — no control
+   exposes bias=False — so this closes a correctness question without
+   changing what a user can currently do.
+
+EVIDENCE READ (files/sections actually opened this pass, not summarized):
+  - instructions.txt: DIRECTIVE + full section history (§1-§17).
+  - localllm/{model,train,data,studio}.py at commit ccbee91 (orchestrator
+    diff-confirmed identical to HEAD bf02c03).
+  - train_native.py at HEAD (orchestrator + Asshole; git-log-confirmed
+    unchanged since commit 9aeef51) — read in full, lines 36/63-116/122 cited.
+  - config.py (target_modules/_ATTN_MLP, max_seq default) — orchestrator +
+    Asshole grep-confirmed.
+  - data/dpo_pairs.jsonl — line count (1,234) confirmed twice independently.
+  - localllm/make_corpus.py — Asshole, read to find the contamination source.
+  - Installed TRL 0.12.2 source (dpo_trainer.py rpo_alpha branch) and PEFT
+    0.14.0 source (bnb.py merge/dequant path) — Asshole, read directly in the
+    project's own .venv-train install, not from memory of the library.
+  - council §5 (instructions.txt:599, ruler cross-run std) and §14 (THE
+    RECIPE, merge-bug ruling) — re-read for the noise-floor and recipe
+    comparison.
+  - 7 external sources (6 arXiv papers + 1 GitHub config file) fetched by The
+    PhD and independently re-fetched/spot-checked by The Asshole; see citation
+    table in the transcript.
+
+FINDINGS LABELLED EXECUTED vs READ-ONLY:
+  EXECUTED — param_count() bias=False (orchestrator + Asshole, 2 independent
+    runs); eval test-retest noise (10 evals, identical checkpoint, sd=0.0078,
+    Asshole); run-to-run noise (6 seeds, sd=0.0093, Asshole, PhD
+    independently reproduced sd=0.0095); contamination measurement
+    (68.3%/98.2%, Asshole); torch.manual_seed bug reproduction (3-batch
+    collapse, Asshole); throughput/MFU measurement (Asshole's first pass,
+    corrected and re-measured by PhD: real default 3.18M params, ~24.6% MFU);
+    muP LR-vs-width reproduction (PhD, 4 widths x 6 LRs); LR-tuning compute-
+    equivalence experiment (PhD, 3 configs, ~5x); torch.compile failure
+    (PhD, direct attempt, Triton absent on Windows); DPO-pair similarity
+    distribution (PhD, difflib over all 1,234 pairs); all 7 citations
+    spot-checked by direct fetch (Asshole's second pass).
+  READ-ONLY — all code reads listed under EVIDENCE READ; git log/diff
+    identity checks; council history re-reads.
+
+LEFTOVER RISKS (unresolved even if every fix above lands):
+  - The muP-informed LR fix is validated in ad hoc scripts, not wired into
+    train.py/studio.py's actual defaults or exposed as a documented
+    recommendation in the GUI — a user dragging the width slider still hits
+    the wrong default LR until someone changes the shipped constant or adds
+    width-scaling.
+  - The shared noise-floor utility (finding 4) is a recommendation, not code
+    — until built, Track A's own "no ruler" fix from §5 is still thin (3
+    ruler runs) by its own admission, and Track B has none at all.
+  - The corpus-contamination fix (dedup + task-grouped split) has not been
+    executed — true post-fix val-loss numbers are unknown. Separately
+    unchecked: whether near-duplicate pairs sitting entirely WITHIN train
+    (not just the train/val leak) also bias what "improvement" means — no
+    one measured intra-train duplication this round.
+  - Track A's "half a day" fix estimate (Asshole) is itself an estimate, not
+    a timed execution — the six keyword-arg changes and two structural fixes
+    have not actually been made.
+  - Whether the ~13% DPOP-risk tail (median pair similarity 0.378, 13.2%
+    >0.8) is spread across all 13 tasks or concentrated in one or two was not
+    checked — that would change how localized the rpo_alpha justification is.
+  - PhD's LR/width table used 2 layers only; whether the same scaling law
+    holds at 4 or 6 layers on this specific corpus is assumed from muP's
+    general theory, not independently re-measured at each depth here.
+  - No one this round re-verified whether Ollama's ADAPTER-directive path
+    (proposed to replace the merge entirely) actually round-trips a QLoRA
+    adapter trained via TRL/PEFT without its own quality loss — it was
+    proposed as prior art, not tested on this project's own adapter.
+
+THE QUESTIONS THEMSELVES: Q1's binary ("parked or not") was answerable, but
+the DIRECTIVE never asked the one question that would have resolved it
+fastest: "does the current code implement the recipe you already ruled on?"
+— that single check (reading train_native.py against §14's own numbers) did
+more work than the framing question. More importantly, the DIRECTIVE's read
+scope named model.py/train.py/data.py/studio.py but never make_corpus.py —
+and make_corpus.py is where this round's single biggest finding (68.3% val
+contamination) was sitting. A DIRECTIVE asking the council to bless a new
+data/training track should always name the files that CONSTRUCT the training
+data, not just the model/loop/GUI files — data provenance is where the real
+risk lives, and it is exactly what someone closest to the code is least
+likely to think to name, because they already know how the corpus was built.
+
+ONE RECOMMENDED NEXT PROMPT (proprietor -> executor):
+  "Track A: PARKED, not abandoned — write the deferral (this response is the
+   record). Same-day fix, in order: (1) rpo_alpha=1.0, lr=5e-6,
+   lr_scheduler_type='cosine', optim='adamw_bnb_8bit', lora_alpha=32,
+   lora_dropout=0.05, max_length=1024, max_prompt_length=512 — eight keyword
+   edits, ~20 min. (2) Build the N=918 stratified/capped training file
+   (pandas groupby('tid').sample(n=120, random_state=SEED)), sha256 it. (3)
+   Drop the bf16-reload-merge; adopt llama.cpp's convert_lora_to_gguf.py +
+   Ollama ADAPTER directive instead — verify it round-trips a real adapter
+   before trusting it for the null baseline. Then resume §14's frozen
+   sequence (smoke sheet -> null baseline -> sign prereg -> train -> export
+   -> ruler x2).
+   Track B, in order: (1) FIRST, and safe to run today regardless of
+   everything else: The PhD's muP LR experiment (5 seeds/arm, lr=3e-4
+   control vs width-appropriate treatment, train-loss endpoint only, bar
+   >=0.020 gap / zero range overlap) — this is the first real experiment in
+   the lab. (2) Fix make_corpus.py / data.py: dedup, then split by task id
+   (GroupShuffleSplit on dpo_pairs.jsonl's tid), not by character position —
+   nothing that relies on val loss is trustworthy until this lands. (3)
+   Replace torch.manual_seed(k) inside estimate_loss with a dedicated
+   torch.Generator threaded through get_batch for eval only — do NOT reuse
+   the global RNG. (4) Build the shared noise-floor utility (mean +/- 3-sigma,
+   k>=5 seeds, test-retest sigma reported separately) once, call it from both
+   tracks' eval paths.
+   Report back with numbers, not status — the next activation reads code and
+   log output, not this prompt's restatement."
+
+LEFTOVER FROM PRIOR ROUNDS, still open, unaffected by this pass: Ruler v1
+partially burned (builder-as-dev-set) — sealed v2 + probe set + mutation-
+adequacy queued for round 2, unchanged.
+
+(Council standing by for next DIRECTIVE. Watcher armed on the DIRECTIVE
+ block — task bkk3n3jtj, 45s poll, hashes DIRECTIVE-to-next-dashes span.)
+
+--------------------------------------------------------------------------------
+19. EXECUTOR LOG  (2026-07-26 — activation #7 folded; numbers, not status)
+--------------------------------------------------------------------------------
+PROTOCOL CHANGE, PROPRIETOR RULING (2026-07-26): standing byte-verification is OFF.
+I no longer re-read files or canon to re-confirm a claim; it cost more time than it
+returned. CONSEQUENCE, STATED PLAINLY SO THE RECORD IS HONEST: finding 2's
+contamination numbers (68.3% / 98.2%) are the council's measurement and are
+PENDING on my side — I did not reproduce them. Findings I had already confirmed
+before the ruling: make_corpus.py:19-25 does append every `chosen` from
+dpo_pairs.jsonl, and data.py:47-48 does split by character position with no
+shuffle and no grouping. So the MECHANISM of finding 2 is confirmed; only the
+magnitude is unreproduced.
+
+TRACK B, FINDING 1 — RUN, AND IT PASSES. This is the lab's first real experiment.
+  Preregistered BEFORE running: localllm/prereg_lr_width.json (bar, selection rule,
+  and the interpretation of a null all fixed in advance). Harness:
+  localllm/exp_lr_width.py. Endpoint is TRAIN loss on purpose — val is contaminated
+  per finding 2, so a val endpoint would be worthless. Eval batches come from a
+  dedicated torch.Generator(12345), never the global RNG, so all arms see identical
+  batches — that is finding 3's fix, applied here first.
+  Config: 4L 4H 256D, block 128, batch 32, 2000 steps, corpus.txt, dropout 0.
+  STAGE 1 sweep (seed 0), selection rule = lowest final train loss:
+    lr 3.0e-04 -> 0.2618     lr 1.0e-03 -> 0.1615     lr 3.0e-03 -> 0.1577
+    lr 6.0e-03 -> 0.1734     lr 1.0e-02 -> 0.2038     lr 2.0e-02 -> 0.2444
+    lr 4.0e-02 -> 0.8958
+  STAGE 2 confirm, 5 seeds/arm:
+    control   lr 3.0e-04  mean 0.2601  range [0.2561, 0.2647]
+    treatment lr 3.0e-03  mean 0.1545  range [0.1538, 0.1553]
+    gap = +0.1056 (bar 0.020, so 5.3x)   ranges overlap = False
+    PREREGISTERED VERDICT: PASS
+  WHERE THE PHD WAS RIGHT AND WHERE HE WAS NOT — both matter:
+    RIGHT, decisively: the shipped lr=3e-4 is badly wrong for this rig's width, and
+      no architecture change was ever going to be worth 0.1056 train loss.
+    WRONG, on this rig: his optimum of ~2e-2 (measured at width 128) does NOT
+      transfer. At width 256/4L on this corpus, 2e-2 scores 0.2444 — barely better
+      than the control it was meant to demolish, and 55% worse than the real
+      optimum of 3e-3. muP's own 1/width scaling from his anchor predicts 1e-2 at
+      this width; 1e-2 measured 0.2038, still 32% worse than 3e-3.
+    THE LESSON I AM TAKING: adopt the SWEEP, not the constant. A borrowed optimum is
+      another hardcoded 3e-4 waiting to be wrong at the next width.
+  WIRED IN (closes the council's own leftover risk #1, which noted the fix existed
+  only in ad hoc scripts): train.py now has auto_lr(n_embd) = 3e-3 * 256/n_embd and
+  --lr defaults to it; studio.py's LR field tracks the width slider and is left
+  alone the moment the user types their own value (verified: width 512 -> 0.0015;
+  after typing 9e-9, width->128 keeps 9e-9). The docstring says out loud that this
+  is ANCHORED AT ONE MEASURED WIDTH and that other widths are extrapolation.
+
+TRACK A — PARKED, and the deferral is written here as required (§ mud-guide: a
+parked thing is still open; WHY + WHERE or it does not exist).
+  WHY: it cannot run correctly today. Finding 3 is confirmed — the code did not
+  implement the recipe §14 approved.
+  WHERE: train_native.py; this section; §14 holds the recipe; §15 the sequence.
+  FIXED THIS SESSION (8 keyword deviations, all verified to construct under the
+  project's own pinned TRL 0.12.2 / PEFT 0.14.0 — a mandated keyword the library
+  rejects would have failed hours into a run):
+    rpo_alpha 1.0 (was ABSENT — method-level: DPO not DPO+NLL) | lr 8e-6 -> 5e-6 |
+    lr_scheduler_type cosine (was TRL default linear) | optim paged_adamw_8bit ->
+    adamw_bnb_8bit (resolves to ADAMW_BNB, non-paged, confirmed) | lora_alpha
+    16 -> 32 | lora_dropout 0.0 -> 0.05 | max_length 2048 -> 1024 |
+    max_prompt_length 1024 -> 512. run_meta.json now records all of them.
+  N=918 CAP — BUILT AND ENFORCED AT SOURCE (was specified in §12, enforced nowhere):
+    +build_training_set.py, stratified, fixed seed 1337, deterministic across runs.
+    N = 918 exactly, matching §14's corrected arithmetic; `balanced` lands at 43,
+    which is the very under-cap task §14 used to correct 919 -> 918.
+    top-task share 19.4% -> 13.1%.
+    sha256 = 0bb9a6596c7089f4ba344ee451e5b35ec361dd8855c5951a062d821e8acf77eb
+    train_native.py now trains from the capped file BY DEFAULT and refuses to run
+    if it is missing; --raw-pairs is the explicit, loudly-warned escape hatch.
+  CORRECTION TO THE COUNCIL'S OWN PRESCRIPTION: §18 recommended
+  `groupby('tid').sample(...)`. There is no top-level `tid` column —
+  dpo_pairs.jsonl's keys are {chosen, meta, prompt, rejected} and the task id lives
+  at meta.tid (13 tasks). Written as prescribed it would have raised KeyError.
+  Lifted explicitly in build_training_set.py.
+  STILL OPEN on Track A: the merge path. Council proposes dropping the
+  bf16-reload-merge for llama.cpp convert_lora_to_gguf.py + Ollama's ADAPTER
+  directive — but their own LEFTOVER RISKS admit nobody tested that it round-trips
+  a TRL/PEFT QLoRA adapter. I am not swapping the export path on untested prior art
+  right before it becomes the null-baseline guarantee. The :113 merge bug is
+  therefore UNFIXED and Track A stays parked. That is the next decision, not a
+  thing I will quietly pick.
+
+NOT DONE, named so it is not mistaken for done: contamination fix (dedup +
+task-grouped split in make_corpus.py/data.py) — nothing that rests on val loss is
+trustworthy until it lands; the shared noise-floor utility both tracks need
+(finding 4, the second appearance of "no ruler" — the class, not the instance);
+smoke sheet; null re-export; signed prereg for run 1. No training has been run on
+Track A. Zero gradient steps, still.
+
+--------------------------------------------------------------------------------
+20. COUNCIL ROSTER AMENDMENT  (2026-07-26 — proprietor mandate, logged so it
+    doesn't live only in conversation)
+    [renumbered 19 -> 20 by the executor: written concurrently with §19 above,
+     both landed as "19". Heading only; not a word of the content was touched.]
+--------------------------------------------------------------------------------
+THE ASSHOLE (member #6, added 2026-07-25, retired as a SEAT 2026-07-26) IS
+REMOVED FROM THE ROSTER. Proprietor's reason: token cost was high relative to
+the marginal advice over what the PhD and chairman already cover.
+
+CORRECTION, same day: the proprietor clarified this is a merge, not a
+deletion of the function. His RESPONSIBILITIES move onto The PhD's closing
+pass — auditing the five style advisors for arithmetic/logic/statistics
+mistakes, resolving contradictions at the source, flagging infeasible or
+stale steps, and noting prior art / adopt-don't-build — reported under a
+"CORRECTIONS TO THE ROUND" heading in his response. His ATTRIBUTES (the
+blunt, zero-patience persona) do NOT transfer; the PhD does this work in his
+own measured, citation-driven voice. One seat, two jobs, not two seats' worth
+of tokens. Encoded in C:\Users\t\.claude\skills\llm-council\SKILL.md: the
+"Who is allowed heavy research" line now names only The PhD and the
+executor; former steps 2b (Asshole audit) and 2e (citation spot-check) are
+folded into step 2c (the PhD's closing pass, now doing both jobs); the
+chairman's required "THE ASSHOLE'S CORRECTIONS" heading is replaced by
+reading the PhD's "CORRECTIONS TO THE ROUND" section.
+
+ROSTER NOW (binding): CONTRARIAN, FIRST PRINCIPLES, EXPANSIONIST, OUTSIDER,
+PRAGMATIST (style advisors, sealed, brief-only) + THE PHD (research lens +
+inherited audit duty, closes the round, self-verified citations) + the
+chairman (synthesis). §15's roster description is superseded by this entry
+where it names The Asshole as a separate seat.
+
+FOR THE RECORD, activation #7 (§18) is the one round The Asshole actually ran
+in — his pass found the round's two largest findings (train_native.py runs a
+different, already-rejected experiment rather than the approved recipe; Track
+B's val set is 68.3% duplicated from train) and caught two errors in The
+PhD's own citation notes on spot-check. Those findings stand on their own
+evidence regardless of who found them; removing the role going forward is a
+cost decision, not a retraction of §18.
+
+ADDENDUM, same day: the five style advisors (Contrarian, First Principles,
+Expansionist, Outsider, Pragmatist) now write their responses addressed TO
+the PhD rather than as free-standing narrative — one-line thesis, evidence
+as short bullets tied to specific facts/file:line, `[VERIFY]` markers on
+anything asserted without certainty (the PhD's queue, now that he also does
+the audit pass), then a direct answer to their assigned question(s). Same
+angle per seat, same 150-300 word cap — a formatting discipline so the PhD
+(reading all five before he writes anything) can parse and act on them
+faster, not a tone change. Encoded in SKILL.md's flow step 2.
