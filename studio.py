@@ -29,7 +29,9 @@ if str(HERE) not in sys.path:
 import torch  # noqa: E402
 
 from model import GPT, GPTConfig  # noqa: E402
-from data import CharTokenizer, Corpus  # noqa: E402
+from data import (CharTokenizer, Corpus, documents, group_split,  # noqa: E402
+                  split_health)
+from leakage import scan as leakage_scan  # noqa: E402
 from train import auto_lr, cosine_lr, estimate_loss  # noqa: E402
 
 
@@ -140,7 +142,7 @@ class LossPlot(tk.Canvas):
         self.create_text(x1 - 4, y0 + 2, anchor="ne", fill=self.TRAIN,
                          font=("Consolas", 9), text="train")
         self.create_text(x1 - 4, y0 + 16, anchor="ne", fill=self.VAL,
-                         font=("Consolas", 9), text="val")
+                         font=("Consolas", 9), text=getattr(self, "val_label", "val"))
 
 
 class TrainWorker(threading.Thread):
@@ -170,6 +172,24 @@ class TrainWorker(threading.Thread):
         tok = CharTokenizer.from_text(text)
         corpus = Corpus(text, tok, device)
         self.log(f"corpus: {len(text):,} chars | vocab {tok.vocab_size} | device {device}")
+
+        # Before reporting a single val number, find out whether it means
+        # anything. Validation text that also appears in training measures
+        # memorisation, not generalisation.
+        tr_txt, va_txt = group_split(text)
+        rep = leakage_scan(tr_txt, va_txt)
+        health = split_health(text)
+        self.val_ok = rep.trustworthy and health["ok"]
+        self.log(f"leakage scan: {rep.summary()}")
+        if not rep.trustworthy:
+            self.log("  !! val loss below is NOT a measure of generalisation. "
+                     "Judge this run on TRAIN loss.")
+        elif not health["ok"]:
+            self.log(f"  !! asked for a 10% val split, got "
+                     f"{health['achieved_val_frac']:.1%} (only {health['documents']} "
+                     f"documents, largest is {health['largest_doc_frac']:.0%} of the "
+                     f"corpus). Val loss is thin. Prefer TRAIN loss.")
+        self.q.put(("valtrust", self.val_ok))
 
         if len(corpus.train) <= c["block_size"]:
             raise ValueError(
@@ -393,13 +413,26 @@ class Studio(ttk.Frame):
             return
         text = p.read_text(encoding="utf-8", errors="ignore")
         self.vocab = len(set(text))
+        try:
+            tr_txt, va_txt = group_split(text)
+            rep = leakage_scan(tr_txt, va_txt)
+            health = split_health(text)
+            colour = {"CLEAN": "#2d7d46", "SUSPECT": "#b8860b",
+                      "CONTAMINATED": "#c0392b"}[rep.verdict]
+            note = rep.verdict
+            if rep.trustworthy and not health["ok"]:
+                colour, note = "#b8860b", f"thin val ({health['achieved_val_frac']:.0%})"
+        except Exception:                       # never let the scan block training
+            colour, note, rep = "#2d7d46", "unscanned", None
         self.l_corpus.config(
             text=f"{len(text):,} chars · vocab {self.vocab} · "
-                 f"~{int(len(text) * 0.9):,} train tokens",
-            foreground="#2d7d46")
+                 f"{len(documents(text)):,} docs · leakage: {note}",
+            foreground=colour)
         self._update_params()
         if not quiet:
             self._write(f"scanned {p.name}: {len(text):,} chars, vocab {self.vocab}")
+            if rep is not None:
+                self._write(rep.report())
 
     def _ints(self):
         return (int(self.v_layer.get()), int(self.v_head.get()),
@@ -500,12 +533,18 @@ class Studio(ttk.Frame):
                 kind, payload = self.q.get_nowait()
                 if kind == "log":
                     self._write(payload)
+                elif kind == "valtrust":
+                    self.val_ok = payload
+                    self.plot.val_label = "val" if payload else "val (untrusted)"
                 elif kind == "metrics":
                     m = payload
                     self.plot.add(m["step"], m["train"], m["val"])
+                    vtag = "val" if getattr(self, "val_ok", True) else "val*"
                     self._set_status(
-                        f"step {m['step']} · train {m['train']:.4f} · val {m['val']:.4f} "
-                        f"· {m['elapsed']:.0f}s · {m['tok_s']:,.0f} tok/s")
+                        f"step {m['step']} · train {m['train']:.4f} · {vtag} {m['val']:.4f} "
+                        f"· {m['elapsed']:.0f}s · {m['tok_s']:,.0f} tok/s"
+                        + ("" if getattr(self, "val_ok", True)
+                           else "   (* leakage detected, judge on train)"))
                 elif kind == "done":
                     self.model = payload["model"]
                     self.tok = payload["tok"]
