@@ -40,7 +40,8 @@ STATE = HERE / "council" / "publish_state.json"
 # The product. Anything not listed here does not get published, ever.
 PUBLISH = [
     "model.py", "data.py", "train.py", "generate.py", "make_corpus.py",
-    "studio.py", "leakage.py", "bench_device.py", "exp_lr_width.py",
+    "studio.py", "leakage.py", "bench_device.py", "test_detectors.py",
+    "exp_lr_width.py",
     "prereg_lr_width.json", "exp_lr_width_result.json",
     "prereg_lr_width_fast.json", "exp_lr_width_result_fast.json",
     "README.md", ".gitattributes",
