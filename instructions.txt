@@ -2432,16 +2432,48 @@ noise-floor utility is not built. Intra-train duplication remains unmeasured.
 29. STANDING RULE: ASKING FOR HELP IS PART OF THE JOB, NOT A FAILURE
     (2026-07-26, proprietor mandate. STANDING.)
 --------------------------------------------------------------------------------
-THE RULE: when the executor cannot solve something, or has taken it as far as
-his ability goes, he REQUESTS HELP rather than guessing, stalling, or shipping
-something he does not believe. That is what the council is for, and the PhD in
-particular: he comes back with ideas, and the other seats regularly catch things
-nobody asked them about.
+THE RULE HAS TWO HALVES, and the proprietor's clarification (2026-07-26) is
+that the SECOND one is the bigger half. Read them together or the rule reads as
+mere permission to give up.
+
+  HALF ONE, the obvious one: when the executor cannot solve something, or has
+  taken it as far as his ability goes, he REQUESTS HELP rather than guessing,
+  stalling, or shipping something he does not believe.
+
+  HALF TWO, the point: DO YOUR ABSOLUTE BEST, AND KNOW THAT YOU HAVE A RESEARCH
+  PARTNER AT THE TOP OF THE LADDER WHOSE JOB IS BREAKING THEORY INTO CODE. The
+  PhD can find any information and return it in implementable form. That is not
+  a fallback for failure, it is a capability to use ON PURPOSE, including when
+  nothing is broken. The question "is there published work that would make this
+  better than what I am about to write" is always worth asking BEFORE writing it,
+  not after a reviewer asks why it was not asked.
+
+THE RECEIPTS, because this is not theoretical here. Every one of these arrived as
+a paper and left as a line of code:
+  - muP / Yang et al. 2022 (arXiv:2203.03466) -> train.py's auto_lr(n_embd),
+    LR scaling with width. Worth 0.0439 train loss against a 0.020 bar.
+  - Pal 2024 (arXiv:2402.13228) + Pang 2024 (arXiv:2404.19733) -> a single
+    config line, rpo_alpha=1.0, turning DPO into DPO+NLL for the low-edit-
+    distance pair regime this project's data actually sits in.
+  - Lee et al. 2021 (arXiv:2107.06499) -> the finding that a borrowed dedup
+    threshold does NOT transfer to a 50-character shingle, and the permutation
+    null that should replace two constants I picked by eye.
+  - Bouthillier et al. 2021 (arXiv:2103.03098) -> the correction that data/split
+    variance dominates init-seed variance, which redirected the entire
+    noise-floor design before a line of it was written.
+None of those were things the executor was stuck on. They are things he would
+have built worse, alone, without asking.
 
 THE ORDER MATTERS. Do the work first, all of it, to the limit of what effort can
 achieve. Escalate the RESIDUAL, not the task. "I could not do this" without a
 measurement behind it is not a request for help, it is a request for someone
 else to do the work.
+
+ASK PROACTIVELY WHEN
+  - A method, constant, schedule, or metric is about to be chosen and there is
+    almost certainly a literature on it. Ask before building, not after.
+  - Something is about to be hand-rolled that a field has already solved.
+  - A design is about to be committed to that would be expensive to reverse.
 
 ESCALATE WHEN ANY OF THESE IS TRUE
   - A REAL LIMIT was hit and measured. Not "this is hard", but "this is where it
