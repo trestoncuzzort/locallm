@@ -32,7 +32,8 @@ from model import GPT, GPTConfig  # noqa: E402
 from data import (CharTokenizer, Corpus, documents, group_split,  # noqa: E402
                   split_health)
 from leakage import scan as leakage_scan  # noqa: E402
-from train import auto_lr, cosine_lr, estimate_loss  # noqa: E402
+from train import (auto_lr, cosine_lr, enable_fast_math,  # noqa: E402
+                   estimate_loss, make_optimizer)
 
 
 # --------------------------------------------------------------------------
@@ -204,8 +205,8 @@ class TrainWorker(threading.Thread):
         self.log(f"model: {model.num_params() / 1e6:.2f}M params | "
                  f"{c['n_layer']}L {c['n_head']}H {c['n_embd']}D | from random init")
 
-        opt = torch.optim.AdamW(model.parameters(), lr=c["lr"], betas=(0.9, 0.95),
-                                weight_decay=0.1)
+        enable_fast_math()
+        opt = make_optimizer(model, c["lr"])
         use_bf16 = device == "cuda" and torch.cuda.is_bf16_supported()
         if use_bf16:
             self.log("autocast: bfloat16")
