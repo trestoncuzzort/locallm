@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Council · srlm-forge · Pass #6</title>
+<style>
+  :root{
+    --bg:#0f1115; --card:#171a21; --card2:#1c2029; --ink:#e8eaed; --muted:#9aa3b2;
+    --line:#2a2f3a; --accent:#7aa2f7; --good:#7ee787; --warn:#f0b429; --bad:#ff7b72;
+    --contra:#ff7b72; --first:#7aa2f7; --expand:#7ee787; --outsider:#d2a8ff; --prag:#f0b429;
+    --ahole:#56d4dd; --phd:#ffa657;
+  }
+  @media (prefers-color-scheme: light){
+    :root{--bg:#f6f7f9;--card:#fff;--card2:#f0f2f5;--ink:#1a1d24;--muted:#5a6472;--line:#e2e5ea;}
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased}
+  .wrap{max-width:860px;margin:0 auto;padding:32px 20px 80px}
+  header{border-bottom:1px solid var(--line);padding-bottom:20px;margin-bottom:28px}
+  .kicker{color:var(--accent);font-weight:600;font-size:13px;letter-spacing:.08em;text-transform:uppercase}
+  h1{font-size:26px;margin:.3em 0 .2em}
+  .sub{color:var(--muted);font-size:14px}
+  .q{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin:18px 0}
+  .q b{color:var(--accent)}
+  .debut{background:linear-gradient(135deg,rgba(255,166,87,.14),rgba(122,162,247,.08));
+    border:1px solid var(--line);border-left:3px solid var(--phd);border-radius:10px;padding:16px 18px;margin:18px 0}
+  .debut .lbl{color:var(--phd);font-weight:800;font-size:13px;letter-spacing:.08em;text-transform:uppercase}
+  h2{font-size:15px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:34px 0 12px;font-weight:700}
+  .verdict{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:10px;padding:20px 22px;margin-bottom:14px}
+  .verdict h3{margin:0 0 8px;font-size:16px}
+  .agree{border-left-color:var(--good)} .block{border-left-color:var(--bad)}
+  .corr{border-left-color:var(--ahole)} .rec{border-left-color:var(--accent)}
+  .first-step{background:linear-gradient(135deg,rgba(122,162,247,.14),rgba(126,231,135,.10));
+    border:1px solid var(--line);border-radius:10px;padding:20px 22px;margin:14px 0 8px}
+  .first-step .lbl{color:var(--accent);font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:.06em}
+  ul{margin:8px 0;padding-left:20px} li{margin:6px 0}
+  .stat{display:inline-block;background:var(--card2);border:1px solid var(--line);border-radius:8px;
+    padding:8px 14px;margin:4px 6px 4px 0;font-size:13.5px}
+  .stat b{font-size:16px}
+  .map{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:10px 0}
+  .adv{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+  .adv .name{font-weight:700;font-size:13px} .adv .take{color:var(--muted);font-size:12.5px;margin-top:4px}
+  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:middle}
+  .d-contra{background:var(--contra)} .d-first{background:var(--first)} .d-expand{background:var(--expand)}
+  .d-outsider{background:var(--outsider)} .d-prag{background:var(--prag)} .d-ahole{background:var(--ahole)} .d-phd{background:var(--phd)}
+  details{background:var(--card);border:1px solid var(--line);border-radius:10px;margin:8px 0;overflow:hidden}
+  summary{cursor:pointer;padding:13px 16px;font-weight:600;list-style:none;display:flex;align-items:center;gap:8px}
+  summary::-webkit-details-marker{display:none}
+  summary::after{content:"+";margin-left:auto;color:var(--muted);font-size:18px}
+  details[open] summary::after{content:"–"}
+  details .body{padding:2px 18px 16px;border-top:1px solid var(--line)}
+  table{border-collapse:collapse;width:100%;font-size:13.5px;margin:10px 0}
+  th,td{border:1px solid var(--line);padding:6px 10px;text-align:left}
+  th{background:var(--card2)}
+  .tblwrap{overflow-x:auto}
+  footer{margin-top:40px;padding-top:16px;border-top:1px solid var(--line);color:var(--muted);font-size:12.5px}
+  .tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:20px;border:1px solid var(--line);color:var(--muted);margin-left:6px}
+  code{background:var(--card2);border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:12.5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="kicker">LLM Council · Monitoring Pass #6 · Autonomous Activation</div>
+    <h1>srlm-forge <span class="tag">run-1 rulings: DPO blessed, plan amended</span></h1>
+    <div class="sub">2026-07-25 18:37 · triggered by the DIRECTIVE watcher · verdict in channel §14 · The PhD's first convening</div>
+  </header>
+
+  <div class="debut">
+    <div class="lbl">Debut: The PhD (member #7)</div>
+    <p style="margin:.5em 0 0">21 tool calls on his first seat: fetched the pinned TRL 0.12.2 source to verify API claims,
+    measured the repo's own data (chosen side averages <b>shorter</b> — 378 vs 404 chars — so DPO verbosity drift is
+    unlikely here), found the 120/task cap <b>enforced nowhere</b> in train_native.py, and flagged a real bug: the
+    <code>--merge</code> path merges into the NF4 model while labeling the output fp16 (PEFT warns 4-bit merges change
+    generations — peft #2321). Every load-bearing claim cited; The Asshole spot-verified them.</p>
+  </div>
+
+  <div class="q">
+    <b>Executor's asks (§13):</b> gate PASSED (1 poisoned legacy pair removed → 1,272 clean; stale quarantine fixed);
+    training env unblocked <b>Windows-native</b> (no WSL, no admin — torch 2.5.1+cu121 sees the 4080).
+    (a) Bless native-HF-<b>DPO</b> over ORPO/Unsloth for run 1? (b) Confirm: null-re-export as operative baseline →
+    prereg → one epoch.
+  </div>
+
+  <div>
+    <span class="stat">ruling (a): <b>DPO+NLL approved</b> (rpo_alpha=1.0)</span>
+    <span class="stat">ruling (b): <b>confirmed, amended</b></span>
+    <span class="stat">train N = <b>918</b> (not 919, not 1,234)</span>
+    <span class="stat">58 optimizer steps · lr <b>5e-6</b></span>
+  </div>
+
+  <h2>Council Verdict</h2>
+
+  <div class="verdict agree">
+    <h3>✔ Ruling (a) — native-HF-DPO approved, upgraded to DPO+NLL</h3>
+    <ul>
+      <li><b>Run 1's identity is its invariants, not its algorithm</b> (First Principles): verifier-grounded pairs, single variable, prereg-before-training, like-for-like export, frozen ruler. ORPO's motivation (ref-model VRAM) is dissolved by the adapter-disable trick — and ORPO now sits in TRL's experimental namespace. The coder's deviation was correct, and cited the council's own warnings (Outsider: "that's a proposal, not insubordination").</li>
+      <li><b>One literature-mandated upgrade</b> (PhD, source-verified): <code>rpo_alpha=1.0</code>. Same-task low-edit-distance pairs are the documented regime where vanilla DPO drives <i>chosen</i> likelihood down (DPOP/Smaug 2402.13228); the NLL-on-chosen term (Iterative RPO 2404.19733) is the published one-line fix.</li>
+      <li>Prereg must <b>name</b> "one epoch of DPO+NLL (rpo_alpha=1.0)" and scope conclusions to it.</li>
+    </ul>
+  </div>
+
+  <div class="verdict block">
+    <h3>⛔ Ruling (b) — confirmed, with blocking amendments</h3>
+    <ul>
+      <li><b>Cap-120 reinstated and enforced at source</b> (unanimous): the plan silently dropped §12's adjudicated curation, and the cap is enforced nowhere in the training path (verified in code). Corrected N = <b>918</b> (the removed pair was in under-cap <code>balanced</code>: 44→43). Capped stratified file, sha256 in the prereg. Reason: attribution — a ruler drop on the 54%-skewed full set can't be told apart from three-template overfit.</li>
+      <li><b>Merge bug fixed before anything</b> (train_native.py:113): bf16-reload → attach adapter → merge_and_unload → save; the NULL export runs the identical code with a no-op adapter, or baseline symmetry dies.</li>
+      <li><b>Order forced:</b> smoke sheet → freeze rules → null re-export → baseline on it (ruler ×3 = the real noise floor; rotate n=100, rle n=200, multiply_strings n=100; reproduction check rle≈46/50 / rotate≈1/100 — if the export path itself moves scores, STOP) → sign prereg (N, params, <b>seeds</b> — nobody had preregistered seeds) → train → identical-path export → ruler ×2 + endpoints.</li>
+    </ul>
+  </div>
+
+  <div class="verdict corr">
+    <h3>⚔ The Asshole's corrections (highlights)</h3>
+    <ul>
+      <li><b>The tripwire collision nobody caught:</b> with rpo_alpha=1.0, logged loss = DPO+NLL and starts <i>above</i> 0.693 — the "loss below 0.6931" pass check and "0.693-pin" abort fail on a <i>healthy</i> run. Gate instead on rewards/accuracies departing 0.5 AND rewards/margins &gt; 0 by step 30.</li>
+      <li><b>919 → 918</b> — everyone carried the stale number; the gate removal subtracts straight through an under-cap task.</li>
+      <li><b>Outsider's "missing 38 cards" was already answered</b> — the standing repair-pair exclusion (1,272 − 38 = 1,234, matches the file).</li>
+      <li><b>Adjudications:</b> lr 5e-6 (the only cited number) over 8e-6/1e-5; max_length 1024/512 (PhD measured chars, prescribed tokens — higher ceiling is free at batch-1 padding; truncation assert = ZERO); <code>adamw_bnb_8bit</code> non-paged (paging never fires under the VRAM assert; least-tested Windows path loses on dominance).</li>
+    </ul>
+  </div>
+
+  <div class="verdict rec">
+    <h3>➜ The recipe (PhD, audited — adopt as-is)</h3>
+    <div class="tblwrap"><table>
+      <tr><th>Param</th><th>Value</th><th>Why</th></tr>
+      <tr><td>beta / rpo_alpha</td><td>0.1 / <b>1.0</b></td><td>DPO paper default / RPO 2404.19733 (verified in TRL 0.12.2)</td></tr>
+      <tr><td>lr</td><td><b>5e-6</b> cosine, 10% warmup</td><td>alignment-handbook zephyr QLoRA-DPO (only cited number)</td></tr>
+      <tr><td>batch</td><td>effective 16 → <b>58 steps</b> on 918</td><td>ceil(918/16)</td></tr>
+      <tr><td>max_length / prompt</td><td>1024 / 512, truncation = 0</td><td>measured p95 848 chars; ceiling free at batch-1</td></tr>
+      <tr><td>LoRA</td><td>r16 · α32 · dropout 0.05 · all 7 proj</td><td>QLoRA 2305.14314 + handbook</td></tr>
+      <tr><td>optimizer</td><td>adamw_bnb_8bit (non-paged) · bf16 · grad-ckpt · sdpa</td><td>8-bit Adam lossless (2110.02861); paged = untested-Windows risk</td></tr>
+      <tr><td>epochs</td><td>1, no sweeps</td><td>ReST-EM 2312.06585: coding gains concentrate in iteration 1</td></tr>
+    </table></div>
+    <p style="margin:.4em 0 0"><b>Expectations, calibrated:</b> &lt;2pp aggregate = noise by this project's own measurement.
+    The endpoints carry the verdict: multiply_strings n=100 (co-primary efficacy) and rotate n=100 (exploratory, ≥10/100
+    decisive). Optional: score the f16 GGUF once (~200s/pass) to split re-quant error from training effect.</p>
+  </div>
+
+  <div class="first-step">
+    <div class="lbl">The one thing to do first</div>
+    <p style="margin:.5em 0 0"><b>Fix the merge path and build the capped 918-pair training file</b> — everything else
+    (smoke, baseline, prereg, epoch) stacks on those two. Full amended run-sheet prompt in instructions.txt §14.</p>
+  </div>
+
+  <h2>Advisor Alignment Map</h2>
+  <div class="map">
+    <div class="adv"><div class="name"><span class="dot d-contra"></span>Contrarian</div><div class="take">Bless DPO with degeneracy guards; plan rejected as written (N contradiction, vanished cap, merge symmetry).</div></div>
+    <div class="adv"><div class="name"><span class="dot d-first"></span>First Principles</div><div class="take">Identity = invariants; name the swap; cap restoration BLOCKING; order dependency-forced.</div></div>
+    <div class="adv"><div class="name"><span class="dot d-expand"></span>Expansionist</div><div class="take">Single-box loop = cadence change; model-agnostic harness = standing test-bench; gate now field-validated.</div></div>
+    <div class="adv"><div class="name"><span class="dot d-outsider"></span>Outsider</div><div class="take">Deviation-with-reasons = good engineering; silent rule-drops = decay; rules frozen before baseline.</div></div>
+    <div class="adv"><div class="name"><span class="dot d-prag"></span>Pragmatist</div><div class="take">Stack compatible; cap stands or don't train; full run sheet with smoke test and aborts.</div></div>
+    <div class="adv"><div class="name"><span class="dot d-phd"></span>The PhD</div><div class="take">DPO+NLL (rpo_alpha=1.0); cited recipe; found the merge bug and the unenforced cap; calibrated expectations.</div></div>
+    <div class="adv"><div class="name"><span class="dot d-ahole"></span>The Asshole</div><div class="take">918 not 919; tripwire collision fixed; LR/length/optimizer adjudicated; seeds now preregistered.</div></div>
+  </div>
+
+  <h2>Full responses</h2>
+  <details><summary>All seven — see transcript</summary><div class="body">
+    <p>Full texts with The PhD's complete citation list and The Asshole's 6 corrections + 5 adjudications are in
+    <code>council-transcript-2026-07-25_1837.md</code> alongside this report. The channel deliverable (rulings, amendments,
+    recipe, and the ONE prompt for the coder) is instructions.txt §14.</p>
+  </div></details>
+
+  <footer>
+    Council monitoring pass #6 · srlm-forge · 2026-07-25 18:37 · autonomous (DIRECTIVE watcher) ·
+    6 advisors (PhD debut) + The Asshole review → chairman synthesis · Verdict in instructions.txt §14 ·
+    Prior: §5 ruler · §7 two-lane · §8 instrument · §10 veto · §12 gated lean shot ·
+    Council is advisory; the executor (the coder) owns all code.
+  </footer>
+</div>
+</body>
+</html>

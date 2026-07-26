@@ -1,0 +1,175 @@
+Collecting numpy
+  Downloading numpy-2.4.6-cp311-cp311-win_amd64.whl.metadata (6.6 kB)
+Collecting transformers==4.46.3
+  Downloading transformers-4.46.3-py3-none-any.whl.metadata (44 kB)
+     -------------------------------------- 44.1/44.1 kB 721.1 kB/s eta 0:00:00
+Collecting trl==0.12.2
+  Downloading trl-0.12.2-py3-none-any.whl.metadata (11 kB)
+Collecting peft==0.14.0
+  Downloading peft-0.14.0-py3-none-any.whl.metadata (13 kB)
+Collecting accelerate==1.2.1
+  Downloading accelerate-1.2.1-py3-none-any.whl.metadata (19 kB)
+Collecting datasets==3.2.0
+  Downloading datasets-3.2.0-py3-none-any.whl.metadata (20 kB)
+Collecting bitsandbytes==0.45.0
+  Downloading bitsandbytes-0.45.0-py3-none-win_amd64.whl.metadata (2.9 kB)
+Collecting sentencepiece
+  Downloading sentencepiece-0.2.2-cp311-cp311-win_amd64.whl.metadata (34 kB)
+Requirement already satisfied: filelock in c:\users\t\projects\srlm-forge\.venv-train\lib\site-packages (from transformers==4.46.3) (3.29.0)
+Collecting huggingface-hub<1.0,>=0.23.2 (from transformers==4.46.3)
+  Downloading huggingface_hub-0.36.2-py3-none-any.whl.metadata (15 kB)
+Collecting packaging>=20.0 (from transformers==4.46.3)
+  Using cached packaging-26.2-py3-none-any.whl.metadata (3.5 kB)
+Collecting pyyaml>=5.1 (from transformers==4.46.3)
+  Downloading pyyaml-6.0.3-cp311-cp311-win_amd64.whl.metadata (2.4 kB)
+Collecting regex!=2019.12.17 (from transformers==4.46.3)
+  Downloading regex-2026.7.19-cp311-cp311-win_amd64.whl.metadata (41 kB)
+     ---------------------------------------- 41.6/41.6 kB 2.0 MB/s eta 0:00:00
+Collecting requests (from transformers==4.46.3)
+  Using cached requests-2.34.2-py3-none-any.whl.metadata (4.8 kB)
+Collecting tokenizers<0.21,>=0.20 (from transformers==4.46.3)
+  Downloading tokenizers-0.20.3-cp311-none-win_amd64.whl.metadata (6.9 kB)
+Collecting safetensors>=0.4.1 (from transformers==4.46.3)
+  Downloading safetensors-0.8.0-cp310-abi3-win_amd64.whl.metadata (4.2 kB)
+Collecting tqdm>=4.27 (from transformers==4.46.3)
+  Downloading tqdm-4.69.1-py3-none-any.whl.metadata (57 kB)
+     ---------------------------------------- 57.4/57.4 kB 1.5 MB/s eta 0:00:00
+Collecting rich (from trl==0.12.2)
+  Downloading rich-15.0.0-py3-none-any.whl.metadata (18 kB)
+Collecting psutil (from peft==0.14.0)
+  Downloading psutil-7.2.2-cp37-abi3-win_amd64.whl.metadata (22 kB)
+Requirement already satisfied: torch>=1.13.0 in c:\users\t\projects\srlm-forge\.venv-train\lib\site-packages (from peft==0.14.0) (2.5.1+cu121)
+Collecting pyarrow>=15.0.0 (from datasets==3.2.0)
+  Downloading pyarrow-25.0.0-cp311-cp311-win_amd64.whl.metadata (3.0 kB)
+Collecting dill<0.3.9,>=0.3.0 (from datasets==3.2.0)
+  Downloading dill-0.3.8-py3-none-any.whl.metadata (10 kB)
+Collecting pandas (from datasets==3.2.0)
+  Downloading pandas-3.0.5-cp311-cp311-win_amd64.whl.metadata (19 kB)
+Collecting xxhash (from datasets==3.2.0)
+  Downloading xxhash-3.8.1-cp311-cp311-win_amd64.whl.metadata (15 kB)
+Collecting multiprocess<0.70.17 (from datasets==3.2.0)
+  Downloading multiprocess-0.70.16-py311-none-any.whl.metadata (7.2 kB)
+Collecting fsspec<=2024.9.0,>=2023.1.0 (from fsspec[http]<=2024.9.0,>=2023.1.0->datasets==3.2.0)
+  Downloading fsspec-2024.9.0-py3-none-any.whl.metadata (11 kB)
+Collecting aiohttp (from datasets==3.2.0)
+  Downloading aiohttp-3.14.3-cp311-cp311-win_amd64.whl.metadata (8.5 kB)
+Requirement already satisfied: typing_extensions>=4.8.0 in c:\users\t\projects\srlm-forge\.venv-train\lib\site-packages (from bitsandbytes==0.45.0) (4.15.0)
+Collecting aiohappyeyeballs>=2.5.0 (from aiohttp->datasets==3.2.0)
+  Using cached aiohappyeyeballs-2.7.1-py3-none-any.whl.metadata (5.9 kB)
+Collecting aiosignal>=1.4.0 (from aiohttp->datasets==3.2.0)
+  Using cached aiosignal-1.4.0-py3-none-any.whl.metadata (3.7 kB)
+Collecting attrs>=17.3.0 (from aiohttp->datasets==3.2.0)
+  Using cached attrs-26.1.0-py3-none-any.whl.metadata (8.8 kB)
+Collecting frozenlist>=1.1.1 (from aiohttp->datasets==3.2.0)
+  Downloading frozenlist-1.8.0-cp311-cp311-win_amd64.whl.metadata (21 kB)
+Collecting multidict<7.0,>=4.5 (from aiohttp->datasets==3.2.0)
+  Downloading multidict-6.7.1-cp311-cp311-win_amd64.whl.metadata (5.5 kB)
+Collecting propcache>=0.2.0 (from aiohttp->datasets==3.2.0)
+  Downloading propcache-0.5.2-cp311-cp311-win_amd64.whl.metadata (17 kB)
+Collecting yarl<2.0,>=1.17.0 (from aiohttp->datasets==3.2.0)
+  Downloading yarl-1.24.5-cp311-cp311-win_amd64.whl.metadata (107 kB)
+     -------------------------------------- 107.2/107.2 kB 2.1 MB/s eta 0:00:00
+Collecting charset_normalizer<4,>=2 (from requests->transformers==4.46.3)
+  Downloading charset_normalizer-3.4.9-cp311-cp311-win_amd64.whl.metadata (42 kB)
+     ---------------------------------------- 42.5/42.5 kB ? eta 0:00:00
+Collecting idna<4,>=2.5 (from requests->transformers==4.46.3)
+  Using cached idna-3.18-py3-none-any.whl.metadata (6.1 kB)
+Collecting urllib3<3,>=1.26 (from requests->transformers==4.46.3)
+  Using cached urllib3-2.7.0-py3-none-any.whl.metadata (6.9 kB)
+Collecting certifi>=2023.5.7 (from requests->transformers==4.46.3)
+  Using cached certifi-2026.7.22-py3-none-any.whl.metadata (2.5 kB)
+Requirement already satisfied: networkx in c:\users\t\projects\srlm-forge\.venv-train\lib\site-packages (from torch>=1.13.0->peft==0.14.0) (3.6.1)
+Requirement already satisfied: jinja2 in c:\users\t\projects\srlm-forge\.venv-train\lib\site-packages (from torch>=1.13.0->peft==0.14.0) (3.1.6)
+Requirement already satisfied: sympy==1.13.1 in c:\users\t\projects\srlm-forge\.venv-train\lib\site-packages (from torch>=1.13.0->peft==0.14.0) (1.13.1)
+Requirement already satisfied: mpmath<1.4,>=1.1.0 in c:\users\t\projects\srlm-forge\.venv-train\lib\site-packages (from sympy==1.13.1->torch>=1.13.0->peft==0.14.0) (1.3.0)
+Collecting colorama (from tqdm>=4.27->transformers==4.46.3)
+  Using cached colorama-0.4.6-py2.py3-none-any.whl.metadata (17 kB)
+Collecting python-dateutil>=2.8.2 (from pandas->datasets==3.2.0)
+  Using cached python_dateutil-2.9.0.post0-py2.py3-none-any.whl.metadata (8.4 kB)
+Collecting tzdata (from pandas->datasets==3.2.0)
+  Using cached tzdata-2026.3-py2.py3-none-any.whl.metadata (1.4 kB)
+Collecting markdown-it-py>=2.2.0 (from rich->trl==0.12.2)
+  Using cached markdown_it_py-4.2.0-py3-none-any.whl.metadata (7.4 kB)
+Collecting pygments<3.0.0,>=2.13.0 (from rich->trl==0.12.2)
+  Using cached pygments-2.20.0-py3-none-any.whl.metadata (2.5 kB)
+Collecting mdurl~=0.1 (from markdown-it-py>=2.2.0->rich->trl==0.12.2)
+  Using cached mdurl-0.1.2-py3-none-any.whl.metadata (1.6 kB)
+Collecting six>=1.5 (from python-dateutil>=2.8.2->pandas->datasets==3.2.0)
+  Using cached six-1.17.0-py2.py3-none-any.whl.metadata (1.7 kB)
+Requirement already satisfied: MarkupSafe>=2.0 in c:\users\t\projects\srlm-forge\.venv-train\lib\site-packages (from jinja2->torch>=1.13.0->peft==0.14.0) (3.0.3)
+Downloading transformers-4.46.3-py3-none-any.whl (10.0 MB)
+   ---------------------------------------- 10.0/10.0 MB 1.5 MB/s eta 0:00:00
+Downloading trl-0.12.2-py3-none-any.whl (365 kB)
+   ---------------------------------------- 365.7/365.7 kB 2.3 MB/s eta 0:00:00
+Downloading peft-0.14.0-py3-none-any.whl (374 kB)
+   ---------------------------------------- 374.8/374.8 kB 1.7 MB/s eta 0:00:00
+Downloading accelerate-1.2.1-py3-none-any.whl (336 kB)
+   ---------------------------------------- 336.4/336.4 kB 2.1 MB/s eta 0:00:00
+Downloading datasets-3.2.0-py3-none-any.whl (480 kB)
+   ---------------------------------------- 480.6/480.6 kB 2.5 MB/s eta 0:00:00
+Downloading bitsandbytes-0.45.0-py3-none-win_amd64.whl (68.5 MB)
+   ---------------------------------------- 68.5/68.5 MB 1.6 MB/s eta 0:00:00
+Downloading numpy-2.4.6-cp311-cp311-win_amd64.whl (12.6 MB)
+   ---------------------------------------- 12.6/12.6 MB 3.5 MB/s eta 0:00:00
+Downloading sentencepiece-0.2.2-cp311-cp311-win_amd64.whl (1.2 MB)
+   ---------------------------------------- 1.2/1.2 MB 4.4 MB/s eta 0:00:00
+Downloading dill-0.3.8-py3-none-any.whl (116 kB)
+   ---------------------------------------- 116.3/116.3 kB 6.6 MB/s eta 0:00:00
+Downloading fsspec-2024.9.0-py3-none-any.whl (179 kB)
+   ---------------------------------------- 179.3/179.3 kB 5.3 MB/s eta 0:00:00
+Downloading aiohttp-3.14.3-cp311-cp311-win_amd64.whl (481 kB)
+   ---------------------------------------- 481.1/481.1 kB 3.8 MB/s eta 0:00:00
+Downloading huggingface_hub-0.36.2-py3-none-any.whl (566 kB)
+   ---------------------------------------- 566.4/566.4 kB 5.1 MB/s eta 0:00:00
+Downloading multiprocess-0.70.16-py311-none-any.whl (143 kB)
+   ---------------------------------------- 143.5/143.5 kB 8.3 MB/s eta 0:00:00
+Using cached packaging-26.2-py3-none-any.whl (100 kB)
+Downloading pyarrow-25.0.0-cp311-cp311-win_amd64.whl (27.8 MB)
+   ---------------------------------------- 27.8/27.8 MB 3.1 MB/s eta 0:00:00
+Downloading pyyaml-6.0.3-cp311-cp311-win_amd64.whl (158 kB)
+   ---------------------------------------- 158.8/158.8 kB 3.2 MB/s eta 0:00:00
+Downloading regex-2026.7.19-cp311-cp311-win_amd64.whl (277 kB)
+   ---------------------------------------- 278.0/278.0 kB 2.5 MB/s eta 0:00:00
+Using cached requests-2.34.2-py3-none-any.whl (73 kB)
+Downloading safetensors-0.8.0-cp310-abi3-win_amd64.whl (355 kB)
+   ---------------------------------------- 355.5/355.5 kB 3.2 MB/s eta 0:00:00
+Downloading tokenizers-0.20.3-cp311-none-win_amd64.whl (2.4 MB)
+   ---------------------------------------- 2.4/2.4 MB 3.4 MB/s eta 0:00:00
+Downloading tqdm-4.69.1-py3-none-any.whl (675 kB)
+   ---------------------------------------- 675.5/675.5 kB 3.3 MB/s eta 0:00:00
+Downloading pandas-3.0.5-cp311-cp311-win_amd64.whl (10.0 MB)
+   ---------------------------------------- 10.0/10.0 MB 3.3 MB/s eta 0:00:00
+Downloading psutil-7.2.2-cp37-abi3-win_amd64.whl (137 kB)
+   ---------------------------------------- 137.7/137.7 kB 4.1 MB/s eta 0:00:00
+Downloading rich-15.0.0-py3-none-any.whl (310 kB)
+   ---------------------------------------- 310.7/310.7 kB 3.9 MB/s eta 0:00:00
+Downloading xxhash-3.8.1-cp311-cp311-win_amd64.whl (32 kB)
+Using cached aiohappyeyeballs-2.7.1-py3-none-any.whl (15 kB)
+Using cached aiosignal-1.4.0-py3-none-any.whl (7.5 kB)
+Using cached attrs-26.1.0-py3-none-any.whl (67 kB)
+Using cached certifi-2026.7.22-py3-none-any.whl (136 kB)
+Downloading charset_normalizer-3.4.9-cp311-cp311-win_amd64.whl (161 kB)
+   ---------------------------------------- 161.4/161.4 kB 4.7 MB/s eta 0:00:00
+Downloading frozenlist-1.8.0-cp311-cp311-win_amd64.whl (44 kB)
+   ---------------------------------------- 44.1/44.1 kB ? eta 0:00:00
+Using cached idna-3.18-py3-none-any.whl (65 kB)
+Using cached markdown_it_py-4.2.0-py3-none-any.whl (91 kB)
+Downloading multidict-6.7.1-cp311-cp311-win_amd64.whl (45 kB)
+   ---------------------------------------- 46.0/46.0 kB ? eta 0:00:00
+Downloading propcache-0.5.2-cp311-cp311-win_amd64.whl (42 kB)
+   ---------------------------------------- 42.1/42.1 kB ? eta 0:00:00
+Using cached pygments-2.20.0-py3-none-any.whl (1.2 MB)
+Using cached python_dateutil-2.9.0.post0-py2.py3-none-any.whl (229 kB)
+Using cached urllib3-2.7.0-py3-none-any.whl (131 kB)
+Downloading yarl-1.24.5-cp311-cp311-win_amd64.whl (97 kB)
+   ---------------------------------------- 97.5/97.5 kB 2.8 MB/s eta 0:00:00
+Using cached colorama-0.4.6-py2.py3-none-any.whl (25 kB)
+Using cached tzdata-2026.3-py2.py3-none-any.whl (348 kB)
+Using cached mdurl-0.1.2-py3-none-any.whl (10.0 kB)
+Using cached six-1.17.0-py2.py3-none-any.whl (11 kB)
+Installing collected packages: xxhash, urllib3, tzdata, six, sentencepiece, safetensors, regex, pyyaml, pygments, pyarrow, psutil, propcache, packaging, numpy, multidict, mdurl, idna, fsspec, frozenlist, dill, colorama, charset_normalizer, certifi, attrs, aiohappyeyeballs, yarl, tqdm, requests, python-dateutil, multiprocess, markdown-it-py, aiosignal, rich, pandas, huggingface-hub, bitsandbytes, aiohttp, tokenizers, accelerate, transformers, datasets, trl, peft
+  Attempting uninstall: fsspec
+    Found existing installation: fsspec 2026.4.0
+    Uninstalling fsspec-2026.4.0:
+      Successfully uninstalled fsspec-2026.4.0
+Successfully installed accelerate-1.2.1 aiohappyeyeballs-2.7.1 aiohttp-3.14.3 aiosignal-1.4.0 attrs-26.1.0 bitsandbytes-0.45.0 certifi-2026.7.22 charset_normalizer-3.4.9 colorama-0.4.6 datasets-3.2.0 dill-0.3.8 frozenlist-1.8.0 fsspec-2024.9.0 huggingface-hub-0.36.2 idna-3.18 markdown-it-py-4.2.0 mdurl-0.1.2 multidict-6.7.1 multiprocess-0.70.16 numpy-2.4.6 packaging-26.2 pandas-3.0.5 peft-0.14.0 propcache-0.5.2 psutil-7.2.2 pyarrow-25.0.0 pygments-2.20.0 python-dateutil-2.9.0.post0 pyyaml-6.0.3 regex-2026.7.19 requests-2.34.2 rich-15.0.0 safetensors-0.8.0 sentencepiece-0.2.2 six-1.17.0 tokenizers-0.20.3 tqdm-4.69.1 transformers-4.46.3 trl-0.12.2 tzdata-2026.3 urllib3-2.7.0 xxhash-3.8.1 yarl-1.24.5
