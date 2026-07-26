@@ -11,6 +11,19 @@ in the text you give it. You watch it learn.
 python studio.py
 ```
 
+> ## 🚧 Work in progress
+>
+> **This is an early, actively developed project, not a finished product.** It trains real
+> models today and the results below are real, but interfaces will change, features are
+> missing, and the limits section further down is not modesty. It is accurate.
+>
+> **Where this is going: a single all in one `.exe` installer. Double click, point it at
+> your text, train. No terminal, no Python install, no `pip`, no command line, ever.**
+>
+> The commands in Quick Start are the *current* state, not the destination. Right now you
+> do need Python and a terminal to get started. Removing that requirement entirely is a
+> primary goal, not a nice to have. See [Roadmap](#roadmap).
+
 ---
 
 ## What this actually is
@@ -19,7 +32,7 @@ A small, readable, from-scratch GPT and a GUI so you don't need a terminal to us
 
 | File | What it is |
 |---|---|
-| `model.py` | The transformer. Decoder-only GPT, written out in full attention, MLP, blocks, weight tying, GPT-2 scaled init. ~145 lines. |
+| `model.py` | The transformer. Decoder-only GPT, written out in full: attention, MLP, blocks, weight tying, GPT-2 scaled init. ~145 lines. |
 | `data.py` | A character-level tokenizer built from *your* corpus, plus batching. No external tokenizer, nothing downloaded. |
 | `train.py` | The training loop. Random init → your weights. Cosine schedule, warmup, gradient clipping, bf16 autocast when your GPU supports it. |
 | `generate.py` | Sample from a model you trained. |
@@ -30,6 +43,8 @@ A small, readable, from-scratch GPT and a GUI so you don't need a terminal to us
 Dependencies: **PyTorch and Tk.** That's it. Tk ships with Python.
 
 ## Quick start
+
+*Temporary. All of this disappears behind a double click once the installer lands.*
 
 ```bash
 pip install torch                       # CUDA build if you have an NVIDIA GPU
@@ -60,8 +75,8 @@ This one is built to stop you fooling yourself:
 
 ### A worked result
 
-The first experiment run through this harness, on an RTX 4080 4 layers, 4 heads, width 256,
-block 128, batch 32, 2000 steps:
+The first experiment run through this harness, on an RTX 4080 (4 layers, 4 heads, width 256,
+block 128, batch 32, 2000 steps):
 
 ```
 control   lr 3.0e-04   mean 0.2601   range [0.2561, 0.2647]
@@ -71,8 +86,8 @@ PREREGISTERED VERDICT: PASS
 ```
 
 Five seeds per arm, bar written down first. The hardcoded default was leaving **0.11 train
-loss** on the table more than any architecture change on the table was worth. That is why
-the learning rate scales with width now.
+loss** on the table, more than any architecture change was worth. That is why the learning
+rate scales with width now.
 
 Reproduce it: `python exp_lr_width.py` (about 4 minutes on a 4080).
 
@@ -88,9 +103,41 @@ Read this part before you expect too much.
   contains duplicated or near-duplicated documents, validation text can also appear in
   training, and val loss will look better than it deserves. **A group-aware split and a
   leakage scan are the next thing being built.** Until then, prefer train loss when
-  comparing configurations which is exactly why the experiment above uses it.
+  comparing configurations, which is exactly why the experiment above uses it.
 - No resume-from-checkpoint yet, no gradient accumulation, no multi-GPU.
 - Large architectures will run out of VRAM rather than warning you first.
+- **You currently need Python and a terminal to install and start it.** The GUI itself
+  needs neither once it is running, but getting there does. That is the single biggest
+  barrier to "anyone can use this", and it is item 1 on the roadmap.
+
+## Roadmap
+
+In order. The training core gets sharpened before anything expands.
+
+**1. One click installer, the headline goal.**
+A single `.exe`: no Python, no `pip`, no virtualenv, no terminal, no command line. Double
+click, choose your text, press train. The honest obstacle is that PyTorch with CUDA is
+roughly 2.5 GB, which no amount of packaging polish makes friendly. The plan is a CPU
+capable default (a small character model trains perfectly well on CPU, just slower), with
+the GPU build as an opt in, and the Python runtime bundled so the user never sees it.
+
+**2. Leakage scan and group aware splitting.**
+Detect when validation text also appears in training, say so plainly, and refuse to report
+a val loss that has been contaminated. Split by document, never mid document, so
+duplicated material cannot straddle the split. *This is the current work.*
+
+**3. Noise floor by default.**
+Multiple seeds on every comparison, mean plus or minus 3 sigma, with test retest variance
+reported separately from between configuration variance, so the tool can say "that
+improvement is inside noise, it isn't real" instead of letting you believe it.
+
+**4. Training that resumes and keeps going.**
+Resume from a checkpoint and train for as long as you want, rather than a fixed step count.
+
+Further out: an assistant layer that can reason and act on your machine. That is a separate
+track, built against whatever local model is strongest, because a small from-scratch model
+cannot do that job and pretending otherwise would be dishonest. If a model trained here
+ever becomes good enough, it earns its way in on measured results.
 
 ## Why from scratch
 
