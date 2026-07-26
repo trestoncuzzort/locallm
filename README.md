@@ -98,6 +98,20 @@ rate scales with width now.
 Reproduce it: `python exp_lr_width.py` (about 2.5 minutes on a 4080, running 4 arms
 concurrently; pass `--workers 1` to run them one at a time).
 
+There is also a one minute profile, `python exp_lr_width.py --profile fast` (measured 59s),
+at 800 steps with a 4 point sweep. It is deliberately **a separate experiment, not a cheaper
+version of this one**, because the effect size changes with step count: measured across
+400/800/1200/2000 steps the gap decays about 9x, so a shorter run reports a *larger* number
+for the same underlying phenomenon. The fast profile licenses the claim "reaches lower train
+loss faster" and nothing more. To stop the two being confused later, the profile, step count,
+grid size and claim are written into the result file's own verdict string rather than kept in
+a filename or someone's memory:
+
+```
+PASS [fast profile: 800 steps, 4-LR grid, 5 seeds] - claim: reaches lower train loss
+FASTER; NOT the canonical effect size
+```
+
 These numbers moved once since first publication, and the reason is worth stating: the
 document splitter's `seed` argument was silently unused, so fixing it changed which
 documents land in training. The verdict did not change, the margin did.

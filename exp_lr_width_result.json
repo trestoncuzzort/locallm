@@ -1,4 +1,8 @@
 {
+  "profile": "canonical",
+  "prereg_file": "prereg_lr_width.json",
+  "verdict_string": "PASS [canonical profile: 2000 steps, 7-LR grid, 5 seeds]",
+  "claim": "",
   "config": {
     "n_layer": 4,
     "n_head": 4,
@@ -31,7 +35,7 @@
     0.1500123433768749,
     0.1499425420537591,
     0.14970107451081277,
-    0.1471268268302083,
+    0.14714344926178455,
     0.15068472735583782
   ],
   "treatment_losses": [
@@ -41,9 +45,9 @@
     0.10161861311644316,
     0.10381257254630327
   ],
-  "mean_control": 0.1494935028254986,
+  "mean_control": 0.14949682731181382,
   "mean_treatment": 0.10558435890823603,
-  "gap": 0.043909143917262555,
+  "gap": 0.04391246840357779,
   "ranges_overlap": false,
   "passed": true
 }
