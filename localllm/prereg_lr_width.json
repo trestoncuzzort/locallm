@@ -1,0 +1,48 @@
+{
+  "experiment": "exp1_lr_vs_width",
+  "date": "2026-07-26",
+  "origin": "council activation #7 (instructions.txt S18), finding 1 — The PhD",
+  "hypothesis": "train.py's hardcoded lr=3e-4 is tuned for GPT-2-scale width (768-1600) and is far below the optimum for this rig's width (256). A width-appropriate LR reaches a materially lower train loss at equal step count.",
+  "why_train_loss_endpoint": "Council finding 2 reports the val split is heavily contaminated (val is the tail of the concatenated dpo 'chosen' solutions; data.py splits by character position, not by group). Any val-based endpoint is therefore untrustworthy until that is fixed. Train loss sidesteps it entirely. NOTE: the 68.3% figure is the council's measurement, not independently reproduced by the executor (proprietor ruled out re-verification reads on 2026-07-26).",
+
+  "fixed_config": {
+    "n_layer": 4, "n_head": 4, "n_embd": 256, "block_size": 128,
+    "batch_size": 32, "steps": 2000, "dropout": 0.0,
+    "corpus": "localllm/corpus.txt",
+    "schedule": "cosine with 5% warmup, min_lr = lr/10 (train.py's cosine_lr, unchanged)",
+    "optimizer": "AdamW betas=(0.9,0.95) wd=0.1, grad clip 1.0 (train.py's, unchanged)"
+  },
+
+  "stage_1_sweep": {
+    "purpose": "locate the optimum LR at this width; single seed, NOT the confirmatory test",
+    "seed": 0,
+    "lrs": [3e-4, 1e-3, 3e-3, 6e-3, 1e-2, 2e-2, 4e-2],
+    "treatment_selection_rule": "the LR with the lowest final train loss becomes the treatment arm. Declared BEFORE running so the choice is mechanical, not eyeballed."
+  },
+
+  "stage_2_confirm": {
+    "control_lr": 3e-4,
+    "treatment_lr": "whatever stage 1 selects",
+    "seeds": [1, 2, 3, 4, 5],
+    "endpoint": "final train loss, measured on 40 FIXED eval batches drawn from a dedicated torch.Generator(seed=12345) so every arm and seed sees byte-identical eval batches (this is also council finding 3's fix, applied here first)"
+  },
+
+  "success_bar": {
+    "primary": "mean(control train loss) - mean(treatment train loss) >= 0.020",
+    "secondary": "zero overlap between the two arms' 5-seed [min,max] ranges",
+    "both_required": true,
+    "council_basis": "PhD's stated bar: >=0.020 mean gap, >3x the measured SE of the difference (0.0060), with zero range overlap"
+  },
+
+  "prespecified_outcomes": {
+    "pass": "both bars met -> the shipped lr=3e-4 default is wrong for this width; fix the default and adopt width-scaling (LR ~ 1/width) rather than a new hand-tuned constant.",
+    "fail": "gap < 0.020 or ranges overlap -> report as null. Do NOT re-run with different steps/width and report the winner; a second run is a NEW preregistration.",
+    "surprise": "if control WINS, report that plainly — it falsifies the council's finding 1 on this rig and that is a result worth having."
+  },
+
+  "not_claimed": [
+    "That this generalizes to other depths. Council's own leftover risk notes the PhD's table used 2 layers; this runs 4 and does not re-measure the scaling law at each depth.",
+    "That train loss is a proxy for model quality. It is the endpoint because val is contaminated, not because it is the better measure.",
+    "Any claim about Track A. Untouched by this experiment."
+  ]
+}

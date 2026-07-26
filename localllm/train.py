@@ -19,6 +19,21 @@ from model import GPT, GPTConfig
 from data import CharTokenizer, Corpus
 
 
+def auto_lr(n_embd: int) -> float:
+    """Width-appropriate learning rate.
+
+    The old hardcoded 3e-4 is a GPT-2-scale constant (width 768-1600) and is far
+    too low for the widths this rig runs. Measured on this box (exp_lr_width.py,
+    prereg_lr_width.json): at width 256 / 4 layers on corpus.txt, lr=3e-3 beats
+    3e-4 by 0.1056 train loss, 5 seeds/arm, zero range overlap.
+
+    The 1/width scaling is muP's (Yang et al. 2022, arXiv:2203.03466). ANCHORED AT
+    ONE MEASURED POINT ONLY (width 256). Other widths are extrapolation, not
+    measurement — re-run exp_lr_width.py at a new width before trusting it there.
+    """
+    return 3e-3 * (256.0 / max(n_embd, 1))
+
+
 def cosine_lr(step: int, warmup: int, total: int, lr: float, min_lr: float) -> float:
     if step < warmup:
         return lr * (step + 1) / warmup
@@ -54,13 +69,19 @@ def main():
     ap.add_argument("--n-head", type=int, default=4)
     ap.add_argument("--n-embd", type=int, default=256)
     ap.add_argument("--dropout", type=float, default=0.1)
-    ap.add_argument("--lr", type=float, default=3e-4)
+    ap.add_argument("--lr", type=float, default=None,
+                    help="learning rate; default = auto_lr(n_embd), width-scaled")
     ap.add_argument("--eval-interval", type=int, default=250)
     ap.add_argument("--seed", type=int, default=1337)
     args = ap.parse_args()
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     torch.manual_seed(args.seed)
+
+    if args.lr is None:
+        args.lr = auto_lr(args.n_embd)
+        print(f"lr: {args.lr:.2e} (auto, width-scaled from n_embd={args.n_embd}; "
+              f"pass --lr to override)")
 
     text = Path(args.data).read_text(encoding="utf-8", errors="ignore")
     tok = CharTokenizer.from_text(text)
