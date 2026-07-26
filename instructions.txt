@@ -2159,3 +2159,196 @@ separate briefs, and do not write as though the other five are not reading.
 The record of who found what still matters: §22's two largest findings came from
 the audit lens, and §18's biggest came from a seat nobody had pointed at
 make_corpus.py.
+
+--------------------------------------------------------------------------------
+27. COUNCIL RESPONSE  (2026-07-26 ~11:10 — activation #9; scope: THIS FILE +
+    localllm/leakage.py, localllm/data.py, localllm/studio.py, train_native.py,
+    sync_public.py at HEAD, plus live probes run by The PhD on this machine)
+--------------------------------------------------------------------------------
+Roster: 5 style advisors (haiku, sealed, brief-only, PhD-facing format) with
+per-question routing per §26 (Q1->Contrarian, Q2->Pragmatist, Q3->Expansionist)
+— closed by The PhD (opus), inherited audit duty included.
+
+HEADLINE FINDING, not asked for, found anyway: `data.py`'s `group_split(text,
+val_frac, seed)` NEVER USES `seed`. Verified (5 seeds, identical val hash every
+time; determinism actually comes from a size-sort, not the seed). This means
+`leakage.py --seed` and `split_health(..., seed)` are currently decorative, and
+it is the load-bearing prerequisite for Q3's answer below — you cannot measure
+split-induced variance on a split that cannot be resampled.
+
+RANKED CRITIQUE (most decisive first)
+
+1. (THE PHD, leads — Q1) KEEP THE FRACTION AND THE 50-CHAR SHINGLE, REPLACE
+   THE TWO HAND-PICKED CONSTANTS WITH A MEASURED NULL, PER-CORPUS. Researched
+   Lee et al. 2021 (arXiv:2107.06499, full text fetched): their 50-BPE-token
+   removal threshold was chosen empirically (knee at 10 tokens, zero false
+   positives verified at 25, doubled to 50 "for an exceptionally large margin
+   of error") — NOT a number this tool's 50-CHARACTER shingle can borrow
+   directly (50 chars is ~12-17 tokens, below Lee's verified-clean point). BUT
+   the PhD measured this project's own sensitivity curve directly rather than
+   reasoning about it: at k=50, positional(contaminated)=70.1% vs.
+   grouped(clean)=0.04% — three orders of magnitude of separation, a wide flat
+   region. 50 was picked by eye and happens to be right; there is now a curve
+   to prove it, not a citation. THE FIX: delete CONTAMINATED=0.20 and
+   SUSPECT=0.05 as free-standing constants; replace with 50 random document-
+   level permutations computed AT SCAN TIME (0.34s, measured) giving THIS
+   corpus's own null (mean 0.157%, p95 0.42%, max 0.535% on this corpus) —
+   report observed-vs-null rather than observed-vs-invented-threshold. Do NOT
+   adopt First Principles' proposed character-shuffle null — measured at
+   0.0000%, degenerate, would make the tool MORE alarmist while wearing
+   statistical clothing. The 4-of-5 consensus to drop verdicts entirely
+   over-corrects (a warning tool should still warn) — derive the verdict from
+   the corpus's own null instead of deleting it.
+
+2. (THE PHD — Q2) NO PUBLISHED TOKEN/DOCUMENT THRESHOLD EXISTS; REJECT THE
+   PRAGMATIST'S SPECIFIC NUMBERS AND WIRE IN THE GUARD THAT ALREADY EXISTS
+   INSTEAD. The Pragmatist's `val >= 3 docs AND >= 5,000 tokens` [VERIFIED,
+   audited, fails 3 ways]: (a) not binding — the real corpus has 6 docs /
+   54,235 tokens and sails through the exact case that motivated it; (b) on
+   this char-level tokenizer, 5,000 "tokens" = 5,000 characters, a bar that
+   silently means 4x more text the moment a BPE tokenizer is swapped in; (c)
+   "document" is undefined for marker-less user text (falls back to
+   paragraph-splitting), so a document-count bar enforces different things on
+   different corpora. CORRECTION TO THE ROUND'S OWN FRAMING (nobody named
+   this, including the DIRECTIVE): the pathology is NOT that val is too small
+   (6 documents, 54,235 chars, defensible) — it is that TRAIN is 86.3%/95.7%
+   one single document. Val loss on this corpus measures domain transfer from
+   one file to six others, not in-distribution generalization, and nothing
+   currently prints that caveat. REAL FIX, already half-built and unused:
+   `split_health()` in data.py already returns `ok: False` on degenerate
+   corpora (reproduced: a 1-document corpus crashes get_batch with an opaque
+   `RuntimeError: random_ expects 'from' to be less than 'to'` instead of a
+   readable message) — but NOTHING CALLS IT. Wire `split_health()["ok"]` into
+   Corpus.__init__ / train.py's eval loop. Report n_val_documents and a
+   between-document standard error next to every val loss, and print the
+   train-side concentration figure explicitly.
+
+3. (THE PHD — Q3, corrects Round 7's own prior finding) THE PROPOSED
+   NOISE-FLOOR UTILITY WOULD HAVE MEASURED THE WRONG THING. Bouthillier et al.
+   2021 (arXiv:2103.03098, full text fetched): "bootstrapping data stands out
+   as the most important source of variance" — bigger than init-seed variance,
+   and their headline compute result (51x cheaper to reach near-ideal quality
+   by varying cheap axes rather than the expensive one) directly undercuts the
+   "k>=5 is prohibitive for Track A" framing IF the wrong axis is being varied.
+   Combined with the headline finding above (split seed is currently a no-op):
+   a k>=5 INIT-seed sweep as originally specified would silently omit the
+   larger variance source and report an underestimated noise floor AS a rigor
+   differentiator — exactly the failure this tool exists to prevent. FIX,
+   cheap: split randomization costs 2.07s for 300 splits on this corpus —
+   cheaper than one training step. REVISED recipe: fast track (Track B, ~15s)
+   = k=5 init seeds x 5 splits = 25 runs, ~6 min, report split-induced and
+   init-induced variance SEPARATELY. Slow track (Track A, hours) = k>=2
+   minimum, and when only 2 runs are affordable, VARY THE SPLIT NOT THE SEED
+   (it's the dominant axis) — below k=2, print the raw number and SUPPRESS
+   the comparison verdict rather than caveat it. Do NOT import the fast
+   track's noise floor onto the slow track as a substitute (Contrarian's,
+   Outsider's, and Pragmatist's converged Q3 answer) — different model,
+   different scale, that is a substitution wearing a caveat, not a caveat.
+   Ship the utility PUBLIC (all 5 + PhD agree on this much), positioned in
+   publishable language with no internal vocabulary: "this trainer reports
+   how much of a measured difference is noise, and declines to compare
+   configurations when it cannot tell" — narrower and more durable than the
+   Expansionist's "flagship differentiator" framing, and it satisfies
+   sync_public.py's forbidden-term scan by construction.
+
+4. (STYLE ADVISORS, folded, corrected against the live code) The Contrarian's
+   attack understated the actual val set (assumed "1-2 whole files"; verified
+   count is 6 documents) — the attack direction (a "CLEAN" verdict without
+   representativeness is misleading) survives, the specific magnitude does
+   not. First Principles' reframe of Q1 (verdict vs. raw fraction is a false
+   binary) is correct and is exactly what finding 1 implements — his proposed
+   confidence-interval mechanism was the right instinct pointed at the wrong
+   null (see finding 1). The Expansionist's "ship public, market as honesty"
+   read on Q3 is adopted, with the specific "flagship differentiator" framing
+   narrowed per finding 3. The Outsider correctly flagged that shipping a
+   tool which invalidates its own results, immediately followed by doubting
+   its own thresholds, is unusual and worth trusting as an instinct — folded
+   into finding 1's disposition to fix rather than dismiss the thresholds.
+   The Pragmatist's instinct that SOME concrete guard is needed was right;
+   his specific numbers were wrong (finding 2) — the guard that should ship
+   is the one already written and never wired in.
+
+5. (ORCHESTRATOR / minor, EXECUTED) `documents()`'s "0/6 val docs found in
+   train (0.0%)" line under the grouped default is guaranteed-true by
+   construction (group_split dedups by hash before splitting), not evidence —
+   the PhD flagged this (C5) and it should be labeled as such or dropped from
+   the grouped-path report so it isn't read as a second confirmation.
+
+EVIDENCE READ / EXECUTED THIS PASS:
+  - localllm/leakage.py, localllm/data.py (current HEAD) — orchestrator,
+    grep-confirmed threshold constants and function signatures before framing.
+  - group_split() seed behavior — PhD, EXECUTED, 5 seeds run, identical
+    output hash every time, confirmed the parameter is unused in the body.
+  - Shingle-length sensitivity curve (k=10..250) on this project's own
+    positional vs. grouped split — PhD, EXECUTED.
+  - Permutation null (50 and 300 random document-level splits) — PhD,
+    EXECUTED, timed (0.34s / 2.07s).
+  - Character-shuffle and line-shuffle null — PhD, EXECUTED, both measured
+    degenerate.
+  - split_health() degenerate-corpus behavior (1-doc, 2-doc) — PhD, EXECUTED,
+    reproduced the opaque RuntimeError directly.
+  - Real val/train document counts and sizes on corpus.txt — PhD, EXECUTED.
+  - Lee et al. 2021 and Bouthillier et al. 2021 full text — PhD, fetched and
+    quoted directly, not abstract-only.
+  - GPT-3 13-gram convention, MinHash-0.8 community norm, Agarwal et al.
+    few-run guidance — PhD, search-level verification only, labeled secondary.
+  READ-ONLY: train_native.py, studio.py, sync_public.py (named in DIRECTIVE
+  read scope, consulted for context, no findings this round hinged on them).
+
+LEFTOVER RISKS (unresolved even with every fix above landed):
+  - The seed no-op (headline finding) is not yet fixed in code — everything
+    in findings 1 and 3 that depends on resampling the split is a design,
+    not yet a shipped capability.
+  - The permutation-null approach (finding 1) has only been validated on
+    THIS corpus (13 documents, one dominant). Its cost (0.34s/50 permutations)
+    and behavior on a much larger or more balanced corpus were not measured.
+  - split_health()'s wiring (finding 2) is specified, not yet implemented —
+    Corpus.__init__ and train.py's eval loop still call get_batch
+    unconditionally as of this round.
+  - The revised noise-floor recipe (finding 3) has not been built at all; the
+    Generator that exists (exp_lr_width.py) only covers eval-batch
+    determinism, not the split-randomization axis this round found dominant.
+  - No one this round checked intra-train duplication (flagged as a standing
+    NON-CLAIM by the executor, unchecked since round 7) — the leakage scanner
+    as shipped only ever compares train against val.
+  - The GPT-3/MinHash citations are search-level, not primary-source verified
+    this round — if they become load-bearing for a future decision, verify
+    at the primary source first.
+
+THE QUESTIONS THEMSELVES: this was a well-formed DIRECTIVE — three concrete,
+answerable questions with the executor's own uncertainty stated honestly
+up front, which is exactly the shape that gets a fast, decisive round. The
+one gap: none of Q1-Q3 asked "does the split even work" — the seed no-op
+(this round's actual headline finding) was sitting one grep away and would
+have been missed entirely if the PhD had only answered the three questions
+as posed instead of reading the code first. Future DIRECTIVEs on a just-
+shipped tool should default to "verify the mechanism, not just the tuning" —
+tuning questions (thresholds, bars) presuppose the mechanism underneath is
+sound, and that is exactly the assumption worth checking first.
+
+ONE RECOMMENDED NEXT PROMPT (proprietor -> executor):
+  "Fix group_split()'s seed no-op first — thread a real RNG through the
+   document-assignment step so --seed actually resamples the split; this is
+   the prerequisite for everything else here. Then: (1) wire
+   split_health()['ok'] into Corpus.__init__ and train.py's eval loop so a
+   degenerate corpus prints a readable message instead of crashing on
+   get_batch; add n_val_documents and a between-document standard error to
+   every val-loss report; print the train-side concentration figure (this
+   corpus: one document = 86.3% of corpus / 95.7% of train) since that is the
+   caveat that actually matters here, not val's size. (2) In leakage.py,
+   delete the CONTAMINATED/SUSPECT constants; replace with a 50-permutation
+   document-level null computed at scan time (~0.3s), report observed vs.
+   this corpus's own null, and derive the verdict from that ratio rather than
+   a fixed number. Fix the C5/C6 report-line issues (grouped-path 'docs in
+   train' is guaranteed 0 by construction; the shingle line overclaims what
+   it measures — it's a 1-in-10 sample of distinct windows). (3) Build the
+   noise-floor utility once seed is fixed: fast track k=5 seeds x 5 splits
+   (~6 min, report split- and init-induced variance separately); slow track
+   k>=2 with splits varied before seeds, suppress the comparison verdict
+   below k=2 rather than caveat it, never substitute the fast track's number
+   for the slow track's. Ship it public in the language already drafted:
+   'reports how much of a measured difference is noise, declines to compare
+   when it cannot tell.' Report back with the fixed seed's own red witness
+   (two different seeds, two different val-doc sets) before anything else."
+
+(Council standing by. Watcher armed on the DIRECTIVE block — task bkk3n3jtj.)
