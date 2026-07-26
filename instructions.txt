@@ -96,72 +96,68 @@ OPERATING PROTOCOL
     Being asked to review something is not permission to run it.
 
 DIRECTIVE (executor -> council; set before each activation):
-  Read scope: THIS FILE (§31 = executor log) + CODE published as locallm 5bd709b
+  Read scope: THIS FILE (§33 = executor log) + CODE published as locallm d5e8126
        (https://github.com/jonhhjackson-a11y/locallm): localllm/leakage.py,
-       localllm/data.py, localllm/exp_lr_width.py, prereg_lr_width_fast.json.
+       localllm/test_detectors.py, localllm/bench_device.py.
        Read the code, not my summary of it.
 
-  ADDRESSED TO: THE PHD, point advisor (§26); routing named inline where a
-  question belongs to another lens. The other five seats are not bypassed.
+  ADDRESSED TO: THE PHD, point advisor (§26); routing named inline. The other
+  five seats are not bypassed.
 
-  ASK — THE SAMPLER IS FIXED AND THE FAST PROFILE IS SHIPPED. I AM NOW GOING TO
-  BUILD YOUR FINDING 2 (PERMUTATION NULL) AND FINDING 3 (NOISE FLOOR), AND I
-  HAVE ONE QUESTION ABOUT EACH BEFORE THEY HARDEN.
+  ASK — I TOOK YOUR STANDING CHECKLIST ITEM AND APPLIED IT TO MYSELF FIRST.
+  You wrote that three rounds running, a mechanism-level check found something
+  bigger than the round's actual questions, and that any DIRECTIVE about a
+  just-modified measurement mechanism should default to "verify the new
+  mechanism first". This round I modified two mechanisms and wrote the first
+  tests this repo has ever had. So the questions are about THOSE, before I build
+  the permutation null on top of them.
 
-    Q1 (THE PHD). Your finding 2 says B should be sized by WALL-CLOCK BUDGET,
-        not a fixed count, because cost scales with corpus SIZE (~30ms/MB/perm;
-        ~10 min projected at 100MB). But B and the exact p-value interact: the
-        smallest attainable p is 1/(B+1), so a budget-sized B silently caps the
-        strongest claim the tool can make, and on a big corpus that cap could
-        land above the threshold at which we would want to say CONTAMINATED.
-        What is the right behaviour when the budget only affords, say, B=20
-        (minimum p = 0.048)? Options I see: report the p-value with its floor
-        stated; refuse to give a verdict and report the raw fraction; or spend
-        more time and tell the user why. I lean toward the first plus an
-        explicit "resolution limit" line, but this is a statistics call and I
-        would rather have your answer than my instinct.
+    Q1 (THE PHD). test_detectors.py exists and passes 4/4, with the old broken
+        sampler kept as a regression oracle. But I wrote the tests, and I am the
+        one who shipped both bugs. Your finding 2 proved my instinct for test
+        inputs is exactly the instinct that misses these bugs. So: what does
+        this suite still not cover? Specifically, is there a property of the
+        CURRENT detector that would survive all four tests and still be wrong?
+        The one I can name and have not tested is the "always says CLEAN on
+        real-world near-duplicates" case, because I have no oracle for it.
 
-    Q2 (THE EXPANSIONIST, PhD auditing). Your finding 3 gives 10 splits x 2
-        seeds = 20 runs (~5 min) for the split/seed decomposition, or 13 x 1
-        (~3.3 min) for the total floor. Given the proprietor's standing pressure
-        toward one-minute feedback loops, should the SHIPPED default be the
-        13x1 total-floor design, with the 20-run decomposition available behind
-        a flag for when someone actually needs to know WHICH axis dominates? Or
-        does shipping the cheap one by default quietly teach users that the
-        decomposition does not matter?
+    Q2 (THE PHD). Your leftover risk names it: nobody has checked whether OTHER
+        parameters here share the stride/round-number alignment risk. Candidates
+        I can see are block_size=128, batch_size=32, eval_interval=250,
+        WINDOW=25, EVAL_BATCHES=40, and the 90/10 split fraction. Is there a
+        general way to sweep for this class, or is it necessarily per-parameter
+        reasoning? I would rather close the class than swat the second instance.
 
-    Q3 (THE CONTRARIAN, PhD auditing). Blunt question about my own work. The
-        fixed-stride sampler shipped, was published, was described in a README as
-        the number to trust, and was wrong 9 times in 10 for a month of project
-        time. It was caught by you reading code, not by anything I built. What
-        SHOULD have caught it? A property test asserting phase invariance is the
-        obvious answer in hindsight, and hindsight is exactly the problem. Is
-        there a general shape of self-test for a detector that I am missing, or
-        is "inject a known positive and confirm it is found" simply a test I
-        should have written and did not?
+    Q3 (THE CONTRARIAN, PhD auditing). The bench_device numbers are the first
+        real measurement of what this tool costs a user: CPU-only is 7.5x slower
+        at small, 23.8x at default, 84.9x at large. §23's installer is supposed
+        to pick a size the machine can finish. Is "CPU gets the small model by
+        default" the right call, or is shipping a deliberately weaker model to
+        GPU-less users a worse failure than making them wait 5.4 minutes?
 
   NON-CLAIMS (what I am NOT asserting):
-    - NOT claiming the leakage verdict is trustworthy on other corpora. You
-      measured the 0.20/0.05 constants wrong in BOTH directions on a 10,000-
-      document corpus; those constants are still shipped. Finding 2 is unbuilt.
-    - NOT claiming winnowing fixes calibration. It fixes DETECTION. A correct
-      detector with invented thresholds is still a tool with invented thresholds.
-    - NOT claiming the fast profile's claim is as strong as the canonical one.
-      It is deliberately weaker and labelled as such in its own verdict string.
-    - NOT claiming the 74-character guarantee is empirically verified. It follows
-      from window + k - 1 by construction; I did not test a 74-char copied run.
-    - NOT claiming the noise-floor utility exists, that split_health is wired in,
-      or that intra-train duplication has ever been measured. None are true.
+    - NOT claiming the detector is correct. It has now been wrong twice in one
+      session, both times in code I had just written and tested by hand.
+    - NOT claiming 4 passing tests means much. They cover phase invariance,
+      false positives at scale, the CLEAN case, and the documented length. That
+      is four properties, not coverage.
+    - NOT claiming the thresholds are fixed. 0.20/0.05 are still shipped and
+      still invented; your finding 3 is unbuilt.
+    - NOT claiming the benchmark generalises. One machine, one corpus, three
+      sizes. A different CPU or a laptop under thermal limits will differ.
+    - NOT claiming winnowing is the right detector below 60 characters. Measured,
+      it is worse there than the code it replaced, and the docstring now says so.
 
   CLOSED-CLASS CLAIM + ITS RED WITNESS (the one thing I assert this round):
-    Claim: verbatim duplication is now detected regardless of byte offset.
-    RED   fixed-stride sampler, one real document copied verbatim into train at
-          all 10 offsets: detected 1/10 (0.3-0.5% at nine, 100.0% at one).
-    GREEN winnowing, identical test: 10/10, 100.0% at every offset, using 11,759
-          fingerprints (0.16s) versus ~54,900 before.
-    Scope: measured on THIS corpus with one injected document at 10 offsets. It
-    does not establish behaviour for near-duplicates, paraphrase, or runs shorter
-    than the 74-character guarantee.
+    Claim: the fingerprinter no longer produces false overlap on clean corpora
+    as size grows.
+    RED   crc32: two independent clean corpora read 0.0065% / 0.0081% / 0.0293%
+          false overlap at 200KB / 800KB / 2MB, rising with size.
+    GREEN blake2b-64: 0.0000% at all three sizes, same fingerprint counts, phase
+          invariance unchanged at 10/10.
+    Scope: measured on synthetic uniform-random text at three sizes up to 2MB. It
+    does not establish behaviour at 100MB, nor on natural text whose k-gram
+    distribution is nothing like uniform.
 
 --------------------------------------------------------------------------------
 1. WHAT THIS IS
@@ -3105,3 +3101,75 @@ ONE RECOMMENDED NEXT PROMPT (proprietor -> executor):
    description of what it would do."
 
 (Council standing by. Watcher armed on the DIRECTIVE block — task bkk3n3jtj.)
+
+--------------------------------------------------------------------------------
+33. EXECUTOR LOG  (2026-07-26 — §32 headline fixed, first tests written,
+    first real device benchmark)
+--------------------------------------------------------------------------------
+Published per §24: locallm d5e8126 (fix + tests), 45f6864 (benchmark).
+
+YOUR HEADLINE WAS A BUG IN CODE I SHIPPED THIS SESSION, hours old. Reproduced
+before fixing. Winnowing keeps the MINIMUM hash per window, so the effective
+hash space is the bottom of the range rather than the whole of it, and 32-bit
+crc32 does not have enough room down there.
+  RED   selected fingerprints averaged 0.0557 of the range against 0.5018 for
+        all hashes (9.0x concentration, matching your measurement). Two
+        INDEPENDENTLY generated, genuinely clean corpora with zero real overlap:
+        0.0065% false at 200KB, 0.0081% at 800KB, 0.0293% at 2MB. Rising with
+        size, toward the still-shipped 5% SUSPECT threshold.
+  GREEN blake2b-64: 0.0000% at every size measured, same fingerprint counts,
+        phase invariance still 10/10.
+One line, exactly as you specified.
+
+FIRST TESTS THIS REPOSITORY HAS EVER HAD: +localllm/test_detectors.py, no
+framework, `python test_detectors.py`. Built to your finding 1 and finding 2
+rather than to my instinct:
+  - ASSERTS ON THE DECISION (Report.verdict), not a sub-metric. Your correction
+    that the masking happened in the HUMAN reading a healthy neighbouring number,
+    not in a redundant code path, is what determined this.
+  - INPUTS ARE NOT HAND-PICKED. Offsets mix round numbers with
+    random.Random-drawn ones.
+  - THE OLD BROKEN SAMPLER IS KEPT as a permanent regression oracle; every test
+    runs against both implementations.
+  RESULT, and it reproduces your finding 2 exactly: phase invariance 16/16 on
+  the current detector, 4/16 on the old one, and the missed offsets report
+  "of which 0 were round numbers" — the broken sampler passed every single
+  round-number offset (0, 100, 500, 1000) and failed only the random ones. The
+  hand-picked suite would have shipped the bug. I would not have known that
+  without your measurement.
+  4/4 tests pass; the phase test still fails against known-bad code, which is
+  the property that makes it worth keeping.
+
+YOUR FINDING 6 CONFIRMED AND THE DOCSTRING CORRECTED. Measured the curve myself,
+20 trials per length, winnowing vs the old sampler:
+  100 chars 100% vs 90% | 74 chars 100% vs 100% | 73 chars 100% vs 90%
+   60 chars  40% vs 80% |  50 chars  10% vs 80% | 40 chars   0% vs  0%
+Winnowing is WORSE below 60 characters than the code it replaced. The docstring
+claimed unconditional dominance; it now carries the measured curve and says
+plainly that this is a trade. Adopted your rule: a docstring using "guarantee"
+or "the one to trust" names the test that checks it, or drops the word.
+
+FIRST REAL DEVICE BENCHMARK, and it came from the proprietor exercising the GUI
+on both GPU and forced CPU. +localllm/bench_device.py times the REAL training
+step (same optimizer, clipping, autocast rules) and reports per device and size.
+Full 2000-step run on this box:
+    size      params      CPU        GPU      speedup
+    small      0.41M      63s         8s        7.5x
+    default    3.18M      5.4 min    14s       23.8x
+    large     18.96M     56.9 min    40s       84.9x
+This retires an ASSERTION. The README claimed a small model "trains perfectly
+well on CPU, just slower", and §23's entire CPU-default installer plan rested on
+it. It is now measured: CPU-only is fine at small, usable at default,
+impractical at large. The useful shape for §23 is that the GPU advantage scales
+with model size, so the installer's question is not "GPU or not" but "which size
+can this machine actually finish".
+
+NOT DONE, named so it is not mistaken for done. Your finding 3 (permutation null
+with the B >= 1/alpha - 1 feasibility interlock, three exit codes, delete the
+0.20/0.05 constants, default B=19 not 20) is NOT BUILT; the shipped scanner still
+carries the invented constants you measured wrong in both directions. Your
+finding 4's noise-floor utility (13 runs, BOTH split and seed randomized, with
+--decompose named in the default output) is NOT BUILT. split_health()['ok'] is
+still not wired into Corpus.__init__ or train.py's eval loop. The stride/round-
+number alignment sweep for OTHER parameters (batch_size, block_size,
+eval_interval) has not been done. Intra-train duplication remains unmeasured.
