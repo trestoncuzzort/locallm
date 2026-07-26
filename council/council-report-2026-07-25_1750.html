@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Council · srlm-forge · Pass #5</title>
+<style>
+  :root{
+    --bg:#0f1115; --card:#171a21; --card2:#1c2029; --ink:#e8eaed; --muted:#9aa3b2;
+    --line:#2a2f3a; --accent:#7aa2f7; --good:#7ee787; --warn:#f0b429; --bad:#ff7b72;
+    --contra:#ff7b72; --first:#7aa2f7; --expand:#7ee787; --outsider:#d2a8ff; --prag:#f0b429; --ahole:#56d4dd;
+  }
+  @media (prefers-color-scheme: light){
+    :root{--bg:#f6f7f9;--card:#fff;--card2:#f0f2f5;--ink:#1a1d24;--muted:#5a6472;--line:#e2e5ea;}
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased}
+  .wrap{max-width:860px;margin:0 auto;padding:32px 20px 80px}
+  header{border-bottom:1px solid var(--line);padding-bottom:20px;margin-bottom:28px}
+  .kicker{color:var(--accent);font-weight:600;font-size:13px;letter-spacing:.08em;text-transform:uppercase}
+  h1{font-size:26px;margin:.3em 0 .2em}
+  .sub{color:var(--muted);font-size:14px}
+  .q{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin:18px 0}
+  .q b{color:var(--accent)}
+  .newseat{background:linear-gradient(135deg,rgba(86,212,221,.14),rgba(122,162,247,.08));
+    border:1px solid var(--line);border-left:3px solid var(--ahole);border-radius:10px;padding:16px 18px;margin:18px 0}
+  .newseat .lbl{color:var(--ahole);font-weight:800;font-size:13px;letter-spacing:.08em;text-transform:uppercase}
+  h2{font-size:15px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:34px 0 12px;font-weight:700}
+  .verdict{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:10px;padding:20px 22px;margin-bottom:14px}
+  .verdict h3{margin:0 0 8px;font-size:16px}
+  .agree{border-left-color:var(--good)} .corr{border-left-color:var(--ahole)}
+  .blind{border-left-color:var(--outsider)} .rec{border-left-color:var(--accent)}
+  .first-step{background:linear-gradient(135deg,rgba(122,162,247,.14),rgba(126,231,135,.10));
+    border:1px solid var(--line);border-radius:10px;padding:20px 22px;margin:14px 0 8px}
+  .first-step .lbl{color:var(--accent);font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:.06em}
+  ul{margin:8px 0;padding-left:20px} li{margin:6px 0}
+  .stat{display:inline-block;background:var(--card2);border:1px solid var(--line);border-radius:8px;
+    padding:8px 14px;margin:4px 6px 4px 0;font-size:13.5px}
+  .stat b{font-size:16px}
+  .map{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:10px 0}
+  .adv{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+  .adv .name{font-weight:700;font-size:13px} .adv .take{color:var(--muted);font-size:12.5px;margin-top:4px}
+  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:middle}
+  .d-contra{background:var(--contra)} .d-first{background:var(--first)} .d-expand{background:var(--expand)}
+  .d-outsider{background:var(--outsider)} .d-prag{background:var(--prag)} .d-ahole{background:var(--ahole)}
+  details{background:var(--card);border:1px solid var(--line);border-radius:10px;margin:8px 0;overflow:hidden}
+  summary{cursor:pointer;padding:13px 16px;font-weight:600;list-style:none;display:flex;align-items:center;gap:8px}
+  summary::-webkit-details-marker{display:none}
+  summary::after{content:"+";margin-left:auto;color:var(--muted);font-size:18px}
+  details[open] summary::after{content:"–"}
+  details .body{padding:2px 18px 16px;border-top:1px solid var(--line)}
+  footer{margin-top:40px;padding-top:16px;border-top:1px solid var(--line);color:var(--muted);font-size:12.5px}
+  .tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:20px;border:1px solid var(--line);color:var(--muted);margin-left:6px}
+  code{background:var(--card2);border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:12.5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="kicker">LLM Council · Monitoring Pass #5 · First Autonomous Activation</div>
+    <h1>srlm-forge <span class="tag">lean shot vs full plan — gated green light</span></h1>
+    <div class="sub">2026-07-25 17:50 · triggered by the DIRECTIVE watcher, no human input · verdict in channel §12</div>
+  </header>
+
+  <div class="newseat">
+    <div class="lbl">Roster changes (proprietor)</div>
+    <p style="margin:.5em 0 0">Advisor #5 renamed <b>The Pragmatist</b> (the old "Executor" label collided with
+    the coder's EXECUTOR role — the coder writes all code; the council writes none, ever).
+    New member #6: <b>The Asshole</b> — final-pass reviewer who audits the other five for any mistake and
+    web-verifies prior art. He replaced the peer-critique step this pass and made 10 corrections with 4 live
+    web lookups.</p>
+  </div>
+
+  <div class="q">
+    <b>Executor's ask (§11):</b> Stockpile is actually <b>1,235 pairs</b> (+38 repair), zero ruler
+    contamination (verified empty intersection), model still at <b>zero gradient steps</b>. Rank by fewest
+    steps to a first real signal: (i) author 4 family tasks + mine 120 more, then train — vs (ii) lean shot:
+    build the env, ONE ORPO epoch on existing pairs, re-measure under the prereg bar.
+  </div>
+
+  <div>
+    <span class="stat">verdict <b>(ii) lean shot</b> — 5/5 + reviewer</span>
+    <span class="stat">gate: re-verify <b>1,273</b> pairs both ways</span>
+    <span class="stat">cap 120 → <b>919</b> pairs · 58 steps</span>
+    <span class="stat">pin <b>torch 2.5.1</b> — last cu121 wheel</span>
+  </div>
+
+  <h2>Council Verdict</h2>
+
+  <div class="verdict agree">
+    <h3>✔ Unanimous: run the lean shot — behind ONE gate</h3>
+    <ul>
+      <li><b>All five advisors + The Asshole rank (ii) first.</b> Dose is solved (1,235), contamination is absent by construction, and (i) would author ruler-family neighbor tasks while the collision filter still doesn't exist as code — eroding the one defense that currently works.</li>
+      <li><b>The gate (reviewer's merge of three advisors' scattered checks):</b> (a) re-verify all 1,273 pairs <i>bidirectionally</i> — chosen must pass, rejected must FAIL (nobody had checked the rejected side; a passing rejected = preference noise); (b) <b>null re-export</b>: push the <i>untrained</i> model through the full WSL2 → merge → GGUF → q4_K_M path first — the re-exported GGUF <i>becomes</i> the operative baseline, and its 3× ruler runs become the real noise floor.</li>
+      <li><b>Family pack, collision filter, MinHash dedup → round 2</b>, where they become a targeted mechanism experiment against a toolchain that's then trusted.</li>
+      <li><b>"A library with no reader"</b> (Outsider): 1,273 flashcards, zero study sessions — more cards is perfectionism wearing rigor's clothes.</li>
+    </ul>
+  </div>
+
+  <div class="verdict corr">
+    <h3>⚔ The Asshole's corrections (highlights of 10)</h3>
+    <ul>
+      <li><b>The ledger contradiction is total, not partial:</b> per-task counts sum to exactly 1,235 <i>excluding</i> repair pairs — so ALL 40 multiply_strings pairs are normal-lane solves; known_hard.json and the ledger cannot both be true.</li>
+      <li><b>Cap fight adjudicated:</b> cap-50 (489 pairs ≈ 31 optimizer steps) is "a smoke test masquerading as an epoch" — cap-120 → 919 pairs → 58 steps wins.</li>
+      <li><b>"Transfer is unanswerable" overclaimed:</b> next_permutation (195 pairs) trains suffix reversal — literally the rotate-by-reversal primitive. Rotate stays exploratory, not impossible.</li>
+      <li><b>The old noise floor is worthless:</b> a 3-run std has a 95% CI of ~0.5×–6.3×σ; thresholds must derive from the re-exported baseline's own runs, not pre-baked constants (the ≤176/200 rle bar was pinned to a 46/50 estimate with an 81–98% CI).</li>
+      <li><b>Honest wall-clock:</b> 12–16h including the gate, not 8–11.</li>
+    </ul>
+  </div>
+
+  <div class="verdict blind">
+    <h3>◎ Adopt, don't build (web-verified for the coder)</h3>
+    <ul>
+      <li><b>TRL ORPOTrainer</b> — don't hand-port train_dpo.py; note current TRL moved it to <code>trl.experimental.orpo</code>, so use Unsloth's pinned TRL or pin pre-move.</li>
+      <li><b>Unsloth's documented GGUF→Ollama path</b>; <code>save_pretrained_gguf</code> has known breakage — fallback: merged-16bit → <code>convert_hf_to_gguf.py</code> → <code>llama-quantize</code>.</li>
+      <li><b><code>ollama create</code> with the template from <code>ollama show --modelfile</code></b> — template mismatch is the classic silent eval-killer (the coder's new model-agnostic config.py already tracks this).</li>
+      <li><b>Pin torch 2.5.1</b> — the last cu121 wheel; 2.6 dropped cu121, and this box (driver 591.86) is cu121-only. A blind upgrade bricks the env.</li>
+      <li>pandas <code>groupby().sample()</code> for the stratified cap; MinHash/AST-hash for real near-dup detection; scipy <code>binomtest</code> for thresholds.</li>
+    </ul>
+  </div>
+
+  <div class="verdict rec">
+    <h3>➜ The prereg, relabeled</h3>
+    <p><b>Co-primary safety:</b> ruler non-inferior vs the re-exported baseline (−2σ bars from its own 3× runs; regressions must replicate ×2). <b>Co-primary efficacy:</b> multiply_strings n=100 pre/post lift — the "did training take" probe — valid only after its 40 pairs clear the gate. <b>Exploratory:</b> rotate keeps its bars (≥10/100 decisive / 7–9 suggestive / ≤6 null); if it moves, contamination check before celebration. Repair pairs excluded (single variable). Flat-but-intact stays pre-committed as a positive first result — now paired with the efficacy probe so it can't decay into a consolation prize.</p>
+  </div>
+
+  <div class="first-step">
+    <div class="lbl">The one thing to do first</div>
+    <p style="margin:.5em 0 0"><b>The gate:</b> bidirectional re-verification of all 1,273 pairs (~1–2h local).
+    If every chosen passes and every rejected fails — stale quarantine label, annotate and go.
+    If ANY pair fails — the "verified" stamp itself is broken, and that is the one condition under which
+    training now would be a mistake. Full gated run-sheet prompt in instructions.txt §12.</p>
+  </div>
+
+  <h2>Advisor Alignment Map</h2>
+  <div class="map">
+    <div class="adv"><div class="name"><span class="dot d-contra"></span>Contrarian</div><div class="take">(ii), but the records disagree — re-verify before training; null re-export or quant drift confounds everything.</div></div>
+    <div class="adv"><div class="name"><span class="dot d-first"></span>First Principles</div><div class="take">(ii); relabel prereg — intact is primary, rotate exploratory; family pack is round 2's mechanism test.</div></div>
+    <div class="adv"><div class="name"><span class="dot d-expand"></span>Expansionist</div><div class="take">(ii); mining has receipts (spiral 0→116); first full cycle is a no-lose trade.</div></div>
+    <div class="adv"><div class="name"><span class="dot d-outsider"></span>Outsider</div><div class="take">(ii); "a library with no reader" — more cards is avoidance; re-verify the contradiction cards as go/no-go.</div></div>
+    <div class="adv"><div class="name"><span class="dot d-prag"></span>Pragmatist</div><div class="take">(ii), 9 steps vs 14; cap 120 → 919 pairs; exclude repair pairs; full run sheet.</div></div>
+    <div class="adv"><div class="name"><span class="dot d-ahole"></span>The Asshole</div><div class="take">Concurs; 10 corrections, 7 adopt-don't-build items, one merged gate. "Turn run 1 from hoping the stamps are real into an instrumented experiment."</div></div>
+  </div>
+
+  <h2>Full Responses</h2>
+  <details><summary><span class="dot d-contra"></span>The Contrarian</summary><div class="body"><p>Rank (ii) then (i), but (ii) has more steps than advertised, and one ledger contradiction blocks both: known_hard quarantines multiply_strings while the ledger credits it 40 pairs — re-run hidden tests on those chosens before training; if they don't verify, "1,235 audited" is unproven everywhere. 1,235 is really ~666 (top-3 = 54%; sha1 excludes only byte-identity — effective diversity plausibly a few dozen solution modes; expected honest outcome: flat). "Flat-but-intact = positive" needs a falsifier — prereg a positive control on held-out items from trained tasks. And prereg-evaluability needs: rle n=200 re-baseline, matched-n noise floor, and a NULL RE-EXPORT of the untrained model through the full export path, else quant drift confounds every delta. (i) last: authoring ruler-family neighbors with no collision filter as code erodes the only contamination defense.</p></div></details>
+  <details><summary><span class="dot d-first"></span>The First Principles Thinker</summary><div class="body"><p>(ii) decisively — but relabel the prereg. Run 1 cannot test transfer (zero rotation/RLE-family pairs), so rotate-as-headline preregisters a question the design can't answer. PRIMARY = ruler intact within the noise band after one true epoch; rotate/rle = exploratory (and if rotate moves anyway — contamination check before celebration). §10 decomposes: "mine more" was dose (moot); "author family tasks" was mechanism (round 2 — bundling confounds "does training work" with "does family data transfer"). spiral 116 / multiply_strings 40 prove the mining half closed. The confound: 54% from three tasks — cap by selection only (~50/task → ~490 pairs).</p></div></details>
+  <details><summary><span class="dot d-expand"></span>The Expansionist</summary><div class="body"><p>(ii) by a wide margin. Mining has receipts before any gradient step: spiral 0 → 116, multiply_strings quarantine → 40 — the flywheel's front half already converts "impossible" into verified signal with an untrained model. The first completed cycle pays out all three ways: up = first self-improvement signal; flat-but-intact = loop proven non-destructive plus permanent reusable capital (env, config, harness); down = a real dose-response baseline. The family pack appreciates by waiting — at round 2 it's a targeted mechanism experiment against a trusted toolchain. Capture now: per-task eval snapshots, checkpoint hashes, the frontier ledger.</p></div></details>
+  <details><summary><span class="dot d-outsider"></span>The Outsider</summary><div class="body"><p>A library with no reader: 1,273 flashcards, zero study sessions. "Mine 120 more first" is a ~10% bump graded by a 10-question exam — undetectable; perfectionism wearing rigor's clothes. One run converts every card decision into targeted repair. The lopsided pile is a round-2 problem; the two record contradictions matter more — the 10-minute fix doubles as the go/no-go gate: re-run the verifiers; pass = stale labels, go; fail = the "verified" stamp is broken, and that's the one condition where training now is a mistake. Snapshot the base model so run 1 is reversible.</p></div></details>
+  <details><summary><span class="dot d-prag"></span>The Pragmatist</summary><div class="body"><p>(ii) — a strict subset of (i), ~9 steps vs ~14, and a null's env/baseline/export work is fully reusable. Run sheet: env + 10-step smoke test; pre-baselines rle n=200 + multiply_strings n=100; curation cap 120 → ~919 pairs, stratified, seed-fixed, sha1 manifest; exclude the 38 repair pairs; prereg update (multiply_strings n=100 primary efficacy; rotate exploratory; rle regression guard → rollback); ORPO one epoch (2×8, lr 8e-6, no sweeps); merge → q4_K_M, sha256; ruler ×2; log seeds/sha1s/hashes. ~8–11h.</p></div></details>
+  <details><summary><span class="dot d-ahole"></span>The Asshole (full 10 corrections + sources in the transcript)</summary><div class="body"><p>Ledger sums to exactly 1,235 excluding repair — all 40 multiply_strings pairs are normal-lane; the contradiction is total. Re-verify all 1,273, both directions — nobody checked the rejected side. "Transfer unanswerable" is wrong (next_permutation = suffix reversal = the rotate primitive). Cap-120 wins (cap-50 ≈ 31 steps = smoke test); 58 steps, not 57. Endpoints: merge into co-primaries + exploratory. Null re-export: right catch, wrong spec — the re-exported untrained GGUF <i>becomes</i> the baseline; its 3× runs replace the worthless 3-run noise floor (95% CI ~0.5×–6.3×σ). Wall-clock 12–16h. Adopt-don't-build: TRL ORPOTrainer (now experimental-namespaced — pin), Unsloth's GGUF path + fallback, ollama template discipline, pandas stratified sample, MinHash dedup, scipy binomtest, and PIN TORCH 2.5.1 (last cu121 wheel). Verdict: (ii) behind one merged gate — "turn run 1 from hoping the stamps are real into an instrumented experiment."</p></div></details>
+
+  <footer>
+    Council monitoring pass #5 · srlm-forge · 2026-07-25 17:50 ·
+    First autonomous activation (DIRECTIVE watcher) · 5 advisors + The Asshole review → chairman synthesis ·
+    Verdict + gated run-sheet prompt in instructions.txt §12 · COUNCIL ACK appended re: 16:05 model-agnostic addendum ·
+    Prior passes: §5 ruler · §7 two-lane · §8 instrument · §10 veto ·
+    Council is advisory; the executor (the coder) owns all code.
+  </footer>
+</div>
+</body>
+</html>

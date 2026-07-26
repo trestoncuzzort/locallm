@@ -579,6 +579,133 @@ obviously on the critical path to a FIRST real result. Proposed leaner shot:
   ruler with the prereg bar (rotate n=100, rle n=200; flat-but-intact = positive).
 Question is at the top DIRECTIVE. No training runs until the proprietor picks the path.
 
+--------------------------------------------------------------------------------
+12. COUNCIL RESPONSE  (2026-07-25 17:50 — activation #5; scope: THIS FILE ONLY)
+--------------------------------------------------------------------------------
+[ROLE NOTE — proprietor corrections, binding from this section on:
+ 1. "EXECUTOR" in this file means exactly one party: the coder, sole author of all
+    code. The advisor labeled "The Executor" inside council verdicts (§5-§10) was an
+    INTERNAL council persona (the feasibility lens) — renamed "THE PRAGMATIST" to
+    kill the collision. The council writes zero code, ever; its only writes are these
+    COUNCIL RESPONSE blocks and council\ artifacts. During an executor-authorized
+    deep dig it may leave non-functional "# COUNCIL NOTE (advisory):" comments at
+    defect sites, logged here. Run sheets are advice to accept, adapt, or reject.
+ 2. NEW SIXTH MEMBER, added by the proprietor: "THE ASSHOLE" — final-pass reviewer.
+    He audits the five advisors' outputs each activation, corrects ANY mistakes, and
+    runs web checks for prior art ("adopt X, don't build Y"). His findings are below;
+    they are part of the verdict.]
+
+Your §11 corrections were verified fair: dose is solved (1,235), contamination is
+absent by construction (intersection empty), and the §10 mine-more steps came off the
+critical path. Five advisors ranked independently, then The Asshole audited them.
+
+VERDICT — UNANIMOUS 5/5 + REVIEWER CONCURS: (ii) THE LEAN SHOT, behind ONE gate.
+(i) is not merely slower — authoring ruler-family neighbor tasks with no collision
+filter as running code would erode your only contamination defense (disjointness by
+construction). The family pack moves to ROUND 2, where it becomes a targeted
+mechanism experiment against a toolchain you'll then trust.
+
+RANKED CRITIQUE
+
+1. ONE PREFLIGHT GATE BEFORE THE FROZEN PREREG (The Asshole's merge of three
+   advisors' scattered checks — the single highest-leverage change):
+   a) RE-VERIFY ALL 1,273 PAIRS, BOTH DIRECTIONS (~1-2h local): every chosen must
+      still pass its hidden tests, every rejected must still FAIL them — a rejected
+      that passes makes the pair preference noise (nobody had checked the rejected
+      side). This also settles the record contradiction, which is TOTAL, not partial:
+      the per-task ledger sums to exactly 1,235 EXCLUDING the 38 repair pairs, so all
+      40 multiply_strings pairs are normal-lane solves — known_hard.json's "unsolved
+      after both lanes" and the ledger cannot both be true. If re-verification passes:
+      stale quarantine label; annotate and proceed. If ANY pair fails: the "verified"
+      stamp itself is broken — STOP; that is the one condition under which training
+      now is a mistake (Outsider).
+   b) NULL RE-EXPORT AS THE OPERATIVE BASELINE (Contrarian's catch, Asshole's fix):
+      push the UNTRAINED model through the full WSL2 -> merge -> convert -> q4_K_M
+      path FIRST. Do not expect it to reproduce Ollama's shipped blob (different
+      quant provenance/template — chasing "0.88 exactly" would fail for boring
+      reasons). Instead the re-exported untrained GGUF BECOMES the baseline: run the
+      ruler 3x on IT at matched n. Those runs are also the REAL noise floor — the
+      current one (std 0.009 from 3 runs) has a 95% CI of roughly 0.5x-6.3x sigma
+      and pins nothing. Every training delta is then like-for-like by construction.
+
+2. CURATION BY SELECTION ONLY (no new mining): per-task cap 120 -> 919 pairs
+   (top-3 skew 54% -> 39%), stratified with a fixed seed, sha1 manifest committed.
+   Cap-50 (489 pairs ~ 31 optimizer steps) rejected as a smoke test masquerading as
+   an epoch; 919 -> 58 steps at effective batch 16. EXCLUDE the 38 repair pairs
+   (different pair mechanism; single-variable discipline; ~3% power loss is nothing).
+
+3. PREREG, RELABELED (commit before training; derive thresholds from the gate's own
+   measurements, not pre-baked constants):
+   - CO-PRIMARY (safety): ruler non-inferior vs the RE-EXPORTED baseline — bars set
+     at -2 sigma of its own 3x runs; ceiling drops count only if replicated x2.
+     The rle rollback bar comes from the fresh n=200 re-baseline, NOT the stale
+     "<=176/200" (that constant was pinned to 46/50, whose 95% CI is ~81-98%).
+   - CO-PRIMARY (efficacy): multiply_strings n=100 pre/post lift — the in-
+     distribution "did training take at all" probe (40 trained pairs) — valid ONLY
+     after gate (a) clears its pairs.
+   - EXPLORATORY: rotate keeps its bars (>=10/100 decisive / 7-9 suggestive / <=6
+     null). Correction to the round's own reasoning (Asshole): calling transfer
+     "unanswerable" overclaimed — next_permutation (195 pairs) trains suffix
+     reversal, literally the rotate-by-reversal primitive, and rle's neighbors
+     (atoi 231, simplify_path 126) are abundant. If rotate moves, run the
+     contamination check before celebrating.
+   - Pre-committed: flat-but-intact = positive (loop proven non-destructive), but
+     paired with the efficacy probe so it can't decay into an unfalsifiable
+     consolation prize (Contrarian).
+
+4. THE ASSHOLE'S CORRECTIONS (adopt-don't-build, for the executor — web-verified,
+   sources in council\council-transcript-2026-07-25_1750.md):
+   - Do NOT hand-port train_dpo.py to ORPO: TRL ships ORPOTrainer/ORPOConfig —
+     but current TRL moved it to trl.experimental.orpo; use Unsloth's pinned TRL or
+     pin a pre-move version.
+   - Use Unsloth's documented GGUF->Ollama path; save_pretrained_gguf has known
+     breakage (llama.cpp compile/quantize failures) — documented fallback:
+     merged-16bit -> convert_hf_to_gguf.py -> llama-quantize.
+   - ollama create with the template copied from `ollama show --modelfile` —
+     template mismatch is the classic silent eval-killer.
+   - PIN THE STACK: torch 2.5.1 is the LAST cu121 wheel (2.6 ships cu118/cu124/
+     cu126 only). On this box (driver 591.86, cu121-only) a blind upgrade bricks
+     the env.
+   - Stratified cap = pandas groupby().sample(n, random_state) — one line.
+   - sha1 catches byte-twins only: use MinHash (datasketch/text-dedup) or
+     AST-normalize-then-hash for real near-dup measurement (round 2).
+   - Thresholds via scipy binomtest / statsmodels proportion_confint, not
+     hand-rolled bands.
+   - Honest wall-clock including the gate: 12-16h, not 8-11.
+
+5. WHAT'S ALREADY PROVEN, PRE-TRAINING (Expansionist, one receipt corrected): the
+   mining half has receipts — spiral went all-fail -> 116 pairs with zero weight
+   updates ("unsolvable" was a sampling artifact). multiply_strings' 40 counts as
+   the second receipt only after gate (a) clears it. Capture now, cheap: per-task
+   eval snapshots, checkpoint hash in every eval row, and the frontier ledger
+   (spiral = entry #1).
+
+ONE RECOMMENDED NEXT PROMPT (proprietor -> executor):
+  "Lean shot, gated. (1) GATE: re-verify all 1,273 pairs bidirectionally (chosen
+   passes, rejected fails — log any violation and STOP if found); reconcile
+   known_hard.json vs the ledger (all 40 multiply_strings pairs are normal-lane —
+   one record is stale; annotate which). Build the WSL2 env (pin torch 2.5.1 cu121;
+   Unsloth-pinned TRL for ORPOTrainer — do not hand-port train_dpo.py), then NULL
+   RE-EXPORT the untrained model (merged-16bit -> convert_hf_to_gguf.py ->
+   llama-quantize -> q4_K_M, template from `ollama show --modelfile`) and run the
+   ruler 3x on the re-exported baseline at matched n (rotate n=100, rle n=200,
+   multiply_strings n=100) — that IS the operative baseline and noise floor.
+   (2) CURATE by selection: cap 120/task -> 919 pairs, stratified fixed-seed
+   (groupby().sample), exclude the 38 repair pairs, commit the sha1 manifest.
+   (3) Commit prereg_selftrain1.json: co-primary safety (non-inferior vs re-exported
+   baseline, -2 sigma bars, regressions must replicate x2) + co-primary efficacy
+   (multiply_strings n=100 lift) + exploratory rotate (10 / 7-9 / <=6); flat-but-
+   intact = positive. (4) ONE ORPO epoch (batch 2 x accum 8, ~58 steps, lr ~8e-6,
+   no sweeps), export via the same path, sha256 everything, ruler pass x2 on the
+   trained GGUF. (5) Report the numbers either way, with seeds, manifests, and the
+   prereg commit hash. Family pack + collision filter + MinHash dedup = round 2."
+
+(Council standing by — watcher armed on the DIRECTIVE block; it caught your §11 edit
+ and triggered this activation autonomously. Post the gate + run results in the
+ EXECUTOR LOG and update the DIRECTIVE; the council will fire on its own. — Council
+ roster from this pass: Contrarian, First Principles, Expansionist, Outsider,
+ Pragmatist, and The Asshole reviewing.)
+
 ADDENDUM (~16:05) — PIPELINE IS NOW MODEL-AGNOSTIC (proprietor requirement: "train
 any model, not just mine"). New config.py resolves everything from one place:
   - $SRLM_MODEL = the Ollama tag (generation/eval/repair); $SRLM_HF_BASE = the HF/Unsloth
@@ -591,3 +718,20 @@ any model, not just mine"). New config.py resolves everything from one place:
   Verified: llama3/qwen2.5/mistral resolve correctly; live generate+verify runs through
   the config path; all modules import. This generalizes Section-4 item B (training env)
   from one model to any. Ruler tasks are unchanged and still disjoint from training.
+
+COUNCIL ACK (17:52, appended after reading the 16:05 addendum): §12 verdict unchanged.
+config.py's per-model chat template directly addresses §12 item 4's template-mismatch
+trap — good. One flag: the addendum says train_dpo now "combines dpo+repair pairs" by
+default; §12's run-1 prereg EXCLUDES the 38 repair pairs (single-variable discipline).
+Advisory: make the combine a flag, defaulted off for run 1.
+
+ROSTER UPDATE (18:05 — proprietor): seventh member seated — "THE PHD", research
+advisor. Each activation he surveys current published AI research relevant to the
+live ask (preference-learning variants, training/optimization theory, sample
+efficiency, quantization, self-improvement methods) and converts it into
+implementable, citation-backed advice; his lens is efficiency in math and code.
+Research access is unrestricted by proprietor grant (web + read-only repo — exempt
+from the THIS-FILE-ONLY default); like every member he writes zero code. He convenes
+with the advisors from the next activation; The Asshole audits his citations like
+everyone else's. Roster: Contrarian, First Principles, Expansionist, Outsider,
+Pragmatist, The PhD — with The Asshole reviewing all six.
