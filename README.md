@@ -39,6 +39,7 @@ A small, readable, from-scratch GPT and a GUI so you don't need a terminal to us
 | `make_corpus.py` | Point it at a folder; it builds `corpus.txt` from your files. |
 | `studio.py` | The GUI. Build the architecture, train it, watch the loss curve, sample from it. |
 | `leakage.py` | Finds training text hiding in your validation set, and says so. |
+| `bench_device.py` | Times a real training step on your hardware and tells you what it can handle. |
 | `exp_lr_width.py` | A preregistered experiment harness (see below). |
 
 Dependencies: **PyTorch and Tk.** That's it. Tk ships with Python.
@@ -144,8 +145,22 @@ In order. The training core gets sharpened before anything expands.
 A single `.exe`: no Python, no `pip`, no virtualenv, no terminal, no command line. Double
 click, choose your text, press train. The honest obstacle is that PyTorch with CUDA is
 roughly 2.5 GB, which no amount of packaging polish makes friendly. The plan is a CPU
-capable default (a small character model trains perfectly well on CPU, just slower), with
-the GPU build as an opt in, and the Python runtime bundled so the user never sees it.
+capable default with the GPU build as an opt in, and the Python runtime bundled so the
+user never sees it.
+
+That plan rests on CPU training being tolerable, which is a measurable claim, so it was
+measured rather than assumed. Run `python bench_device.py` to get the same table for your
+own machine. On an RTX 4080 with a Ryzen 7000 series CPU, for a full 2000 step run:
+
+| size | params | CPU | GPU | GPU speedup |
+|---|---|---|---|---|
+| small (2L, 128 wide) | 0.41M | 63s | 8s | 7.5x |
+| default (4L, 256 wide) | 3.18M | 5.4 min | 14s | 23.8x |
+| large (6L, 512 wide) | 18.96M | 56.9 min | 40s | 84.9x |
+
+So a CPU only install is genuinely fine at the small size, usable at the default, and
+impractical above it. That is the shape the installer should follow: detect the hardware,
+pick a size the machine can actually finish, and say which it chose.
 
 **2. Leakage scan and group aware splitting. DONE.**
 Shipped in `leakage.py`, and wired into the GUI and the training loop. Measured on this
