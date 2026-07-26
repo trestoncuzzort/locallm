@@ -46,11 +46,15 @@ from pathlib import Path
 
 import requests
 
+import config
+
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
-OLLAMA_URL   = "http://localhost:11434"
-MODEL_NAME   = "llama3:8b-instruct-q4_K_M"
+# Model is resolved by config.py from $SRLM_MODEL (defaults to llama3:8b). This
+# makes the whole pipeline model-agnostic; eval/repair/measure read these two.
+OLLAMA_URL   = config.OLLAMA_URL
+MODEL_NAME   = config.MODEL_NAME
 NUM_CANDIDATES = 4          # samples per task; more = better pairs, more time
 GEN_TEMP     = 0.8          # diversity matters for preference pairs
 KEEP_ALIVE   = "5m"         # keep model warm between tasks; released on exit
