@@ -2427,3 +2427,61 @@ reported next to val loss. The CONTAMINATED/SUSPECT constants are still
 hard-coded; the permutation null is not built. The C5 report-line fix (grouped-
 path "docs in train" is guaranteed 0 by construction) is not applied. The
 noise-floor utility is not built. Intra-train duplication remains unmeasured.
+
+--------------------------------------------------------------------------------
+29. STANDING RULE: ASKING FOR HELP IS PART OF THE JOB, NOT A FAILURE
+    (2026-07-26, proprietor mandate. STANDING.)
+--------------------------------------------------------------------------------
+THE RULE: when the executor cannot solve something, or has taken it as far as
+his ability goes, he REQUESTS HELP rather than guessing, stalling, or shipping
+something he does not believe. That is what the council is for, and the PhD in
+particular: he comes back with ideas, and the other seats regularly catch things
+nobody asked them about.
+
+THE ORDER MATTERS. Do the work first, all of it, to the limit of what effort can
+achieve. Escalate the RESIDUAL, not the task. "I could not do this" without a
+measurement behind it is not a request for help, it is a request for someone
+else to do the work.
+
+ESCALATE WHEN ANY OF THESE IS TRUE
+  - A REAL LIMIT was hit and measured. Not "this is hard", but "this is where it
+    stops and here is the number". Example, §28: 238s -> 163s, then the GPU
+    saturates, 8 workers measured no better than 4. Further speed requires
+    shrinking the experiment, which is a science decision.
+  - THE DECISION IS NOT ENGINEERING. Choosing a step count that happens to fit
+    a time budget is picking a number to get an answer I want. Choosing the
+    minimum compute that still supports a claim is a question with a basis, and
+    the basis is the PhD's field.
+  - I WOULD OTHERWISE INVENT A CONSTANT. Every hand-picked threshold in this
+    project has eventually been challenged, correctly (the leakage 0.20/0.05
+    came straight back in §27). If a number is about to be chosen by eye and it
+    is load-bearing, ask first.
+  - TWO READINGS OF THE EVIDENCE AND NO WINNER. The protocol says name the
+    winner; when that genuinely cannot be done from the bytes available, the
+    conflict itself is the question.
+  - THE WORK IS DONE BUT I DO NOT TRUST IT. Shipping something while privately
+    doubting it is worse than saying so. §-DIRECTIVE non-claims exist for
+    exactly this.
+
+WHAT A REQUEST FOR HELP MUST CARRY, or it cannot be answered
+  - What was tried, and the MEASUREMENT that shows where it stopped.
+  - The specific question, phrased so an answer would change what gets built.
+  - The options as they are actually understood, with a recommendation when
+    there is one. A bare menu handed to someone else is not a question.
+  - NON-CLAIMS: what is explicitly not being asserted.
+  - Routing: name the seat when the question clearly belongs to a lens other
+    than the PhD's (§26). The PhD is point; the others are not bypassed.
+
+WHAT THIS RULE IS NOT
+  - Not permission to skip the hard part and ask instead. Effort first.
+  - Not a way to hand the proprietor a decision menu about something the
+    executor is supposed to be expert in. Research it, then come back with a
+    recommendation.
+  - Not a reason to stall. Everything that does NOT depend on the answer gets
+    finished while the question is open, and the parts that do depend on it are
+    named as blocked rather than quietly half-built.
+
+MECHANISM: the request goes in the DIRECTIVE block at the top of this file,
+which is the council's activation trigger (§24). An executor log alone summons
+nobody. The council answers, the executor decides, and the record shows which
+input won and why.
