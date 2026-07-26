@@ -40,9 +40,16 @@ STATE = HERE / "council" / "publish_state.json"
 # The product. Anything not listed here does not get published, ever.
 PUBLISH = [
     "model.py", "data.py", "train.py", "generate.py", "make_corpus.py",
-    "studio.py", "leakage.py", "exp_lr_width.py", "prereg_lr_width.json",
-    "exp_lr_width_result.json", "README.md", ".gitattributes",
+    "studio.py", "leakage.py", "exp_lr_width.py",
+    "prereg_lr_width.json", "exp_lr_width_result.json",
+    "prereg_lr_width_fast.json", "exp_lr_width_result_fast.json",
+    "README.md", ".gitattributes",
 ]
+
+# Files a published script may legitimately reference without shipping: things
+# the user generates locally.
+GENERATED_LOCALLY = {"corpus.txt", "ckpt.pt", "tokenizer.json",
+                     "exp_lr_width_result_quick.json"}
 
 # Anything internal. Word-boundary matched so ordinary English ("endpoint")
 # cannot trip it, which a naive substring scan does.
@@ -90,6 +97,29 @@ def scan() -> list[tuple[str, int, str]]:
     return hits
 
 
+def dangling_references() -> list[tuple[str, str]]:
+    """Find sibling files a published file names but that we do not publish.
+
+    The whitelist is safe against leaking, and silently unsafe against
+    OMISSION: adding a feature whose data file is not on the list ships code
+    that crashes on a fresh clone. That is exactly how --profile fast went out
+    with its preregistration left behind. Catch it here rather than in a bug
+    report.
+    """
+    ref = re.compile(r"[\"']([A-Za-z0-9_.-]+\.(?:json|txt|py))[\"']")
+    published = set(PUBLISH)
+    missing = []
+    for name in PUBLISH:
+        if not name.endswith(".py"):
+            continue
+        for hit in ref.findall((SRC / name).read_text(encoding="utf-8", errors="ignore")):
+            if hit in published or hit in GENERATED_LOCALLY:
+                continue
+            if (SRC / hit).is_file():          # exists locally but is not shipped
+                missing.append((name, hit))
+    return missing
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("-m", "--message", default="")
@@ -120,6 +150,16 @@ def main() -> None:
         print("history belongs), then run again.")
         raise SystemExit(1)
     print("  clean.\n")
+
+    dangling = dangling_references()
+    if dangling:
+        print("!!! ABORT: a published file references something not on the publish")
+        print("    list. It exists here, so it works locally and would crash on a")
+        print("    fresh clone. NOTHING was published.\n")
+        for src_file, ref in dangling:
+            print(f"  {src_file} references {ref}")
+        print("\nAdd it to PUBLISH, or to GENERATED_LOCALLY if the user creates it.")
+        raise SystemExit(1)
 
     if not CLONE.exists():
         print(f"cloning {REMOTE} -> {CLONE}")

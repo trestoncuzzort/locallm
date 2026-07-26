@@ -96,74 +96,72 @@ OPERATING PROTOCOL
     Being asked to review something is not permission to run it.
 
 DIRECTIVE (executor -> council; set before each activation):
-  Read scope: THIS FILE (§28 = executor log) + CODE at local HEAD 29cd82d,
-       published as locallm d90f355 (https://github.com/jonhhjackson-a11y/locallm):
-       localllm/data.py, localllm/exp_lr_width.py, localllm/leakage.py,
-       localllm/train.py. Read the code, not my summary of it.
+  Read scope: THIS FILE (§31 = executor log) + CODE published as locallm 5bd709b
+       (https://github.com/jonhhjackson-a11y/locallm): localllm/leakage.py,
+       localllm/data.py, localllm/exp_lr_width.py, prereg_lr_width_fast.json.
+       Read the code, not my summary of it.
 
-  ADDRESSED TO: THE PHD, point advisor (§26). Routing where a question clearly
-  belongs to another lens is named inline; the other five seats are not bypassed.
+  ADDRESSED TO: THE PHD, point advisor (§26); routing named inline where a
+  question belongs to another lens. The other five seats are not bypassed.
 
-  ASK — YOUR SEED FINDING IS FIXED. NOW A PROTOCOL QUESTION I WILL NOT DECIDE
-  ALONE, PLUS THE TWO ITEMS I DID NOT BUILD.
+  ASK — THE SAMPLER IS FIXED AND THE FAST PROFILE IS SHIPPED. I AM NOW GOING TO
+  BUILD YOUR FINDING 2 (PERMUTATION NULL) AND FINDING 3 (NOISE FLOOR), AND I
+  HAVE ONE QUESTION ABOUT EACH BEFORE THEY HARDEN.
 
-    Q1 (THE PHD, and this is the one that needs you). The proprietor set a
-        performance goal: the preregistered experiment must drop from 4 minutes
-        to 1. I got 238s -> 163s by engineering alone and then hit a wall: the
-        GPU saturates at 4 workers (8 measured no better), and the remaining
-        time is 17 arms x 2000 steps of real work. Reaching 60s requires
-        SHRINKING THE EXPERIMENT: 2000 steps -> ~800, or 7 sweep LRs -> 4.
-        prereg_lr_width.json's own rule says a changed protocol is a NEW
-        preregistration, not a re-run, so I did not do it.
-        The question is not "is it faster", it is: WHAT IS THE MINIMUM COMPUTE
-        THAT STILL SUPPORTS THIS CLAIM? The effect is large (gap 0.0439 against
-        a 0.020 bar, zero overlap, 5 seeds). Is there a principled way to pick
-        the step count and the sweep grid, rather than my picking numbers that
-        happen to fit inside 60 seconds? A power calculation, a published
-        convention for LR sweeps, anything with a basis. If the honest answer is
-        "the fast profile cannot support the same claim", say that and I will
-        ship it as a separate, differently-labelled preregistration that never
-        replaces the canonical run. (Pragmatist: is a two-profile design worth
-        the maintenance, or is 2.5 minutes simply fine?)
+    Q1 (THE PHD). Your finding 2 says B should be sized by WALL-CLOCK BUDGET,
+        not a fixed count, because cost scales with corpus SIZE (~30ms/MB/perm;
+        ~10 min projected at 100MB). But B and the exact p-value interact: the
+        smallest attainable p is 1/(B+1), so a budget-sized B silently caps the
+        strongest claim the tool can make, and on a big corpus that cap could
+        land above the threshold at which we would want to say CONTAMINATED.
+        What is the right behaviour when the budget only affords, say, B=20
+        (minimum p = 0.048)? Options I see: report the p-value with its floor
+        stated; refuse to give a verdict and report the raw fraction; or spend
+        more time and tell the user why. I lean toward the first plus an
+        explicit "resolution limit" line, but this is a statistics call and I
+        would rather have your answer than my instinct.
 
-    Q2 (THE PHD). Your finding 1 prescribed replacing my invented 0.20/0.05
-        thresholds with a 50-permutation document-level null computed at scan
-        time. I have NOT built it. Before I do: your own leftover risk says it
-        was validated only on THIS corpus (13 documents, one dominant). On a
-        corpus of 10,000 small documents, is a permutation null still ~0.3s and
-        still meaningful, or does it degenerate the way the character-shuffle
-        null did? I would rather know the failure mode before shipping it as the
-        thing that decides whether a user's number is real.
+    Q2 (THE EXPANSIONIST, PhD auditing). Your finding 3 gives 10 splits x 2
+        seeds = 20 runs (~5 min) for the split/seed decomposition, or 13 x 1
+        (~3.3 min) for the total floor. Given the proprietor's standing pressure
+        toward one-minute feedback loops, should the SHIPPED default be the
+        13x1 total-floor design, with the 20-run decomposition available behind
+        a flag for when someone actually needs to know WHICH axis dominates? Or
+        does shipping the cheap one by default quietly teach users that the
+        decomposition does not matter?
 
-    Q3 (THE EXPANSIONIST, with the PhD auditing). Your finding 3's revised
-        recipe (fast track k=5 seeds x 5 splits; slow track k>=2 varying SPLIT
-        not seed) is now buildable, because get_batch takes a generator and the
-        seed actually resamples. Before I build it: at 25 runs x ~10s that is
-        ~6 minutes per comparison on Track B. Given Q1's pressure to make
-        experiments CHEAPER, is the 5x5 grid the right shape, or is there a
-        cheaper design with the same discriminating power?
+    Q3 (THE CONTRARIAN, PhD auditing). Blunt question about my own work. The
+        fixed-stride sampler shipped, was published, was described in a README as
+        the number to trust, and was wrong 9 times in 10 for a month of project
+        time. It was caught by you reading code, not by anything I built. What
+        SHOULD have caught it? A property test asserting phase invariance is the
+        obvious answer in hindsight, and hindsight is exactly the problem. Is
+        there a general shape of self-test for a detector that I am missing, or
+        is "inject a known positive and confirm it is found" simply a test I
+        should have written and did not?
 
   NON-CLAIMS (what I am NOT asserting):
-    - NOT claiming the 1-minute goal is met. It is not. 163s, reported as such.
-    - NOT claiming split_health is wired in. It is not. A degenerate corpus is
-      only partly protected: get_batch now raises a readable error, but nothing
-      consults split_health()['ok'] as you specified.
-    - NOT claiming the leakage thresholds are fixed. Still the invented
-      0.20/0.05. Your finding 1 is unbuilt.
-    - NOT claiming the C5 report-line issue is fixed, the noise-floor utility
-      exists, or intra-train duplication has ever been measured.
-    - NOT claiming the concurrency is deterministic across worker counts in
-      general. It was byte-identical here because arms share nothing but a
-      read-only corpus and each seeds its own RNG. I verified equality at
-      workers=1 and workers=4 on this experiment, not as a general property.
+    - NOT claiming the leakage verdict is trustworthy on other corpora. You
+      measured the 0.20/0.05 constants wrong in BOTH directions on a 10,000-
+      document corpus; those constants are still shipped. Finding 2 is unbuilt.
+    - NOT claiming winnowing fixes calibration. It fixes DETECTION. A correct
+      detector with invented thresholds is still a tool with invented thresholds.
+    - NOT claiming the fast profile's claim is as strong as the canonical one.
+      It is deliberately weaker and labelled as such in its own verdict string.
+    - NOT claiming the 74-character guarantee is empirically verified. It follows
+      from window + k - 1 by construction; I did not test a 74-char copied run.
+    - NOT claiming the noise-floor utility exists, that split_health is wired in,
+      or that intra-train duplication has ever been measured. None are true.
 
   CLOSED-CLASS CLAIM + ITS RED WITNESS (the one thing I assert this round):
-    Claim: `seed` now genuinely resamples the document split.
-    RED   seeds 1/2/3/1337/99999 -> identical val sha c04d416ee70efd35, 6 docs.
-    GREEN 5 distinct splits, 7/9/11/9/11 val docs, all within 9.6-9.9% of the
-          10% target; same seed twice still byte-identical.
-    Scope: measured on THIS corpus at val_frac 0.1. Says nothing about behaviour
-    on a corpus with thousands of documents, which is exactly Q2's worry.
+    Claim: verbatim duplication is now detected regardless of byte offset.
+    RED   fixed-stride sampler, one real document copied verbatim into train at
+          all 10 offsets: detected 1/10 (0.3-0.5% at nine, 100.0% at one).
+    GREEN winnowing, identical test: 10/10, 100.0% at every offset, using 11,759
+          fingerprints (0.16s) versus ~54,900 before.
+    Scope: measured on THIS corpus with one injected document at 10 offsets. It
+    does not establish behaviour for near-duplicates, paraphrase, or runs shorter
+    than the 74-character guarantee.
 
 --------------------------------------------------------------------------------
 1. WHAT THIS IS
@@ -2787,3 +2785,73 @@ ONE RECOMMENDED NEXT PROMPT (proprietor -> executor):
    wall-clock time."
 
 (Council standing by. Watcher armed on the DIRECTIVE block — task bkk3n3jtj.)
+
+--------------------------------------------------------------------------------
+31. EXECUTOR LOG  (2026-07-26 — §30 headline fixed; 1-minute goal MET at 59s)
+--------------------------------------------------------------------------------
+Published first per §24: locallm 5bd709b. Local HEAD after this entry.
+
+YOUR HEADLINE WAS RIGHT AND IT WAS THE WORST BUG IN THIS PROJECT SO FAR.
+Reproduced independently before touching anything: a real document copied
+VERBATIM into train, injected at all 10 byte offsets.
+  RED   detected at 1/10 offsets. Content overlap read 0.3-0.5% at nine offsets
+        and 100.0% at the tenth. Line overlap read ~99% throughout, which is the
+        only reason this never looked broken in testing.
+  GREEN winnowing (Schleimer, Wilkerson & Aiken 2003): 10/10 offsets, 100.0%
+        each. And CHEAPER: 11,759 fingerprints in 0.16s against ~54,900 before.
+Fingerprints are now selected by CONTENT (hash every 50-char k-gram, keep the
+smallest in each sliding window of 25) rather than by position, so the same
+passage yields the same fingerprints wherever it starts. Guarantees any shared
+run of >= 74 characters is caught, which fixed-stride sampling never promised.
+
+THE PUBLISHED NUMBERS WERE WRONG AND ARE CORRECTED IN PUBLIC, not swapped
+quietly: positional split contamination is 82.6%, not the 70.1% I shipped;
+grouped residual is 1.5%, not 0.0%. The broken detector was UNDERSTATING
+contamination. README now carries the corrected figures and explains why they
+moved. Your point that calibrating a broken detector with a good null produces a
+well-calibrated broken detector is exactly why this went first.
+
+PROPRIETOR GOAL MET, MEASURED NOT PROJECTED: 59 SECONDS.
+Your framing was the answer: not a cheaper canonical run, a SEPARATE experiment.
+  +prereg_lr_width_fast.json: 800 steps, 4-LR grid, 5 seeds.
+  control   lr 3.0e-04  mean 0.2937  range [0.2903, 0.3011]
+  treatment lr 3.0e-03  mean 0.1884  range [0.1859, 0.1897]
+  gap +0.1052 vs bar 0.020, no overlap -> PASS.  Wall clock 59s (you projected
+  ~56s from 17-run blocks; the real 14-run number is 59s).
+The larger gap than canonical's 0.0439 is the step-count decay you measured, not
+a better result, and the prereg's own not_claimed block says so. Canonical
+re-verified untouched after all changes: 0.1495 / 0.1056, gap 0.0439, 161s.
+Step-count sensitivity added to the canonical prereg's not_claimed.
+CONFLATION PREVENTED MECHANICALLY, as you insisted: profile, step count, grid
+size and claim are written into the result JSON's verdict string, so the label
+travels with the number wherever it is pasted:
+  "PASS [fast profile: 800 steps, 4-LR grid, 5 seeds] - claim: reaches lower
+   train loss FASTER; NOT the canonical effect size"
+
+TWO BUGS I FOUND BY RUNNING MY OWN WORK, both fixed before publishing:
+  1. --quick overwrote the canonical result file with a 400-step run. A sanity
+     flag must not be able to clobber a preregistered result. It now writes its
+     own file and labels itself QUICK SANITY RUN in the verdict. I found it
+     because the self-labeling verdict string exposed it, which is the mechanism
+     you asked for doing its job on its first day.
+  2. I published exp_lr_width.py with a --profile fast flag whose preregistration
+     file was NOT on the publish whitelist. It worked here and would have crashed
+     on a fresh clone. Fixed the instance, then closed the class: sync_public.py
+     now refuses to publish when a shipped script names a sibling file that is
+     not itself shipped. Guard tested both ways (catches the omission, silent
+     when present). Verified from a clean clone that all four prereg/result files
+     are now present.
+
+ALSO: nvidia-smi checked per your leftover risk. No stray python process on the
+GPU; the listed processes are ordinary desktop applications.
+
+NOT DONE, named so it is not mistaken for done. Your finding 2 (permutation null
+replacing the 0.20/0.05 constants, exact Phipson-Smyth p-value, B by wall-clock
+budget, refuse-to-report below the ~1/val_frac document cliff) is NOT BUILT; the
+shipped scanner still uses the fixed constants, which you measured to be wrong in
+BOTH directions on a differently-shaped corpus. Your finding 3's rebalanced
+noise-floor utility (10 splits x 2 seeds, or 13 x 1 for the total floor only) is
+NOT BUILT. split_health()['ok'] is still not wired into Corpus.__init__ or
+train.py's eval loop. n_val_documents, the between-document standard error and
+the train-side concentration figure are still not reported next to val loss.
+Intra-train duplication is still unmeasured.
