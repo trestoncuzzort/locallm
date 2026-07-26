@@ -1942,3 +1942,68 @@ CROSS REFERENCE: §21 (vision V1 "click and go", and the packaging item in the
 sequencing list) is the origin of this goal. This section supersedes it as the
 binding statement, because §21 listed packaging as step 4 of a proposal, and the
 proprietor has since made it permanent and non optional.
+
+--------------------------------------------------------------------------------
+24. STANDING RULE: PUBLISH TO GITHUB AFTER EVERY ITERATION
+    (2026-07-26, proprietor mandate. STANDING. Applies from this entry onward.)
+--------------------------------------------------------------------------------
+THE RULE: after every iteration, commit the product to GitHub.
+Public repo: https://github.com/jonhhjackson-a11y/locallm
+
+THE HAZARD THIS CREATES, and why the rule ships with a mechanism instead of a
+promise: this repo holds the council channel, the method-kit pointers, and the
+whole internal history. A standing "always push" habit pointed at a repo like
+that is a leak waiting to happen, and the leak is one-way. Published bytes can
+be deleted from a branch but not un-seen, un-cloned, or un-indexed.
+
+THE ONLY SANCTIONED PATH: sync_public.py, at the repo root.
+
+    python sync_public.py -m "message"   # scan, sync, commit, push
+    python sync_public.py --check        # scan and diff only, writes nothing
+    python sync_public.py --no-push      # commit locally, do not push
+
+Two hard guarantees, both mechanical:
+  1. WHITELIST ONLY. PUBLISH lists the product files by name. Anything not on
+     that list is never copied. There is no "sync everything" mode and no glob
+     over the repo root, so a new internal file cannot be swept up by accident.
+  2. FORBIDDEN-TERM ABORT. Every file about to be published is scanned for
+     council / moonwalker / starter-kit / proprietor / executor / directive /
+     instructions.txt / dpo_pairs / seat names / section marks. On a hit it
+     STOPS and publishes NOTHING, printing file, line, and the offending text.
+     It deliberately does NOT auto-scrub: silent scrubbing mangles meaning and
+     hides the mistake, and a scrubber that quietly "fixes" things trains the
+     operator to stop reading.
+  Matching is word-boundary anchored, because a naive substring scan flags
+  "endpoint" for containing "dpo" and a guard that cries wolf gets ignored.
+  GUARD SELF-TEST RUN 2026-07-26, 14/14 PASS: 9 internal phrases correctly
+  caught (including "§18 finding 1" and "data/dpo_pairs.jsonl"), 5 innocent
+  phrases correctly ignored ("train-loss endpoint", "councillor", "a small
+  model", "# file: model.py", "the endpoint is train loss").
+
+IT ALSO REBASES BEFORE IT PUBLISHES. The script fetches and resets onto
+origin/main before copying, because the proprietor edits the README directly on
+GitHub (he did exactly that at commit 3d0b97a, cutting the em dashes). A sync
+that force-pushed local state would silently destroy those edits. Never add
+--force to this script.
+
+DIVERGENCE IS THE OTHER FAILURE MODE, now closed: for a short window the public
+copies of exp_lr_width.py / prereg_lr_width.json / make_corpus.py / README.md
+were scrubbed while the internal copies still carried council references. Two
+versions of one file, one of which silently becomes wrong. localllm/ is now the
+SINGLE SOURCE and its files are already publication-clean; sync_public.py is a
+straight copy, never a transform. Anything that cannot be published as written
+does not belong in localllm/ at all, it belongs in this channel.
+
+STYLE, carried from the proprietor's own edit: no em dashes in the public
+README. He removed them by hand; do not reintroduce them.
+
+FIRST RUN OF THE MECHANISM: commit 32ec4df, pushed 2026-07-26. Published the
+width-scaled auto_lr wiring, the generic make_corpus.py, the torch>=2.6-safe
+checkpoint load, and a .gitattributes to stop CRLF churn generating noise
+commits on every future sync.
+
+WHAT "ITERATION" MEANS HERE, so the rule is testable rather than vibes: any
+change to a file on the PUBLISH list. Channel-only work (council rounds,
+executor logs, prereg records, Track A internals) is NOT an iteration of the
+product and does not trigger a push. srlm-forge itself has no GitHub remote and
+must not be given one.
