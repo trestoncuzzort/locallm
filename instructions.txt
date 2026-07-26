@@ -1561,3 +1561,127 @@ the audit pass), then a direct answer to their assigned question(s). Same
 angle per seat, same 150-300 word cap — a formatting discipline so the PhD
 (reading all five before he writes anything) can parse and act on them
 faster, not a tone change. Encoded in SKILL.md's flow step 2.
+
+--------------------------------------------------------------------------------
+21. PROJECT VISION + COMPETITIVE POSITION  (2026-07-26 — proprietor's goal,
+    recorded verbatim first, then the executor's structural read of it)
+--------------------------------------------------------------------------------
+THE GOAL, IN THE PROPRIETOR'S OWN WORDS (recorded before any analysis so the
+analysis cannot quietly shrink it):
+  "completely new and groundbreaking and useful for anyone. its supposed to be
+   click and go with information feeding and self reasoning capabilities.
+   basically a big ai but local and can do everything including have hands and
+   control anything and everything you want it to and train on infinite (user
+   based training time) then its accessible"
+
+Unpacked into the five things it actually asks for:
+  V1  CLICK AND GO — installs and runs for someone who is not a programmer.
+  V2  INFORMATION FEEDING — the user points it at their own material and it learns.
+  V3  SELF-REASONING — it reasons, not just autocompletes.
+  V4  HANDS — it can act on the machine: files, apps, tools, whatever the user wants.
+  V5  INFINITE TRAINING — training is bounded by how long the USER wants to run it,
+      not by a fixed step count; it resumes and keeps going.
+  ...and then ACCESSIBLE: anyone can have it.
+
+--------------------------------------------------------------------------------
+POSITION VS PRIOR ART — WHY THIS IS NOT JUST ANOTHER nanoGPT
+--------------------------------------------------------------------------------
+DO NOT COMPETE where Karpathy's nanoGPT already wins; these fights are lost before
+they start: model-code readability (~300 lines, the reference everyone reads),
+scale credibility (it reproduces GPT-2 124M on OpenWebText), multi-GPU/DDP and
+compile-path speed, and community trust (thousands of forks).
+
+THE REAL GAP: nanoGPT is a REFERENCE IMPLEMENTATION, not an INSTRUMENT. It tells
+you the loss went down. It never tells you whether you learned anything. It has no
+seed replication, no noise floor, no leakage check, no preregistration — because it
+was built to demonstrate an architecture, not to keep a user honest. Every failure
+this project hit in its first 24 hours, nanoGPT would have let us walk into with a
+clean green loss curve.
+
+THE FIVE WEDGES, ranked by defensibility — each one is already evidenced in this
+repo's own history, which is why they are credible rather than aspirational:
+  W1 REFUSE TO REPORT A NUMBER YOU KNOW IS FAKE. Scan for train/val overlap before
+     training; if val is duplicated from train, say so and decline to print a val
+     loss. Strongest wedge: it is the most common way real results turn fake, and
+     no training tool does it. Live instance: council §18 finding 2.
+  W2 SEEDS BY DEFAULT, NOISE FLOOR REPORTED. k>=5, mean +/- 3 sigma, test-retest
+     sigma separated from between-config sigma, and the sentence nothing else says:
+     "that improvement is inside noise, it isn't real." Evidence: ~70% of Track B's
+     apparent run-to-run spread was measurement noise (§18 finding 4).
+  W3 HYPERPARAMETERS THAT FOLLOW THE ARCHITECTURE. nanoGPT hardcodes its LR for its
+     own configs. We ship auto_lr(n_embd), backed by a preregistered 5-seed result
+     (0.2601 -> 0.1545, 5.3x the bar, §19). Drag the width slider, get a sane LR.
+  W4 PREREGISTRATION IN THE RUN LOOP. Write the bar before the run; the tool holds
+     you to it after. No product does this because it makes the product look worse.
+     That is exactly why it is credible.
+  W5 GUI + WINDOWS-FIRST. nanoGPT assumes terminal, Python, config editing. Its
+     speed path leans on Triton, which has no working Windows install on this box
+     (§18, confirmed by direct attempt). That constituency is unserved.
+
+TWO TRAPS that would make this WORSE than nanoGPT, not better:
+  T1 Adding architecture features to look serious (RoPE/SwiGLU/MoE). Our own §19
+     experiment showed one hyperparameter beat every architecture option on the
+     table by an order of magnitude. Chasing architecture = becoming a worse nanoGPT.
+  T2 Claiming to train good models. At this scale we cannot, and saying so plainly
+     IS the product. "Small, yours, honest, offline" is defensible.
+     "Like GPT but yours" is not.
+
+POSITIONING LINE: nanoGPT teaches you how a transformer works. This teaches you
+whether you actually improved it — the scarcer skill.
+
+--------------------------------------------------------------------------------
+EXECUTOR'S STRUCTURAL NOTE — THE ONE THING THAT CHANGES BUILD ORDER
+--------------------------------------------------------------------------------
+The vision fuses TWO DIFFERENT PRODUCTS. Both are buildable. Fused into one
+dependency chain, they block each other; separated, they ship.
+
+  PRODUCT A — the from-scratch trainer (V1, V2, V5). REAL TODAY. studio.py trains
+    a model from random init on the user's own text, on this hardware, offline.
+  PRODUCT B — the local assistant with hands (V3, V4). An AGENT LAYER: reasoning,
+    tool use, machine control.
+
+THE CATEGORY ERROR TO AVOID: requiring Product A's model to be Product B's brain.
+A 3M-parameter char-level model trained on one person's corpus cannot reason or
+drive a computer, and that is not a scale-up away — it is a different category.
+Data and compute scale, not architecture, is the binding constraint, and no amount
+of local training time crosses it. "Infinite training time" does not fix this:
+more epochs on a small corpus overfits, it does not create reasoning.
+
+THE RECONCILIATION, and it is already half-built here: the agent layer is
+MODEL-AGNOSTIC. config.py (§12 addendum) already resolves any model from one place.
+So Product B is built against whatever model is strongest for the job (a local
+Ollama model today), while Product A keeps improving independently — and the
+from-scratch model GRADUATES into the agent layer if and when it is good enough,
+measured on the ruler rather than assumed. That ordering delivers the whole vision
+without either half waiting on the other, and without a false claim in the middle.
+
+WHAT SURVIVES AS THE HONEST PITCH: "A model that has read only what you gave it. It
+starts as random numbers. You watch it learn, on your machine, offline, and nothing
+leaves your computer" — plus an assistant that can actually act, powered by the best
+model available locally, with the user told which is which. Not "your from-scratch
+model runs your computer on day one."
+
+SAFETY BOUND ON V4 (name it now, not after something breaks): §3's hard constraints
+already put privilege escalation and UAC bypass OUT OF SCOPE, and that stands. A
+model with machine control needs an explicit, enumerated permission boundary —
+what it may touch, what requires a confirm, what is refused outright — designed
+BEFORE the hands are attached, not retrofitted. "Control anything and everything"
+is the user's call to make per-action, not a default the software grants itself.
+
+--------------------------------------------------------------------------------
+SEQUENCING IMPLIED BY THE ABOVE (executor's proposal, council to rank)
+--------------------------------------------------------------------------------
+  1. W1 leakage scanner — closes §18 finding 2 AND becomes the flagship feature.
+     The debt and the differentiator are the same work.
+  2. V5 infinite/resumable training — checkpoint resume + "train until I stop",
+     the named gap in studio.py today (no resume-from-checkpoint exists).
+  3. W2 shared noise-floor utility — §18 finding 4, the SECOND appearance of
+     "no ruler", so it is the class, not the instance. Both tracks call it.
+  4. V1 packaging — CPU-only torch default + a bundled one-file installer; the
+     2.5 GB CUDA wheel is the real barrier to "click and go".
+  5. V3/V4 agent layer — separate track, model-agnostic, permission boundary first.
+  OPTIONAL, HIGH EDUCATIONAL VALUE: a numpy-only autograd (matmul/softmax/layernorm/
+     GELU/cross-entropy/Adam, forward + backward). Collapses a 2.5 GB dependency
+     into a few hundred KB of the proprietor's own code and makes the
+     "no one else's work" claim nearly literal. Slow without custom kernels, so it
+     lives or dies on the model staying small — which it is.
