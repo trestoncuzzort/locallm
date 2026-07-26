@@ -11,25 +11,32 @@ It measures three things, cheapest first:
 
   document overlap  whole documents that appear on both sides of the split
   line overlap      validation lines that appear verbatim in training
-  shingle overlap   50-character windows of validation text found in training
+  content overlap   winnowing fingerprints of validation text found in training
 
-Shingle overlap is the one to trust. Line overlap over-reports on code, where
-`    return None` legitimately appears everywhere; shingles are long enough that
-matching by coincidence is unlikely.
+Content overlap is the one to trust. Line overlap over-reports on code, where
+`    return None` legitimately appears everywhere. Fingerprints cover 50
+characters, so matching by coincidence is unlikely, and they are selected by
+CONTENT rather than by position: see shingles() for why that distinction is the
+difference between catching a verbatim copy every time and catching it one time
+in ten.
 
-Nothing here is a model. It is string matching, and it runs in about a second.
+Nothing here is a model. It is string matching, and it runs in under a second.
 """
 from __future__ import annotations
 
 import argparse
 import sys
+import zlib
+from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
 
 from data import documents, group_split, split_health
 
-SHINGLE = 50          # characters per window
-STRIDE = 10           # step between windows; 1 is exact but needlessly slow
+SHINGLE = 50          # characters per k-gram
+WINDOW = 25           # winnowing window, in k-grams. Guarantees that any shared
+                      # run of >= WINDOW + SHINGLE - 1 = 74 characters is caught,
+                      # regardless of where it starts. See shingles().
 DOC_MARKER = "\n\n# file: "
 
 # Above this fraction of validation shingles found in training, a val number is
@@ -39,10 +46,49 @@ CONTAMINATED = 0.20
 SUSPECT = 0.05
 
 
-def shingles(text: str, k: int = SHINGLE, stride: int = STRIDE) -> set[str]:
+def shingles(text: str, k: int = SHINGLE, window: int = WINDOW) -> set[int]:
+    """Winnowing fingerprints (Schleimer, Wilkerson & Aiken 2003).
+
+    The obvious approach, keeping every k-th window at a fixed stride, is
+    PHASE-DEPENDENT and quietly broken: two identical passages are only compared
+    when both happen to start on the same stride phase. Measured on this
+    project's own corpus, a document copied verbatim into training was detected
+    at 1 of 10 byte offsets. A detector that misses nine tenths of the exact
+    case it exists to catch is worse than none, because it reads CLEAN.
+
+    Winnowing instead selects windows by CONTENT: hash every k-gram, then in
+    each sliding window of `window` hashes keep the smallest. Which hashes get
+    kept therefore depends on the text, not on where the text starts, so the
+    same passage yields the same fingerprints wherever it appears. It also
+    guarantees that any shared run of at least (window + k - 1) characters is
+    detected, which fixed-stride sampling cannot promise at all.
+    """
     if len(text) < k:
-        return {text} if text.strip() else set()
-    return {text[i:i + k] for i in range(0, len(text) - k + 1, stride)}
+        return {zlib.crc32(text.encode("utf-8", "ignore"))} if text.strip() else set()
+
+    b = text.encode("utf-8", "ignore")
+    hashes = [zlib.crc32(b[i:i + k]) for i in range(len(b) - k + 1)]
+    if len(hashes) < window:
+        return set(hashes)
+
+    # Sliding-window minimum. Popping on >= keeps the RIGHTMOST minimal hash,
+    # which is the tie-break the paper specifies: consecutive windows then tend
+    # to re-select the same fingerprint instead of two adjacent ones.
+    selected: set[int] = set()
+    dq: deque[int] = deque()
+    prev = -1
+    for i, h in enumerate(hashes):
+        while dq and hashes[dq[-1]] >= h:
+            dq.pop()
+        dq.append(i)
+        if dq[0] <= i - window:
+            dq.popleft()
+        if i >= window - 1:
+            j = dq[0]
+            if j != prev:
+                selected.add(hashes[j])
+                prev = j
+    return selected
 
 
 @dataclass
@@ -99,8 +145,8 @@ class Report:
              "counts are not meaningful"),
             f"  lines      {self.val_lines_in_train:>6,} / {self.val_lines:<6,} "
             f"of validation lines appear verbatim in training ({self.line_frac:.1%})",
-            f"  shingles   {self.val_shingles_in_train:>6,} / {self.val_shingles:<6,} "
-            f"of {SHINGLE}-char validation windows are in training "
+            f"  content    {self.val_shingles_in_train:>6,} / {self.val_shingles:<6,} "
+            f"of validation fingerprints are found in training "
             f"({self.shingle_frac:.1%})   <- the one that matters",
             "",
         ]
