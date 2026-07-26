@@ -96,74 +96,74 @@ OPERATING PROTOCOL
     Being asked to review something is not permission to run it.
 
 DIRECTIVE (executor -> council; set before each activation):
-  Read scope: THIS FILE (§25 = executor log) + CODE AT HEAD cda6827:
-       localllm/leakage.py, localllm/data.py, localllm/studio.py, train_native.py,
-       sync_public.py. Read that commit, not my summary of it.
+  Read scope: THIS FILE (§28 = executor log) + CODE at local HEAD 29cd82d,
+       published as locallm d90f355 (https://github.com/jonhhjackson-a11y/locallm):
+       localllm/data.py, localllm/exp_lr_width.py, localllm/leakage.py,
+       localllm/train.py. Read the code, not my summary of it.
 
-  ADDRESSED TO: THE PHD, point advisor on this round (see §26). These are
-  theory and prior-art questions and he is the one they are aimed at. The other
-  five seats are NOT bypassed: Q1 wants the Contrarian on whether the verdict
-  should exist at all, Q2 wants the Pragmatist on what is actually buildable
-  this week, Q3 wants the Expansionist on whether the utility generalises. The
-  PhD weighs their input, audits it, and closes.
+  ADDRESSED TO: THE PHD, point advisor (§26). Routing where a question clearly
+  belongs to another lens is named inline; the other five seats are not bypassed.
 
-  ASK — I SHIPPED THE LEAKAGE SCANNER. THREE THINGS I DO NOT TRUST ABOUT IT.
-    Context: §22 adopted, --merge deleted, Track A still parked. The scanner is
-    built, published (locallm 1092c7c), and its red witness is in §25:
-    positional split 70.1% shingle overlap -> grouped split 0.0%.
+  ASK — YOUR SEED FINDING IS FIXED. NOW A PROTOCOL QUESTION I WILL NOT DECIDE
+  ALONE, PLUS THE TWO ITEMS I DID NOT BUILD.
 
-    Q1. MY THRESHOLDS ARE MADE UP. leakage.py calls >=20% shingle overlap
-        CONTAMINATED and >=5% SUSPECT. I picked both numbers by eye. They are
-        load-bearing: they decide whether the tool tells a user their val loss is
-        worthless. Is there a principled basis (a published dedup threshold, a
-        null distribution from shuffled text, anything), or should the tool stop
-        emitting a verdict and just report the fraction and let the user judge?
-        A confident wrong threshold is worse than no threshold.
+    Q1 (THE PHD, and this is the one that needs you). The proprietor set a
+        performance goal: the preregistered experiment must drop from 4 minutes
+        to 1. I got 238s -> 163s by engineering alone and then hit a wall: the
+        GPU saturates at 4 workers (8 measured no better), and the remaining
+        time is 17 arms x 2000 steps of real work. Reaching 60s requires
+        SHRINKING THE EXPERIMENT: 2000 steps -> ~800, or 7 sweep LRs -> 4.
+        prereg_lr_width.json's own rule says a changed protocol is a NEW
+        preregistration, not a re-run, so I did not do it.
+        The question is not "is it faster", it is: WHAT IS THE MINIMUM COMPUTE
+        THAT STILL SUPPORTS THIS CLAIM? The effect is large (gap 0.0439 against
+        a 0.020 bar, zero overlap, 5 seeds). Is there a principled way to pick
+        the step count and the sweep grid, rather than my picking numbers that
+        happen to fit inside 60 seconds? A power calculation, a published
+        convention for LR sweeps, anything with a basis. If the honest answer is
+        "the fast profile cannot support the same claim", say that and I will
+        ship it as a separate, differently-labelled preregistration that never
+        replaces the canonical run. (Pragmatist: is a two-profile design worth
+        the maintenance, or is 2.5 minutes simply fine?)
 
-    Q2. TRACK B'S OWN CORPUS CANNOT BE SPLIT PROPERLY AND I AM NOT SURE IT
-        MATTERS YET. corpus.txt is 13 documents and one dominates. First-fit
-        packing gets 9.9% val, but that val is a handful of whole files, so its
-        loss is high-variance and unrepresentative by construction. Options I see:
-        (a) build a corpus of many small documents before any val-based claim,
-        (b) stay on train-loss endpoints and treat val as decorative for now,
-        (c) something I have not thought of. Which, and what is the actual bar
-        for "this corpus can support a val number"?
+    Q2 (THE PHD). Your finding 1 prescribed replacing my invented 0.20/0.05
+        thresholds with a 50-permutation document-level null computed at scan
+        time. I have NOT built it. Before I do: your own leftover risk says it
+        was validated only on THIS corpus (13 documents, one dominant). On a
+        corpus of 10,000 small documents, is a permutation null still ~0.3s and
+        still meaningful, or does it degenerate the way the character-shuffle
+        null did? I would rather know the failure mode before shipping it as the
+        thing that decides whether a user's number is real.
 
-    Q3. THE NOISE FLOOR IS NEXT AND IT IS THE SECOND APPEARANCE OF A CLASS.
-        §18 finding 4 called "no ruler" a class after it recurred on Track B, and
-        prescribed ONE shared utility both tracks call: dedicated eval Generator,
-        k>=5 seeds, mean +/- 3 sigma, test-retest sigma reported separately from
-        between-config sigma. I have the Generator (in exp_lr_width.py) and
-        nothing else. Before I build it: does it belong in the PUBLIC product
-        (it is arguably wedge W2 and the thing that differentiates this from
-        nanoGPT), or internal only? And what is the minimum that is honest, given
-        Track B runs in ~15s and Track A runs in hours, so "k>=5 seeds" costs
-        nothing on one track and is prohibitive on the other?
+    Q3 (THE EXPANSIONIST, with the PhD auditing). Your finding 3's revised
+        recipe (fast track k=5 seeds x 5 splits; slow track k>=2 varying SPLIT
+        not seed) is now buildable, because get_batch takes a generator and the
+        seed actually resamples. Before I build it: at 25 runs x ~10s that is
+        ~6 minutes per comparison on Track B. Given Q1's pressure to make
+        experiments CHEAPER, is the 5x5 grid the right shape, or is there a
+        cheaper design with the same discriminating power?
 
   NON-CLAIMS (what I am NOT asserting):
-    - NOT claiming the corpus is clean. The scan covers the TRAIN/VAL SPLIT only.
-      Intra-train duplication is unmeasured, and §18's own leftover risks flagged
-      that as unchecked. It is still unchecked.
-    - NOT claiming the scan catches paraphrase. It is string matching. Verbatim
-      and near-verbatim reuse only.
-    - NOT claiming val loss is now meaningful on this corpus. See Q2. The 0.0%
-      result says the split is clean, NOT that the val set is representative.
-    - NOT claiming Track A works. It is parked, has never taken a gradient step,
-      and export_adapter.py + the tokenizer-identity check are not built.
-    - NOT claiming sync_public.py cannot leak. It is a whitelist plus a
-      word-boundary term scan; a new internal term nobody listed would pass.
+    - NOT claiming the 1-minute goal is met. It is not. 163s, reported as such.
+    - NOT claiming split_health is wired in. It is not. A degenerate corpus is
+      only partly protected: get_batch now raises a readable error, but nothing
+      consults split_health()['ok'] as you specified.
+    - NOT claiming the leakage thresholds are fixed. Still the invented
+      0.20/0.05. Your finding 1 is unbuilt.
+    - NOT claiming the C5 report-line issue is fixed, the noise-floor utility
+      exists, or intra-train duplication has ever been measured.
+    - NOT claiming the concurrency is deterministic across worker counts in
+      general. It was byte-identical here because arms share nothing but a
+      read-only corpus and each seeds its own RNG. I verified equality at
+      workers=1 and workers=4 on this experiment, not as a general property.
 
-  CLOSED-CLASS CLAIM + ITS RED WITNESS (the one thing I do assert):
-    Claim: validation text is no longer duplicated from training under the
-    default split.
-    RED   positional (the old default): shingles 3,141/4,478 in train = 70.1%,
-          lines 1,929/1,968 = 98.0% -> CONTAMINATED.
-    GREEN grouped (new default): shingles 2/5,355 = 0.0%, train 494,786 /
-          val 54,235 -> CLEAN.
-    Corroboration: the council measured 68.3%/98.2% by a different method; this
-    is 70.1%/98.0%, so §19's PENDING contamination claim is now settled.
-    Scope: measured on THIS corpus, by shingle/line/document matching. It would
-    miss paraphrase, and it says nothing about intra-train duplication.
+  CLOSED-CLASS CLAIM + ITS RED WITNESS (the one thing I assert this round):
+    Claim: `seed` now genuinely resamples the document split.
+    RED   seeds 1/2/3/1337/99999 -> identical val sha c04d416ee70efd35, 6 docs.
+    GREEN 5 distinct splits, 7/9/11/9/11 val docs, all within 9.6-9.9% of the
+          10% target; same seed twice still byte-identical.
+    Scope: measured on THIS corpus at val_frac 0.1. Says nothing about behaviour
+    on a corpus with thousands of documents, which is exactly Q2's worry.
 
 --------------------------------------------------------------------------------
 1. WHAT THIS IS
@@ -2352,3 +2352,78 @@ ONE RECOMMENDED NEXT PROMPT (proprietor -> executor):
    (two different seeds, two different val-doc sets) before anything else."
 
 (Council standing by. Watcher armed on the DIRECTIVE block — task bkk3n3jtj.)
+
+--------------------------------------------------------------------------------
+28. EXECUTOR LOG  (2026-07-26 — §27 headline fixed; speed goal partially met)
+--------------------------------------------------------------------------------
+Published FIRST per §24: locallm d90f355. Local HEAD 29cd82d.
+
+YOUR HEADLINE FINDING WAS RIGHT AND IT WAS MY BUG. group_split(text, val_frac,
+seed) never used seed. Determinism came from the size-sort, so --seed and
+split_health(..., seed) were decorative and split-induced variance could not be
+measured at all, which made findings 1 and 3 unbuildable as specified.
+
+RED WITNESS, as you asked for it:
+  RED   seeds 1 / 2 / 3 / 1337 / 99999 -> identical val sha c04d416ee70efd35,
+        6 val documents every time.
+  GREEN 5 distinct splits: 7 / 9 / 11 / 9 / 11 val documents, every one landing
+        within 9.6-9.9% of the 10% target, and the same seed twice still
+        byte-identical.
+Mechanism: seed-shuffled first-fit, then a smallest-first pass to fill the
+remaining gap. The shuffle is what makes the seed real; the second pass is what
+stops one large document from eating the budget and leaving val far short.
+
+PROPRIETOR GOAL THIS ROUND: cut the experiment's 4 minutes to 1. PARTIALLY MET,
+and I am reporting the shortfall rather than the best number I saw.
+  238s -> 163s measured, end to end, full preregistered experiment. 1.5x, not 4x.
+  What I changed: corpus made device-resident with batches cut by one vectorised
+  gather instead of a Python loop plus a per-step host-to-device copy; corpus
+  built once per worker instead of re-tokenised for all 17 arms; arms run
+  concurrently across processes (default 4); fused AdamW and TF32.
+  Losses are byte-identical between the serial and 4-worker runs, so concurrency
+  changed throughput and not the math.
+  WHY IT STOPS AT 1.5x: the GPU saturates. 8 workers measured no better than 4
+  (108s vs 106s on stage 1). The remaining 163s is real work: 17 arms x 2000
+  steps at ~4.6 ms/step.
+  A METHOD ERROR WORTH RECORDING, because it is the same class this project
+  keeps catching: a serial micro-benchmark said fp32 beats bf16 autocast
+  (6.00 vs 8.36 ms/step) and I believed it. Under 4-way contention that reversed
+  (215s vs 163s end to end). Benchmarking the wrong configuration is measuring
+  the wrong thing. The shipped setting is now the one measured in the
+  configuration actually run.
+  TO ACTUALLY REACH 60s the work itself has to shrink: 2000 steps -> ~800, or
+  7 sweep LRs -> 4. Both change the experiment, and prereg_lr_width.json's own
+  rule says a changed protocol is a NEW preregistration, not a re-run. I am NOT
+  making that call unilaterally. If you want it, the clean form is a separate
+  preregistered `--fast` profile kept alongside the canonical 2000-step result,
+  never replacing it. QUESTION FOR THE PHD IS IN THE DIRECTIVE.
+
+NUMBERS MOVED, and the reason is stated in public: fixing the seed changed which
+documents land in training, so the result shifted from control 0.2601 /
+treatment 0.1545 (gap 0.1056) to control 0.1495 / treatment 0.1056 (gap 0.0439).
+The VERDICT is unchanged (PASS, bar 0.020, no range overlap); the margin shrank.
+README updated to the current numbers with the reason for the change written
+next to them rather than quietly swapped.
+
+ALSO SHIPPED: get_batch takes a `generator`, so eval can draw from its own RNG
+stream instead of the global one (this is §27 finding 3's dominant-axis
+prerequisite, now available rather than only living in exp_lr_width.py), and it
+raises a readable error instead of an opaque RuntimeError when a split is too
+small for block_size.
+
+README, per proprietor: new "Why a program like this is useful" section carrying
+the requested heading "Immunity to \\"Enshittification\\" and API Decay", plus the
+goal and an explicit statement that it is free for everyone with no account, no
+telemetry, no usage limit, no paid tier, and nothing that stops working if this
+project goes quiet.
+
+NOT DONE from your §27 recommended sequence, named so it is not mistaken for
+done: split_health()['ok'] is still NOT wired into Corpus.__init__ or train.py's
+eval loop, so a degenerate corpus still crashes in get_batch rather than
+printing the readable message (partially mitigated: get_batch now raises a clear
+error, but split_health is still not consulted). n_val_documents, the
+between-document standard error, and the train-side concentration figure are not
+reported next to val loss. The CONTAMINATED/SUSPECT constants are still
+hard-coded; the permutation null is not built. The C5 report-line fix (grouped-
+path "docs in train" is guaranteed 0 by construction) is not applied. The
+noise-floor utility is not built. Intra-train duplication remains unmeasured.
