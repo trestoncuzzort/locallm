@@ -2855,3 +2855,253 @@ NOT BUILT. split_health()['ok'] is still not wired into Corpus.__init__ or
 train.py's eval loop. n_val_documents, the between-document standard error and
 the train-side concentration figure are still not reported next to val loss.
 Intra-train duplication is still unmeasured.
+
+--------------------------------------------------------------------------------
+32. COUNCIL RESPONSE  (2026-07-26 ~22:50 — activation #11; scope: THIS FILE +
+    localllm/leakage.py, localllm/data.py, localllm/exp_lr_width.py,
+    localllm/prereg_lr_width_fast.json at HEAD, plus live probes/measurements
+    run by The PhD on this machine, all logged below under EVIDENCE READ)
+--------------------------------------------------------------------------------
+Roster: 5 style advisors (haiku, sealed, PhD-facing format, per-question
+routing per §26: Q2->Expansionist, Q3->Contrarian) — closed by The PhD (opus).
+
+HEADLINE FINDING, not asked for, and it is the second time this exact class
+has appeared in two rounds: THE NEW WINNOWING FINGERPRINTER HAS ITS OWN
+HASH-COLLISION BIAS, CAUSING FALSE CONTAMINATION ALARMS ON A LARGE, GENUINELY
+CLEAN CORPUS. Winnowing keeps the MINIMUM hash per window; minima of crc32
+(32-bit) are not uniform — measured on 1MB of random text, hash mean is
+0.5002 of the full range but SELECTED fingerprint mean is 0.0556, a 9.0x
+collision inflation. Measured false-overlap on two independently-generated,
+genuinely-clean random corpora: 0.0078% at 500KB rising to 0.0706% at 4MB;
+extrapolated from the measured effective hash range, a corpus with ZERO real
+contamination crosses the still-shipped SUSPECT=0.05 threshold at roughly
+500MB on hash collisions alone. Fix verified: swap crc32 for a 64-bit hash
+(blake2b-64) — same fingerprint count (38,348 vs 38,326), false overlap
+drops to 0.0000% at every measured size. One-line fix. This does not
+invalidate the permutation-null design from rounds 9-10 (the collision floor
+appears identically in the observed statistic and every permuted one, so the
+p-value stays valid) — it invalidates the printed RAW FRACTION, which the
+scanner's own docstring calls "the one to trust."
+
+RANKED CRITIQUE (most decisive first)
+
+1. (THE PHD — correction to last round's own headline finding, load-bearing)
+   THE CONTRARIAN'S "CORRELATED SIGNAL MASKING" DIAGNOSIS OF THE PHASE BUG
+   WAS WRONG, AND THE CORRECT DIAGNOSIS IS WORSE. Read the pre-fix code
+   directly (git show): the verdict property read shingle_frac ALONE — line
+   overlap and doc overlap were printed but never consulted by the decision.
+   There was no redundant code path masking the failure; the masking
+   happened in the HUMAN reading the report next to a number that happened
+   to look fine. This matters because it changes what a self-test must
+   assert on: the DECISION (Report.verdict / exit code), not a sub-metric
+   that happens to correlate with it — testing the sub-metric would have
+   missed this bug even with a test in place.
+
+2. (THE PHD — the round's single most consequential empirical result) THE
+   OUTSIDER'S OWN PROPOSED TEST SUITE FOR "WHAT SHOULD HAVE CAUGHT THIS"
+   WOULD HAVE PASSED ON THE BUGGY CODE. Measured directly: his four offsets
+   (0/100/500/1000) are all multiples of the sampler's STRIDE=10 and detect
+   at 100% on the OLD, BROKEN sampler — his hand-picked "obvious" test is
+   exactly the kind of test that misses this exact bug, because humans pick
+   round numbers and round numbers are stride-aligned. The Pragmatist's
+   partially-adversarial list (0/13/997/random) does better (3 of 4 catch
+   it) precisely because it isn't all round numbers. This resolves the
+   round's Q3 disagreement empirically rather than philosophically: the
+   general principle is "when an implementation parameter (stride, block
+   size, window) could align with a test-input parameter, the test input
+   must be chosen adversarially or randomly, never by hand" — not "write
+   more tests" in the abstract, and not "one hand-crafted test is enough"
+   either, since the specific hand-crafted test proposed this round
+   would not have worked.
+
+3. (THE PHD — Q1, resolves a real split in the round with real statistics,
+   not instinct) THE "REFUSE VS. CAVEAT" DISAGREEMENT HAS AN EXACT ANSWER:
+   B >= 1/alpha - 1 IS A HARD FEASIBILITY BOUNDARY, DERIVED NOT CHOSEN. The
+   permutation p-value is exactly valid at ANY B (Phipson & Smyth 2010,
+   abstract-level primary-source verified this round: "valid for any number
+   of permutations and samples") — a small B is underpowered, not wrong.
+   But rejection at level alpha is mathematically impossible below
+   B = 1/alpha - 1 (19 at alpha=0.05, 99 at alpha=0.01) REGARDLESS OF THE
+   DATA. Below that floor: NO VERDICT, exit code 2, never CLEAN — printing
+   CLEAN there would affirm a null the test structurally could not have
+   rejected. At or above the floor: the p-value is fully valid and a
+   verdict is licensed; refusing there is false modesty, resolving First
+   Principles' and the Contrarian's softer "just caveat it" instinct as too
+   weak in the infeasible case and too cautious in the feasible one.
+   ADDITIONAL, uncovered by any advisor: a 2026 preprint (Cha, Lee, Schrab &
+   Kim, arXiv:2605.03886 — HTML fetched, single preprint, not peer-reviewed,
+   flagged accordingly) proves power is non-monotonic in B and that
+   (B+1)*alpha being an integer is a local power maximum — meaning the
+   executor's own example number, B=20, is a WORSE choice than B=19 at
+   alpha=0.05 (cheaper AND more powerful). Also corrects the round's own
+   premise: the "10 minutes at 100MB" budget concern was computed at B=200;
+   the actual FEASIBILITY floor (B=19-99 for realistic alpha) costs 1-5
+   minutes at 100MB, not 10 — the framing overstated the problem it was
+   trying to solve.
+
+4. (THE PHD — Q2, corrects the round toward a subtler bug than either
+   proposed answer addressed) THE CHEAP "13x1" DESIGN COMMITS THE SAME SIN
+   THE PHD RULED OUT LAST ROUND, VIA A DIFFERENT ROUTE, UNLESS SEED IS ALSO
+   RANDOMIZED. Neither the Pragmatist's "ship 13x1 as default" nor the
+   Contrarian's framing named whether the 13 splits share ONE fixed seed
+   (biased low as a total-noise estimate, since init-seed variance is
+   excluded by construction) or 13 independently-seeded splits (unbiased).
+   Fix costs nothing — same 13 runs, same ~3.3 minutes, randomize both axes
+   together (Bouthillier et al. 2021, primary-source verified: "adding more
+   sources of variation... approaches the ideal estimator at 51x less
+   compute"). The Expansionist's progressive-disclosure idea (report cheap
+   now, upgrade in background) is a genuinely good idea SCOPED WRONG: the
+   background-thread/queue architecture it needs is verified to already
+   exist in studio.py (TrainWorker + _drain, used twice) and would be
+   near-free there — but for a CLI tool whose whole discipline is
+   preregistered numbers quoted as evidence, a result that silently changes
+   after being copied into a log is the exact failure this project's own
+   gates exist to prevent. Keep progressive disclosure as a future GUI
+   feature, not a CLI default. Simplest fix that serves the Expansionist's
+   real concern ("does hiding it behind a flag teach users it doesn't
+   matter"): name the decomposition flag IN the default output's own text,
+   not just in --help — a pointer a user reads beats an option they never
+   knew existed, at the cost of one line.
+
+5. (THE PHD — Q3, resolves the round's real disagreement in KIND, not just
+   in content) BOTH THE "WRITE PROPERTY TESTS" AND "YOU'RE OVERTHINKING IT"
+   CAMPS WERE HALF RIGHT. The Outsider is right that zero test
+   infrastructure exists (verified: zero test files, no CI config, no
+   pytest/hypothesis/mutmut in the venv) and that "the PhD read the code"
+   is luck, not a system — but his own proposed fix doesn't survive contact
+   with finding 2 above. The real answer sits under a real, findable
+   literature the Contrarian's specific mechanism doesn't quite name but
+   was reaching for: Voas 1992's PIE model (a fault must be Executed,
+   Infect the state, and Propagate to output — the gap here was in
+   propagation, into a human, not a redundant code path per finding 1), the
+   general "oracle problem" (Barr et al. 2015 — there is no ground truth for
+   an arbitrary corpus's true contamination), and METAMORPHIC TESTING
+   (Chen et al. 1998, surveyed Segura et al. 2016) — built exactly for the
+   no-oracle case, and "prepending N bytes must not change what the
+   detector finds" is a textbook metamorphic relation. CORRECTION TO THE
+   PROJECT'S OWN RECORD: an earlier claim that this project already flagged
+   "mutation-adequacy on test suites" as queued work from "round 7" is
+   WRONG — it is from council pass #3 (2026-07-25) and referred to a
+   different artifact (the DPO track's injected unit tests, a track the
+   project has since moved away from), not this toolkit's own source. The
+   analogy still applies, and applies harder than claimed: the project
+   understood "a test suite that lets a wrong answer pass is worthless" for
+   its data and never applied the same standard to its own code, until now.
+
+6. (THE PHD, additional finding, EXECUTED) THE 74-CHARACTER GUARANTEE IS
+   TRUE BUT THE DOCSTRING OVERCLAIMS BY OMISSION. Measured: 74 chars -> 100%
+   detected, 73 -> 99%, 60 -> 59%, 50 chars -> 4% — winnowing trades away
+   short-run detection for phase-invariance, and at 50 characters the OLD,
+   now-replaced sampler actually detected MORE (40%) than the new one does.
+   The current docstring reads as unconditional dominance ("which
+   fixed-stride sampling cannot promise at all"); it should carry the
+   measured curve. General rule proposed and adopted: any docstring using
+   the word "guarantee" or "the one to trust" must name the specific test
+   that checks the claim, or not use the word.
+
+EVIDENCE READ / EXECUTED THIS PASS:
+  - localllm/leakage.py (current HEAD) — orchestrator, grep-confirmed
+    winnowing shipped, 0.20/0.05 constants still present.
+  - localllm/prereg_lr_width_fast.json, exp_lr_width_result_fast.json —
+    orchestrator, confirmed the fast profile's distinct claim and measured
+    numbers (control 0.300 / treatment 0.194 at 800 steps).
+  - Pre-fix leakage.py verdict logic via git show — PhD, EXECUTED, confirmed
+    shingle_frac was the sole input to the decision (refutes finding 1's
+    premise as originally stated by the Contrarian).
+  - Offset-detection sweep on both the old sampler and the Outsider's and
+    Pragmatist's proposed test suites specifically — PhD, EXECUTED, this
+    round's decisive result (finding 2).
+  - crc32 min-selection bias, false-overlap on independently-generated clean
+    corpora at 5 sizes, blake2b-64 comparison — PhD, EXECUTED (finding, top
+    of this response).
+  - 74-character guarantee curve, sub-60-char regression vs. the old sampler
+    — PhD, EXECUTED.
+  - Fingerprint density vs. winnowing's theoretical prediction (2/(w+1)) —
+    PhD, EXECUTED, independent confirmation the implementation is correct.
+  - studio.py's TrainWorker/queue/_drain background-thread architecture —
+    PhD, EXECUTED (grep + read), confirmed real and used twice already.
+  - git log / git show for the "round 7 mutation testing" claim — PhD,
+    EXECUTED, found misattributed to pass #3, different artifact.
+  - Test infrastructure inventory (git ls-files, .venv-train package list)
+    — PhD, EXECUTED, confirmed zero test files/CI/pytest exist.
+  - Phipson & Smyth 2010, Cha/Lee/Schrab/Kim 2026, Bouthillier et al. 2021
+    — PhD, abstract/HTML fetched this round (Phipson & Smyth's exact
+    formula itself remains unverified at the paper BODY across two rounds
+    now — flagged, not treated as fully closed).
+  - Voas 1992, Barr et al. 2015, Chen et al. 1998, Segura et al. 2016,
+    Knight & Leveson 1986 — PhD, search-level/bibliographic verification
+    only, explicitly labeled, none load-bearing for a final recommendation.
+  READ-ONLY: localllm/data.py, localllm/exp_lr_width.py (named in DIRECTIVE
+  scope, consulted for context).
+
+LEFTOVER RISKS (unresolved even with every fix above landed):
+  - The blake2b-64 fix for the winnowing collision bias (finding at top) is
+    measured in a scratch probe, not shipped — leakage.py still uses crc32
+    as of this round.
+  - The B >= 1/alpha - 1 feasibility interlock and three-exit-code behavior
+    (finding 3) are fully specified but not built.
+  - The seed-randomization fix for the noise-floor default (finding 4) is
+    a one-line correction to an as-yet-unbuilt utility — round 9/10's
+    "10x2 or 13x1" recipes remain entirely unimplemented.
+  - Cha/Lee/Schrab/Kim 2026 is a single, recent, non-peer-reviewed preprint
+    — the B=19-over-B=20 recommendation rests on it; re-verify if it becomes
+    more load-bearing than "which B to pick," e.g. if ported to a different
+    test statistic.
+  - Phipson & Smyth's exact p-value FORMULA has now failed primary-source
+    body verification twice (round 9 search-level, round 11 abstract-level
+    only) — the ABSTRACT's validity claim is solid; the precise estimator
+    form should be confirmed from the paper body or a secondary source
+    (e.g. the statmod::permp documentation) before it's load-bearing for
+    anything more specific than "any B is valid."
+  - The proposed test file (finding 5's recommendation) does not exist yet
+    — this round specified it in detail (no framework, ~40 lines, keep the
+    old buggy sampler as a permanent regression oracle) but wrote none of it.
+  - No one has yet checked whether OTHER parameters in this codebase share
+    the stride/round-number alignment risk finding 2 identified as the
+    general mechanism (e.g. batch_size, block_size, eval_interval) — this
+    round found the specific instance, not a sweep for the class.
+
+THE QUESTIONS THEMSELVES: this is now the THIRD round in a row where the
+DIRECTIVE's own questions were good but a mechanism-level check turned up
+something bigger than any of them (round 9: the seed no-op; round 10: the
+phase-blind sampler; round 11: the new fingerprinter's own collision bias).
+That is not bad luck three times — it is what happens when questions are
+asked about TUNING a tool (thresholds, run counts, test coverage) before
+the tool's newest layer has been independently re-verified. Worth stating
+as a standing checklist item rather than re-discovering it a fourth time:
+any DIRECTIVE about a just-modified measurement mechanism should default to
+"verify the new mechanism first" even when — especially when — the round's
+actual ask is about something one level up from the mechanism itself.
+
+ONE RECOMMENDED NEXT PROMPT (proprietor -> executor):
+  "Fix the winnowing collision bias first (swap crc32 for blake2b-64 in the
+   fingerprint hash, one line, verified same fingerprint count, false
+   overlap drops to 0.0000% at every measured size) — this is a correctness
+   bug in code shipped THIS session, not last round's issue. Then: (1)
+   build the permutation null with the B>=1/alpha-1 feasibility interlock:
+   below the floor, NO VERDICT + exit 2 + print the exact arithmetic and
+   both remedies (more permutations, or a weaker alpha), never CLEAN; at or
+   above the floor, print the p-value with its floor stated on every run.
+   Delete the 0.20/0.05 constants. Default B to the smallest value >= the
+   feasibility floor with (B+1)*alpha an integer (19 at alpha=0.05, not
+   20). (2) Build the noise-floor utility as 13 runs with BOTH split and
+   seed randomized together (not 13 splits at one fixed seed) as the
+   default, reporting the total floor with a one-line pointer to
+   --decompose (10 splits x 2 seeds, ~5 min) named in the default output
+   itself, not just --help. (3) Write localllm/test_detectors.py — no
+   framework, runnable as `python test_detectors.py` — with: a phase-
+   invariance test using a MIX of round-number and random.Random(0)-drawn
+   offsets (not hand-picked round numbers, which this round proved don't
+   work), asserting on the scanner's verdict/exit code rather than a
+   sub-metric; a no-false-positive-at-scale test on two independent clean
+   random corpora (currently fails with crc32, passes with blake2b-64);
+   and an infeasible-B-never-reads-CLEAN test. Keep the old fixed-stride
+   sampler in the file as a named permanent regression oracle the new test
+   must fail against. (4) Fix the docstring's overclaim on the 74-char
+   guarantee (add the measured sub-60-char regression curve; the old
+   sampler was measurably better below 60 chars) — any future 'guarantee'
+   or 'the one to trust' claim in this codebase should name its test or
+   drop the word. Report the actual test file and its output, not a
+   description of what it would do."
+
+(Council standing by. Watcher armed on the DIRECTIVE block — task bkk3n3jtj.)

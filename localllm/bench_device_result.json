@@ -1,0 +1,50 @@
+{
+  "machine": "AMD64 Family 25 Model 97 Stepping 2, AuthenticAMD",
+  "gpu": "NVIDIA GeForce RTX 4080",
+  "torch": "2.5.1+cu121",
+  "full_run_steps": 2000,
+  "results": {
+    "cpu/small": {
+      "params": 409216,
+      "ms_per_step": 31.37,
+      "tokens_per_s": 130579,
+      "full_2000_step_s": 62.7,
+      "measured_over_steps": 25
+    },
+    "cpu/default": {
+      "params": 3184384,
+      "ms_per_step": 162.09,
+      "tokens_per_s": 25270,
+      "full_2000_step_s": 324.2,
+      "measured_over_steps": 25
+    },
+    "cpu/large": {
+      "params": 18964992,
+      "ms_per_step": 1705.54,
+      "tokens_per_s": 4803,
+      "full_2000_step_s": 3411.1,
+      "measured_over_steps": 25
+    },
+    "cuda/small": {
+      "params": 409216,
+      "ms_per_step": 4.21,
+      "tokens_per_s": 972028,
+      "full_2000_step_s": 8.4,
+      "measured_over_steps": 200
+    },
+    "cuda/default": {
+      "params": 3184384,
+      "ms_per_step": 6.81,
+      "tokens_per_s": 601079,
+      "full_2000_step_s": 13.6,
+      "measured_over_steps": 200
+    },
+    "cuda/large": {
+      "params": 18964992,
+      "ms_per_step": 20.08,
+      "tokens_per_s": 407908,
+      "full_2000_step_s": 40.2,
+      "measured_over_steps": 200
+    }
+  }
+}

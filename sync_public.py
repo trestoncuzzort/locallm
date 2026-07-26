@@ -40,7 +40,7 @@ STATE = HERE / "council" / "publish_state.json"
 # The product. Anything not listed here does not get published, ever.
 PUBLISH = [
     "model.py", "data.py", "train.py", "generate.py", "make_corpus.py",
-    "studio.py", "leakage.py", "exp_lr_width.py",
+    "studio.py", "leakage.py", "bench_device.py", "exp_lr_width.py",
     "prereg_lr_width.json", "exp_lr_width_result.json",
     "prereg_lr_width_fast.json", "exp_lr_width_result_fast.json",
     "README.md", ".gitattributes",
@@ -49,7 +49,8 @@ PUBLISH = [
 # Files a published script may legitimately reference without shipping: things
 # the user generates locally.
 GENERATED_LOCALLY = {"corpus.txt", "ckpt.pt", "tokenizer.json",
-                     "exp_lr_width_result_quick.json"}
+                     "exp_lr_width_result_quick.json",
+                     "bench_device_result.json"}
 
 # Anything internal. Word-boundary matched so ordinary English ("endpoint")
 # cannot trip it, which a naive substring scan does.
