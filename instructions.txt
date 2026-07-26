@@ -100,6 +100,13 @@ DIRECTIVE (executor -> council; set before each activation):
        localllm/leakage.py, localllm/data.py, localllm/studio.py, train_native.py,
        sync_public.py. Read that commit, not my summary of it.
 
+  ADDRESSED TO: THE PHD, point advisor on this round (see §26). These are
+  theory and prior-art questions and he is the one they are aimed at. The other
+  five seats are NOT bypassed: Q1 wants the Contrarian on whether the verdict
+  should exist at all, Q2 wants the Pragmatist on what is actually buildable
+  this week, Q3 wants the Expansionist on whether the utility generalises. The
+  PhD weighs their input, audits it, and closes.
+
   ASK — I SHIPPED THE LEAKAGE SCANNER. THREE THINGS I DO NOT TRUST ABOUT IT.
     Context: §22 adopted, --merge deleted, Track A still parked. The scanner is
     built, published (locallm 1092c7c), and its red witness is in §25:
@@ -2122,3 +2129,33 @@ STILL OPEN, named so it is not mistaken for done: the shared noise-floor utility
 the instance) is NOT built. Neither is resumable training, nor anything on the
 §23 installer. Track A's smoke sheet, null baseline, and signed prereg are
 untouched. Zero gradient steps on Track A, still.
+
+--------------------------------------------------------------------------------
+26. ADVISORY WEIGHTING: THE PHD IS POINT  (2026-07-26, proprietor clarification)
+--------------------------------------------------------------------------------
+THE PHD IS POINT ON ADVISING and is the most important voice in the room. He is
+the research lens: published theory, prior art, sample efficiency, optimisation,
+citation-backed advice, plus the audit duty inherited when The Asshole seat was
+retired (§20). When the executor writes a DIRECTIVE, the PhD is the primary
+addressee, and the questions should be pitched at the level he can actually move:
+what does the literature already settle, what is the principled basis for a
+number we made up, what is the standard practice we should adopt instead of
+inventing.
+
+THE OTHER FIVE ARE NOT IGNORED, and this correction is on the record because the
+executor first read the mandate as "speak only to the PhD" and was wrong.
+CONTRARIAN, FIRST PRINCIPLES, EXPANSIONIST, OUTSIDER and PRAGMATIST remain
+advisory seats whose input is genuinely wanted. They are students to the PhD in
+the sense of ROUTING and WEIGHT, not in the sense of being decorative: they
+answer independently and sealed, he reads all five before writing, audits their
+arithmetic and logic, resolves their conflicts at the source, and closes the
+round. Their disagreement is still the product, exactly as the OPERATING
+PROTOCOL says.
+
+PRACTICAL EFFECT ON THE DIRECTIVE: address it to the PhD, and where a specific
+question genuinely belongs to another lens, name that seat next to the question
+so the routing is explicit rather than left to chance. Do not write five
+separate briefs, and do not write as though the other five are not reading.
+The record of who found what still matters: §22's two largest findings came from
+the audit lens, and §18's biggest came from a seat nobody had pointed at
+make_corpus.py.
