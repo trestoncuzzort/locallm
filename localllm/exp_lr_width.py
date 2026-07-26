@@ -1,6 +1,16 @@
 """exp_lr_width.py — experiment 1: is a hardcoded lr=3e-4 wrong for this width?
 
-Runs the preregistered experiment in prereg_lr_width.json:
+Two preregistered profiles, and they are DIFFERENT EXPERIMENTS, not two speeds
+of one:
+  canonical  prereg_lr_width.json       2000 steps, 7-LR grid  (~2.5 min)
+  fast       prereg_lr_width_fast.json   800 steps, 4-LR grid  (~1 min)
+The effect size decays roughly 9x from 400 to 2000 steps, so the fast profile
+reports a LARGER gap for the same phenomenon and licenses only the weaker claim
+"reaches lower train loss faster". Each run writes its profile, step count, grid
+size and claim into its own verdict string, so the two cannot be quietly
+conflated later.
+
+Each profile runs:
   stage 1  sweep LR at fixed width, single seed, to select the treatment arm
   stage 2  control (3e-4) vs treatment, 5 seeds each, train-loss endpoint
 
@@ -9,8 +19,9 @@ training text into validation, so a val endpoint is not yet trustworthy here.
 Eval batches come from a dedicated torch.Generator, never the global RNG, so
 every arm sees identical batches and evaluation cannot perturb training.
 
-    python exp_lr_width.py            # full experiment
-    python exp_lr_width.py --quick    # 400 steps, for a fast sanity pass
+    python exp_lr_width.py                     # canonical, ~2.5 min
+    python exp_lr_width.py --profile fast      # separate experiment, ~1 min
+    python exp_lr_width.py --quick             # 400-step sanity pass, not a result
 """
 from __future__ import annotations
 
@@ -33,7 +44,13 @@ from train import cosine_lr, enable_fast_math, make_optimizer  # noqa: E402
 
 EVAL_SEED = 12345
 EVAL_BATCHES = 40
-USE_AMP = True         # bf16 wins under multi-worker contention; see EXPERIMENT NOTES
+# Measured, and the measurement reversed itself, which is why the number is
+# recorded here rather than reasoned about: running ONE arm at a time, fp32 beats
+# bf16 autocast (6.00 vs 8.36 ms/step) because the casts cost more than the
+# arithmetic they save on a 3M-parameter model. Running four arms concurrently,
+# which is the shipped default, bf16 wins by a wide margin end to end (163s vs
+# 215s). Benchmark the configuration you actually run.
+USE_AMP = True
 
 
 def fixed_eval_batches(corpus: Corpus, batch_size: int, block_size: int, n: int):
@@ -109,10 +126,6 @@ def run_one(corpus, tok, lr, seed, cfg_d, device, eval_batches=None):
                     n_embd=cfg_d["n_embd"], dropout=0.0)
     model = GPT(cfg).to(device)
     opt = make_optimizer(model, lr)
-    # bf16 autocast is a net LOSS at this scale: measured 8.36 ms/step with it
-    # versus 6.00 without, on the 3.18M-parameter default. The casts cost more
-    # than the arithmetic they save until the model is much larger. fp32 is also
-    # the more precise choice, so this is not a corner being cut.
     use_bf16 = USE_AMP and device == "cuda" and torch.cuda.is_bf16_supported()
 
     steps = cfg_d["steps"]
@@ -139,6 +152,11 @@ def run_one(corpus, tok, lr, seed, cfg_d, device, eval_batches=None):
 
 def main():
     ap = argparse.ArgumentParser()
+    ap.add_argument("--profile", choices=["canonical", "fast"], default="canonical",
+                    help="canonical = prereg_lr_width.json (2000 steps, 7 LRs). "
+                         "fast = prereg_lr_width_fast.json (800 steps, 4 LRs), a "
+                         "SEPARATE experiment licensing a different claim, not a "
+                         "cheaper version of the canonical one.")
     ap.add_argument("--quick", action="store_true")
     ap.add_argument("--workers", type=int, default=4,
                     help="arms to run concurrently (1 = serial). The GPU is "
@@ -146,7 +164,8 @@ def main():
                          "close to free.")
     args = ap.parse_args()
 
-    prereg = json.loads((HERE / "prereg_lr_width.json").read_text(encoding="utf-8"))
+    pf = "prereg_lr_width_fast.json" if args.profile == "fast" else "prereg_lr_width.json"
+    prereg = json.loads((HERE / pf).read_text(encoding="utf-8"))
     C = dict(prereg["fixed_config"])
     C = {k: C[k] for k in ("n_layer", "n_head", "n_embd", "block_size",
                            "batch_size", "steps")}
@@ -208,13 +227,32 @@ def main():
     print(f"gap (control - treatment) = {gap:+.4f}   bar = 0.020")
     print(f"ranges overlap = {overlap}   (bar requires NO overlap)")
     passed = (gap >= 0.020) and (not overlap)
-    print(f"\nPREREGISTERED VERDICT: {'PASS' if passed else 'FAIL / NULL'}")
+    # The verdict carries its own provenance. A label kept only in a filename or
+    # a person's memory gets conflated with the canonical result eventually; one
+    # written into the string itself travels with the number wherever it is
+    # pasted.
+    verdict = (f"{'PASS' if passed else 'FAIL / NULL'} "
+               f"[{'QUICK SANITY RUN, not a result. ' if args.quick else ''}"
+               f"{args.profile} profile: {C['steps']} steps, "
+               f"{len(sweep_lrs)}-LR grid, {len(seeds)} seeds]")
+    if args.profile == "fast":
+        verdict += (" - claim: reaches lower train loss FASTER; "
+                    "NOT the canonical effect size")
+    print(f"\nPREREGISTERED VERDICT: {verdict}")
     if gap < 0 and abs(gap) >= 0.020:
         print("NOTE: control WON — the hypothesis is falsified on this rig.")
     print("=" * 62)
 
-    out = HERE / "exp_lr_width_result.json"
+    # A sanity run must never overwrite a preregistered result file.
+    if args.quick:
+        out = HERE / "exp_lr_width_result_quick.json"
+    elif args.profile == "fast":
+        out = HERE / "exp_lr_width_result_fast.json"
+    else:
+        out = HERE / "exp_lr_width_result.json"
     out.write_text(json.dumps({
+        "profile": args.profile, "prereg_file": pf, "verdict_string": verdict,
+        "claim": prereg.get("claim_this_licenses", ""),
         "config": C, "device": device, "quick": args.quick,
         "sweep": {str(k): v for k, v in sweep.items()},
         "control_lr": control_lr, "treatment_lr": treatment_lr,
