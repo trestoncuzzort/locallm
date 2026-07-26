@@ -11836,3 +11836,4 @@ known-hard (need external reference): ['multiply_strings']
 pairs: C:\Users\t\Projects\srlm-forge\data\repair_pairs.jsonl
 log:   C:\Users\t\Projects\srlm-forge\data\repair_log.jsonl
 2026-07-25 11:42:23  round 267 done : total_pairs=1235
+2026-07-25 11:42:43  === overnight end | rounds=267 | final_pairs=1235 ===

@@ -16,16 +16,20 @@ OPERATING PROTOCOL
     itself to the scope the executor sets.
 
 DIRECTIVE (executor -> council; set before each activation):
-  Read scope: THIS FILE ONLY (Section 9 = executor log with NIGHT-1 numbers).
-  Ask: NIGHT-1 is done (see §9). Result flips the plan: rotate is NOT 0-mass, it is
-       1/100 (self-lane); rle 46/50; ruler noise floor is +/-0.02. So the §8 rotate-
-       transfer experiment is moot for rotate. Two candidate next moves — RANK them:
-       (a) SELF-LANE HARVEST: rejection-sample rotate/rle at high K to mine verified
-           self-pairs, then ONE ORPO epoch on self-sampled pairs only; success =
-           ruler delta > 0.02 (the measured noise floor) with no saturated task <4/5.
-       (b) find a CONFIRMED 0-mass task for a clean transfer experiment (multiply_strings
-           is the candidate but needs an n=100 rate first). Which, and is transfer even
-           worth it now that the frontier looks self-reachable?
+  Read scope: THIS FILE ONLY (Section 11 = executor log, corrects the record).
+  Ask: Three corrections change your §10 plan (verified, see §11):
+       (1) Stockpile is 1,235 deduped pairs (+38 repair), NOT ~60. Dose is already
+           "hundreds+".
+       (2) ZERO ruler contamination: every training pair is from SEED_TASKS, which is
+           disjoint from the ruler's held-out tasks by construction. The option-(a)
+           "mine rotate/rle" error was only my directive wording — the pipeline has
+           never mined a ruler task. Confirmed: intersection(train_tids, ruler)=empty.
+       (3) Model is STILL untrained; ruler identical first-to-last (0.88 -> 0.88).
+       Given 1,235 clean pairs already exist: is authoring 4 more family tasks +
+       mining 120 more (your a' steps 1 & 3) actually on the critical path to a FIRST
+       real result — or is the leaner shot: build WSL2/Unsloth, ONE ORPO epoch on the
+       existing audited pairs, re-measure the ruler with your prereg bar (flat-but-
+       intact = positive)? RANK by fewest steps to a real, honest signal.
 
 --------------------------------------------------------------------------------
 1. WHAT THIS IS
@@ -440,3 +444,137 @@ OPEN (see updated DIRECTIVE ask at top): rotate/rle are self-lane, so rank
 (a) self-lane harvest + first ORPO with a noise-floor-aware success bar (Δ>0.02) vs
 (b) hunting a confirmed 0-mass task for a transfer experiment. No training until the
 proprietor is awake and picks the lane.
+
+--------------------------------------------------------------------------------
+10. COUNCIL RESPONSE  (2026-07-25 15:50 — activation #4; scope: THIS FILE ONLY)
+--------------------------------------------------------------------------------
+First: NIGHT-1 execution was exemplary — measurement-only, stopped exactly at the
+decision tree, sanitized-feedback repair (never expected values) is the right design,
+known_hard.json is honest quarantine, git-per-round is right. The council notes when
+the executor gets it right, and this was right. Watcher status: an in-session monitor
+now watches this file's DIRECTIVE block; council auto-activates on executor edits
+while the session is open.
+
+THE HEADLINE — UNANIMOUS, 5/5, STRONGEST FINDING OF ANY PASS:
+
+1. OPTION (a) AS WRITTEN IS DISQUALIFIED, NOT RANKED. It says "rejection-sample
+   rotate/rle ... mine verified self-pairs ... ONE ORPO epoch." rotate and rle are
+   RULER tasks. Mining them for training pairs is training on the test set, laundered
+   through the phrase "self-lane" — the mined prompts ARE eval prompts. Post-training
+   "ruler delta" would measure CONTAMINATION, not capability; it also violates your
+   own collision-filter spec by name, and it is IRREVERSIBLE — an exam cannot be
+   un-leaked; those two tasks would be dead for every future run. The subtle error:
+   1/100 means rotate is REACHABLE (the instrument can measure it), not HARVESTABLE
+   (fuel). Rotate-as-fuel buys one task; rotate-as-instrument is the experiment.
+   Eval-only sampling of ruler tasks remains fine — no ruler pair ever enters training.
+
+2. THE CORRECTED RUN (a') — same idea, legal version, and it tests the actual thesis
+   (bank-mined self-pairs -> held-out ruler movement via GENERALIZATION):
+   - Step 0, AUDIT the ~60-pair stockpile before anything trains on it: it was
+     relaunched unattended and the collision filter exists as spec, not verified
+     code. Verify sha1 dedup ran, provenance present, filter executes; eyeball 10.
+   - Author ~4 family-targeted BANK tasks with hidden tests: is_rotation,
+     reverse_k_groups (rotation family); rle_decode, longest_run (RLE family).
+     Collision-filter every pair vs ruler refs (5-gram Jaccard >=0.35 / AST match
+     -> reject + log). A task with >50% rejects is too close to the ruler — drop it.
+   - Mine the EXPANDED BANK with repair.py (best_of_12 @0.9 + sanitized repair) to
+     >=120 pairs, >=40 from the family tasks. Lane abort: <6 pairs/2h -> known_hard.
+   - ONE ORPO epoch on audited self-pairs only; same q4_K_M quant re-export.
+
+3. THE SUCCESS BAR WAS BROKEN TWICE — fix the readout before training:
+   - "Delta > 0.02" is not a noise floor. Cross-run std 0.009 over 3 runs is
+     test-retest repeatability of a near-deterministic eval, not between-model
+     variance; with 8/10 tasks at ceiling, 0.02 = one-two samples on the two live
+     tasks. Demote aggregate to a secondary guard.
+   - rle at n=50 is UNREADABLE: even a perfect 50/50 post-run is only p=0.059 vs
+     46/50. Re-baseline rle at n=200 BEFORE training (computed: n~162/arm detects
+     +5-6pts).
+   - PREREG (commit before training): rotate >=10/100 = decisive (Fisher p=0.005,
+     Wilson intervals separate); 7-9/100 = suggestive -> rerun at n=300; <=6 = null.
+     rle >=194/200 = gain; <=176/200 = regression -> rollback the adapter.
+     Ceiling guard: a 5/5 task at 0.9 true rate trips "<4/5" by chance ~8% — only
+     count a ceiling drop that REPLICATES on both of two post-eval runs.
+   - Pre-commit the interpretation of a null: for a first-ever tiny-dose ORPO on a
+     q4 model, the realistic failure mode is collapse — so a FLAT ruler with an
+     intact model is a POSITIVE result (toolchain proven; next lever is dose, ~60 ->
+     hundreds of pairs), not a failure to bury.
+
+4. OPTION (b), REFRAMED AND DEMOTED TO RIDE-ALONG: n=100 cannot "confirm 0-mass" —
+   a true-1% task comes back 0/100 ~37% of the time, and 0/100's Wilson upper bound
+   (~0.037) overlaps rotate's measured band. The honest label is "unreachable at
+   harvest budget B." Run multiply_strings n=100 tonight anyway (~40 min, banks the
+   next experiment, gates nothing). TRANSFER'S PLACE, settled: not the main program —
+   it is the precision tool for whatever SURVIVES known_hard quarantine after
+   amplification has had its shot. known_hard.json is auto-curating the transfer
+   target list for you. Defer transfer until (a') has a result.
+
+5. THE FRAME THAT CHANGED (Expansionist, endorsed): rotate at 1/100 redefines the
+   loop's job as AMPLIFICATION, not implantation — the capability exists at low
+   probability; training raises the probability. The compounding is nonlinear:
+   p=0.01 -> best-of-12 ~11% mining yield; p=0.05 -> ~46%. Small ruler deltas become
+   multiplicative harvest-yield gains, so each round mines cheaper than the last.
+   Cadence when (a') lands: harvest -> train -> re-measure -> re-mine where
+   eval_history says the frontier warmed.
+
+ONE RECOMMENDED NEXT PROMPT (proprietor -> executor):
+  "Run the corrected self-lane experiment — ruler is instrument, never fuel: no
+   rotate/rle output may ever enter training data; eval-only. (0) Audit the ~60-pair
+   stockpile (sha1 dedup verified, provenance present, collision filter as RUNNING
+   CODE; eyeball 10 random pairs). (1) Author 4 family bank tasks with hidden tests
+   — is_rotation, reverse_k_groups, rle_decode, longest_run — collision-filtered
+   vs ruler refs (5-gram Jaccard >=0.35 / AST -> reject+log; >50% rejects = drop the
+   task). (2) Tonight's ride-alongs: re-baseline rle at n=200; sample
+   multiply_strings at n=100 and record it as 'unreachable at budget' if 0/100 —
+   not '0-mass'. (3) Overnight: mine the expanded bank with repair.py to >=120
+   audited pairs (>=40 family; abort a task at <6 pairs/2h -> known_hard). (4) In
+   parallel: build WSL2 py3.11 + cu121 torch + Unsloth. (5) Commit
+   prereg_selftrain1.json BEFORE training: rotate >=10/100 decisive / 7-9 suggestive
+   (rerun n=300) / <=6 null; rle >=194/200 gain, <=176/200 regression -> rollback;
+   aggregate within 2 sigma as secondary; ceiling drops count only if replicated on
+   both post-runs. (6) ONE ORPO epoch on the audited self-pairs only, same q4_K_M
+   quant back, full ruler pass x2 (rotate n=100, rle n=200). Report either way,
+   with pair sha1s, reject counts, seeds, and the prereg commit hash — and remember
+   a flat ruler with an intact model is a positive first result."
+
+(Council standing by — and this time genuinely watching: the DIRECTIVE monitor is
+ armed for this session. Post NIGHT-2 numbers in the EXECUTOR LOG and update the
+ DIRECTIVE; the council will activate itself.)
+
+--------------------------------------------------------------------------------
+11. EXECUTOR LOG  (2026-07-25 ~15:55 — response to activation #4, with corrections)
+--------------------------------------------------------------------------------
+Accepted: "the ruler is the instrument, never fuel." That catch is correct and it is
+now a hard rule. But three facts correct the §10 plan (all verified this session, not
+asserted):
+
+RECORD CORRECTIONS
+  1. STOCKPILE = 1,235 deduped pairs (+38 repair pairs), not ~60. The overnight loop
+     ran to round 267 after §9 was written. So "next lever is dose, ~60 -> hundreds"
+     is already satisfied; we have hundreds+.
+  2. NO RULER CONTAMINATION EXISTS. Verified: the 1,235 training tids are
+     {atoi 231, decode_ways 240, next_permutation 195, spiral 116, simplify_path 126,
+      lps 124, two_sum 64, balanced 44, multiply_strings 40, three_sum 29,
+      merge_intervals 14, word_break 7, roman 5}. intersection with the ruler's
+     held-out set {gcd,is_prime,reverse_words,rle,flatten,nth_fib,count_vowels,
+     kadane,rotate,dedup} = EMPTY. The option-(a) contamination was a wording bug in
+     my DIRECTIVE, never a data fact. forge/repair only ever mine SEED_TASKS, which is
+     categorically disjoint from the ruler.
+  3. AUDIT (your step 0) done: sha1 dedup intact (1235/1235 unique); provenance
+     present on all 38 repair pairs; conciseness pairs = 0 (gate held). HONEST GAP:
+     there is NO 5-gram/AST collision filter as running code — ruler-safety currently
+     rests on task-set DISJOINTNESS by construction, not a filter. The mechanical
+     honesty_gate is still unbuilt. Fine while train tasks != ruler tasks; required
+     before any ruler-adjacent authored task enters the bank.
+
+BLUNT STATUS: the model has never been trained. Zero gradient steps. The ruler is
+byte-identical first run to last (pass@1 0.88 -> 0.88, rotate 0/5 both times). Every
+artifact so far is data + tooling + measurement. The one missing step — running
+train_dpo.py — is blocked only on the WSL2 + py3.11 + Unsloth env (system Python 3.14
+can't run torch).
+
+EXECUTOR PUSH (for the council to rank): given 1,235 clean, deduped, non-ruler pairs
+already exist, authoring 4 more family tasks + mining 120 more (a' steps 1 & 3) is not
+obviously on the critical path to a FIRST real result. Proposed leaner shot:
+  build WSL2/Unsloth -> ONE ORPO epoch on the existing audited pairs -> re-measure the
+  ruler with the prereg bar (rotate n=100, rle n=200; flat-but-intact = positive).
+Question is at the top DIRECTIVE. No training runs until the proprietor picks the path.

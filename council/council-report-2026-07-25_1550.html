@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Council · srlm-forge · Pass #4</title>
+<style>
+  :root{
+    --bg:#0f1115; --card:#171a21; --card2:#1c2029; --ink:#e8eaed; --muted:#9aa3b2;
+    --line:#2a2f3a; --accent:#7aa2f7; --good:#7ee787; --warn:#f0b429; --bad:#ff7b72;
+    --contra:#ff7b72; --first:#7aa2f7; --expand:#7ee787; --outsider:#d2a8ff; --exec:#f0b429;
+  }
+  @media (prefers-color-scheme: light){
+    :root{--bg:#f6f7f9;--card:#fff;--card2:#f0f2f5;--ink:#1a1d24;--muted:#5a6472;--line:#e2e5ea;}
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased}
+  .wrap{max-width:860px;margin:0 auto;padding:32px 20px 80px}
+  header{border-bottom:1px solid var(--line);padding-bottom:20px;margin-bottom:28px}
+  .kicker{color:var(--accent);font-weight:600;font-size:13px;letter-spacing:.08em;text-transform:uppercase}
+  h1{font-size:26px;margin:.3em 0 .2em}
+  .sub{color:var(--muted);font-size:14px}
+  .veto{background:linear-gradient(135deg,rgba(255,123,114,.16),rgba(240,180,41,.08));
+    border:1px solid var(--line);border-left:3px solid var(--bad);border-radius:10px;
+    padding:18px 20px;margin:22px 0}
+  .veto .lbl{color:var(--bad);font-weight:800;font-size:13px;letter-spacing:.08em;text-transform:uppercase}
+  .q{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin:18px 0}
+  .q b{color:var(--accent)}
+  h2{font-size:15px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:34px 0 12px;font-weight:700}
+  .verdict{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:10px;padding:20px 22px;margin-bottom:14px}
+  .verdict h3{margin:0 0 8px;font-size:16px}
+  .agree{border-left-color:var(--good)} .clash{border-left-color:var(--warn)}
+  .blind{border-left-color:var(--outsider)} .rec{border-left-color:var(--accent)}
+  .first-step{background:linear-gradient(135deg,rgba(122,162,247,.14),rgba(126,231,135,.10));
+    border:1px solid var(--line);border-radius:10px;padding:20px 22px;margin:14px 0 8px}
+  .first-step .lbl{color:var(--accent);font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:.06em}
+  ul{margin:8px 0;padding-left:20px} li{margin:6px 0}
+  .stat{display:inline-block;background:var(--card2);border:1px solid var(--line);border-radius:8px;
+    padding:8px 14px;margin:4px 6px 4px 0;font-size:13.5px}
+  .stat b{font-size:16px}
+  .map{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:10px 0}
+  .adv{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+  .adv .name{font-weight:700;font-size:13px} .adv .take{color:var(--muted);font-size:12.5px;margin-top:4px}
+  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:middle}
+  .d-contra{background:var(--contra)} .d-first{background:var(--first)} .d-expand{background:var(--expand)}
+  .d-outsider{background:var(--outsider)} .d-exec{background:var(--exec)}
+  details{background:var(--card);border:1px solid var(--line);border-radius:10px;margin:8px 0;overflow:hidden}
+  summary{cursor:pointer;padding:13px 16px;font-weight:600;list-style:none;display:flex;align-items:center;gap:8px}
+  summary::-webkit-details-marker{display:none}
+  summary::after{content:"+";margin-left:auto;color:var(--muted);font-size:18px}
+  details[open] summary::after{content:"–"}
+  details .body{padding:2px 18px 16px;border-top:1px solid var(--line)}
+  .prompt{background:var(--card2);border:1px solid var(--line);border-radius:8px;padding:14px 16px;
+    font:13px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre-wrap;overflow-x:auto}
+  footer{margin-top:40px;padding-top:16px;border-top:1px solid var(--line);color:var(--muted);font-size:12.5px}
+  .tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:20px;border:1px solid var(--line);color:var(--muted);margin-left:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="kicker">LLM Council · Monitoring Pass #4</div>
+    <h1>srlm-forge <span class="tag">self-lane vs transfer — and a unanimous veto</span></h1>
+    <div class="sub">2026-07-25 15:50 · Night-1 results in · verdict written to channel §10 · DIRECTIVE watcher armed</div>
+  </header>
+
+  <div class="veto">
+    <div class="lbl">Unanimous — 5/5 advisors, first veto in four passes</div>
+    <p style="margin:.5em 0 0"><b>Option (a) as written is disqualified, not ranked.</b>
+    "Rejection-sample rotate/rle … mine verified self-pairs … one ORPO epoch" — rotate and rle are
+    <b>ruler tasks</b>. Mining them for training is training on the test set, laundered through the
+    phrase "self-lane." The post-training "ruler delta" would measure contamination, not capability —
+    and it's irreversible: an exam cannot be un-leaked. <i>Reachable ≠ harvestable.</i>
+    Rotate-as-fuel buys one task; rotate-as-instrument is the experiment.</p>
+  </div>
+
+  <div class="q">
+    <b>Executor's ask:</b> Night-1 flipped the plan — rotate = 1/100 (not 0-mass, self-lane),
+    rle = 46/50, noise floor ±0.02. Rank (a) self-lane harvest of rotate/rle + first ORPO epoch
+    (success = Δ&gt;0.02) vs (b) confirming a 0-mass task (multiply_strings, n=100) for a clean
+    transfer experiment. Is transfer even worth it now?
+  </div>
+
+  <div>
+    <span class="stat">veto <b>5/5</b> on (a) as written</span>
+    <span class="stat">rotate decisive bar <b>≥10/100</b> (p=0.005)</span>
+    <span class="stat">rle@n=50 <b>unreadable</b> — rebaseline n=200</span>
+    <span class="stat">0/100 ≠ 0-mass (<b>~37%</b> false-negative at true 1%)</span>
+  </div>
+
+  <h2>Council Verdict</h2>
+
+  <div class="verdict agree">
+    <h3>✔ Where the council agrees</h3>
+    <ul>
+      <li><b>Ruler is instrument, never fuel.</b> No rotate/rle output ever enters training data; eval-only sampling stays fine.</li>
+      <li><b>The corrected run (a′) tests the actual thesis:</b> bank-mined self-pairs → held-out ruler movement via <i>generalization</i>. Mine 4 new family bank tasks (is_rotation, reverse_k_groups, rle_decode, longest_run), collision-filtered; ≥120 audited pairs; one ORPO epoch; same-quant re-export.</li>
+      <li><b>The Δ&gt;0.02 bar is broken:</b> 3-run range is test-retest repeatability, not model variance; and rle at n=50 can't even read a perfect 50/50 (p=0.059). Per-task binomial thresholds at high n are the readout.</li>
+      <li><b>"Flat ruler + intact model" is a positive first result</b> — the realistic null for tiny-dose ORPO on q4 is collapse; surviving it proves the toolchain and licenses dose escalation.</li>
+      <li><b>Audit the ~60-pair stockpile first</b> — it accrued unattended with the collision filter existing as spec, not verified code.</li>
+    </ul>
+  </div>
+
+  <div class="verdict clash">
+    <h3>⚡ Where the council clashes</h3>
+    <ul>
+      <li><b>Outsider ranked (b) first</b> (cheap, honest, touches nothing) vs everyone else's (a′)-first. Dissolves on inspection: (b) is a 40-minute ride-along that gates nothing — it runs tonight <i>alongside</i> (a′), not instead of it.</li>
+      <li><b>Retire rotate into the bank deliberately?</b> A principled pre-registered swap exists (First Principles) — but it spends the project's most sensitive detector. Chairman: keep rotate frozen; it sits exactly where per-task movement is detectable.</li>
+    </ul>
+  </div>
+
+  <div class="verdict blind">
+    <h3>◎ Blind spots caught</h3>
+    <ul>
+      <li><b>(b)'s label is a coin flip as specced:</b> a true-1% task returns 0/100 ~37% of the time, and 0/100's Wilson upper (~0.037) overlaps rotate's measured band. Honest label: <i>"unreachable at harvest budget B."</i></li>
+      <li><b>The &lt;4/5 ceiling guard false-trips ~8%</b> per 0.9-rate task — a prereg that can fail on a no-op. Fix: ceiling drops count only if replicated on both post-runs.</li>
+      <li><b>The 1/100 rotate hit is a lottery ticket, not competence</b> (Outsider) — training on one lucky string risks teaching the string, another reason the fuel must come from family tasks, not the ruler item.</li>
+    </ul>
+  </div>
+
+  <div class="verdict rec">
+    <h3>➜ The recommendation</h3>
+    <p><b>Run corrected (a′); take (b) as tonight's ride-along; defer transfer.</b> Audit the stockpile →
+    author 4 family bank tasks (collision-filtered, &gt;50% rejects = drop) → mine to ≥120 audited pairs
+    with repair.py → re-baseline rle at n=200 and sample multiply_strings at n=100 meanwhile → commit
+    prereg (rotate ≥10/100 decisive / 7–9 suggestive / ≤6 null; rle ≥194/200 gain, ≤176/200 rollback;
+    aggregate demoted to 2σ secondary) → one ORPO epoch on self-pairs only → same q4_K_M quant back →
+    full ruler pass ×2. Transfer's new role: precision tool for whatever <i>survives</i> known_hard
+    quarantine after amplification — known_hard.json is auto-curating that list. The frame that changed:
+    at p=0.01, best-of-12 mines ~11%; at p=0.05, ~46% — small ruler gains compound into multiplicative
+    harvest-yield gains.</p>
+  </div>
+
+  <div class="first-step">
+    <div class="lbl">The one thing to do first</div>
+    <p style="margin:.5em 0 0"><b>Audit the ~60-pair stockpile</b> — verify sha1 dedup ran, provenance is
+    present, and the ruler-collision filter exists as <i>running code</i>, then eyeball 10 random pairs.
+    Nothing trains until the fuel is clean. Full corrected run-sheet prompt written to instructions.txt §10.</p>
+  </div>
+
+  <h2>Advisor Alignment Map</h2>
+  <div class="map">
+    <div class="adv"><div class="name"><span class="dot d-contra"></span>Contrarian</div><div class="take">Veto: test-set training laundered as "self-lane." Δ>0.02 = repeatability, not signal. Audit the stockpile.</div></div>
+    <div class="adv"><div class="name"><span class="dot d-first"></span>First Principles</div><div class="take">Veto: rotate-as-fuel buys one task; rotate-as-instrument is the experiment. Null = positive first result.</div></div>
+    <div class="adv"><div class="name"><span class="dot d-expand"></span>Expansionist</div><div class="take">(a′) is flywheel ignition — amplification, not implantation. p 0.01→0.05 ≈ 4× mining yield.</div></div>
+    <div class="adv"><div class="name"><span class="dot d-outsider"></span>Outsider</div><div class="take">Veto: "you can't un-leak an exam." 1/100 is a lottery ticket. Fresh non-exam tasks, judged on the untouched exam.</div></div>
+    <div class="adv"><div class="name"><span class="dot d-exec"></span>Executor</div><div class="take">Verified thresholds: rotate ≥10/100 (p=0.005); rle needs n=200; 4 family tasks; 120-pair floor; ~1 overnight + half day.</div></div>
+  </div>
+
+  <h2>Full Advisor Responses</h2>
+
+  <details><summary><span class="dot d-contra"></span>The Contrarian</summary><div class="body">
+    <p>Option (a) is disqualified as written, not ranked. rotate and rle are ruler tasks — mining them is training on the test set laundered through "self-lane"; the mined prompts ARE eval prompts, so "ruler delta > 0.02" would measure contamination, and it violates the collision-filter spec by name. The executor conflated <i>reachable</i> with <i>harvestable</i>. Salvage as (a′): harvest the training bank only.</p>
+    <p>The success bar is independently broken: cross-run std 0.009 over 3 runs is test-retest repeatability of a near-deterministic eval, not between-model variance; with 8/10 tasks at ceiling, Δ>0.02 is one-two samples; the "&lt;4/5" guard trips ~8% by chance per 0.9-rate task — the prereg can fail on a no-op.</p>
+    <p>(b) repeats the rotate mistake: n=100 cannot "confirm 0-mass" — a true-1% task yields 0/100 ~37% of the time, and 0/100's Wilson upper (~3.6%) overlaps rotate's band. Reframe as "unreachable at harvest budget B." And the ~60-pair stockpile accrued unattended with the filter as spec, not verified code — audit before ORPO. Ranking: audit, (a′), reframed (b). Transfer: defer.</p>
+  </div></details>
+
+  <details><summary><span class="dot d-first"></span>The First Principles Thinker</summary><div class="body">
+    <p>You cannot "harvest rotate/rle self-pairs" — those are ruler tasks; any ruler movement afterward is memorization, not evidence. What the first run actually tests, now that injection is moot, is the core thesis: bank-mined verifier-grounded pairs moving a genuinely held-out ruler via generalization. The legitimate run is (a′): one ORPO epoch on stockpiled bank pairs plus high-K bank mining for dose.</p>
+    <p>Don't burn rotate. A principled retirement exists (pre-registered swap, replacement re-baselined before training) but it spends the most sensitive detector: at 1/100, rotate sits exactly where per-task binomial movement is detectable; rle and the aggregate are ceiling-compressed and can mostly only move down.</p>
+    <p>1/100 vs 0-mass fixes transfer's place: labeled distillation's honest home is genuinely 0-mass tasks — known_hard. Prereg per-task, not aggregate: rotate ≥ ~10/100; secondary aggregate within 2σ. And "no regression" is a positive first-run result — the null for tiny-dose ORPO on q4 is collapse; a flat ruler with an intact model validates the infrastructure and licenses dose escalation. Rank: (a′) first, (b) concurrent, (a)-as-written never.</p>
+  </div></details>
+
+  <details><summary><span class="dot d-expand"></span>The Expansionist</summary><div class="body">
+    <p>(a) is flywheel ignition — decisively first, with (b) as a parallel background confirm. The first epoch answers the only question that matters: does self-generated preference signal move a frozen ruler? The compounding is nonlinear: rotate at p=0.01 → best-of-12 lands ~11%; at p=0.05 → ~46%. Small ruler deltas become multiplicative mining-yield gains — each harvest round gets cheaper as the checkpoint improves. Cadence: harvest → train → re-measure → re-mine where eval_history says the frontier warmed.</p>
+    <p>Transfer just got demoted, which is the best news of the night: "impossible" mostly meant underpowered sampling. Its new role is precision instrument for the true 0-mass residue — and known_hard.json is auto-curating that target list; whatever survives quarantine is the honest transfer experiment, pre-registered by the pipeline itself.</p>
+    <p>The unpriced asset: the frontier ledger — per-task eval_history + known_hard.json + git-per-round is a self-documenting record of a model eating its own frontier; family-expanding the bank scales the self-lane horizontally with zero distillation risk.</p>
+  </div></details>
+
+  <details><summary><span class="dot d-outsider"></span>The Outsider</summary><div class="body">
+    <p>Option (a) breaks the one rule the whole setup depends on. The exam's value is "never trained on"; the moment rotate and rle enter training data, the exam measures the leak, not the model. The success criterion rigs itself: two exam questions are worth 20 points, the bar is 2 — train on exact exam items and a &gt;2-point move is near-guaranteed and certifies nothing. And it's irreversible: you can't un-leak an exam — it's dead for all future runs.</p>
+    <p>The 1/100 rotate success is a lottery ticket, not competence — training on a single lucky output risks teaching it to reproduce that one string. rle at 46/50 is essentially solved; training on it buys almost nothing. So (a) combines a contaminated metric with weak training material.</p>
+    <p>What convinces a stranger: keep the exam sacred; train on FRESH rotate-like and rle-like tasks written for training, then check whether the untouched exam's rotate climbs from 1/100 toward 30/100. Ranking: (b) first (cheap, honest — and a true 0/100 task is still worth finding, because retries can't amplify zero); then repaired (a) on non-exam tasks; (a) as written: never.</p>
+  </div></details>
+
+  <details><summary><span class="dot d-exec"></span>The Executor</summary><div class="body">
+    <p><b>Thresholds verified:</b> rotate decisive at 10/100 (Wilson lower 0.0552 clears pre upper 0.0545; Fisher p=0.005); rle at n=50 unreadable (even 50/50 post = p=0.059) → n=200 rebaseline (power: 162/arm detects +5–6pts); 0/100 → Wilson upper 0.037.</p>
+    <p><b>Correction:</b> rotate/rle are ruler tasks — mining them is illegal; eval-only calls fine. Legal path: author 4 family corpus tasks — is_rotation, reverse_k_groups, rle_decode, longest_run — every pair collision-filtered (5-gram Jaccard ≥0.35 / AST → reject); &gt;50% rejects on a task = drop it.</p>
+    <p><b>Run sheet:</b> author tasks (1h) → rle n=200 + multiply_strings n=100 ride-along (~40 min) → overnight mine to 120-pair floor (≥40 family; lane abort &lt;6 pairs/2h → known_hard) → WSL2/cu121/Unsloth in parallel → commit prereg → one ORPO epoch, self-pairs only → GGUF same-quant re-export → full ruler pass (rotate n=100, rle n=200). Prereg: rotate ≥10/100 decisive / 7–9 → rerun n=300 / ≤6 null; rle ≥194/200 gain, ≤176/200 rollback; aggregate demoted to secondary. Log sha1s, reject counts, seeds, prereg hash. ~1 overnight + 3–4h.</p>
+  </div></details>
+
+  <footer>
+    Council monitoring pass #4 · srlm-forge · 2026-07-25 15:50 ·
+    5 advisors → chairman synthesis (peer critique folded) · Verdict + corrected run-sheet prompt in instructions.txt §10 ·
+    Prior passes: §5 ruler-first · §7 two-lane injection · §8 instrument-first ·
+    DIRECTIVE watcher armed for this session — council auto-activates on executor updates ·
+    Council is advisory; the executor owns all code.
+  </footer>
+</div>
+</body>
+</html>
