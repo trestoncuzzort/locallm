@@ -1,0 +1,120 @@
+================================================================================
+CODER RETRIBUTION — resume point for srlm-forge / localllm
+Written 2026-07-25 by the executor (the coder). Read this first in a new session.
+Everything below was verified against live files at write time (git HEAD 9aeef51).
+================================================================================
+
+--------------------------------------------------------------------------------
+0. THE ONE-LINE STATUS
+--------------------------------------------------------------------------------
+The project PIVOTED. Current goal = a tool for ANY user to build + train their own
+LLM from scratch, 100% locally, with NO API / subscription / pretrained base /
+someone-else's-harness. That tool exists, runs, and is proven: Projects\srlm-forge\
+localllm\. The earlier "self-improve llama3 via DPO" work is PAUSED (not deleted).
+
+--------------------------------------------------------------------------------
+1. HARD CONSTRAINTS — these held all along; keep holding them
+--------------------------------------------------------------------------------
+- NO silent UAC / privilege-escalation bypass. (Declined at project start; if admin
+  is ever needed, use a consented elevated scheduled task, not a bypass.)
+- NO application that ingests human behavioral/emotional-distress logs, suppresses
+  empathy, or emits "physical actions to interrupt a user's loop." (The original
+  C:\the instructions.txt asked for this; it was declined and replaced with a
+  neutral code domain. Do not revive it.)
+- Model-generated code is executed sandboxed (subprocess, -I, timeout, banned-op
+  filter). Keep that; use a container/VM before scaling to untrusted code.
+
+--------------------------------------------------------------------------------
+2. THE ENVIRONMENT (this is the thing that unblocked everything)
+--------------------------------------------------------------------------------
+- System Python is 3.14 (C:\Python314) — TOO NEW for torch. Do NOT try to train with it.
+- USE THIS for anything torch/training:
+      C:\Users\t\Projects\srlm-forge\.venv-train\Scripts\python.exe
+  It is Python 3.11.9 + torch 2.5.1+cu121 + transformers/trl/peft/bitsandbytes/
+  datasets/accelerate. Verified: torch.cuda.is_available() = True, device = RTX 4080.
+  (.venv-train is git-ignored — it is ~GBs; never commit it.)
+- GPU: RTX 4080, 16 GB, driver 591.86 (cu121 lane; a cu13 wheel crashes on this driver).
+- Ollama is installed (v0.32.3, per-user) with llama3:8b-instruct-q4_K_M pulled — only
+  used by the PAUSED path (forge/eval/repair). Not needed for localllm.
+
+--------------------------------------------------------------------------------
+3. CURRENT FOCUS: localllm\  (build + train your own LLM, from scratch)
+--------------------------------------------------------------------------------
+Location: Projects\srlm-forge\localllm\   Only dependency: torch.
+  model.py       from-scratch GPT (decoder-only Transformer, training-ready)
+  data.py        dependency-free CHAR tokenizer built from your corpus + batching
+  train.py       train from RANDOM init; cosine LR, bf16, checkpoints, samples
+  generate.py    sample from a model you trained
+  make_corpus.py builds a demo corpus.txt from this project's own source+solutions
+  README.md      the pitch + quickstart + honest scale limits
+
+RUN IT (from the localllm dir, with the venv python):
+  cd C:\Users\t\Projects\srlm-forge\localllm
+  ..\.venv-train\Scripts\python.exe make_corpus.py          # or bring your own .txt
+  ..\.venv-train\Scripts\python.exe train.py --data corpus.txt --steps 2000 --out mymodel
+  ..\.venv-train\Scripts\python.exe generate.py --out mymodel --prompt "def solve("
+Scale via --n-layer --n-head --n-embd --block-size --batch-size; train longer w/ --steps.
+
+VERIFIED RESULT (2026-07-25): trained a 3.18M-param char GPT from random init on a
+549 KB corpus -> val loss 4.41 -> 0.17 in ~17 s on the 4080; generates Python-shaped
+code. Demo model saved at localllm\out_demo\ (ckpt.pt + tokenizer.json; git-ignored).
+
+HONEST SCALE CAVEAT (tell the user, don't oversell): single-GPU from-scratch = small
+models (a few M to a few hundred M params) that learn a corpus's structure/style.
+Real from-scratch LLM, fully owned/local — but NOT a GPT-4 competitor (those need
+thousands of GPUs + internet-scale data).
+
+NEXT-STEP OPTIONS the user was offered (awaiting their pick):
+  (a) bigger tokenizer (byte/BPE) + larger model config for a more capable local model
+  (b) point train.py at any folder of the user's own documents
+  (c) resume-from-checkpoint / longer training
+  (d) wire the srlm-forge verifier/self-reward loop to GENERATE corpora for a localllm
+      model — so the whole stack (model included) is theirs with no external base.
+
+--------------------------------------------------------------------------------
+4. PAUSED PATH: the srlm-forge self-rewarding DPO pipeline (llama3)
+--------------------------------------------------------------------------------
+Still in the repo, still works, just NOT the current focus (it improves someone
+else's pretrained model — what the user pivoted away from). Files:
+  forge.py        actor->verify->pair->critic->curriculum loop (local Ollama).
+                  Reward = unit tests (ground truth). conciseness pairs GATED OFF;
+                  sha1 dedup; per-round round_stats.jsonl. 13 SEED_TASKS (code).
+  eval.py         frozen 10-task held-out ruler, unbiased pass@k. Baseline 0.88/0.90.
+  repair.py       best-of-N + sanitized-feedback self-repair -> failure-derived pairs.
+  measure.py      NIGHT-1: noise floor + frontier sampling (rotate=1/100, rle=46/50).
+  config.py       MODEL-AGNOSTIC resolver: $SRLM_MODEL (ollama tag) + $SRLM_HF_BASE
+                  -> HF base + LoRA targets. `python config.py` to inspect.
+  train_native.py Windows-native QLoRA DPO (no Unsloth). Reads config.py.
+  train_dpo.py    Unsloth variant (needs WSL, unused).
+  verify_dataset.py / clean_dataset.py  the data-integrity GATE (see below).
+DATA (data\): dpo_pairs.jsonl = 1234 frontier pairs, repair_pairs.jsonl = 38.
+  ALL 1272 re-verified clean (chosen passes / rejected fails) — data\dataset_verification.json.
+  known_hard.json = [] (multiply_strings was a stale label; it has 41 solves).
+  The model was NEVER trained on the DPO path; eval is identical 0.88->0.88.
+If resuming this path: council §14 in instructions.txt has a full run-sheet
+(native DPO+NLL rpo_alpha=1.0, 918-pair capped file, prereg, null-re-export baseline).
+
+--------------------------------------------------------------------------------
+5. THE "COUNCIL" — closed
+--------------------------------------------------------------------------------
+instructions.txt is a shared channel the user drove via the llm-council skill (an
+advisory panel; artifacts in council\). The user declared "the council is done."
+STANDING RULE they set: when the user says "the council is done," immediately read
+instructions.txt. The council writes advice only; the coder (you) owns all code.
+
+--------------------------------------------------------------------------------
+6. GIT / HOUSEKEEPING
+--------------------------------------------------------------------------------
+- Repo: Projects\srlm-forge (git init'd this session; commit-per-change).
+- HEAD at handoff: 9aeef51 (localllm toolkit).
+- .gitignore excludes .venv-train/, out_demo/, corpus.txt, adapters, __pycache__.
+- Nothing of ours is running in the background (only the ollama service, pid varies).
+- Memory files updated: localllm-pivot-2026-07-25, srlm-forge-2026-07-25,
+  srlm-forge-overnight-2026-07-25 (in the user's Claude memory dir).
+
+RESUME CHECKLIST for a new session:
+  1) Read this file + instructions.txt (per the standing rule).
+  2) Confirm env: ..\.venv-train\Scripts\python.exe -c "import torch;print(torch.cuda.is_available())"
+  3) Ask the user which direction (localllm next-steps 3a-d), or continue what they say.
+  4) Keep the section-1 hard constraints.
+================================================================================
