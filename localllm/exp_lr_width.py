@@ -1,13 +1,13 @@
-"""exp_lr_width.py — council §18 finding 1: is the shipped lr=3e-4 wrong for this width?
+"""exp_lr_width.py — experiment 1: is a hardcoded lr=3e-4 wrong for this width?
 
 Runs the preregistered experiment in prereg_lr_width.json:
   stage 1  sweep LR at fixed width, single seed, to select the treatment arm
   stage 2  control (3e-4) vs treatment, 5 seeds each, train-loss endpoint
 
-Endpoint is TRAIN loss on purpose: council finding 2 reports the val split is
-contaminated, so a val endpoint would be untrustworthy. Eval batches come from a
-dedicated torch.Generator, never the global RNG, so every arm sees identical
-batches and eval draws cannot perturb training (that is finding 3's fix).
+Endpoint is TRAIN loss on purpose: a positional train/val split can duplicate
+training text into validation, so a val endpoint is not yet trustworthy here.
+Eval batches come from a dedicated torch.Generator, never the global RNG, so
+every arm sees identical batches and evaluation cannot perturb training.
 
     python exp_lr_width.py            # full experiment
     python exp_lr_width.py --quick    # 400 steps, for a fast sanity pass
@@ -157,7 +157,7 @@ def main():
     passed = (gap >= 0.020) and (not overlap)
     print(f"\nPREREGISTERED VERDICT: {'PASS' if passed else 'FAIL / NULL'}")
     if gap < 0 and abs(gap) >= 0.020:
-        print("NOTE: control WON — this falsifies council finding 1 on this rig.")
+        print("NOTE: control WON — the hypothesis is falsified on this rig.")
     print("=" * 62)
 
     out = HERE / "exp_lr_width_result.json"
