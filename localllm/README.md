@@ -135,10 +135,17 @@ the GPU build as an opt in, and the Python runtime bundled so the user never see
 
 **2. Leakage scan and group aware splitting. DONE.**
 Shipped in `leakage.py`, and wired into the GUI and the training loop. Measured on this
-project's own corpus: the old positional split put 70.1% of validation text inside
-training. Splitting by document drops that to 0.0%. The effect on the numbers is the
+project's own corpus: the old positional split put 82.6% of validation content inside
+training. Splitting by document drops that to 1.5%. The effect on the numbers is the
 point: under the contaminated split, val loss came out *lower* than train loss, which is
 backwards. With a clean split there is an honest gap.
+
+Those two figures were first published as 70.1% and 0.0%, measured with a detector that
+was itself broken. It sampled fingerprints at a fixed stride, so it only compared two
+copies of a passage when both happened to start on the same stride phase: a document
+copied verbatim into training was caught at 1 byte offset out of 10. Fingerprints are now
+selected by content (winnowing), which is phase invariant, catches that case at 10 offsets
+out of 10, and is cheaper than the sampler it replaced.
 
 **3. Noise floor by default.**
 Multiple seeds on every comparison, mean plus or minus 3 sigma, with test retest variance

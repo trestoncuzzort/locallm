@@ -2543,3 +2543,247 @@ MECHANISM: the request goes in the DIRECTIVE block at the top of this file,
 which is the council's activation trigger (§24). An executor log alone summons
 nobody. The council answers, the executor decides, and the record shows which
 input won and why.
+
+--------------------------------------------------------------------------------
+30. COUNCIL RESPONSE  (2026-07-26 ~12:20 — activation #10; scope: THIS FILE +
+    localllm/data.py, localllm/exp_lr_width.py, localllm/leakage.py,
+    localllm/train.py at HEAD, plus live probes/simulations run by The PhD
+    on this machine, all logged below under EVIDENCE READ)
+--------------------------------------------------------------------------------
+Roster: 5 style advisors (haiku, sealed, PhD-facing format, per-question
+routing per §26: Q1->Pragmatist, Q3->Expansionist) — closed by The PhD (opus).
+
+HEADLINE FINDING, not asked for, more consequential than all three questions:
+THE LEAKAGE SCANNER MISSES VERBATIM DUPLICATION 9 TIMES IN 10. leakage.py
+samples 50-char shingles at a fixed byte stride starting at position 0 of
+each text. A val document byte-identical to something in train is detected
+only when the two copies happen to land on the same stride phase (mod 10).
+MEASURED: one real document placed verbatim into train at all 10 possible
+byte offsets -> detected at exactly 1 of 10 phases (100% at that phase, 0%
+at the other nine) = 10% detection rate on a case that should read 100%
+every time. This is not the C6 "wording" issue round 9 filed it under — it
+is a detection failure in the scanner's core mechanism, one level below the
+threshold question the DIRECTIVE actually asked. Line-overlap catches this
+same case (99-100%), which is the only reason the tool has not looked
+broken in testing so far — and the docstring names SHINGLE overlap as "the
+one to trust." VERIFIED FIX: content-defined selection (keep a window iff
+crc32(window) % 10 == 0) is phase-invariant (10/10 phases, 100% each,
+measured). But the naive mod-p form has its own known flaw (Schleimer,
+Wilkerson & Aiken 2003 — venue/pagination confirmed, the specific critique
+is search-level not primary-text-verified this round): unbounded gaps
+between selected fingerprints. Measured on this corpus: max gap 83 chars,
+so a copied passage shorter than that can fall entirely between samples.
+Winnowing (min-hash in a sliding window) fixes both defects and was
+measured CHEAPER than the current sampler (20,580 fingerprints vs. 54,897,
+bounded max gap 51 chars). This should be fixed before the null-replacement
+work from round 9, not after — calibrating a broken detector with a good
+statistical null produces a well-calibrated broken detector.
+
+RANKED CRITIQUE (most decisive first)
+
+1. (THE PHD — the headline finding above.) Ship the winnowing fix before
+   anything else in this response. Everything below assumes the underlying
+   shingle mechanism is trustworthy; right now it is not.
+
+2. (THE PHD — Q2, EXECUTED on a real synthetic corpus, not reasoned about)
+   THE SHIPPED 0.20/0.05 THRESHOLDS ARE ACTIVELY WRONG ON A DIFFERENTLY-
+   SHAPED CORPUS, IN BOTH DIRECTIONS. Built a real 10,000-document synthetic
+   corpus with the project's own code and ran the actual scanner against it.
+   A KNOWN-CLEAN split with ordinary shared boilerplate reads SUSPECT at
+   19.1% — one hundredth of a point from CONTAMINATED, with ZERO actual
+   contamination. A low-redundancy corpus with 20% of its validation
+   documents duplicated verbatim into training reads CLEAN. The permutation
+   null round 9 prescribed gets both cases right (p=0.119 on the false
+   alarm, p=0.005 on the miss) — this is not a nicety, on a differently-
+   shaped corpus the fixed constants are wrong and the error direction
+   depends on inter-document redundancy, a property the tool never
+   measures. CONFIRMS round 9's finding 1 should ship. FOUR corrections to
+   round 9's specific recipe: (a) use the EXACT permutation p-value,
+   (1+#{null>=obs})/(1+B) [Phipson & Smyth 2010, search-level verification],
+   never a z-score — some corpora produce a null with sd=0.0000% exactly
+   (a genuine zero-redundancy corpus, not a broken null — distinguished by
+   measurement from character-shuffle's degenerate zero), and dividing by
+   that sd is undefined; (b) B by wall-clock budget, not a fixed constant —
+   measured cost scales with corpus SIZE not document count (~30ms/MB/perm:
+   2.1s at 550KB, 31s at 5.3MB, ~10min projected at 100MB), and round 9's
+   "~0.34s" holds only near the current corpus's size; (c) refuse to report
+   below the feasibility cliff — derived, not guessed: the null collapses
+   to one degenerate draw below ~1/val_frac documents (10, at the shipped
+   val_frac=0.1), confirmed at n=3/5/8 docs (0.0000% null, health=False);
+   (d) fix the sampler (finding 1) before trusting any of this.
+
+3. (THE PHD — Q3, corrects round 9's own prior recipe AND the Expansionist's
+   proposal this round) THE SEQUENTIAL-STOPPING IDEA IS SOUND MATH POINTED
+   AT THE WRONG TARGET; A REBALANCED FIXED DESIGN BEATS BOTH THE ORIGINAL
+   RECIPE AND THE ALTERNATIVE. Two audit results, both simulated: (a) the
+   Expansionist's OTHER proposal this round (stop Q1's LR sweep once the
+   top-2 "look separated") is the classic peeking trap — simulated false-
+   positive inflation 3.5x-6.3x over nominal at N=5..25 under a true-null
+   condition. His width-based stopping rule for Q3 avoids that specific
+   trap, but (b) it introduces a worse one for this specific tool: it stops
+   precisely when the sample happens to look quiet, which SYSTEMATICALLY
+   UNDERSTATES the noise floor — simulated at his stated parameters,
+   average stopping point N=9.55, noise-floor estimate biased -29.6% low,
+   vs. -3.9% for a plain fixed N=8 design of comparable size. For a tool
+   whose entire purpose is "tell the user how much of their delta is
+   noise," a downward-biased noise floor is the one failure mode that must
+   never happen — it makes real noise look like a real effect. REJECTED.
+   Separately, round 9's own 5-splits-x-5-seeds=25-run recipe is also
+   suboptimal, independent of the stopping-rule question: corrected
+   variance-components simulation shows 10 splits x 2 seeds = 20 runs beats
+   it on BOTH variance components (25.9% vs 36.0% relative error on the
+   split component, 21.7% vs 29.3% total) at 20% less compute, and if only
+   the total noise floor is wanted, 13 splits x 1 seed = 13 runs beats 25
+   runs at roughly half the cost (20.4% vs 29.3% relative error). This
+   independently reconfirms round 9's "vary the split before the seed"
+   finding — a 2-splits-x-10-seeds design was the single worst configuration
+   tested.
+
+4. (THE PHD — Q1, with a real power calculation the Contrarian asked for
+   and a real timing test of the Expansionist's sequential idea applied
+   here) NO PRINCIPLED BASIS FOR SHRINKING THE GRID EXISTS IN THE
+   LITERATURE (checked, not found); A PRINCIPLED BASIS FOR THE STEP COUNT
+   DOES, AND IT SAYS SHRINKING IS SAFE BUT CHANGES THE CLAIM. Power
+   calculation (200k-draw Monte Carlo against the prereg's actual
+   conjunction bar): the canonical result's implicit false-positive rate is
+   effectively zero over 400,000 simulated null draws, and the minimum
+   detectable effect at 80% power (0.0213) sits almost exactly on the
+   0.020 bar — the observed effect (0.0439) clears it 2.1x over. Noise
+   would need to inflate 8x before power drops to 50%. Separately measured
+   (68 real training runs across 4 step counts): the gap DECAYS
+   monotonically and steeply with step count — 0.394 (400 steps) to 0.044
+   (2000 steps), a 9x change — while the 7-point and 4-point sweep grids
+   pick the identical winning LR at every step count tested. This CONFIRMS
+   the Contrarian's "800 steps might be mid-convergence" and REFUTES his
+   "the smaller grid might miss the optimum." Applied the Expansionist's
+   sequential-stopping idea directly to this problem and it fails on
+   arithmetic, not principle: stage 1 (the sweep) is not sequential-
+   testable in the way that helps, because at 2000 steps stage 1 alone
+   (7 runs, 2 worker-waves) already exceeds the 60s budget before a single
+   confirmation run — sequential stopping on stage 2 saves at most ~6 runs
+   (162s -> ~105s), nowhere near 60s. No published LR-sweep grid convention
+   was found (checked muP/Yang et al. directly; it says nothing about grid
+   spacing) that would license 7 points -> 4 on principle rather than
+   convenience.
+
+5. (STYLE ADVISORS + PhD, unanimous conclusion, now with numbers instead of
+   just instinct) DO NOT SHRINK THE CANONICAL EXPERIMENT. All 5 style
+   advisors independently converged on "ship canonical unchanged; any fast
+   number must be a separate, clearly-labeled, never-substituting profile"
+   — genuine unanimity, not vote-counting, and the PhD's numbers now show
+   why: the estimand actually changes with step count (it's not the same
+   claim, faster — it's a different, weaker claim), so a "faster canonical"
+   is not achievable without becoming dishonest about what it measures. THE
+   RECOMMENDATION: ship a second, HONESTLY-DIFFERENT preregistration at 800
+   steps / 4 LRs / 5 seeds = 14 runs, ~56s (reachable, measured) — its claim
+   is "treatment reaches lower train loss FASTER," not "the same effect,
+   cheaper." Enforce the labeling mechanically (write step count and grid
+   size into the result JSON's own verdict string) rather than trusting a
+   human convention not to conflate the two six months from now — this
+   directly answers the Contrarian's "labels get forgotten" objection.
+   Add step count to the prereg's own NON-CLAIMS block; the measured 9x
+   decay makes it a live limitation, not a hypothetical one. The Outsider's
+   framing (a structural collision between an external deadline and a rule
+   built to prevent exactly this) is correct as a description of the
+   tension, and resolves cleanly once the fast profile is understood to
+   answer a genuinely different, legitimate question rather than a cheaper
+   version of the same one.
+
+EVIDENCE READ / EXECUTED THIS PASS:
+  - localllm/leakage.py, localllm/data.py (current HEAD) — orchestrator,
+    grep-confirmed thresholds still 0.20/0.05, seed now genuinely used.
+  - Shingle phase-blindness (1/10 detection) — PhD, EXECUTED, real document
+    injected at all 10 byte offsets.
+  - Content-defined selection fix, winnowing prototype, gap measurements —
+    PhD, EXECUTED, timed and compared against the shipped sampler.
+  - 10,000-document synthetic corpus (HIGH and LOW redundancy variants),
+    real contamination injection at multiple fractions, full scanner run
+    against each — PhD, EXECUTED.
+  - Feasibility-cliff table (3/5/8/13/25/50/100/1000 documents) — PhD,
+    EXECUTED, 100 permutations each.
+  - Null-computation cost vs. corpus size (549K/573K/5.26M chars) — PhD,
+    EXECUTED, timed.
+  - 68 real training runs across 4 step counts (400/800/1200/2000), 7-point
+    and 4-point sweep grid comparison — PhD, EXECUTED, reproduced the
+    canonical result's exact numbers as a cross-check.
+  - Power calculation, 400,000 Monte Carlo draws against the prereg's real
+    bar — PhD, EXECUTED.
+  - Sequential-peeking false-positive-inflation simulation — PhD, EXECUTED.
+  - Noise-floor-bias-under-stopping-rule simulation — PhD, EXECUTED,
+    corrected once after a self-caught modeling error (logged as C1 in the
+    PhD's own verdict).
+  - Variance-components simulation across 7 design shapes (3x3 through
+    2x10, plus single-seed-per-split designs) — PhD, EXECUTED.
+  - Schleimer/Wilkerson/Aiken 2003, Phipson & Smyth 2010, Howard/Ramdas/
+    McAuliffe/Sekhon 2021, Wald 1945/1948, Lan-DeMets — PhD, search-level
+    verification only, explicitly labeled as such, none load-bearing for
+    a final recommendation (every recommendation rests on the PhD's own
+    executed measurements, not on an unverified citation).
+  - Yang et al. 2022 (muP) — PhD, checked directly for a grid-spacing
+    convention; found none. Absence-of-citation is itself a finding here.
+  READ-ONLY: exp_lr_width.py, train.py (named in DIRECTIVE read scope,
+  consulted for context).
+
+LEFTOVER RISKS (unresolved even with every fix above landed):
+  - The winnowing fix (finding 1) is a measured prototype in scratch, not
+    shipped code — the shipped scanner still misses 9/10 phases today.
+  - The permutation-null recipe (finding 2) is fully specified but not
+    built; leakage.py still uses the fixed 0.20/0.05 constants as of this
+    round.
+  - The PhD flagged, and this response repeats so it is not lost: a
+    sweep-only timing probe was still running at his cutoff and "one stray
+    python process from it may still be on the GPU" — worth a `nvidia-smi`
+    check before the next GPU-heavy round.
+  - The 800-step/4-LR fast profile's ~56s figure is PROJECTED from measured
+    17-run blocks, not a directly measured 14-run wall clock — confirm
+    before quoting it as achieved.
+  - The inverted-index optimization the PhD prototyped for null-computation
+    speed changes WHAT is measured (drops cross-document-boundary windows),
+    not just how fast — flagged as a design decision, not adopted this
+    round; do not silently swap it in for speed alone.
+  - The rebalanced noise-floor designs (10x2, 13x1) are simulated against
+    an assumed sigma_split=0.010 / sigma_seed=0.004 ratio (round 9's
+    measured values on THIS corpus) — untested at a materially different
+    ratio.
+  - No citation in this round's Q1/Q3 analysis beyond the PhD's own
+    executed measurements is primary-source verified; if any of Schleimer/
+    Phipson/Howard/Wald becomes load-bearing for a future decision, verify
+    at the primary source first, per this project's own standing rule.
+
+THE QUESTIONS THEMSELVES: three well-scoped, genuinely answerable questions
+— the DIRECTIVE continues to improve round over round. The one miss: none
+of Q1-Q3 asked "is the underlying measurement mechanism itself trustworthy"
+before asking about its tuning (thresholds, grid size, run count) — this is
+the second time this exact shape has happened (round 9's seed no-op was the
+first): a tuning question was asked before a mechanism question, and the
+mechanism question turned out to matter more both times. Worth naming as a
+default check for any DIRECTIVE about a just-shipped measurement tool:
+verify the mechanism before optimizing the mechanism's parameters.
+
+ONE RECOMMENDED NEXT PROMPT (proprietor -> executor):
+  "Fix the shingle sampler first (finding 1) — replace fixed-stride sampling
+   with winnowing (or at minimum content-defined selection with a bounded
+   gap) so verbatim duplication is caught regardless of byte-offset phase;
+   this is a correctness bug, not a tuning question, and everything else
+   here assumes it's fixed. Then: (1) replace the 0.20/0.05 constants with
+   the corrected permutation-null recipe — exact p-value (Phipson-Smyth),
+   B sized to a wall-clock budget not a fixed count, refuse-not-report
+   below the ~1/val_frac document feasibility cliff. (2) Ship the LR-width
+   fast profile as a SEPARATE preregistration at 800 steps/4 LRs/5 seeds
+   (~56s, confirm the real wall clock rather than trusting the projection),
+   with its own distinct claim ('reaches lower loss faster', not 'the same
+   effect, cheaper') written into the result JSON's verdict string itself
+   so the two profiles can't be conflated by a human forgetting a label six
+   months from now; add step-count sensitivity to the canonical prereg's
+   own NON-CLAIMS. Do not touch the canonical 2000-step/7-LR run. (3) Build
+   the noise-floor utility as 10 splits x 2 seeds (20 runs, ~5 min) if the
+   split/seed decomposition matters, or 13 splits x 1 seed (13 runs, ~3.3
+   min) if only the total floor is wanted — both beat the originally-
+   specified 5x5=25 on precision per run. Do NOT adopt sequential/adaptive
+   stopping for either the LR sweep or the noise-floor utility — simulated
+   this round as unsound for both (peeking inflates false positives 3.5x-
+   6.3x; width-based stopping biases the noise floor down ~30%). Report
+   real numbers, not projections, especially for the fast profile's actual
+   wall-clock time."
+
+(Council standing by. Watcher armed on the DIRECTIVE block — task bkk3n3jtj.)
