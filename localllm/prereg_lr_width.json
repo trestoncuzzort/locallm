@@ -3,44 +3,58 @@
   "date": "2026-07-26",
   "hypothesis": "A hardcoded lr=3e-4 is a GPT-2-scale constant (width 768-1600) and is far below the optimum for this rig's width (256). A width-appropriate LR reaches a materially lower train loss at equal step count.",
   "why_train_loss_endpoint": "The corpus builder's train/val split is positional, so training text can appear verbatim in validation. Any val-based endpoint is therefore untrustworthy until the split is made group-aware. Train loss sidesteps the problem entirely.",
-
   "fixed_config": {
-    "n_layer": 4, "n_head": 4, "n_embd": 256, "block_size": 128,
-    "batch_size": 32, "steps": 2000, "dropout": 0.0,
+    "n_layer": 4,
+    "n_head": 4,
+    "n_embd": 256,
+    "block_size": 128,
+    "batch_size": 32,
+    "steps": 2000,
+    "dropout": 0.0,
     "corpus": "corpus.txt",
     "schedule": "cosine with 5% warmup, min_lr = lr/10 (train.py's cosine_lr, unchanged)",
     "optimizer": "AdamW betas=(0.9,0.95) wd=0.1, grad clip 1.0 (train.py's, unchanged)"
   },
-
   "stage_1_sweep": {
     "purpose": "locate the optimum LR at this width; single seed, NOT the confirmatory test",
     "seed": 0,
-    "lrs": [3e-4, 1e-3, 3e-3, 6e-3, 1e-2, 2e-2, 4e-2],
+    "lrs": [
+      0.0003,
+      0.001,
+      0.003,
+      0.006,
+      0.01,
+      0.02,
+      0.04
+    ],
     "treatment_selection_rule": "the LR with the lowest final train loss becomes the treatment arm. Declared BEFORE running so the choice is mechanical, not eyeballed."
   },
-
   "stage_2_confirm": {
-    "control_lr": 3e-4,
+    "control_lr": 0.0003,
     "treatment_lr": "whatever stage 1 selects",
-    "seeds": [1, 2, 3, 4, 5],
+    "seeds": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
     "endpoint": "final train loss, measured on 40 FIXED eval batches drawn from a dedicated torch.Generator(seed=12345) so every arm and seed sees byte-identical eval batches, and evaluation can never perturb the training stream"
   },
-
   "success_bar": {
     "primary": "mean(control train loss) - mean(treatment train loss) >= 0.020",
     "secondary": "zero overlap between the two arms' 5-seed [min,max] ranges",
     "both_required": true
   },
-
   "prespecified_outcomes": {
     "pass": "both bars met -> a fixed lr=3e-4 default is wrong for this width; scale the LR with width rather than hand-tuning a new constant.",
     "fail": "gap < 0.020 or ranges overlap -> report as null. Do NOT re-run with different steps/width and report the winner; a second run is a NEW preregistration.",
-    "surprise": "if control WINS, report that plainly — it falsifies the hypothesis on this rig and that is a result worth having."
+    "surprise": "if control WINS, report that plainly \u2014 it falsifies the hypothesis on this rig and that is a result worth having."
   },
-
   "not_claimed": [
     "That this generalizes to other depths. This runs 4 layers and does not re-measure the scaling law at each depth.",
     "That train loss is a proxy for model quality. It is the endpoint because val is not yet trustworthy, not because it is the better measure.",
-    "That the resulting LR is optimal at any width other than the one measured (256)."
+    "That the resulting LR is optimal at any width other than the one measured (256).",
+    "That the effect size is independent of step count. It is not: measured across 400/800/1200/2000 steps the gap decays steeply and monotonically (roughly 0.394 to 0.044, a 9x change), so this experiment's 0.0439 is specific to 2000 steps. A shorter run reports a LARGER gap for the same phenomenon. See prereg_lr_width_fast.json, which is a SEPARATE experiment and not a cheaper version of this one."
   ]
 }
