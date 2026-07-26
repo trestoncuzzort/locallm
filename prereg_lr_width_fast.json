@@ -1,0 +1,54 @@
+{
+  "experiment": "exp1_lr_vs_width_FAST",
+  "profile": "fast",
+  "date": "2026-07-26",
+  "relationship_to_canonical": "SEPARATE EXPERIMENT, NOT A CHEAPER VERSION OF THE CANONICAL ONE. It asks a different question and licenses a different claim. It does not replace, update, or supersede prereg_lr_width.json, and its numbers must never be quoted as that experiment's numbers.",
+
+  "claim_this_licenses": "A width-appropriate learning rate reaches lower train loss FASTER, measured at 800 steps.",
+  "claim_this_does_NOT_license": "That the effect size here equals the canonical effect size. It does not. The gap decays steeply and monotonically with step count (measured across 400/800/1200/2000 steps: roughly 0.394 down to 0.044, a 9x change), so a shorter run reports a LARGER gap for the same underlying phenomenon. A big number here is not a better result, it is an earlier one.",
+
+  "why_this_exists": "The canonical experiment takes about 2.5 minutes. A one-minute budget was wanted for quick iteration. Shrinking the canonical run to fit was rejected: the estimand changes with step count, so a faster canonical would be a different, weaker claim wearing the canonical claim's name.",
+
+  "fixed_config": {
+    "n_layer": 4, "n_head": 4, "n_embd": 256, "block_size": 128,
+    "batch_size": 32, "steps": 800, "dropout": 0.0,
+    "corpus": "corpus.txt",
+    "schedule": "cosine with 5% warmup, min_lr = lr/10 (train.py's cosine_lr, unchanged)",
+    "optimizer": "AdamW betas=(0.9,0.95) wd=0.1, grad clip 1.0 (train.py's, unchanged)"
+  },
+
+  "stage_1_sweep": {
+    "purpose": "locate the optimum LR at this width; single seed, NOT the confirmatory test",
+    "seed": 0,
+    "lrs": [3e-4, 1e-3, 3e-3, 1e-2],
+    "grid_justification": "4 points instead of the canonical 7. This is a COMPUTE choice, not a principled one: no published LR-sweep grid convention was found that licenses it (muP was checked directly and says nothing about grid spacing). It rests on a measurement instead: the 7-point and 4-point grids selected the identical winning LR at every step count tested. That is evidence this grid is adequate HERE, not a general rule.",
+    "treatment_selection_rule": "the LR with the lowest final train loss becomes the treatment arm. Declared BEFORE running so the choice is mechanical, not eyeballed."
+  },
+
+  "stage_2_confirm": {
+    "control_lr": 3e-4,
+    "treatment_lr": "whatever stage 1 selects",
+    "seeds": [1, 2, 3, 4, 5],
+    "endpoint": "final train loss on 40 FIXED eval batches from a dedicated torch.Generator(seed=12345), identical across every arm and seed"
+  },
+
+  "success_bar": {
+    "primary": "mean(control train loss) - mean(treatment train loss) >= 0.020",
+    "secondary": "zero overlap between the two arms' 5-seed [min,max] ranges",
+    "both_required": true,
+    "note": "Same numeric bar as canonical, deliberately. The bar is a floor on what counts as a real difference, not a scaled quantity."
+  },
+
+  "prespecified_outcomes": {
+    "pass": "both bars met -> a fixed lr=3e-4 is slower to converge at this width. Report as the FAST profile result, never as the canonical one.",
+    "fail": "gap < 0.020 or ranges overlap -> report as null. Do NOT re-run with different steps or grid and report the winner; that is a NEW preregistration.",
+    "surprise": "if control WINS, report that plainly."
+  },
+
+  "not_claimed": [
+    "That 800 steps is a converged model. It is explicitly mid-training, which is the point of the profile and also its main limitation.",
+    "That the effect size transfers to the canonical 2000-step setting. Measured: it does not, it shrinks roughly 9x from 400 to 2000 steps.",
+    "That the 4-point grid would find the optimum on a different corpus, width, or depth. It matched the 7-point grid on THIS setup only.",
+    "That train loss is a proxy for model quality."
+  ]
+}
