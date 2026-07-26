@@ -5,9 +5,9 @@ Runs the preregistered experiment in prereg_lr_width.json:
   stage 2  control (3e-4) vs treatment, 5 seeds each, train-loss endpoint
 
 Endpoint is TRAIN loss on purpose: a positional train/val split can duplicate
-training text into validation, so a val endpoint is not yet trustworthy here. Eval batches come from a
-dedicated torch.Generator, never the global RNG, so every arm sees identical
-batches and eval draws cannot perturb training (so evaluation can never perturb training).
+training text into validation, so a val endpoint is not yet trustworthy here.
+Eval batches come from a dedicated torch.Generator, never the global RNG, so
+every arm sees identical batches and evaluation cannot perturb training.
 
     python exp_lr_width.py            # full experiment
     python exp_lr_width.py --quick    # 400 steps, for a fast sanity pass
