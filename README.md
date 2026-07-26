@@ -15,11 +15,11 @@ python studio.py
 
 ## What this actually is
 
-A small, readable, from-scratch GPT — and a GUI so you don't need a terminal to use it.
+A small, readable, from-scratch GPT and a GUI so you don't need a terminal to use it.
 
 | File | What it is |
 |---|---|
-| `model.py` | The transformer. Decoder-only GPT, written out in full — attention, MLP, blocks, weight tying, GPT-2 scaled init. ~145 lines. |
+| `model.py` | The transformer. Decoder-only GPT, written out in full attention, MLP, blocks, weight tying, GPT-2 scaled init. ~145 lines. |
 | `data.py` | A character-level tokenizer built from *your* corpus, plus batching. No external tokenizer, nothing downloaded. |
 | `train.py` | The training loop. Random init → your weights. Cosine schedule, warmup, gradient clipping, bf16 autocast when your GPU supports it. |
 | `generate.py` | Sample from a model you trained. |
@@ -49,7 +49,7 @@ This one is built to stop you fooling yourself:
 
 - **The learning rate follows your architecture.** A fixed `3e-4` is a GPT-2-scale constant
   (width 768–1600) and is badly wrong at the widths this trains. `auto_lr(n_embd)` scales
-  with width, and the GUI retargets it when you change the model — but never overwrites a
+  with width, and the GUI retargets it when you change the model but never overwrites a
   value you typed yourself.
 - **Experiments are preregistered.** `prereg_lr_width.json` fixes the success bar, the arm
   selection rule, and the interpretation of a null result *before* the run. `exp_lr_width.py`
@@ -60,7 +60,7 @@ This one is built to stop you fooling yourself:
 
 ### A worked result
 
-The first experiment run through this harness, on an RTX 4080 — 4 layers, 4 heads, width 256,
+The first experiment run through this harness, on an RTX 4080 4 layers, 4 heads, width 256,
 block 128, batch 32, 2000 steps:
 
 ```
@@ -71,7 +71,7 @@ PREREGISTERED VERDICT: PASS
 ```
 
 Five seeds per arm, bar written down first. The hardcoded default was leaving **0.11 train
-loss** on the table — more than any architecture change on the table was worth. That is why
+loss** on the table more than any architecture change on the table was worth. That is why
 the learning rate scales with width now.
 
 Reproduce it: `python exp_lr_width.py` (about 4 minutes on a 4080).
@@ -88,7 +88,7 @@ Read this part before you expect too much.
   contains duplicated or near-duplicated documents, validation text can also appear in
   training, and val loss will look better than it deserves. **A group-aware split and a
   leakage scan are the next thing being built.** Until then, prefer train loss when
-  comparing configurations — which is exactly why the experiment above uses it.
+  comparing configurations which is exactly why the experiment above uses it.
 - No resume-from-checkpoint yet, no gradient accumulation, no multi-GPU.
 - Large architectures will run out of VRAM rather than warning you first.
 
