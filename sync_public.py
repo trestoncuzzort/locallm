@@ -22,6 +22,8 @@ Two hard guarantees:
 from __future__ import annotations
 
 import argparse
+import hashlib
+import json
 import re
 import shutil
 import subprocess
@@ -32,6 +34,8 @@ HERE = Path(__file__).resolve().parent
 SRC = HERE / "localllm"
 REMOTE = "https://github.com/jonhhjackson-a11y/locallm"
 CLONE = HERE.parent / "_locallm_publish"       # sibling of the repo, never inside it
+CHANNEL = HERE / "instructions.txt"
+STATE = HERE / "council" / "publish_state.json"
 
 # The product. Anything not listed here does not get published, ever.
 PUBLISH = [
@@ -49,6 +53,17 @@ FORBIDDEN = [
 ]
 PATTERN = re.compile("|".join(rf"\b{t}\b" if t[0].isalpha() else t
                               for t in FORBIDDEN), re.IGNORECASE)
+
+
+def directive_sha() -> str:
+    """Hash of the DIRECTIVE block, which is what the council actually reads."""
+    text = CHANNEL.read_text(encoding="utf-8", errors="ignore")
+    try:
+        start = text.index("DIRECTIVE (executor -> council")
+        end = text.index("\n---", start)
+    except ValueError:
+        return ""
+    return hashlib.sha1(text[start:end].encode("utf-8")).hexdigest()
 
 
 def run(cmd, cwd, check=True, quiet=False):
@@ -81,6 +96,19 @@ def main() -> None:
     ap.add_argument("--check", action="store_true", help="scan and diff only")
     ap.add_argument("--no-push", action="store_true")
     args = ap.parse_args()
+
+    # Publishing without telling the council is how work goes unseen. If the
+    # DIRECTIVE has not moved since the last publish, last round's follow-up
+    # never happened.
+    prev = json.loads(STATE.read_text(encoding="utf-8")) if STATE.is_file() else {}
+    if prev.get("directive_sha") and prev["directive_sha"] == directive_sha():
+        print("!" * 68)
+        print("WARNING: the DIRECTIVE block has not changed since the last publish")
+        print(f"         ({prev.get('commit', '?')}). The council was never told about")
+        print("         that work, so it cannot see it. Update the DIRECTIVE at the")
+        print("         top of instructions.txt before or right after this push.")
+        print("!" * 68)
+        print()
 
     print(f"scanning {len(PUBLISH)} publish-listed files for internal references...")
     hits = scan()

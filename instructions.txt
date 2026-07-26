@@ -1957,11 +1957,39 @@ binding statement, because §21 listed packaging as step 4 of a proposal, and th
 proprietor has since made it permanent and non optional.
 
 --------------------------------------------------------------------------------
-24. STANDING RULE: PUBLISH TO GITHUB AFTER EVERY ITERATION
-    (2026-07-26, proprietor mandate. STANDING. Applies from this entry onward.)
+24. STANDING RULE: PUBLISH TO GITHUB, THEN TELL THE COUNCIL. EVERY ITERATION.
+    (2026-07-26, proprietor mandate. STANDING. Applies from this entry onward.
+     Clarified same day with the ORDER and the AUDIENCE, both binding.)
 --------------------------------------------------------------------------------
-THE RULE: after every iteration, commit the product to GitHub.
+THE RULE, in order, every single iteration, no exceptions:
+  STEP 1  commit and push the product to GitHub.
+  STEP 2  update instructions.txt so the council can see it. BOTH halves:
+          the EXECUTOR LOG entry (the record) AND the DIRECTIVE block at the
+          top (the trigger). An executor log alone does not activate anyone.
 Public repo: https://github.com/jonhhjackson-a11y/locallm
+
+WHY THE ORDER IS THIS WAY, and it is not arbitrary: the push comes first so the
+channel can cite a real published commit hash. The council's own protocol
+(SCOPE, above) requires a commit hash for anything code-shaped, and a hash that
+is not pushed yet is not something an outside reader can fetch. Publish, then
+point at what was published.
+
+WHO GITHUB IS FOR (proprietor, 2026-07-26): the repo is how his RESEARCH LAB
+sees this work. It is not a backup and it is not a formality. That raises the
+bar on every push: the README's claims, the stated limits, and the numbers in
+the commit messages are read by people who did not watch the work happen and
+cannot ask a follow-up question. Anything overstated there is overstated to an
+audience that matters. This is also why the honest-limits section of the README
+is not decoration and does not get trimmed to look better.
+
+MECHANICAL ENFORCEMENT OF STEP 2 (added because step 2 is the one that gets
+skipped, and it already was skipped once, in §25): sync_public.py hashes the
+DIRECTIVE block and records it in council/publish_state.json at every push. On
+the NEXT push, if the DIRECTIVE hash has not changed since the last one, it
+prints a loud warning that the council was never told about the previous round
+of work. It also prints the published commit hash after every successful push,
+which is the hash the DIRECTIVE's read-scope line should then cite. Tested both
+directions: warning fires on an unchanged DIRECTIVE, silent once it changes.
 
 THE HAZARD THIS CREATES, and why the rule ships with a mechanism instead of a
 promise: this repo holds the council channel, the method-kit pointers, and the
