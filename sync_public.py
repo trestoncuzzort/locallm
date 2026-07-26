@@ -36,7 +36,7 @@ CLONE = HERE.parent / "_locallm_publish"       # sibling of the repo, never insi
 # The product. Anything not listed here does not get published, ever.
 PUBLISH = [
     "model.py", "data.py", "train.py", "generate.py", "make_corpus.py",
-    "studio.py", "exp_lr_width.py", "prereg_lr_width.json",
+    "studio.py", "leakage.py", "exp_lr_width.py", "prereg_lr_width.json",
     "exp_lr_width_result.json", "README.md", ".gitattributes",
 ]
 

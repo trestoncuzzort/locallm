@@ -10,7 +10,9 @@ repair pairs are EXCLUDED by default (single variable). Pass --include-repair to
     .venv-train\\Scripts\\python train_native.py            # frontier pairs only
     .venv-train\\Scripts\\python train_native.py --include-repair
 
-Output: dpo_adapter_native/  (LoRA adapter + merged fp16 for GGUF export).
+Output: dpo_adapter_native/  (LoRA adapter only). Nothing is ever merged: the
+adapter is applied at inference via Ollama's ADAPTER directive against the
+untouched base GGUF. See export_adapter.py.
 """
 from __future__ import annotations
 
@@ -40,8 +42,6 @@ def main() -> None:
     ap.add_argument("--raw-pairs", action="store_true",
                     help="train on the uncapped dpo_pairs.jsonl instead of the "
                          "918-pair capped file (NOT the run-1 configuration)")
-    ap.add_argument("--merge", action="store_true",
-                    help="also write a merged fp16 model for GGUF export")
     args = ap.parse_args()
 
     if not M.trainable:
@@ -133,12 +133,11 @@ def main() -> None:
     trainer.save_model(args.out)
     print(f"[train] adapter saved to {args.out}")
 
-    if args.merge:
-        merged = Path(args.out).with_name(Path(args.out).name + "_merged16")
-        m = trainer.model.merge_and_unload()
-        m.save_pretrained(str(merged), safe_serialization=True)
-        tok.save_pretrained(str(merged))
-        print(f"[train] merged fp16 -> {merged}  (for convert_hf_to_gguf.py)")
+    # NOTHING IS MERGED. The old --merge path called merge_and_unload() on the
+    # 4-bit model and labelled the output "fp16"; it was deleted rather than
+    # fixed (council §22). Export is: convert_lora_to_gguf.py -> Ollama ADAPTER
+    # directive, applying the adapter at inference against the untouched base.
+    # See export_adapter.py. Do not reintroduce a merge step here.
 
     # Record what ran, for the executor log / prereg trail.
     (Path(args.out) / "run_meta.json").write_text(json.dumps({
