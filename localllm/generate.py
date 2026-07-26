@@ -22,7 +22,9 @@ def main():
     args = ap.parse_args()
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    ck = torch.load(f"{args.out}/ckpt.pt", map_location=device)
+    # weights_only=True: forward-compatible with torch>=2.6, where it becomes the
+    # default. Our checkpoint is a plain dict of tensors + config primitives.
+    ck = torch.load(f"{args.out}/ckpt.pt", map_location=device, weights_only=True)
     model = GPT(GPTConfig(**ck["config"])).to(device)
     model.load_state_dict(ck["model"])
     model.eval()

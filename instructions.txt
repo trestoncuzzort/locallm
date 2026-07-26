@@ -1685,3 +1685,260 @@ SEQUENCING IMPLIED BY THE ABOVE (executor's proposal, council to rank)
      into a few hundred KB of the proprietor's own code and makes the
      "no one else's work" claim nearly literal. Slow without custom kernels, so it
      lives or dies on the model staying small — which it is.
+
+--------------------------------------------------------------------------------
+22. COUNCIL RESPONSE  (2026-07-26 ~08:10 — activation #8; scope: THIS FILE +
+    train_native.py + config.py + on-disk model configs, plus live probes run
+    by The PhD on this machine, all logged below under EVIDENCE READ)
+--------------------------------------------------------------------------------
+NOTE ON TRIGGER: this activation was NOT fired by a rewritten DIRECTIVE block —
+the top DIRECTIVE still carries activation #7's stale ask. The proprietor asked
+directly for a full round on the merge-path decision the executor's §19 log
+explicitly handed back ("that is the next decision, not a thing I will quietly
+pick"). Roster: 5 style advisors (haiku, brief-only, new PhD-facing format
+per §20's addendum) — closed by The PhD (opus), who this round also carried
+the inherited audit duty from the retired Asshole seat (§20).
+
+THE DECISION: train_native.py's merge step (now :138) calls merge_and_unload()
+directly on the 4-bit model and mislabels the output "merged fp16" — the
+export cannot work as written. Two fixes were on the table: (A) §14's original
+mandate, reload base in bf16 + merge; (B) §18's untested alternative, convert
+the LoRA to a GGUF adapter (llama.cpp convert_lora_to_gguf.py) and apply it at
+inference via Ollama's ADAPTER directive, never merging at all.
+
+VERDICT: ADOPT OPTION B. Validated end-to-end, this session, on this machine.
+Option A is not merely disfavored, it is DEAD — three independent reasons below.
+
+RANKED CRITIQUE (most decisive first)
+
+1. (THE PHD, leads — EXECUTED, this is the headline) OPTION B WORKS, MEASURED
+   START TO FINISH. The PhD trained a real throwaway smoke adapter (--limit 32
+   --max-steps 2, 22.6s, output to an explicitly-scratch path, NEVER touching
+   the reserved dpo_adapter_native output — this is NOT run 1), inspected it
+   (448 tensors, all fp32, confirmed real gradient flow via nonzero lora_B),
+   converted it with convert_lora_to_gguf.py, loaded it into Ollama via the
+   ADAPTER directive, and ran inference — coherent, correct Python output.
+   Then ran the round's most important control: scaled lora_B by 50,000x and
+   re-converted — output collapsed into garbage, PROVING the adapter is
+   genuinely applied (not silently ignored, which was the round's live fear).
+   This is a reusable "is the adapter live" detector for the project going
+   forward, not just a one-off check.
+   ONE CORRECTION TO THE PHD'S OWN METHOD, folded in rather than hidden: the
+   first conversion attempt FAILED LOUDLY (`NotImplementedError: Quant method
+   is not yet supported: 'bitsandbytes'`) because --base pointed at the real
+   NF4 repo; it succeeded only once --base pointed at a config-only directory
+   with quantization_config stripped. This is the one thing the executor MUST
+   carry over exactly, or Option B fails on the first real attempt.
+
+2. (THE PHD) OPTION A IS DEAD, not merely worse — three independent findings,
+   each sufficient alone:
+   a) IT DOES NOT FIT. Independently re-derived from the on-disk config.json
+      (not memorized): 8,030,261,248 params, bf16 = 14.96 GiB. Measured free
+      VRAM with the desktop running: 14.69 GiB. Gap: -0.27 GiB, before the
+      adapter, activations, or the merge's own dequant buffers. (The
+      orchestrator's original framing of this — "16.06 GB into 16 GB,
+      -0.06 GB" — mixed decimal GB against GiB and is corrected here; the
+      conclusion survives, the arithmetic as first stated does not.)
+   b) IT CANNOT EVEN BE ATTEMPTED AS SPECIFIED. §14 said "reload the base
+      fresh in bf16." The ONLY Llama-3 weights on this machine are the
+      pre-quantized NF4 checkpoint (config.py's hf_base) — reloading THAT in
+      bf16 yields dequantized-NF4 weights, not true bf16. Genuine bf16
+      requires the gated meta-llama/Meta-Llama-3-8B-Instruct repo (license
+      acceptance required, ~16GB, not downloaded). Nobody costed this before
+      §14 mandated it.
+   c) EVEN IF IT RAN, IT IS DOCUMENTED-LOSSY: merging LoRA into a 4-bit base
+      produces different generations via rounding error, because the adapter
+      only ever saw dequantized 16-bit weights during training (PEFT #2105,
+      Kaitchup's "Don't Merge Your LoRA Adapter Into a 4-bit LLM" — stronger
+      citations than §14's original PEFT #2321, which was an unanswered user
+      report).
+
+3. (THE PHD — corrections to the round, inherited audit duty) THREE OF FIVE
+   STYLE ADVISORS PROPOSED A TEST THAT COULD NOT HAVE BEEN RUN AS WRITTEN.
+   Contrarian, First Principles, and Expansionist all proposed testing
+   Option B against "the trained LoRA sitting idle now" — there is no trained
+   adapter; §19's own executor log says so directly ("No training has been
+   run on Track A. Zero gradient steps, still."). The PhD verified this three
+   ways (no adapter directory, no PEFT artifacts anywhere in the repo, only
+   base-model cache entries exist) before substituting a throwaway smoke
+   adapter for the actual test. ALSO CORRECTED: the Contrarian's claimed
+   mechanism for Option B's danger — "bitsandbytes adapters carry
+   quantization state that regular LoRA doesn't" — is FALSE, disproved by
+   direct inspection (zero quantization-state tensors in a real trained
+   adapter; NF4 state lives only in the frozen base, never in the adapter).
+   That claim was load-bearing under the Contrarian's "silent and lethal"
+   thesis for Option B and does not survive.
+
+4. (THE PHD — resolves the round's one real disagreement) THE OUTSIDER'S
+   DISSENT LOSES, ON EVIDENCE NOBODY HAD WHEN THEY ARGUED IT. Four of five
+   style advisors converged on "test B first"; the Outsider alone argued
+   "test A first" on the theory that A fails loudly (safe to discover) while
+   B fails silently (dangerous to ship). Both halves of that asymmetry
+   inverted under direct measurement: B did not fail silently — its first
+   real attempt failed LOUDLY with a named exception in about ten seconds
+   (finding 1's correction), and once fixed, silent misapplication is
+   detectable by the lora_B-scaling control. A does NOT fail loudly on this
+   hardware — the PhD confirmed CUDA system-memory fallback is enabled on
+   this driver (591.86): allocating 22 GiB against a 15.99 GiB card did not
+   raise, it silently spilled into host RAM and kept running, slowly. The
+   loud OOM the Outsider was counting on to make Option A "safe to discover"
+   does not happen here. Credit where due: the Outsider was the only one to
+   note "neither option has been tested on this hardware" — correct, and the
+   right response was to test, which this round did.
+
+5. (STYLE ADVISORS, folded) The Expansionist's structural point survives
+   independent of the arithmetic correction: Option B is not a VRAM
+   workaround, it is the better standing pattern — immutable base GGUF +
+   swappable adapter generalizes to every future model this project trains,
+   including ones too large to ever bf16-reload. The Pragmatist's proposed
+   VRAM dry-run probe (device_map="auto" + mem_get_info()) is UNSOUND on this
+   machine specifically because of finding 4's sysmem-fallback discovery — it
+   would report a false "fits" while silently spilling, so it cannot answer
+   the question it was built to ask. Do not use it as a feasibility check
+   going forward without an explicit fallback-disabled flag.
+
+EVIDENCE READ / EXECUTED THIS PASS:
+  - train_native.py (current HEAD, merge block now at :138, capped-file
+    loading, LoRA/DPO config) — orchestrator, read in full before framing.
+  - config.py (hf_base registry, llama3 -> unsloth/llama-3-8b-Instruct-
+    bnb-4bit) — orchestrator, grep-confirmed.
+  - On-disk model config.json for the base — PhD, EXECUTED, independently
+    re-derived the 8,030,261,248 param count from architecture fields rather
+    than trusting a memorized spec.
+  - Live VRAM allocation probes (P1, P2) — PhD, EXECUTED, on this machine,
+    this session; confirmed sysmem fallback is enabled on driver 591.86.
+  - Real throwaway smoke-adapter training (P3) — PhD, EXECUTED, 2 steps,
+    scratch output, verified nonzero gradient flow.
+  - Adapter tensor inspection (P4) — PhD, EXECUTED, 448 tensors checked for
+    quantization-state keys.
+  - convert_lora_to_gguf.py, two attempts (P5 fail, P6 pass) — PhD, EXECUTED,
+    both outcomes reported including the failure.
+  - Ollama ADAPTER Modelfile creation + inference (P7) — PhD, EXECUTED.
+  - Adapter-is-live control, 50,000x scale test (P8) — PhD, EXECUTED.
+  - llama.cpp convert_lora_to_gguf.py source, HF GGUF-my-LoRA docs, PEFT
+    issues #2105/#2321, Kaitchup writeup, meta-llama/Meta-Llama-3-8B-Instruct
+    model card (gated-access confirmation) — PhD, fetched and cited.
+  READ-ONLY: everything above not marked EXECUTED; all repo file reads.
+
+LEFTOVER RISKS (unresolved even with Option B adopted):
+  - The smoke adapter was 2 steps; the pipeline is validated MECHANICALLY,
+    not for training quality or run-1 hyperparameters — a real trained
+    adapter must repeat the acceptance test before run 1 ships.
+  - UNVERIFIED, flagged by the PhD, not yet checked: the smoke adapter was
+    trained against unsloth/llama-3-8b-Instruct-bnb-4bit but applied to
+    Ollama's llama3:8b-instruct-q4_K_M — both descend from the same base but
+    tokenizer/vocab/weight identity between the two quantizations was NOT
+    verified. This is the one place a genuinely quiet error could still
+    enter; cheap to check (tokenizer hash comparison + base-only logits spot
+    check) and should happen before run 1, not after.
+  - The PhD's llama.cpp working copy was a partial clone (a Windows
+    filename-length failure on tools/ui/**); the converter and gguf-py ran
+    fine from it, but a clean pinned clone (master ff067f76, 2026-07-26)
+    should be vendored properly before this path is load-bearing.
+  - train_native.py:138's --merge path is now confirmed dead code under this
+    ruling and should be DELETED, not left latent — a mislabeled "merged
+    fp16" 4-bit path sitting unused is a trap for a future session that
+    doesn't have this round's context.
+  - The null-baseline guarantee itself (identical Modelfile, ADAPTER line
+    removed) is a clean design but has not been run against the real ruler
+    yet — it is validated as a MECHANISM, not yet as the actual baseline
+    number.
+
+THE QUESTIONS THEMSELVES: this was the right question to hand back — the
+executor was correct not to pick unilaterally on untested prior art. What
+would have made it land faster: the DIRECTIVE (or the §18 response that
+proposed Option B in the first place) should have asked "has anyone verified
+Option A physically fits before mandating it" at the time it was mandated —
+that check was 30 seconds of arithmetic that neither §14 nor §18 did, and
+it's what reframed this whole round before any research even started.
+
+ONE RECOMMENDED NEXT PROMPT (proprietor -> executor):
+  "Adopt Option B. Delete train_native.py's --merge/:138 path rather than fix
+   it — nothing merges under this design. Wire the export as: train the real
+   adapter (once run 1's other gates clear) -> convert_lora_to_gguf.py with
+   --base pointed at a config-only (quantization_config-stripped) copy of the
+   base config -> ollama create with an ADAPTER Modelfile -> run the PhD's
+   4-check acceptance test (conversion exits 0 with matching tensor count;
+   ollama create succeeds; one coherent-output spot check; the 50,000x-scale
+   adapter-is-live control shows degeneration) before trusting the export.
+   Null baseline = identical Modelfile with the ADAPTER line removed. Before
+   run 1: verify tokenizer/vocab identity between unsloth's bnb-4bit repo and
+   Ollama's q4_K_M build (hash comparison + a base-only logits spot check) —
+   the one unverified seam left. Track A's remaining blockers are now just
+   the contamination fix's shared-noise-floor utility (§18 finding 4, still
+   not built) and the smoke sheet + signed prereg §14/§18 already specified —
+   report those numbers when you have them, not status."
+
+(Council standing by. Watcher armed on the DIRECTIVE block — task bkk3n3jtj.)
+
+--------------------------------------------------------------------------------
+23. PERMANENT GOAL: ONE CLICK .EXE INSTALLER WITH HARDWARE AWARE SETUP
+    (2026-07-26, proprietor mandate. STANDING, not a sprint item. This does not
+     expire, does not get folded into a round, and is not satisfied by a
+     "works on my machine" script.)
+--------------------------------------------------------------------------------
+THE MANDATE, in the proprietor's terms: the program must be installable as an
+.exe. No terminal. No Python install. No pip. No virtualenv. No command line at
+any point, ever, for the end user. The installer ASKS QUESTIONS and/or READS THE
+DEVICE HARDWARE, and decides how to install based on what it finds.
+
+This is now a permanent acceptance criterion. Any feature added from here is
+judged partly on whether it survives that constraint. A feature that only works
+when someone types a command is not finished.
+
+WHAT THE INSTALLER MUST DO
+  1. DETECT the machine before choosing anything: GPU present or absent, vendor,
+     VRAM, driver version, CPU cores, system RAM, free disk.
+  2. DECIDE the install profile from that detection:
+       - NVIDIA GPU with enough usable VRAM  -> CUDA build of torch.
+       - No GPU / unsupported GPU / low VRAM -> CPU only build. This is not a
+         failure state. A small character level model trains fine on CPU, just
+         slower, and the CPU wheel is a fraction of the download.
+       - Pick sane DEFAULTS for the detected machine: model width/depth, batch
+         size, context, and precision, so the first run cannot OOM on the user's
+         hardware.
+  3. ASK when detection is ambiguous or when the tradeoff is genuinely the
+     user's: "you have a GPU, but the CUDA download is about 2.5 GB, do you want
+     it?" is a legitimate question. "What is your CUDA version?" is not; that is
+     the installer's job to work out.
+  4. BUNDLE the Python runtime so the user never learns it exists.
+  5. VERIFY after installing: run a tiny real training step and confirm it
+     completes, before telling the user it worked. Same rule as everywhere else
+     in this project. If it was not run, it is not done.
+
+THE TRAP THIS PROJECT ALREADY PAID FOR, and the installer must not walk into it:
+  NAIVE VRAM CHECKS LIE ON THIS CLASS OF MACHINE. Council activation #8 (§22,
+  finding 4) measured it directly on this box: with driver 591.86, CUDA system
+  memory fallback is ENABLED, so allocating 22 GiB against a 15.99 GiB card did
+  NOT raise an out of memory error. It silently spilled into host RAM and kept
+  running, slowly. §22 finding 5 draws the explicit conclusion: a
+  device_map="auto" + mem_get_info() probe "would report a false 'fits' while
+  silently spilling, so it cannot answer the question it was built to ask."
+  CONSEQUENCE FOR THE INSTALLER: sizing defaults by "did an allocation succeed"
+  is invalid. It must read the actual VRAM figure and apply a margin, or disable
+  the fallback explicitly before probing. Otherwise the installer will happily
+  configure a model that technically runs and is a hundred times too slow, and
+  the user will conclude the program is broken rather than misconfigured.
+  Also note §22's arithmetic correction: GB and GiB were mixed once already in
+  this project and produced a wrong headline number. The installer does its
+  capacity maths in ONE unit, stated in the code.
+
+ACCEPTANCE TEST (how we will know this is actually done, not claimed done)
+  A person with no Python, no terminal experience, and a mid range Windows
+  laptop downloads one file, double clicks it, points it at a folder of their
+  own writing, and gets a trained model producing recognisably their-flavoured
+  text, without asking anyone for help and without ever seeing a console.
+  Ten such people is the real bar (see §21's success measure).
+
+SEQUENCING NOTE, so this does not silently jump the queue: the proprietor ruled
+on 2026-07-26 that the TRAINING CORE gets sharpened first ("as sharp as a
+diamond before i expand"). This goal is PERMANENT and it is the destination, but
+the current work remains §18's finding 2 (leakage scan + group aware split) and
+finding 4 (shared noise floor utility). The installer is built around a training
+core that is already trustworthy, not wrapped around one that is not. It is
+published as a stated goal in the public README's roadmap as of commit efc22c7.
+
+CROSS REFERENCE: §21 (vision V1 "click and go", and the packaging item in the
+sequencing list) is the origin of this goal. This section supersedes it as the
+binding statement, because §21 listed packaging as step 4 of a proposal, and the
+proprietor has since made it permanent and non optional.
