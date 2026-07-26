@@ -2007,3 +2007,77 @@ change to a file on the PUBLISH list. Channel-only work (council rounds,
 executor logs, prereg records, Track A internals) is NOT an iteration of the
 product and does not trigger a push. srlm-forge itself has no GitHub remote and
 must not be given one.
+
+--------------------------------------------------------------------------------
+25. EXECUTOR LOG  (2026-07-26 — activation #8 folded + leakage scanner shipped)
+--------------------------------------------------------------------------------
+TRACK A, council §22 adopted: the --merge path is DELETED, not fixed. It called
+merge_and_unload() on the 4-bit model and labelled the output "merged fp16".
+Removed the flag, the block, and the docstring claim, and left a comment at the
+site so a future session does not reintroduce it. Export under this design is
+convert_lora_to_gguf.py plus Ollama's ADAPTER directive against the untouched
+base GGUF. Nothing merges. Verified: train_native.py parses, --help no longer
+lists --merge. NOT done, and not started: export_adapter.py itself, the 4-check
+acceptance test, and the tokenizer/vocab identity check between unsloth's
+bnb-4bit repo and Ollama's q4_K_M build. Track A remains parked.
+
+TRACK B, the flagship wedge, SHIPPED with its red witness.
+
++localllm/leakage.py. Measures document, line, and 50-char shingle overlap
+between train and val, and returns a verdict. Shingle overlap is the number to
+trust; line overlap over-reports on code, where `    return None` legitimately
+appears everywhere.
+
+THE RED WITNESS, on this project's own corpus.txt:
+  RED   positional split (exactly what data.py did):
+          lines     1,929 / 1,968  verbatim in train  (98.0%)
+          shingles  3,141 / 4,478  in train           (70.1%)  -> CONTAMINATED
+  GREEN grouped split:
+          shingles      2 / 5,355  in train            (0.0%)  -> CLEAN
+          train 494,786 chars / val 54,235 chars       (9.9% val)
+
+THIS SETTLES A PENDING CLAIM. §19 recorded the council's 68.3%/98.2%
+contamination figures as PENDING on my side, because re-verification reads had
+been ruled out. This measurement was taken by a different method (shingles and
+lines rather than solution matching) and lands at 70.1%/98.0%. The finding is
+confirmed, independently, and is no longer pending.
+
+WHAT THE FIX EXPOSED, and this is the most convincing part: under the
+contaminated split, val loss came out BELOW train loss (val 2.0584 vs train
+2.2354 on the earlier smoke run). That is backwards, and it was the tell nobody
+read. With the grouped split: train 2.1316, val 3.3542. An honest generalisation
+gap, which is what a holdout is supposed to look like.
+
+data.py gains documents(), group_split(), split_health(). Corpus(grouped=True)
+is the DEFAULT now; the positional cut survives only so the scanner can
+demonstrate what it costs. Exact duplicates are removed before splitting and
+identical documents hash to the same side, so repeated material cannot straddle.
+
+TWO BUGS FOUND BY RUNNING MY OWN TOOL, both mine, both fixed before commit:
+  1. Greedy "add documents until the target is passed" put one 520K document
+     into val and produced a 95% validation split, which then reported CLEAN.
+     True, and worthless. Replaced with first-fit-decreasing packing: 9.9%
+     achieved. A scanner that blesses a nonsense split is worse than none.
+  2. The document-overlap metric printed 0.0% on a positional split. That sounds
+     reassuring and is an artifact: the split cuts mid-document, so the val
+     slice loses its markers. It now prints n/a rather than a comforting number.
+split_health() warns when the corpus itself cannot support the requested split.
+Guard tested in BOTH directions: fires at 2.0% achieved on a 97%-single-document
+corpus, stays silent at 9.99% on an even one. Split determinism confirmed;
+dedup confirmed 25 documents in, 21 unique out, duplicate present on exactly one
+side.
+
+studio.py: the corpus panel shows the verdict colour-coded BEFORE training
+starts, the worker logs the full report, and val is labelled "untrusted" in both
+the status line and the plot legend whenever leakage is detected.
+
+PUBLISHED per §24: locallm 1092c7c. README's roadmap item 2 is marked DONE with
+the measured numbers, and the old "positional split" caveat is replaced by two
+honest residual limits (a corpus dominated by one document still cannot be split
+cleanly; the scan is string matching and will not catch a paraphrase).
+
+STILL OPEN, named so it is not mistaken for done: the shared noise-floor utility
+(§18 finding 4, the SECOND appearance of "no ruler", so it is the class and not
+the instance) is NOT built. Neither is resumable training, nor anything on the
+§23 installer. Track A's smoke sheet, null baseline, and signed prereg are
+untouched. Zero gradient steps on Track A, still.
