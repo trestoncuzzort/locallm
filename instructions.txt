@@ -2444,9 +2444,29 @@ mere permission to give up.
   PARTNER AT THE TOP OF THE LADDER WHOSE JOB IS BREAKING THEORY INTO CODE. The
   PhD can find any information and return it in implementable form. That is not
   a fallback for failure, it is a capability to use ON PURPOSE, including when
-  nothing is broken. The question "is there published work that would make this
-  better than what I am about to write" is always worth asking BEFORE writing it,
-  not after a reviewer asks why it was not asked.
+  nothing is broken.
+
+  THE MIX, and the proprietor was explicit about this (2026-07-26): asking
+  BEFORE writing, as a gate, is WRONG. It would mean hours of back and forth per
+  decision and it would kill the steady progress this project has actually been
+  making. The rule is not "ask first". The rule is BUILD, SHIP, AND ASK IN THE
+  SAME MOTION.
+    - Default is to BUILD. Make the best call available, write it, run it, ship
+      it. Momentum is the point; a question is not a reason to stop.
+    - ASK ASYNCHRONOUSLY. The question rides in the DIRECTIVE alongside the work
+      that was already shipped, and gets folded NEXT round. Never idle waiting
+      for an answer.
+    - FLAG THE PROVISIONAL BIT while shipping it. A number chosen by eye goes in
+      the NON-CLAIMS with the fact that it was chosen by eye. That is what makes
+      shipping-before-asking honest rather than sloppy, and it is exactly how
+      the leakage thresholds were handled: shipped, flagged, then corrected by
+      §27 without anything stalling.
+    - BLOCK ONLY ON THE EXPENSIVE-TO-REVERSE. A choice that is one edit away
+      from being changed later is not worth a round trip. A choice that bakes
+      into published results, a data format, or an export path is.
+  This session is the working model: leakage scanner, seed fix, speed work and
+  the README all shipped while questions accumulated for the next activation.
+  Nothing waited on anyone.
 
 THE RECEIPTS, because this is not theoretical here. Every one of these arrived as
 a paper and left as a line of code:
@@ -2469,11 +2489,17 @@ achieve. Escalate the RESIDUAL, not the task. "I could not do this" without a
 measurement behind it is not a request for help, it is a request for someone
 else to do the work.
 
-ASK PROACTIVELY WHEN
-  - A method, constant, schedule, or metric is about to be chosen and there is
-    almost certainly a literature on it. Ask before building, not after.
-  - Something is about to be hand-rolled that a field has already solved.
-  - A design is about to be committed to that would be expensive to reverse.
+RAISE IT ALONGSIDE THE WORK (ship anyway, ask in the same DIRECTIVE) WHEN
+  - A method, constant, schedule, or metric was chosen and a literature almost
+    certainly exists. Ship the reasonable version, flag it, ask.
+  - Something was hand-rolled that a field has probably already solved.
+  - The build is fine but a better foundation may exist for the NEXT iteration.
+
+BLOCK BEFORE BUILDING ONLY WHEN, and this list is deliberately short
+  - The decision is expensive or impossible to reverse: a published result, a
+    data format others will depend on, an export path, anything destructive.
+  - Building the wrong thing would cost hours, not minutes.
+  Everything else: build it, and let the answer improve the next version.
 
 ESCALATE WHEN ANY OF THESE IS TRUE
   - A REAL LIMIT was hit and measured. Not "this is hard", but "this is where it
