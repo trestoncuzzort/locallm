@@ -578,3 +578,16 @@ obviously on the critical path to a FIRST real result. Proposed leaner shot:
   build WSL2/Unsloth -> ONE ORPO epoch on the existing audited pairs -> re-measure the
   ruler with the prereg bar (rotate n=100, rle n=200; flat-but-intact = positive).
 Question is at the top DIRECTIVE. No training runs until the proprietor picks the path.
+
+ADDENDUM (~16:05) — PIPELINE IS NOW MODEL-AGNOSTIC (proprietor requirement: "train
+any model, not just mine"). New config.py resolves everything from one place:
+  - $SRLM_MODEL = the Ollama tag (generation/eval/repair); $SRLM_HF_BASE = the HF/Unsloth
+    base (training). Known families (llama3/3.1/3.2, qwen2.5/3, mistral, gemma2/3, phi3,
+    codellama) auto-map tag -> HF base + LoRA target modules; unknown tags autodetect
+    architecture via Ollama /api/show for gen/eval and just need $SRLM_HF_BASE to train.
+  - forge/eval/repair/measure read config.MODEL_NAME; train_dpo reads hf_base +
+    target_modules + max_seq, combines dpo+repair pairs, and applies EACH model's own
+    chat template (correct across architectures). Untrainable (no hf_base) fails loudly.
+  Verified: llama3/qwen2.5/mistral resolve correctly; live generate+verify runs through
+  the config path; all modules import. This generalizes Section-4 item B (training env)
+  from one model to any. Ruler tasks are unchanged and still disjoint from training.
