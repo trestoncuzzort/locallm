@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import random
 from pathlib import Path
 
 import torch
@@ -52,21 +53,37 @@ def group_split(text: str, val_frac: float = 0.1, seed: int = 1337) -> tuple[str
     total = sum(len(d) for _, d in docs)
     target = total * val_frac
 
-    # First-fit-decreasing toward the target. Naive "add documents until the
-    # target is passed" looks fine until one document is larger than the whole
-    # target, at which point it lands in validation and takes 90% of the corpus
-    # with it. Packing largest-first, and only accepting a document that still
-    # fits, keeps validation at or just under the requested size.
-    # Sort by (-length, hash) so it is deterministic and independent of file order.
-    docs.sort(key=lambda kv: (-len(kv[1]), kv[0]))
+    # Two passes, both bounded by the target.
+    #
+    # Pass 1 walks the documents in a SEED-SHUFFLED order and takes any that
+    # still fit. That is what makes `seed` real: a different seed produces a
+    # genuinely different validation set, which is the only way to measure how
+    # much of a result is split-induced rather than model-induced.
+    #
+    # Pass 2 fills the leftover gap smallest-first. Without it, one early large
+    # document can consume the budget and leave validation far short of target.
+    # Never "add until the target is passed": one document bigger than the whole
+    # target would land in validation and take most of the corpus with it.
+    rng = random.Random(seed)
+    order = list(docs)
+    rng.shuffle(order)
 
-    val, train, acc = [], [], 0
-    for _, d in docs:
+    val, acc, leftover = [], 0, []
+    for key, d in order:
+        if acc + len(d) <= target:
+            val.append(d)
+            acc += len(d)
+        else:
+            leftover.append((key, d))
+
+    train = []
+    for key, d in sorted(leftover, key=lambda kv: len(kv[1])):
         if acc + len(d) <= target:
             val.append(d)
             acc += len(d)
         else:
             train.append(d)
+
     if not train:                            # tiny corpora: never empty the train side
         train, val = val, []
     return "\n\n".join(train), "\n\n".join(val)
@@ -134,17 +151,53 @@ class Corpus:
         that costs, and it should not be used for real comparisons."""
         if grouped:
             train_text, val_text = group_split(text, val_frac, seed)
-            self.train = torch.tensor(tokenizer.encode(train_text), dtype=torch.long)
-            self.val = torch.tensor(tokenizer.encode(val_text), dtype=torch.long)
+            train_ids = torch.tensor(tokenizer.encode(train_text), dtype=torch.int32)
+            val_ids = torch.tensor(tokenizer.encode(val_text), dtype=torch.int32)
         else:
-            data = torch.tensor(tokenizer.encode(text), dtype=torch.long)
+            data = torch.tensor(tokenizer.encode(text), dtype=torch.int32)
             n = int(len(data) * (1 - val_frac))
-            self.train, self.val = data[:n], data[n:]
-        self.device = device
+            train_ids, val_ids = data[:n], data[n:]
 
-    def get_batch(self, split: str, batch_size: int, block_size: int):
+        self.device = device
+        # Keep the corpus resident on the training device. Batches are then cut
+        # on-device with one vectorised gather instead of a Python loop plus a
+        # host-to-device copy per step, which is the dominant cost at these
+        # model sizes: the GPU finishes a 3M-parameter step long before Python
+        # can assemble the next batch. int32 halves the residency of int64 and
+        # costs one cheap cast per batch (nn.Embedding needs int64 indices).
+        self.train = self._place(train_ids)
+        self.val = self._place(val_ids)
+
+    def _place(self, t: torch.Tensor) -> torch.Tensor:
+        """Move the corpus to the device, falling back to host memory if it
+        does not fit. A corpus large enough to fill VRAM should not cost you
+        the ability to train on it."""
+        if self.device == "cpu":
+            return t
+        try:
+            return t.to(self.device)
+        except (torch.cuda.OutOfMemoryError, RuntimeError):
+            return t
+
+    def get_batch(self, split: str, batch_size: int, block_size: int,
+                  generator: torch.Generator | None = None):
+        """One vectorised gather, on whichever device the corpus lives on.
+
+        Pass `generator` to draw from a dedicated RNG stream rather than the
+        global one, so that evaluating cannot perturb the training sequence.
+        """
         d = self.train if split == "train" else self.val
-        ix = torch.randint(len(d) - block_size, (batch_size,))
-        x = torch.stack([d[i:i + block_size] for i in ix])
-        y = torch.stack([d[i + 1:i + 1 + block_size] for i in ix])
-        return x.to(self.device), y.to(self.device)
+        hi = len(d) - block_size
+        if hi < 1:
+            raise ValueError(
+                f"{split} split holds {len(d)} tokens but block_size is "
+                f"{block_size}. Use a bigger corpus or a smaller context window.")
+        ix = torch.randint(hi, (batch_size,), device=d.device, generator=generator)
+        window = ix[:, None] + torch.arange(block_size + 1, device=d.device)
+        chunk = d[window].long()
+        # .contiguous(): these are strided views of one gather, and the loss
+        # reshapes targets with .view(), which rejects a non-contiguous tensor.
+        x, y = chunk[:, :-1].contiguous(), chunk[:, 1:].contiguous()
+        if x.device.type != self.device:
+            x, y = x.to(self.device), y.to(self.device)
+        return x, y

@@ -85,17 +85,22 @@ The first experiment run through this harness, on an RTX 4080 (4 layers, 4 heads
 block 128, batch 32, 2000 steps):
 
 ```
-control   lr 3.0e-04   mean 0.2601   range [0.2561, 0.2647]
-treatment lr 3.0e-03   mean 0.1545   range [0.1538, 0.1553]
-gap +0.1056   bar 0.020   ranges overlap: no
+control   lr 3.0e-04   mean 0.1495   range [0.1471, 0.1507]
+treatment lr 3.0e-03   mean 0.1056   range [0.1016, 0.1099]
+gap +0.0439   bar 0.020   ranges overlap: no
 PREREGISTERED VERDICT: PASS
 ```
 
-Five seeds per arm, bar written down first. The hardcoded default was leaving **0.11 train
+Five seeds per arm, bar written down first. The hardcoded default was leaving **0.04 train
 loss** on the table, more than any architecture change was worth. That is why the learning
 rate scales with width now.
 
-Reproduce it: `python exp_lr_width.py` (about 4 minutes on a 4080).
+Reproduce it: `python exp_lr_width.py` (about 2.5 minutes on a 4080, running 4 arms
+concurrently; pass `--workers 1` to run them one at a time).
+
+These numbers moved once since first publication, and the reason is worth stating: the
+document splitter's `seed` argument was silently unused, so fixing it changed which
+documents land in training. The verdict did not change, the margin did.
 
 ## Honest limits
 
@@ -147,6 +152,49 @@ Further out: an assistant layer that can reason and act on your machine. That is
 track, built against whatever local model is strongest, because a small from-scratch model
 cannot do that job and pretending otherwise would be dishonest. If a model trained here
 ever becomes good enough, it earns its way in on measured results.
+
+## Why a program like this is useful
+
+### Immunity to "Enshittification" and API Decay
+
+Every hosted AI service follows the same arc. It launches good and cheap, because it is
+buying users. Then the free tier shrinks. Then the model behind the endpoint is quietly
+swapped for a smaller one, and the thing you built and tuned against changes underneath
+you without a version bump. Then the API you depend on is deprecated, rate limited,
+moved behind a higher tier, or switched off. Your work was never yours. It was rented,
+and the landlord kept the keys.
+
+A model you trained yourself cannot be degraded by someone else's quarterly targets.
+The weights are a file on your disk. The tokenizer is a file on your disk. The training
+code is a few hundred readable lines you can open right now. Nothing phones home,
+nothing needs an account, nothing expires, and no terms of service update can reach
+backwards and take it away. Run it in ten years on a disconnected laptop and it behaves
+exactly as it does today, because every part of it is already in your hands.
+
+That is the whole point. Not that a small model trained on your own text will beat a
+frontier model. It will not, and this README says so plainly further down. The point is
+that it is *yours*, permanently, and that you can see and change every part of how it
+works.
+
+### The goal
+
+Make training your own language model something an ordinary person can actually do.
+
+Not "download someone else's weights and run them locally", which is already a solved
+problem with good tools. This is the other thing: start from random numbers, learn from
+text you chose, on hardware you own, and watch it happen. Understanding how the thing
+works should not require a research group, a cloud account, or a credit card.
+
+The direction of travel is a single installer, no terminal, no Python, no configuration
+files. Point it at a folder of your own writing and press train. See the
+[Roadmap](#roadmap) for where that stands.
+
+### Free for everyone
+
+This is free. Not free-tier, not free-for-now, not free-until-we-raise-a-round. There is
+no account, no telemetry, no usage limit, no paid version holding the good features, and
+nothing about it that stops working if this project goes quiet. It runs on hardware
+people already have, including without a GPU.
 
 ## Why from scratch
 
