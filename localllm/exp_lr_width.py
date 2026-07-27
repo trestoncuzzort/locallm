@@ -40,6 +40,7 @@ if str(HERE) not in sys.path:
 
 from model import GPT, GPTConfig          # noqa: E402
 from data import CharTokenizer, Corpus    # noqa: E402
+import runlog                            # noqa: E402
 from train import cosine_lr, enable_fast_math, make_optimizer  # noqa: E402
 
 EVAL_SEED = 12345
@@ -260,7 +261,14 @@ def main():
         "mean_control": mc, "mean_treatment": mt, "gap": gap,
         "ranges_overlap": overlap, "passed": passed,
     }, indent=2), encoding="utf-8")
+    runlog.record("experiment", name=f"lr_vs_width[{args.profile}]",
+                  device=device, corpus=runlog.corpus_fingerprint(text),
+                  config=C,
+                  metrics={"verdict": verdict, "gap": gap,
+                           "mean_control": mc, "mean_treatment": mt,
+                           "wall_s": time.time() - t_all})
     print(f"wrote {out.name}   total wall clock {time.time() - t_all:.0f}s")
+    print(f"recorded to {runlog.LOG.name}")
 
 
 if __name__ == "__main__":
