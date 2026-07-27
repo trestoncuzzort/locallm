@@ -41,13 +41,19 @@ A small, readable, from-scratch GPT and a GUI so you don't need a terminal to us
 | `leakage.py` | Finds training text hiding in your validation set, and says so. |
 | `bench_device.py` | Times a real training step on your hardware and tells you what it can handle. |
 | `test_detectors.py` | Tests for the leakage detector. `python test_detectors.py`, no framework. |
+| `runlog.py` | Append only record of every run. `python runlog.py` to see them all. |
+| `start_studio.py` | Double click entry point: rebuilds the corpus from your files, opens the studio. |
 | `exp_lr_width.py` | A preregistered experiment harness (see below). |
 
 Dependencies: **PyTorch and Tk.** That's it. Tk ships with Python.
 
 ## Quick start
 
-*Temporary. All of this disappears behind a double click once the installer lands.*
+Put your own `.txt`, `.md` or `.py` files in `training_data/`, then run
+`python start_studio.py`. It rebuilds the corpus from your text and opens the studio.
+On Windows you can point a desktop shortcut at it and never open a terminal again.
+
+The longer form, if you want the pieces separately:
 
 ```bash
 pip install torch                       # CUDA build if you have an NVIDIA GPU
@@ -80,6 +86,17 @@ This one is built to stop you fooling yourself:
 - **Evaluation can't disturb training.** Eval batches come from a dedicated
   `torch.Generator`, never the global RNG, so every arm sees byte-identical batches.
 - **Multiple seeds, and ranges reported.** One run is an anecdote.
+- **Looking at the model cannot change it.** Evaluation draws its batches from a
+  dedicated generator, so how often you evaluate has no effect on what gets trained.
+  That sounds obvious and was not true here until it was measured: sharing one random
+  stream between training and evaluation moved final train loss by 0.031 purely by
+  changing the eval interval. It is now identical to six decimal places regardless.
+- **Every run is recorded.** `runs.jsonl` gets one append only line per training run,
+  experiment, benchmark and leakage scan: configuration, device, wall clock, final
+  losses, a fingerprint of the corpus, and the leakage verdict sitting next to the
+  val loss it qualifies. `python runlog.py` prints the history, `--review` prints a
+  digest for someone who did not watch it happen. A result file that the next run
+  overwrites cannot show you a trend.
 - **The detector is itself tested, against a copy of its own old bug.**
   `test_detectors.py` keeps the previous, broken fingerprinter in the file on purpose and
   runs every test against both: the current one must pass and the broken one must fail. A
@@ -137,8 +154,13 @@ Read this part before you expect too much.
   Whole-document splitting cannot hit a 10% target when there are only three documents.
   The scanner reports the validation fraction it actually achieved and warns you when the
   document sizes, not your setting, are in charge.
-- **The leakage scan is string matching, not semantics.** It catches verbatim and
-  near-verbatim reuse, which is the common case. It will not catch a paraphrase.
+- **The leakage scan is an exact substring scanner, not a near duplicate scanner,**
+  and the difference is bigger than it sounds. Measured recall on this project's own
+  documents: verbatim copies 100%, reformatted 90%, every identifier renamed **0%**,
+  renamed plus edited **0%**. Renaming identifiers costs it almost nothing; replacing
+  the string literals is what destroys detection. So a CLEAN verdict means nobody
+  copied and pasted. It does not mean your validation set is independent. The tool
+  says this in its own output rather than leaving you to find out.
 - No resume-from-checkpoint yet, no gradient accumulation, no multi-GPU.
 - Large architectures will run out of VRAM rather than warning you first.
 - **You currently need Python and a terminal to install and start it.** The GUI itself
