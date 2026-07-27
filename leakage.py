@@ -13,12 +13,19 @@ It measures three things, cheapest first:
   line overlap      validation lines that appear verbatim in training
   content overlap   winnowing fingerprints of validation text found in training
 
-Content overlap is the one to trust. Line overlap over-reports on code, where
-`    return None` legitimately appears everywhere. Fingerprints cover 50
-characters, so matching by coincidence is unlikely, and they are selected by
-CONTENT rather than by position: see shingles() for why that distinction is the
-difference between catching a verbatim copy every time and catching it one time
-in ten.
+Content overlap is the one to trust, WITHIN a scope worth stating up front: this
+is an exact-substring scanner, not a near-duplicate scanner. Measured recall on
+this project's own documents, by clone type:
+
+    verbatim copy                          100%
+    reformatted (whitespace re-rendered)    90%
+    every identifier renamed                 0%
+    renamed + 10% of statements edited       0%
+
+Renaming identifiers costs almost nothing; replacing the string literals is what
+destroys detection. On this codebase roughly 7% of the text is prose inside the
+code, and that 7% carries nearly all the surviving signal. So a CLEAN verdict
+means no one copied and pasted. It does not mean validation is independent.
 
 Nothing here is a model. It is string matching, and it runs in under a second.
 """
@@ -203,7 +210,15 @@ class Report:
                 "  suspicion, and prefer train loss for close comparisons.",
             ]
         else:
-            lines += ["  Validation looks independent of training. Val loss is usable."]
+            lines += [
+                "  No verbatim overlap found. Note what that does and does not mean:",
+                "  this is an EXACT-SUBSTRING scanner. It finds shared runs of >=74",
+                "  characters at any offset, measured 100% recall. It does NOT find",
+                "  renamed or rewritten copies: measured 0% recall on identifier-",
+                "  renamed Python, where re-rendering whitespace and replacing string",
+                "  literals removes essentially all of the signal it relies on.",
+                "  CLEAN here means 'no copy-paste found', not 'val is independent'.",
+            ]
         lines.append(bar)
         return "\n".join(lines)
 
