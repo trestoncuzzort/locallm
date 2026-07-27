@@ -45,7 +45,8 @@ PUBLISH = [
     "exp_lr_width.py",
     "prereg_lr_width.json", "exp_lr_width_result.json",
     "prereg_lr_width_fast.json", "exp_lr_width_result_fast.json",
-    "README.md", ".gitattributes",
+    "README.md", ".gitattributes", "requirements.txt",
+    "Train My AI.bat", "training_data/README.txt",
 ]
 
 # Files a published script may legitimately reference without shipping: things
@@ -201,7 +202,9 @@ def main() -> None:
         run(["git", "reset", "--hard", "origin/main"], cwd=CLONE, quiet=True)
 
     for name in PUBLISH:
-        shutil.copy2(SRC / name, CLONE / name)
+        dest = CLONE / name
+        dest.parent.mkdir(parents=True, exist_ok=True)   # PUBLISH may contain paths
+        shutil.copy2(SRC / name, dest)
 
     status = run(["git", "status", "--porcelain"], cwd=CLONE, quiet=True).stdout.strip()
     if not status:
