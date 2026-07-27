@@ -56,7 +56,11 @@ GENERATED_LOCALLY = {"corpus.txt", "ckpt.pt", "tokenizer.json",
 # Anything internal. Word-boundary matched so ordinary English ("endpoint")
 # cannot trip it, which a naive substring scan does.
 FORBIDDEN = [
-    r"council", r"moonwalker", r"starter[- ]kit", r"asshole", r"proprietor",
+    # Third-party / family proprietary software and its author. These must never
+    # leave this machine. Local files may mention them freely; this list is what
+    # guarantees the PUBLIC repo cannot.
+    r"moonwalker", r"starter[- ]kit", r"cuzzort", r"moonwalker[- ]?seat",
+    r"council", r"asshole", r"proprietor",
     r"executor", r"srlm", r"directive", r"instructions\.txt", r"dpo_pairs",
     r"the phd", r"contrarian", r"expansionist", r"§",
 ]
