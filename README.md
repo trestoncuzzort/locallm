@@ -51,7 +51,9 @@ Dependencies: **PyTorch and Tk.** That's it. Tk ships with Python.
 
 Put your own `.txt`, `.md` or `.py` files in `training_data/`, then run
 `python start_studio.py`. It rebuilds the corpus from your text and opens the studio.
-On Windows you can point a desktop shortcut at it and never open a terminal again.
+
+On Windows, double click `Train My AI.bat` instead, or make a desktop shortcut to it, and
+you never need a terminal at all.
 
 The longer form, if you want the pieces separately:
 
