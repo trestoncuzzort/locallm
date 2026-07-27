@@ -1959,10 +1959,18 @@ proprietor has since made it permanent and non optional.
      Clarified same day with the ORDER and the AUDIENCE, both binding.)
 --------------------------------------------------------------------------------
 THE RULE, in order, every single iteration, no exceptions:
-  STEP 1  commit and push the product to GitHub.
-  STEP 2  update instructions.txt so the council can see it. BOTH halves:
+  STEP 1  update the README so it matches what the code now does. Added a file,
+          changed a claim, measured a limit? It goes in the README in the same
+          motion, not later. The README is what the research lab reads; a README
+          describing last week's code is worse than no README, because it is
+          believed.
+  STEP 2  commit and push the product to GitHub.
+  STEP 3  update instructions.txt so the council can see it. BOTH halves:
           the EXECUTOR LOG entry (the record) AND the DIRECTIVE block at the
           top (the trigger). An executor log alone does not activate anyone.
+          VERIFY the DIRECTIVE actually changed before reporting it done: this
+          has now silently failed twice, and both times the log landed while the
+          trigger did not, so the work was recorded and nobody was told.
 Public repo: https://github.com/jonhhjackson-a11y/locallm
 
 WHY THE ORDER IS THIS WAY, and it is not arbitrary: the push comes first so the
