@@ -28,6 +28,8 @@ if str(HERE) not in sys.path:
 
 import torch  # noqa: E402
 
+import runlog  # noqa: E402
+
 from model import GPT, GPTConfig  # noqa: E402
 from data import (CharTokenizer, Corpus, documents, group_split,  # noqa: E402
                   split_health)
@@ -251,6 +253,25 @@ class TrainWorker(threading.Thread):
         tok.save(out / "tokenizer.json")
         self.log(f"saved model + tokenizer to {out}/  "
                  f"(generate.py --out {out.name} works on this)")
+
+        # Every GUI run lands in the same append-only log as every CLI run, so a
+        # week of experimenting leaves a reviewable trail instead of a folder of
+        # checkpoints nobody can tell apart.
+        wall = time.time() - t0
+        final = estimate_loss(model, corpus, c["batch_size"], c["block_size"])
+        runlog.record("train", device=device, out=str(out), source="studio",
+                      corpus=runlog.corpus_fingerprint(text),
+                      config={k: c[k] for k in ("n_layer", "n_head", "n_embd",
+                                                "block_size", "batch_size",
+                                                "steps", "lr", "dropout", "seed")},
+                      metrics={"train_loss": final["train"], "val_loss": final["val"],
+                               "wall_s": wall,
+                               "ms_per_step": wall / max(c["steps"], 1) * 1000,
+                               "params": model.num_params()},
+                      leakage={"verdict": rep.verdict,
+                               "content_frac": rep.shingle_frac})
+        self.log(f"recorded to {runlog.LOG.name} "
+                 f"(run `python runlog.py` to see every run so far)")
         self.q.put(("done", {"model": model, "tok": tok, "device": device,
                              "elapsed": time.time() - t0}))
 

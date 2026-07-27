@@ -31,6 +31,7 @@ from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
 
+import runlog
 from data import documents, group_split, split_health
 
 SHINGLE = 50          # characters per k-gram
@@ -254,6 +255,10 @@ def main() -> None:
           f"{len(documents(text)):,} documents, split={args.split}\n")
     rep = scan(tr, va, doc_aligned=(args.split == "grouped"))
     print(rep.report())
+    runlog.record("leakage", corpus=runlog.corpus_fingerprint(text),
+                  split=args.split,
+                  leakage={"verdict": rep.verdict, "content_frac": rep.shingle_frac,
+                           "line_frac": rep.line_frac})
 
     if args.split == "grouped":
         h = split_health(text, args.val_frac, args.seed)
