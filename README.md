@@ -4,6 +4,24 @@ A failure-driven self-rewarding loop that trains a local model to fix its own
 mistakes. The model proposes; **unit tests decide**; preferences are learned
 from the verdict. No ungrounded self-judging, so it improves instead of drifting.
 
+## Benchmark findings
+
+The latest local runs produced a few clear, publishable takeaways:
+
+- The leakage detector now catches document leakage much more reliably. The old
+  positional split let about 82.6% of validation content leak into training,
+  while the document-aware split reduced that to 1.5%.
+- The learning-rate sweep on an RTX 4080 passed the preregistered check. The
+  width-appropriate learning rate improved mean train loss from 0.1495 to 0.1056
+  over 2000 steps, with a gap of about 0.0439 and no overlap in the seed ranges.
+- A faster 800-step profile also passed, reaching lower train loss sooner with a
+  mean of 0.1884 versus 0.2937 for the baseline.
+- Device timings show the GPU is dramatically faster than CPU for the default
+  model size: about 13.6s for 2000 steps on CUDA versus 324.2s on CPU.
+
+These numbers are stored in the benchmark result files under the localllm
+folder and are included in this repository for reproducibility.
+
 ## The loop
 
 ```

@@ -15,6 +15,7 @@ from pathlib import Path
 
 import torch
 
+import runlog
 from model import GPT, GPTConfig
 from data import CharTokenizer, Corpus
 
@@ -43,6 +44,19 @@ def make_optimizer(model, lr: float):
         return torch.optim.AdamW(model.parameters(), fused=torch.cuda.is_available(), **kw)
     except (RuntimeError, TypeError):
         return torch.optim.AdamW(model.parameters(), **kw)
+
+
+def _leak_of(text: str) -> dict:
+    """Leakage verdict for the split this run actually trained on, so a val loss
+    is never recorded without the context that says whether it means anything."""
+    try:
+        from leakage import scan
+        from data import group_split
+        tr, va = group_split(text)
+        rep = scan(tr, va)
+        return {"verdict": rep.verdict, "content_frac": rep.shingle_frac}
+    except Exception:                            # noqa: BLE001
+        return {}
 
 
 def auto_lr(n_embd: int) -> float:
@@ -149,6 +163,24 @@ def main():
     torch.save({"model": model.state_dict(), "config": cfg.__dict__}, Path(args.out) / "ckpt.pt")
     tok.save(Path(args.out) / "tokenizer.json")
     print(f"\nsaved model + tokenizer to {args.out}/")
+
+    # Append this run to the shared log. A checkpoint folder tells you nothing
+    # about what produced it a week later; the log does.
+    wall = time.time() - t0
+    final = estimate_loss(model, corpus, args.batch_size, args.block_size)
+    runlog.record("train", device=device, out=args.out, source="cli",
+                  corpus=runlog.corpus_fingerprint(text),
+                  config={"n_layer": args.n_layer, "n_head": args.n_head,
+                          "n_embd": args.n_embd, "block_size": args.block_size,
+                          "batch_size": args.batch_size, "steps": args.steps,
+                          "lr": args.lr, "dropout": args.dropout,
+                          "seed": args.seed},
+                  metrics={"train_loss": final["train"], "val_loss": final["val"],
+                           "wall_s": wall,
+                           "ms_per_step": wall / max(args.steps, 1) * 1000,
+                           "params": model.num_params()},
+                  leakage=_leak_of(text))
+    print(f"recorded to {runlog.LOG.name}  (python runlog.py to review)")
 
     ctx = torch.zeros((1, 1), dtype=torch.long, device=device)
     sample = tok.decode(model.generate(ctx, 400, temperature=0.8, top_k=40)[0].tolist())

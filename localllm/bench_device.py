@@ -28,6 +28,7 @@ if str(HERE) not in sys.path:
 
 from model import GPT, GPTConfig          # noqa: E402
 from data import CharTokenizer, Corpus    # noqa: E402
+import runlog                            # noqa: E402
 from train import auto_lr, enable_fast_math, make_optimizer  # noqa: E402
 
 # Sizes worth knowing about: something a weak machine can hold, the shipped
