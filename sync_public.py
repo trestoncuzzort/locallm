@@ -52,7 +52,8 @@ PUBLISH = [
 # the user generates locally.
 GENERATED_LOCALLY = {"corpus.txt", "ckpt.pt", "tokenizer.json",
                      "exp_lr_width_result_quick.json",
-                     "bench_device_result.json"}
+                     "bench_device_result.json",
+                     "runs.jsonl"}
 
 # Anything internal. Word-boundary matched so ordinary English ("endpoint")
 # cannot trip it, which a naive substring scan does.
