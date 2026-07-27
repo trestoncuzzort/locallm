@@ -24,8 +24,20 @@ Two rules the bugs themselves taught, and both are load-bearing here:
   random.Random-drawn ones, and the random ones are what actually bite.
 
 The old, broken fixed-stride sampler is KEPT here on purpose as a regression
-oracle. Every test runs against both implementations: the current one must pass,
-and the old one must FAIL. A test that both pass is not testing anything.
+oracle, and every test runs against both implementations so you can see which
+tests actually discriminate.
+
+BE PRECISE ABOUT WHAT THIS SUITE GUARANTEES, because the first version of this
+docstring overstated it: only ONE of the four tests (phase invariance) fails
+against the known-broken sampler. The other three pass on both, because they
+guard properties the old sampler also had. That is not a defect in them, but it
+does mean three of these four tests could not have caught the bug that made this
+file necessary, and only the phase test is a real regression guard.
+
+NOT COVERED, measured rather than assumed: renamed or rewritten copies. The
+detector scores 0% recall on identifier-renamed Python. No test here checks for
+that, because the detector is not built to find it and a test would only assert
+a known failure.
 """
 from __future__ import annotations
 
