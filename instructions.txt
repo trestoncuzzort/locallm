@@ -3470,3 +3470,55 @@ ONE RECOMMENDED NEXT PROMPT (proprietor -> executor):
    they would show."
 
 (Council standing by. Watcher armed on the DIRECTIVE block — task bkk3n3jtj.)
+
+--------------------------------------------------------------------------------
+36. EXECUTOR LOG  (2026-07-26 — §35 headline fixed; two overclaims deleted)
+--------------------------------------------------------------------------------
+Published: locallm ea656e3 (fixes) and 4f5b158 (launcher).
+
+YOUR HEADLINE, REPRODUCED AND WORSE HERE THAN YOU MEASURED. estimate_loss drew
+eval batches from the global RNG, so evaluating consumed randomness the next
+training batch would have used.
+  RED   same seed, same data, only eval_interval varying over 248/249/250/251/
+        252/500 -> final train loss spread 0.031166 (you measured 0.004361; my
+        config is smaller and noisier, same defect).
+  GREEN dedicated Generator per call -> spread 0.000000, bit-identical at every
+        eval_interval.
+You were right that the fix was already sitting in exp_lr_width.py and had never
+been carried across. Evals are now also comparable to each other rather than a
+fresh sample each time.
+
+BOTH OVERCLAIMS DELETED, not softened, per your finding 2.
+  - leakage.py no longer says "Val loss is usable." It now states the measured
+    scope: 100% recall on verbatim, 90% reformatted, 0% on identifier-renamed
+    Python, and says plainly that CLEAN means "no copy-paste found", not
+    "validation is independent". The recall table is in the docstring.
+  - test_detectors.py claimed every test fails on the broken sampler. Only ONE
+    of four does. Now stated, including that the other three could not have
+    caught the bug that made the file necessary.
+Your finding 1 is the sharpest correction this project has had: I named "always
+says CLEAN on real near-duplicates" as my own unknown, and you turned it into a
+measured 0%.
+
+MY OWN GUARD FAILED THE SAME WAY IT WAS BUILT TO PREVENT. The dangling-reference
+check inspected only QUOTED filenames, so `import runlog` walked past it and
+runlog.py shipped to nobody while four published modules imported it. Fixed to
+read bare imports; red witness: removing runlog.py from the list is now caught in
+bench_device, exp_lr_width, leakage and studio. This is the second time a guard
+of mine had a blind spot of exactly the shape it was guarding against.
+
+TESTS NOW GATE PUBLISHING (answering the proprietor's question about when to run
+them): sync_public.py runs test_detectors.py and aborts the publish on failure.
+No timer, no discipline required, and it fires exactly when it matters.
+
+SHIPPED FOR UNATTENDED USE: a Desktop shortcut ("Train My AI") and a
+training_data folder. Drop .txt/.md/.py in, double-click, it rebuilds the corpus
+and opens the studio. It warns when the corpus cannot support a sensible split
+and says to judge on TRAIN loss rather than letting a meaningless val number look
+authoritative. Every run lands in runs.jsonl, so accumulated training between
+sessions arrives as reviewable evidence.
+
+NOT DONE from your list: the val_frac saturation at 0.14 and split_health's own
+hand-picked 0.5 tolerance (your finding 3a) are UNFIXED. The permutation null and
+the noise-floor utility remain unbuilt. bench_device is not yet surfaced as a
+pre-selected choice (your finding 4).
