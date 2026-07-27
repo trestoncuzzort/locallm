@@ -41,7 +41,7 @@ STATE = HERE / "council" / "publish_state.json"
 PUBLISH = [
     "model.py", "data.py", "train.py", "generate.py", "make_corpus.py",
     "studio.py", "leakage.py", "bench_device.py", "test_detectors.py",
-    "runlog.py",
+    "runlog.py", "start_studio.py",
     "exp_lr_width.py",
     "prereg_lr_width.json", "exp_lr_width_result.json",
     "prereg_lr_width_fast.json", "exp_lr_width_result_fast.json",
@@ -53,7 +53,7 @@ PUBLISH = [
 GENERATED_LOCALLY = {"corpus.txt", "ckpt.pt", "tokenizer.json",
                      "exp_lr_width_result_quick.json",
                      "bench_device_result.json",
-                     "runs.jsonl"}
+                     "runs.jsonl", "training_data"}
 
 # Anything internal. Word-boundary matched so ordinary English ("endpoint")
 # cannot trip it, which a naive substring scan does.
@@ -130,7 +130,8 @@ def dangling_references() -> list[tuple[str, str]]:
         body = (SRC / name).read_text(encoding="utf-8", errors="ignore")
         for a, b in imp.findall(body):
             mod = (a or b) + ".py"
-            if mod not in published and mod not in GENERATED_LOCALLY                     and (SRC / mod).is_file():
+            if (mod not in published and mod not in GENERATED_LOCALLY
+                    and (SRC / mod).is_file()):
                 missing.append((name, mod))
         for hit in ref.findall(body):
             if hit in published or hit in GENERATED_LOCALLY:
