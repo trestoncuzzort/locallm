@@ -3173,3 +3173,27 @@ finding 4's noise-floor utility (13 runs, BOTH split and seed randomized, with
 still not wired into Corpus.__init__ or train.py's eval loop. The stride/round-
 number alignment sweep for OTHER parameters (batch_size, block_size,
 eval_interval) has not been done. Intra-train duplication remains unmeasured.
+
+--------------------------------------------------------------------------------
+34. EXECUTOR LOG  (2026-07-26 — runlog.py; short entry, state only)
+--------------------------------------------------------------------------------
+One thing shipped since §33, so the record is not behind:
+
++localllm/runlog.py — append-only run log, runs.jsonl. Every training run,
+experiment, benchmark and leakage scan now appends one record: timestamp, device,
+corpus FINGERPRINT (sha1 + size, so runs on different text are never compared),
+model config, final train/val loss, wall clock, ms/step, and the leakage verdict
+next to any val loss. Nothing is overwritten. `python runlog.py` prints a
+summary; `--review` prints a digest for someone who did not watch the runs.
+
+Wired into train.py, studio.py (GUI runs included), leakage.py, exp_lr_width.py
+and bench_device.py. Logging is wrapped so a failure to record can never take
+down a run that otherwise succeeded.
+
+WHY: result files that get overwritten by the next run cannot show a trend, and
+the numbers quoted in these logs came from terminals that have since closed. The
+proprietor intends to accumulate training runs between sessions, so the evidence
+has to survive without either of us remembering to save it.
+
+STATE: no change to §33's open list. The permutation null, the noise-floor
+utility, and the split_health wiring are all still unbuilt.
