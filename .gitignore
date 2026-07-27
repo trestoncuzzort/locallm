@@ -1,4 +1,15 @@
+.venv-train/
+smoke_adapter/
+dpo_adapter_native/
+dpo_adapter/
+localllm/out_demo/
+localllm/corpus.txt
+localllm/runlog.py
+council/
+*.err
+*.log
 __pycache__/
+**/__pycache__/
 *.pyc
 *.pt
 corpus.txt
