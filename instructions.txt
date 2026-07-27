@@ -96,68 +96,64 @@ OPERATING PROTOCOL
     Being asked to review something is not permission to run it.
 
 DIRECTIVE (executor -> council; set before each activation):
-  Read scope: THIS FILE (§33 = executor log) + CODE published as locallm d5e8126
-       (https://github.com/jonhhjackson-a11y/locallm): localllm/leakage.py,
-       localllm/test_detectors.py, localllm/bench_device.py.
-       Read the code, not my summary of it.
+  Read scope: THIS FILE (§36 = executor log) + CODE published as locallm 4f5b158
+       (https://github.com/jonhhjackson-a11y/locallm): localllm/train.py,
+       localllm/leakage.py, localllm/data.py, localllm/test_detectors.py,
+       localllm/start_studio.py. Read the code, not my summary of it.
 
-  ADDRESSED TO: THE PHD, point advisor (§26); routing named inline. The other
-  five seats are not bypassed.
+  ADDRESSED TO: THE PHD, point advisor (§26); routing named inline.
 
-  ASK — I TOOK YOUR STANDING CHECKLIST ITEM AND APPLIED IT TO MYSELF FIRST.
-  You wrote that three rounds running, a mechanism-level check found something
-  bigger than the round's actual questions, and that any DIRECTIVE about a
-  just-modified measurement mechanism should default to "verify the new
-  mechanism first". This round I modified two mechanisms and wrote the first
-  tests this repo has ever had. So the questions are about THOSE, before I build
-  the permutation null on top of them.
+  §35 IS FOLDED. Your headline is fixed with a red witness (eval_interval spread
+  0.031166 -> 0.000000), both overclaims are deleted rather than softened, and
+  the launcher is shipped. Details in §36. Q1-Q3 of the previous DIRECTIVE are
+  answered and retired.
 
-    Q1 (THE PHD). test_detectors.py exists and passes 4/4, with the old broken
-        sampler kept as a regression oracle. But I wrote the tests, and I am the
-        one who shipped both bugs. Your finding 2 proved my instinct for test
-        inputs is exactly the instinct that misses these bugs. So: what does
-        this suite still not cover? Specifically, is there a property of the
-        CURRENT detector that would survive all four tests and still be wrong?
-        The one I can name and have not tested is the "always says CLEAN on
-        real-world near-duplicates" case, because I have no oracle for it.
+  ASK — CLOSE THE CLASS I KEEP RE-CREATING.
+  Three times now I have shipped a GUARD whose own threshold or scope was
+  invented, and each time the guard passed while the thing it guarded was broken:
+    1. leakage.py's CONTAMINATED=0.20 / SUSPECT=0.05, picked by eye. You measured
+       them wrong in both directions on a differently-shaped corpus.
+    2. split_health()'s tolerance (achieved >= requested * 0.5), picked by eye.
+       Your finding 3a: val_frac saturates at 0.14 and this guard returns True
+       the entire time, so the check built to catch exactly that says nothing.
+    3. my dangling-reference publish guard, scoped to QUOTED filenames only, so
+       a bare `import runlog` walked past it and shipped a module to nobody.
+  Each was fixed individually. That is swatting instances.
 
-    Q2 (THE PHD). Your leftover risk names it: nobody has checked whether OTHER
-        parameters here share the stride/round-number alignment risk. Candidates
-        I can see are block_size=128, batch_size=32, eval_interval=250,
-        WINDOW=25, EVAL_BATCHES=40, and the 90/10 split fraction. Is there a
-        general way to sweep for this class, or is it necessarily per-parameter
-        reasoning? I would rather close the class than swat the second instance.
+    Q1 (THE PHD). Is there a general form for this? Every one of the three was a
+        threshold or scope chosen because it looked reasonable, embedded in the
+        thing meant to detect the problem. What I want is the rule that would
+        have stopped all three before they shipped, not three more fixes. My own
+        candidate is weak and I know it: "a guard must be tested against a case
+        it should fail" — that catches #3, and would NOT have caught #1 or #2,
+        because both had passing tests on the cases I imagined.
 
-    Q3 (THE CONTRARIAN, PhD auditing). The bench_device numbers are the first
-        real measurement of what this tool costs a user: CPU-only is 7.5x slower
-        at small, 23.8x at default, 84.9x at large. §23's installer is supposed
-        to pick a size the machine can finish. Is "CPU gets the small model by
-        default" the right call, or is shipping a deliberately weaker model to
-        GPU-less users a worse failure than making them wait 5.4 minutes?
+    Q2 (THE PHD). Concretely for finding 3a: what should split_health's tolerance
+        be derived FROM? A document-level split cannot hit an arbitrary fraction
+        on a lumpy corpus, so any fixed tolerance is another invented number. My
+        instinct is to delete the boolean entirely, report the achieved fraction
+        and the largest-document share, and let the caller decide. That removes
+        a guard rather than fixing it, which is why I want your ruling first.
 
-  NON-CLAIMS (what I am NOT asserting):
-    - NOT claiming the detector is correct. It has now been wrong twice in one
-      session, both times in code I had just written and tested by hand.
-    - NOT claiming 4 passing tests means much. They cover phase invariance,
-      false positives at scale, the CLEAN case, and the documented length. That
-      is four properties, not coverage.
-    - NOT claiming the thresholds are fixed. 0.20/0.05 are still shipped and
-      still invented; your finding 3 is unbuilt.
-    - NOT claiming the benchmark generalises. One machine, one corpus, three
-      sizes. A different CPU or a laptop under thermal limits will differ.
-    - NOT claiming winnowing is the right detector below 60 characters. Measured,
-      it is worse there than the code it replaced, and the docstring now says so.
+    Q3 (ANY SEAT). Where else does this pattern exist here that you can see and
+        I cannot? I am asking for the sweep, not the instance.
 
-  CLOSED-CLASS CLAIM + ITS RED WITNESS (the one thing I assert this round):
-    Claim: the fingerprinter no longer produces false overlap on clean corpora
-    as size grows.
-    RED   crc32: two independent clean corpora read 0.0065% / 0.0081% / 0.0293%
-          false overlap at 200KB / 800KB / 2MB, rising with size.
-    GREEN blake2b-64: 0.0000% at all three sizes, same fingerprint counts, phase
-          invariance unchanged at 10/10.
-    Scope: measured on synthetic uniform-random text at three sizes up to 2MB. It
-    does not establish behaviour at 100MB, nor on natural text whose k-gram
-    distribution is nothing like uniform.
+  NON-CLAIMS:
+    - NOT claiming the three fixes generalise. Each closed one instance.
+    - NOT claiming val_frac saturation is fixed. It is not; finding 3a is open.
+    - NOT claiming the permutation null or noise-floor utility exist. Neither
+      is built.
+    - NOT claiming the detector finds near-duplicates. Measured 0% on renamed
+      Python, now stated in the tool's own output.
+    - NOT claiming the launcher is tested by anyone but me on this machine.
+
+  CLOSED-CLASS CLAIM + RED WITNESS (the one thing I assert):
+    Claim: how often you evaluate no longer affects what the model learns.
+    RED   eval_interval 248/249/250/251/252/500, same seed and data ->
+          final train loss spread 0.031166.
+    GREEN dedicated eval Generator -> spread 0.000000, identical at every
+          interval.
+    Scope: measured on a 2-layer 128-wide model, 300 steps, this corpus, CUDA.
 
 --------------------------------------------------------------------------------
 1. WHAT THIS IS
