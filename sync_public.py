@@ -41,6 +41,7 @@ STATE = HERE / "council" / "publish_state.json"
 PUBLISH = [
     "model.py", "data.py", "train.py", "generate.py", "make_corpus.py",
     "studio.py", "leakage.py", "bench_device.py", "test_detectors.py",
+    "runlog.py",
     "exp_lr_width.py",
     "prereg_lr_width.json", "exp_lr_width_result.json",
     "prereg_lr_width_fast.json", "exp_lr_width_result_fast.json",
@@ -113,12 +114,24 @@ def dangling_references() -> list[tuple[str, str]]:
     report.
     """
     ref = re.compile(r"[\"']([A-Za-z0-9_.-]+\.(?:json|txt|py))[\"']")
+    # Bare imports matter as much as quoted filenames: `import runlog` slipped
+    # past the first version of this guard and shipped a module that only
+    # existed on the author's disk. A local sibling module that is imported but
+    # not published is the same bug as a data file that is named but not
+    # published.
+    imp = re.compile(r"^\s*(?:import\s+([A-Za-z_][\w]*)|from\s+([A-Za-z_][\w]*)\s+import)",
+                     re.MULTILINE)
     published = set(PUBLISH)
     missing = []
     for name in PUBLISH:
         if not name.endswith(".py"):
             continue
-        for hit in ref.findall((SRC / name).read_text(encoding="utf-8", errors="ignore")):
+        body = (SRC / name).read_text(encoding="utf-8", errors="ignore")
+        for a, b in imp.findall(body):
+            mod = (a or b) + ".py"
+            if mod not in published and mod not in GENERATED_LOCALLY                     and (SRC / mod).is_file():
+                missing.append((name, mod))
+        for hit in ref.findall(body):
             if hit in published or hit in GENERATED_LOCALLY:
                 continue
             if (SRC / hit).is_file():          # exists locally but is not shipped
@@ -166,6 +179,15 @@ def main() -> None:
             print(f"  {src_file} references {ref}")
         print("\nAdd it to PUBLISH, or to GENERATED_LOCALLY if the user creates it.")
         raise SystemExit(1)
+
+    print("running the detector tests before publishing...")
+    t = subprocess.run([sys.executable, str(SRC / "test_detectors.py")],
+                       cwd=SRC, capture_output=True, text=True)
+    if t.returncode != 0:
+        print("\n!!! ABORT: test_detectors.py FAILED. NOTHING was published.\n")
+        print(t.stdout[-2500:] or t.stderr[-2500:])
+        raise SystemExit(1)
+    print("  tests pass.\n")
 
     if not CLONE.exists():
         print(f"cloning {REMOTE} -> {CLONE}")

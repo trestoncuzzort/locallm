@@ -3197,3 +3197,276 @@ has to survive without either of us remembering to save it.
 
 STATE: no change to §33's open list. The permutation null, the noise-floor
 utility, and the split_health wiring are all still unbuilt.
+
+--------------------------------------------------------------------------------
+35. COUNCIL RESPONSE  (2026-07-26 ~19:35 — activation #12; scope: THIS FILE +
+    localllm/leakage.py, localllm/test_detectors.py, localllm/bench_device.py,
+    localllm/data.py, localllm/train.py, localllm/exp_lr_width.py at HEAD,
+    plus live probes/measurements run by The PhD on this machine)
+--------------------------------------------------------------------------------
+NOTE ON THIS ROUND: the PhD's first attempt was cut off mid-analysis by an API
+session limit and produced no usable findings; it was re-run from scratch in
+full. Separately, a git branch mix-up briefly checked this working directory
+out to the public `main` branch, making this file disappear from disk for
+part of the round — resolved by the proprietor/executor before this response
+was written; the DIRECTIVE and history below were re-confirmed unchanged
+against the restored `protocol/merge-moonwalker` branch before use.
+
+Roster: 5 style advisors (haiku, sealed, PhD-facing format, per-question
+routing per §26: Q3->Contrarian) — closed by The PhD (opus).
+
+HEADLINE FINDING, not asked for: THE SHIPPED TRAINER (train.py) HAS A
+REPRODUCIBILITY BUG THE PROJECT'S OWN EXPERIMENT HARNESS ALREADY SOLVED AND
+NEVER CARRIED OVER. train.py's estimate_loss() draws eval batches from the
+SAME global torch RNG as training (no dedicated Generator) — so how often you
+evaluate changes what you train on. Measured directly: at eval_interval
+248/249/250/251/252/500, final loss varies by 0.004361, comparable to the
+measured seed-to-seed noise floor (0.005359, ~0.81x) at this scale — a real
+defect, not yet a wrong-conclusion one. Isolating eval onto its own Generator
+(the fix) produces BIT-IDENTICAL loss (spread 0.000000) regardless of
+eval_interval. The fix already exists in this repo: exp_lr_width.py's
+fixed_eval_batches(), whose own docstring says "drawn from our own Generator
+rather than the global RNG, so evaluating can never disturb the training
+stream" — the experiment harness got this right and the shipped trainer
+never inherited it. Two-line fix, red witness above.
+
+RANKED CRITIQUE (most decisive first)
+
+1. (THE PHD — Q1, the round's most consequential empirical result) THE
+   DETECTOR SCORES 0% RECALL ON A REAL PYTHON CLONE TYPE, AND THE CAUSE IS
+   MEASURED, NOT GUESSED. Built a clone-type recall table (Type-1/2/3 per
+   the code-clone-detection literature, mechanically via Python's own
+   tokenize — not hand-tuned parameters) on the project's own 10 real
+   corpus documents: verbatim 100%, Type-1 (reformat) 90%, Type-2 (full
+   identifier rename) 0%, Type-3 (Type-2 + 10% statement edits) 0%.
+   Factorial isolation pinpointed the cause: renaming EVERY identifier in
+   a file costs almost nothing (22.4% -> 24.1% overlap); replacing string
+   literals (docstrings/strings, ~7.4% of this corpus) drops overlap to
+   0.0%. On this codebase, ~7% of the text (prose inside the code) carries
+   essentially all surviving detection signal; the 92% that is actual
+   logic contributes almost none once whitespace is re-rendered. This
+   directly answers and sharpens the executor's own named gap ("always
+   says CLEAN on real near-duplicates") -- it is not a marginal miss, it
+   is total, on an entire clone class.
+   RESOLVES the round's real disagreement: First Principles was right that
+   self-authored mutation tests relocate the same blind spot ("15% token
+   replacement" is a number a person likes, exactly the anti-pattern that
+   caused the last two bugs) -- but the fix is not abandoning mutation
+   testing, it's sourcing the mutation DEFINITIONS from outside (the
+   published Type-1/2/3 taxonomy) rather than inventing them. The specific
+   external labeled benchmarks proposed (BigCloneBench: Java-only, doesn't
+   run here; a documented 2022 critique found 86% false positives in its
+   contested clone types anyway; SemanticCloneBench/GPTCloneBench: the
+   wrong instrument, it's a Type-4 *semantic* benchmark and this detector
+   would correctly score ~0% on it, which would misreport as failure) are
+   both dead ends for different reasons -- the genuinely applicable
+   literature is LLM-training-data dedup, not clone detection: Lee et al.
+   2021/ACL 2022 (verified at the byte, fetched the paper text directly)
+   gives a published external number for exactly this blind spot on
+   natural text -- "77% of the training examples NEARDUP removes from C4
+   have a verbatim length-50 match EXACTSUBSTR also finds" -- meaning a
+   verbatim-only detector misses ~23% of near-duplicates on PROSE; this
+   project's own measurement shows it is far worse on CODE (0%) because
+   code survives identifier renaming much more completely than prose
+   survives paraphrase. That same paper's own methodology answers "what do
+   you do without an oracle": triangulate with a SECOND, different-
+   failure-mode detector and report disagreement, not chase a labeled set.
+
+2. (THE PHD — Q1, the tool's core claim must change) THE SHIPPED REPORT
+   LINE ("Validation looks independent of training. Val loss is usable.")
+   IS CONTRADICTED BY FINDING 1 AND MUST BE DELETED, NOT SOFTENED. A CLEAN
+   verdict means no VERBATIM leakage of >=74 characters was found -- it
+   says nothing about renamed or rewritten copies, which finding 1 shows
+   pass through entirely undetected. Recommended replacement claim,
+   scoped honestly: "finds verbatim shared runs >=74 chars at any offset,
+   100% recall (measured); does NOT find renamed or rewritten copies,
+   measured 0% recall on identifier-renamed Python; this is an exact-
+   substring scanner, not a near-duplicate scanner." Also corrects the
+   test suite's own docstring, which claims "every test runs against both
+   implementations, the old one must FAIL" -- verified: 3 of 4 shipped
+   tests PASS on the known-broken old sampler; only the phase-invariance
+   test enforces the both-implementations rule. The suite's actual
+   guarantee (4/4 pass, exit 0) is true at the byte; its documented
+   guarantee is not.
+
+3. (THE PHD — Q2, EXECUTED sensitivity sweep, not just evaluated) FOUR OF
+   SIX NAMED PARAMETERS CLEARED ON MEASUREMENT (WINDOW, SHINGLE, block_size,
+   batch_size -- no discontinuity found, ~4 minutes of probing), BUT THE
+   MECHANICAL SWEEP METHOD ITSELF HAS A BLIND SPOT THAT COST TWO REAL
+   DEFECTS. Corrected the Pragmatist's proposed method first: "hash the
+   output, flag if it changes" fires on every parameter by construction
+   (changing batch_size is SUPPOSED to change output) and discriminates
+   nothing -- the right test is a discontinuity against the parameter's
+   own neighborhood, which is what was actually run. Two real defects
+   found this way, NEITHER of which a +/-1 sweep would have caught: (a)
+   val_frac SATURATES at 0.14 regardless of what's requested (0.15 and
+   0.20 both silently produce 13.73%, because a large-document corpus
+   exhausts fillable budget under the current packing) -- and
+   split_health()['ok'] returns True the ENTIRE time, because its own
+   tolerance constant (achieved >= requested * 0.5) is itself another
+   hand-picked number, and the guard built to catch exactly this passes
+   silently; a wide sweep found this, a +/-1 sweep would not have. (b)
+   eval_interval couples eval frequency to what gets trained via shared-
+   RNG consumption (this response's headline finding) -- not a
+   discontinuity at all but a hidden coupling, a class the neighborhood-
+   sweep method cannot detect in principle. CONCLUSION on Q2's actual
+   question: NEITHER "systematic sweep" nor "per-parameter reasoning"
+   alone is sufficient -- the mechanical sweep clears a class (alignment/
+   cliff risk) cheaply and should be built as a standing tool, but it
+   structurally cannot find coupling-type or wide-saturation-type defects,
+   which is exactly what First Principles' "document why every constant
+   exists" would have surfaced (writing "eval_interval controls only how
+   often we observe" forces the question of whether that's true -- it
+   isn't).
+
+4. (THE PHD — Q3, resolves a three-way split against real external
+   practice) NO COMPARABLE LOCAL-LLM TOOL SILENTLY SUBSTITUTES A WEAKER
+   MODEL FOR SLOW HARDWARE. Checked Ollama, llama.cpp, and LM Studio's
+   actual behavior (search-level verification, not byte-fetched --
+   Ollama's own FAQ returned 404 on direct fetch, flagged accordingly, but
+   the recommendation doesn't hinge on precision here): all three ADAPT
+   THE EXECUTION PLAN (GPU/CPU layer offload) rather than swap the asset,
+   and LM Studio explicitly DISCLOSES a fit estimate before download
+   rather than deciding for the user. This directly refutes the
+   Pragmatist's specific auto-downsize threshold on its own terms: his
+   proposed rule (CPU + estimated_time > 300s -> auto-downsize) fires on
+   THIS PROJECT'S OWN measured "default" CPU time (324.2s, from
+   bench_device_result.json) -- meaning the rule as written silently
+   downgrades the DEFAULT SIZE ON THIS ACTUAL MACHINE, not just weak
+   laptops, exactly the hidden-quality-tier the Outsider warned about,
+   and the threshold itself is another hand-picked round number, the
+   precise anti-pattern this whole round is about. Separately corrects
+   the round's framing: bench_device.py's ALREADY-SHIPPED measurement is
+   functionally LM Studio's pre-download fit estimate -- nothing new needs
+   building, it needs to be SURFACED as a pre-selected choice with real
+   numbers ("small 1.0 min / default 5.4 min / large 56.9 min, recommended:
+   default") rather than either silently deciding or leaving the user with
+   no estimate at all. Also corrects the round's generalization: "5.4
+   minutes" was measured on a Ryzen 9 7900X (a fast desktop CPU); a CPU-
+   ONLY user (no discrete GPU) is more likely on materially slower
+   hardware, and the council was reasoning about the CPU population from
+   the fastest CPU in the building -- the estimate-and-ask design in
+   finding 4 sidesteps this by measuring the ACTUAL machine at install
+   time rather than trusting one number for all CPUs.
+
+5. (THE PHD, corrections that changed severity of two style-advisor
+   claims) The Contrarian's specific worry about WINDOW=25 being another
+   hand-picked, at-risk constant was checked directly (swept 21-29) and
+   found NOT to hold -- the w+k-1 guarantee is exactly 100% at every
+   window tested, so this particular suspicion is retired by measurement,
+   though the broader instinct (distrust unexamined constants) is what
+   correctly caught findings 3's two real defects elsewhere. Separately,
+   the Contrarian's "0.20/0.05 thresholds are uncalibrated" is CONFIRMED
+   and shown worse than stated: measured real Type-1/Type-2 clone overlap
+   lands at 22.4%-26.3% -- 2 to 6 points ABOVE the CONTAMINATED line,
+   meaning a real near-duplicate, on the rare occasion the detector
+   catches any signal from it at all, gets its verdict decided by a
+   threshold sitting inside the exact range where actual clones score.
+
+EVIDENCE READ / EXECUTED THIS PASS:
+  - localllm/leakage.py, test_detectors.py, bench_device.py, data.py,
+    train.py, exp_lr_width.py (current HEAD) — orchestrator, confirmed
+    branch protocol/merge-moonwalker and file contents before framing.
+  - Clone-type recall table (verbatim/Type-1/Type-2/Type-3) on the real
+    corpus, factorial isolation (rename-ids x replace-strings) — PhD,
+    EXECUTED, using Python's own tokenize, no framework.
+  - w+k-1 guarantee swept across WINDOW 21-29, SHINGLE 46-54 — PhD,
+    EXECUTED, 100% at every value tested.
+  - block_size and batch_size neighborhood sweeps (GPU + CPU ms/step) —
+    PhD, EXECUTED, no discontinuity found at either.
+  - EVAL_BATCHES CI-vs-effect-size calculation (10-160) — PhD, EXECUTED.
+  - val_frac sweep 0.06-0.20 — PhD, EXECUTED, found the saturation cliff
+    at 0.14 and the split_health tolerance-constant bug.
+  - eval_interval RNG-coupling isolation (248/249/250/251/252/500, vs.
+    seed-noise floor, vs. isolated-Generator control) — PhD, EXECUTED,
+    this response's headline finding.
+  - test_detectors.py's actual pass/fail behavior against the old broken
+    sampler, all 4 tests individually — PhD, EXECUTED, found 3/4 pass on
+    known-broken code, contradicting the suite's own docstring.
+  - shingles() memory/timing scaling — PhD, EXECUTED, linear to tested
+    sizes, extrapolated cost noted at 1GB.
+  - Time-estimate stability across a 16x corpus-size range, CPU and GPU —
+    PhD, EXECUTED (answers the Expansionist's [VERIFY]).
+  - Lee et al. 2021/ACL 2022 — PhD, fetched and quoted directly from the
+    paper text, not abstract-only.
+  - Schleimer/Wilkerson/Aiken 2003 — PhD, formula confirmed via search,
+    independently reconfirmed by this round's own w+k-1 sweep.
+  - Krinke & Ragkhitwetsagul 2022, Svajlenko & Roy 2015/2016, GPTCloneBench
+    (arXiv:2308.13963), Ollama/llama.cpp/LM Studio auto-sizing behavior —
+    PhD, search-level verification only, explicitly labeled, none treated
+    as byte-verified.
+  READ-ONLY: nothing else this pass beyond what's listed above.
+
+LEFTOVER RISKS (unresolved even with every fix above landed):
+  - The eval-RNG fix (headline finding) is specified with an exact patch
+    target (train.py's estimate_loss, copy exp_lr_width.py's
+    fixed_eval_batches) but not yet applied — train.py still couples eval
+    frequency to training data as of this round.
+  - The clone-type recall numbers rest on only 10 usable corpus documents
+    — the DIRECTION is unambiguous (0% vs 100% overlap is not a close
+    call) but the precise recall percentages should be re-measured on a
+    larger corpus before being quoted as calibrated figures rather than a
+    documented capability gap.
+  - The proposed second, NEARDUP-class detector (MinHash, Lee et al.'s
+    published constants) is recommended but not built — until it exists,
+    this project has exactly one detector with exactly one failure mode
+    and no disagreement signal to check it against.
+  - val_frac's saturation fix and split_health's tolerance-constant fix
+    are specified but not built; a user requesting 20% validation still
+    silently receives 13.73% with a passing health check as of this round.
+  - The mechanical discontinuity-sweep tool (finding 3's recommendation)
+    does not exist as a standing repo tool yet — this round ran it once,
+    by hand, in scratch scripts.
+  - Ollama/llama.cpp/LM Studio's exact auto-sizing behavior was search-
+    verified, not confirmed at each project's primary documentation byte
+    — if this becomes load-bearing for the actual installer implementation
+    rather than a design-direction argument, re-verify at the primary
+    source first.
+  - No one has checked whether the eval-RNG coupling (headline finding)
+    also affects exp_lr_width.py's OWN production code path beyond the
+    isolated control probe — the fix was verified to work in principle,
+    not yet verified end-to-end in the shipped experiment script.
+
+THE QUESTIONS THEMSELVES: the executor explicitly applied the standing
+"verify the mechanism before tuning it" checklist item to himself this
+round before the council was even asked — the DIRECTIVE said so directly.
+That is the checklist working as intended, and it is why this round's three
+questions were already well-aimed. The gap this round exposes is different
+and worth naming for future DIRECTIVEs: a "did I test this enough" question
+about a detector or measurement tool should explicitly ask "where did the
+TEST'S OWN PARAMETERS come from" (hand-picked, like the mutation
+percentages that were nearly adopted here) as a standing sub-question,
+not just whether tests exist or pass. A test suite authored entirely by
+the same person who ships the bugs inherits that person's blind spots
+one level up, and this round found that pattern trying to re-enter through
+mutation testing minutes after it had just been evicted from sampling.
+
+ONE RECOMMENDED NEXT PROMPT (proprietor -> executor):
+  "Fix train.py's eval-RNG coupling first (two lines — copy
+   exp_lr_width.py's fixed_eval_batches pattern into estimate_loss; red
+   witness: eval_interval spread 0.004361 -> 0.000000 once isolated).
+   Then: (1) delete the shipped report line 'Validation looks independent
+   of training, val loss is usable' — replace with the scoped claim
+   ('finds verbatim runs >=74 chars, 100% recall measured; does NOT find
+   renamed/rewritten copies, 0% recall measured on identifier-renamed
+   Python'). Fix test_detectors.py's docstring to match what main()
+   actually enforces (1 of 4 tests checks against the old sampler, not
+   all 4). (2) Add clone-type recall tests via Python's own tokenize —
+   assert the ZEROS (Type-2 == 0%, Type-3 == 0%) as a pinned known
+   limitation, not just the passing cases; assert the w+k-1 guarantee
+   across a window range, not just WINDOW=25. Replace the random-alphabet
+   false-positive test with disjoint halves of the real corpus. (3) Fix
+   val_frac's saturation: report achieved-vs-requested explicitly, and
+   replace split_health's 'achieved >= requested * 0.5' tolerance with a
+   stated reason or a tighter bound — wire split_health()['ok'] into
+   Corpus.__init__ and train.py's eval loop, still not done as of §33/34.
+   Raise EVAL_BATCHES 40->160 (one line; CI 0.076->0.028 against the
+   0.1056 measured effect). (4) For the installer (§23): surface
+   bench_device.py's measurement as a pre-selected, disclosed choice with
+   real per-machine numbers — never a silent auto-downsize; the specific
+   300s/auto-downsize rule proposed this round would silently shrink the
+   DEFAULT size on this project's own dev machine and should not ship as
+   specified. Report red witnesses for each fix, not descriptions of what
+   they would show."
+
+(Council standing by. Watcher armed on the DIRECTIVE block — task bkk3n3jtj.)
