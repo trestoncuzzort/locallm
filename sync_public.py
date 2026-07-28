@@ -36,6 +36,8 @@ REMOTE = "https://github.com/jonhhjackson-a11y/locallm"
 CLONE = HERE.parent / "_locallm_publish"       # sibling of the repo, never inside it
 CHANNEL = HERE / "instructions.txt"
 STATE = HERE / "council" / "publish_state.json"
+# The detector tests import torch; the system Python here is 3.14 and has none.
+TEST_PYTHON = HERE / ".venv-train" / "Scripts" / "python.exe"
 
 # The product. Anything not listed here does not get published, ever.
 PUBLISH = [
@@ -183,12 +185,24 @@ def main() -> None:
         print("\nAdd it to PUBLISH, or to GENERATED_LOCALLY if the user creates it.")
         raise SystemExit(1)
 
-    print("running the detector tests before publishing...")
-    t = subprocess.run([sys.executable, str(SRC / "test_detectors.py")],
+    # The tests import torch, so they must run under the TRAINING venv, not
+    # whatever interpreter launched this script. sys.executable here is normally
+    # the system Python 3.14, which has no torch — that made the gate abort with
+    # ModuleNotFoundError on every publish, blocking the repo for environment
+    # reasons rather than test failures. Pick the interpreter deliberately.
+    test_py = TEST_PYTHON if TEST_PYTHON.exists() else Path(sys.executable)
+    print(f"running the detector tests before publishing...  ({test_py.name})")
+    t = subprocess.run([str(test_py), str(SRC / "test_detectors.py")],
                        cwd=SRC, capture_output=True, text=True)
     if t.returncode != 0:
+        out = t.stdout[-2500:] or t.stderr[-2500:]
         print("\n!!! ABORT: test_detectors.py FAILED. NOTHING was published.\n")
-        print(t.stdout[-2500:] or t.stderr[-2500:])
+        if "No module named" in (t.stderr or ""):
+            print(f"    This is an ENVIRONMENT failure, not a test failure.\n"
+                  f"    Ran under: {test_py}\n"
+                  f"    The detector tests need torch. Expected interpreter:\n"
+                  f"      {TEST_PYTHON}\n")
+        print(out)
         raise SystemExit(1)
     print("  tests pass.\n")
 
