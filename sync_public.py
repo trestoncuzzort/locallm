@@ -47,7 +47,7 @@ PUBLISH = [
     "exp_lr_width.py",
     "prereg_lr_width.json", "exp_lr_width_result.json",
     "prereg_lr_width_fast.json", "exp_lr_width_result_fast.json",
-    "README.md", ".gitattributes", "requirements.txt",
+    "README.md", "LICENSE", ".gitattributes", "requirements.txt",
     "Train My AI.bat", "training_data/README.txt",
 ]
 
@@ -71,6 +71,30 @@ FORBIDDEN = [
 ]
 PATTERN = re.compile("|".join(rf"\b{t}\b" if t[0].isalpha() else t
                               for t in FORBIDDEN), re.IGNORECASE)
+
+# The ONE deliberate exception, and it is deliberately narrow. `cuzzort` is on the
+# forbidden list because it is the method kit's author attribution, which must
+# never ship. But the proprietor is also the copyright holder of THIS product and
+# asked (2026-07-28) for an MIT licence in his own name — publishing your own name
+# on your own licence is the opposite of a leak.
+#
+# So: the surname is allowed ONLY on a copyright line. Not anywhere else, not in
+# any other file, and every other forbidden term still aborts even on these lines.
+# A blanket "skip LICENSE" rule would have let the whole list through in that file.
+ALLOW_COPYRIGHT_NAME = re.compile(
+    r"^\s*(#\s*)?(MIT\b.*)?Copyright \(c\) \d{4} Treston Malachi Cuzzort\.?\s*$",
+    re.IGNORECASE)
+# The README states the licence in prose rather than as a bare copyright line.
+ALLOW_LICENCE_PROSE = re.compile(
+    r"^\s*MIT\s*.\s*see \[LICENSE\]\(LICENSE\)\. Copyright \(c\) \d{4} "
+    r"Treston Malachi Cuzzort\.\s*$", re.IGNORECASE)
+
+
+def _permitted_copyright_line(line: str, match: str) -> bool:
+    """True only for the copyright-holder's own name on a copyright line."""
+    if match.lower() != "cuzzort":
+        return False
+    return bool(ALLOW_COPYRIGHT_NAME.match(line) or ALLOW_LICENCE_PROSE.match(line))
 
 
 def directive_sha() -> str:
@@ -102,8 +126,12 @@ def scan() -> list[tuple[str, int, str]]:
         if not p.is_file():
             raise SystemExit(f"ABORT: {name} is on the publish list but missing from {SRC}")
         for i, line in enumerate(p.read_text(encoding="utf-8", errors="ignore").splitlines(), 1):
-            m = PATTERN.search(line)
-            if m:
+            for m in PATTERN.finditer(line):
+                # finditer, not search: a line is only exempt for the copyright
+                # name itself. If it ALSO mentions any other forbidden term, that
+                # second match still aborts the publish.
+                if _permitted_copyright_line(line, m.group(0)):
+                    continue
                 hits.append((name, i, f"{m.group(0)!r} in: {line.strip()[:90]}"))
     return hits
 
