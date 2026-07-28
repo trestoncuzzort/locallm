@@ -1,1 +1,2 @@
 {"ts": "2026-07-26T20:45:38", "kind": "leakage", "corpus": {"chars": 549023, "vocab": 97, "sha1": "1c35a69d5f3c"}, "split": "grouped", "leakage": {"verdict": "CLEAN", "content_frac": 0.013215859030837005, "line_frac": 0.14854771784232365}, "host": "DESKTOP-2QTNNGI"}
+{"ts": "2026-07-28T08:46:19", "kind": "leakage", "corpus": {"chars": 549023, "vocab": 97, "sha1": "1c35a69d5f3c"}, "split": "positional", "leakage": {"verdict": "CONTAMINATED", "content_frac": 0.8357843137254902, "line_frac": 0.9801829268292683}, "host": "DESKTOP-2QTNNGI"}

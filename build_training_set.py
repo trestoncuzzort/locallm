@@ -2,9 +2,15 @@
 """build_training_set.py — the N=918 stratified, capped run-1 training file.
 
 A 120-pairs-per-task cap, giving N=918 (the one removed poisoned pair was
-`balanced`, an under-cap task, so it subtracts straight through). The rationale: a
-loss drop measured on the full 54%-skewed set cannot be told apart from overfit to
-the three most common task templates.
+`balanced`, an under-cap task, so it subtracts straight through). It reduces the
+top-3 task share from 54.0% to 39.2%.
+
+MEASURED, AND WEAKER THAN IT SOUNDS. Effective task count (exp of the Shannon
+entropy over the tid distribution) goes 8.86 -> 9.93: the cap spends 316 pairs,
+25.6% of the dataset, to buy 1.06 effective tasks. Adding 5 NEW tasks at 30 pairs
+each buys +3.60 effective tasks while ADDING 150 pairs instead of deleting 316.
+So this cap is a mild diversity improvement, not the fix for template skew - do
+not describe it as one. The real lever is more distinct tasks.
 
 The cap was specified long before it was enforced anywhere — train_native.py used to
 load all 1,234 rows. This builds the file that run 1 trains from, and prints the

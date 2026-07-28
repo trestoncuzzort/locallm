@@ -96,6 +96,24 @@ def build_file_entries(data_dir: str | Path,
     return out
 
 
+def load_verified(paths: list[str | Path], data_dir: str | Path) -> list[str]:
+    """Verify, THEN hand back the paths. Use this instead of calling
+    require_verified and then separately naming the files.
+
+    "Parse, don't validate" (Alexis King, 2019): make the checked thing the only
+    way to obtain what you need, so the check cannot be skipped by forgetting a
+    line. A trainer that gets its file list from here cannot train on data that
+    did not pass.
+
+    HONEST LIMIT: this narrows the hole, it does not close it. A future trainer
+    could still build a path string itself and never call this. What actually
+    bounds that is the coverage test (test_gate_coverage.py), which fails if any
+    module outside this file and verify_dataset.py opens data/*.jsonl directly.
+    """
+    require_verified(paths, data_dir)
+    return [str(p) for p in paths]
+
+
 def require_verified(paths: list[str | Path], data_dir: str | Path) -> dict:
     """Refuse to proceed unless every path has a clean, hash-matching entry.
 

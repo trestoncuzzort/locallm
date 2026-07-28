@@ -182,16 +182,22 @@ class TrainWorker(threading.Thread):
         tr_txt, va_txt = group_split(text)
         rep = leakage_scan(tr_txt, va_txt)
         health = split_health(text)
-        self.val_ok = rep.trustworthy and health["ok"]
+        # No boolean from split_health any more: a val set that exists is usable,
+        # and HOW thin it is is reported below from the real numbers rather than
+        # collapsed into one eyeballed bit. get_batch is the hard floor.
+        thin = (health["achievable_val_frac"] > 0
+                and health["achieved_val_frac"] < health["achievable_val_frac"])
+        self.val_ok = rep.trustworthy and health["val_chars"] > 0
         self.log(f"leakage scan: {rep.summary()}")
         if not rep.trustworthy:
             self.log("  !! val loss below is NOT a measure of generalisation. "
                      "Judge this run on TRAIN loss.")
-        elif not health["ok"]:
-            self.log(f"  !! asked for a 10% val split, got "
-                     f"{health['achieved_val_frac']:.1%} (only {health['documents']} "
-                     f"documents, largest is {health['largest_doc_frac']:.0%} of the "
-                     f"corpus). Val loss is thin. Prefer TRAIN loss.")
+        elif health["val_chars"] == 0 or thin:
+            self.log(f"  !! asked for {health['requested_val_frac']:.0%} val, got "
+                     f"{health['achieved_val_frac']:.1%}; the best any whole-document "
+                     f"split could reach here is {health['achievable_val_frac']:.1%} "
+                     f"({health['unique_documents']} unique documents, largest is "
+                     f"{health['largest_unique_doc_frac']:.0%}). Prefer TRAIN loss.")
         self.q.put(("valtrust", self.val_ok))
 
         if len(corpus.train) <= c["block_size"]:
@@ -442,7 +448,7 @@ class Studio(ttk.Frame):
             colour = {"CLEAN": "#2d7d46", "SUSPECT": "#b8860b",
                       "CONTAMINATED": "#c0392b"}[rep.verdict]
             note = rep.verdict
-            if rep.trustworthy and not health["ok"]:
+            if rep.trustworthy and health["achieved_val_frac"] < health["achievable_val_frac"]:
                 colour, note = "#b8860b", f"thin val ({health['achieved_val_frac']:.0%})"
         except Exception:                       # never let the scan block training
             colour, note, rep = "#2d7d46", "unscanned", None

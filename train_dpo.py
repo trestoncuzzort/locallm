@@ -48,7 +48,7 @@ def main() -> None:
     # THE GATE — same one train_native.py uses. Both trainers are consumers of
     # the same guarantee, so both go through the same chokepoint; gating only
     # one would leave "verified before training" false via the other path.
-    dataset_gate.require_verified(files, HERE / "data")
+    files = dataset_gate.load_verified(files, HERE / "data")
 
     from datasets import load_dataset
     from unsloth import FastLanguageModel, PatchDPOTrainer

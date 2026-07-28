@@ -359,6 +359,7 @@ class Result:
     total: int = 1
     runtime: float = 0.0
     error: str = ""
+    timed_out: bool = False  # distinct from "wrong": we do not know if it is wrong
 
     @property
     def score(self) -> tuple:
@@ -435,6 +436,12 @@ def verify(code: str, task: Task) -> Result:
         else:
             res.error = (proc.stderr or proc.stdout or "failed").strip()[-400:]
     except subprocess.TimeoutExpired:
+        # A TIMEOUT IS NOT A WRONG ANSWER. A correct-but-slow solution, or a busy
+        # machine, produces this -- and wall-clock means the same bytes can time
+        # out on one run and pass on the next. Recorded distinctly so it can never
+        # become the `rejected` half of a pair, which would teach the model that a
+        # correct answer is wrong.
+        res.timed_out = True
         res.error = f"timeout >{CAND_TIMEOUT}s"
     finally:
         Path(path).unlink(missing_ok=True)
@@ -513,7 +520,9 @@ def run_task(actor: Actor, task: Task) -> tuple[dict | None, dict | None, bool]:
 
     # Prefer a genuine correctness gap: chosen passes, rejected demonstrably
     # fails. That is the clean "fix the failure" signal.
-    failing = [r for r in results if not r.ok and r.code and r.code != best.code]
+    # `rejected` must be demonstrably WRONG, not merely slow or unmeasured.
+    failing = [r for r in results
+               if not r.ok and not r.timed_out and r.code and r.code != best.code]
     if failing:
         worst, reason = min(failing, key=lambda r: r.score), "correctness"
     elif not EMIT_CONCISENESS:
