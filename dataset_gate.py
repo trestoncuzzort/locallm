@@ -41,8 +41,25 @@ import hashlib
 import json
 from pathlib import Path
 
+HERE = Path(__file__).resolve().parent
 RECEIPT_NAME = "dataset_verification.json"
-SCHEMA = 2          # bump when the `files` entry shape changes
+SCHEMA = 3          # bump when the `files` or `verifier` entry shape changes
+
+# THE RECEIPT MUST PIN THE VERIFIER, NOT ONLY THE DATA.
+# "0 violations" is a statement about forge.verify() run against forge.SEED_TASKS.
+# Weaken one assert, loosen the BANNED regex, shorten CAND_TIMEOUT, or drop the
+# return-type guard, and every data hash still matches while the *meaning* of
+# "verified" silently changes — producing a PASSING receipt for a weaker claim.
+# That is worse than a failing one.
+#
+# Whole file, deliberately. The tempting alternative is to hash only "the parts
+# that matter" — SEED_TASKS, BANNED, CAND_TIMEOUT, the harness template. That
+# requires hand-picking which parts of a verifier are semantic, which is exactly
+# the invented-scope mistake this project keeps paying for: the guard passes while
+# the thing it guards has moved. A whole-file hash has no scope to get wrong.
+# The price is real and accepted: editing a comment in forge.py invalidates the
+# receipt and forces a re-verify. That is the correct direction to be wrong in.
+VERIFIER_FILES = ("forge.py",)
 
 
 def sha256_file(path: str | Path) -> str:
@@ -56,6 +73,11 @@ def sha256_file(path: str | Path) -> str:
 
 def receipt_path(data_dir: str | Path) -> Path:
     return Path(data_dir) / RECEIPT_NAME
+
+
+def verifier_fingerprint() -> dict[str, str]:
+    """sha256 of every file whose contents define what 'verified' means."""
+    return {name: sha256_file(HERE / name) for name in VERIFIER_FILES}
 
 
 def build_file_entries(data_dir: str | Path,
@@ -96,6 +118,22 @@ def require_verified(paths: list[str | Path], data_dir: str | Path) -> dict:
             f"GATE: receipt schema is {receipt.get('schema')!r}, this code needs "
             f"{SCHEMA}.\n  The receipt predates the current gate and cannot be "
             f"trusted to mean the same thing. Re-run: python verify_dataset.py")
+
+    # The verifier that produced this receipt must be the verifier on disk now.
+    recorded = receipt.get("verifier") or {}
+    current = verifier_fingerprint()
+    if recorded != current:
+        changed = sorted(set(recorded) | set(current))
+        detail = "".join(
+            f"      {n}: receipt {recorded.get(n, '(absent)')[:16]}… "
+            f"on-disk {current.get(n, '(absent)')[:16]}…\n"
+            for n in changed if recorded.get(n) != current.get(n))
+        raise SystemExit(
+            "GATE: the VERIFIER changed since this data was verified.\n"
+            + detail +
+            "  '0 violations' was a statement about the old verifier. It says\n"
+            "  nothing about the current one, so the receipt no longer applies.\n"
+            "  Re-run:  python verify_dataset.py")
 
     entries = receipt.get("files") or {}
     problems: list[str] = []

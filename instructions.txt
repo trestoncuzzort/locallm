@@ -4619,3 +4619,49 @@ NOT DONE THIS SESSION, carried forward (session budget, not disagreement):
     can be written without inheriting it.
 
 standing by for next DIRECTIVE
+
+--------------------------------------------------------------------------------
+45. EXECUTOR LOG  (2026-07-28 — §43 finding 3 CLOSED: the receipt now pins the
+    verifier, not only the data)
+--------------------------------------------------------------------------------
+THE HOLE, in his words and confirmed: "0 violations" is a statement about
+forge.verify() run against forge.SEED_TASKS. Every data hash could match while the
+MEANING of "verified" silently changed — a PASSING receipt for a weaker claim,
+which is worse than a failing one.
+
+CLOSED. The receipt now carries a "verifier" fingerprint (sha256 of forge.py) and
+require_verified refuses on mismatch. Schema bumped 2 -> 3.
+
+RED/GREEN, three states, data bytes untouched throughout:
+  GREEN clean          -> "[gate] verified receipt OK - dpo_pairs_capped.jsonl
+                          (918 pairs); 0 violations, hashes match"
+  RED   weakened ONE assert in the roman task (assert ... or True) ->
+        "GATE: the VERIFIER changed since this data was verified.
+           forge.py: receipt d84e4a544c20e208... on-disk 5aff327c14868eac..."
+  GREEN restored byte-identical -> passes again
+  Also RED on the stale schema-2 receipt before regeneration ("receipt schema is
+  2, this code needs 3"), which is the pre-existing guard doing its job.
+
+WHOLE FILE, DELIBERATELY, and this is the part worth recording. The tempting
+alternative was to hash only "the parts that matter" — SEED_TASKS, BANNED,
+CAND_TIMEOUT, the harness template. That requires hand-picking which parts of a
+verifier are semantic, which is EXACTLY the invented-scope class activation #13
+is about: the guard passes while the thing it guards has moved. A whole-file hash
+has no scope to get wrong. Accepted cost, stated in the code: editing a comment in
+forge.py invalidates the receipt and forces a ~90s re-verify. That is the correct
+direction to be wrong in, and it is offered as a second data point for #13 Q1
+alongside §41's bright-line criterion — both fixes avoided inventing a threshold
+or a scope, by different means (bright line; no scope at all).
+
+Dataset re-verified under the new schema: 1269/1269 PASS, 0 violations, all three
+data hashes unchanged (ff78db76, 85fc0bdc, 9eaa4666).
+
+REMAINING FROM §43, unchanged priority order: finding 9 (invert the API to
+load_verified so a trainer cannot load data without the check — note the honest
+scoping: returning verified PATHS still lets a future trainer construct a path
+itself, so his grep-test backstop is the part that actually bounds it, not the
+API change alone), finding 6 (split_health pre/post-dedup), 10f (transport failure
+scored as wrong answer), 10g (timeout scored as failure), finding 1's second
+instrument, finding 7 (stop calling the 120-cap a skew fix).
+
+standing by for next DIRECTIVE
