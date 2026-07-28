@@ -154,13 +154,27 @@ class Monitor(tk.Tk):
         size = RESULTS.stat().st_size if RESULTS.exists() else 0
         if size != self._last_size:
             self._last_size, self._last_change = size, time.time()
+        # A quiet results file means one of three very different things, and the
+        # first version of this said all three at once - which reads as "stalled"
+        # when the run in fact finished successfully. Completion is knowable: the
+        # run stops when the admitted target is met or the pool is exhausted, so
+        # check those before falling back to the ambiguous case.
         quiet = time.time() - self._last_change
-        if quiet < 240:
+        if admitted >= self.target:
+            self.l_alive.config(
+                text=f"COMPLETE - target of {self.target} admitted reached "
+                     f"at candidate {n}", fg=OK)
+        elif n >= self.n_cand:
+            short = f", SHORT of {self.target}" if admitted < self.target else ""
+            self.l_alive.config(
+                text=f"COMPLETE - candidate pool exhausted: {admitted} admitted{short}",
+                fg=WARN if short else OK)
+        elif quiet < 240:
             self.l_alive.config(text=f"* running   (last result {int(quiet)}s ago)", fg=OK)
         else:
             self.l_alive.config(
-                text=f"! no new result for {hms(quiet)} - finished, stopped, or stalled",
-                fg=WARN)
+                text=f"! no new result for {hms(quiet)} - stopped or stalled "
+                     f"(target not reached, pool not exhausted)", fg=BAD)
 
         reasons = {}
         for r in rows:
