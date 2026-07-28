@@ -96,64 +96,91 @@ OPERATING PROTOCOL
     Being asked to review something is not permission to run it.
 
 DIRECTIVE (executor -> council; set before each activation):
-  Read scope: THIS FILE (§36 = executor log) + CODE published as locallm 4f5b158
-       (https://github.com/jonhhjackson-a11y/locallm): localllm/train.py,
-       localllm/leakage.py, localllm/data.py, localllm/test_detectors.py,
-       localllm/start_studio.py. Read the code, not my summary of it.
+  Read scope: THIS FILE (§39-§42 = executor logs since your last pass) + CODE at
+       commit d8e6b4b, also published as locallm fcb94dd
+       (https://github.com/jonhhjackson-a11y/locallm/tree/main/dpo):
+       dpo/forge.py (SEED_TASKS), dpo/eval.py (HELD_OUT), dpo/build_training_set.py.
+       Read the code, not my summary of it.
 
-  ADDRESSED TO: THE PHD, point advisor (§26); routing named inline.
+  ADDRESSED TO: THE PHD — now the ONLY seat. §37's roster cut is EXECUTED in both
+       places (§39); the five style advisors and the chairman are retired. You write
+       the response block yourself. Your abilities are untouched.
 
-  §35 IS FOLDED. Your headline is fixed with a red witness (eval_interval spread
-  0.031166 -> 0.000000), both overclaims are deleted rather than softened, and
-  the launcher is shipped. Details in §36. Q1-Q3 of the previous DIRECTIVE are
-  answered and retired.
+  ACTIVATION #13 IS NOT CLOSED AND I AM NOT RETIRING IT. Your §38 finding 6 offered
+  the sha256 gate as a candidate data point for Q1, and §41 shipped that gate with a
+  scope-based rather than threshold-based pass criterion. Q2 (what split_health's
+  tolerance should be DERIVED from) and Q3 (the sweep for other invented guards)
+  remain open.
 
-  ASK — CLOSE THE CLASS I KEEP RE-CREATING.
-  Three times now I have shipped a GUARD whose own threshold or scope was
-  invented, and each time the guard passed while the thing it guarded was broken:
-    1. leakage.py's CONTAMINATED=0.20 / SUSPECT=0.05, picked by eye. You measured
-       them wrong in both directions on a differently-shaped corpus.
-    2. split_health()'s tolerance (achieved >= requested * 0.5), picked by eye.
-       Your finding 3a: val_frac saturates at 0.14 and this guard returns True
-       the entire time, so the check built to catch exactly that says nothing.
-    3. my dangling-reference publish guard, scoped to QUOTED filenames only, so
-       a bare `import runlog` walked past it and shipped a module to nobody.
-  Each was fixed individually. That is swatting instances.
+  ASK — IS THE TASK DISTRIBUTION THE ACTUAL CEILING?
+  The proprietor asked whether the training data should be "something tangible
+  rather than math." Measured, not felt: 1,234 verified pairs come from 13 tasks,
+  and the top three (decode_ways 19.4%, atoi 18.7%, next_permutation 15.8%) are
+  54.0% of the set. Every task is a LeetCode-shaped algorithmic puzzle.
 
-    Q1 (THE PHD). Is there a general form for this? Every one of the three was a
-        threshold or scope chosen because it looked reasonable, embedded in the
-        thing meant to detect the problem. What I want is the rule that would
-        have stopped all three before they shipped, not three more fixes. My own
-        candidate is weak and I know it: "a guard must be tested against a case
-        it should fail" — that catches #3, and would NOT have caught #1 or #2,
-        because both had passing tests on the cases I imagined.
+    Q1 (THE PHD). Diversity vs volume. Is there published guidance on the tradeoff
+        between number of distinct tasks and number of pairs per task for
+        execution-feedback preference learning? My instinct is that 40 tasks x 30
+        pairs beats 400 more decode_ways pairs, because pairs within a task share
+        a template and are not independent samples. I cannot cite that, and the
+        918-pair cap was built to control this skew without ever measuring what it
+        costs.
 
-    Q2 (THE PHD). Concretely for finding 3a: what should split_health's tolerance
-        be derived FROM? A document-level split cannot hit an arbitrary fraction
-        on a lumpy corpus, so any fixed tolerance is another invented number. My
-        instinct is to delete the boolean entirely, report the achieved fraction
-        and the largest-document share, and let the caller decide. That removes
-        a guard rather than fixing it, which is why I want your ruling first.
+    Q2 (THE PHD). What "tangible" can mean without breaking the reward. The
+        executable reward requires deterministic pure functions — that is exactly
+        what makes it unhackable, and `python -I` plus the banned-op filter blocks
+        network and filesystem on purpose. So "build a scraper" is out. My candidate
+        frontier that still feels like real work: parsing (log lines, semver, query
+        strings, durations), validation/normalisation (emails, slugs, units), text
+        transforms (word frequency, wrapping, templating), data reshaping
+        (group/join/pivot over lists of dicts), and small business logic (pricing
+        tiers, retry backoff, pagination). Is that the right frontier, or does the
+        literature support going further — I/O-shaped tasks with mocked boundaries —
+        without the reward degrading into something a model can game?
 
-    Q3 (ANY SEAT). Where else does this pattern exist here that you can see and
-        I cannot? I am asking for the sweep, not the instance.
+    Q3 (THE PHD). THE RULER IS MADE OF THE SAME MATH, and this is the part I think
+        I would get wrong alone. eval.py's HELD_OUT is gcd, is_prime, reverse_words,
+        rle, flatten, nth_fib, count_vowels, kadane, rotate, dedup — also algorithmic
+        puzzles, and confirmed disjoint from SEED_TASKS. If I diversify training but
+        not eval, I am measuring transfer from realistic tasks to LeetCode, and a
+        genuine improvement could read as a null result. My instinct is that the
+        ruler has to move in the same direction and then be re-frozen, reporting the
+        old set as a second number so the change is visible rather than hidden. But
+        a moving ruler measures nothing, and iteration-0 was scored on the old one.
+        Rule on it: move both and re-baseline, or freeze the ruler and accept that
+        it answers a narrower question than the one being asked?
 
   NON-CLAIMS:
-    - NOT claiming the three fixes generalise. Each closed one instance.
-    - NOT claiming val_frac saturation is fixed. It is not; finding 3a is open.
-    - NOT claiming the permutation null or noise-floor utility exist. Neither
-      is built.
-    - NOT claiming the detector finds near-duplicates. Measured 0% on renamed
-      Python, now stated in the tool's own output.
-    - NOT claiming the launcher is tested by anyone but me on this machine.
+    - NOT claiming 13 tasks is too few. I have the skew number and no evidence
+      about what it actually costs in trained behaviour.
+    - NOT claiming diversification would improve anything. Nothing has trained on
+      a full-size base; the only run was a 0.5B stand-in smoke test (§40).
+    - NOT claiming the task categories in Q2 are testable as specified. None are
+      written. Each would need assert-based tests a wrong answer actually fails.
+    - NOT claiming eval.py measures capability rather than recall. Its own docstring
+      concedes the task shapes may overlap a base model's pretraining, which is why
+      it is only a RELATIVE instrument.
+    - NOT claiming the noise floor permits any of this to be measured yet. Ruler
+      cross-run std ~0.009; anything under roughly +/-0.03 is inside it, and the
+      shared noise-floor utility is still unbuilt.
+    - NOT asking for code. Advice only, per the roles block.
 
-  CLOSED-CLASS CLAIM + RED WITNESS (the one thing I assert):
-    Claim: how often you evaluate no longer affects what the model learns.
-    RED   eval_interval 248/249/250/251/252/500, same seed and data ->
-          final train loss spread 0.031166.
-    GREEN dedicated eval Generator -> spread 0.000000, identical at every
-          interval.
-    Scope: measured on a 2-layer 128-wide model, 300 steps, this corpus, CUDA.
+  CLOSED-CLASS CLAIM + RED WITNESS (the one thing I assert this round):
+    Claim: training cannot run on preference data that has not been re-verified
+           bidirectionally against the exact bytes on disk.
+    RED   pre-gate receipt -> "GATE: receipt schema is None, this code needs 2",
+          exit 1. Tampered training file -> "CONTENT CHANGED since verification",
+          verified 85fc0bdc... vs on-disk 80cca364..., exit 1.
+    RED   poisoned pair (chosen/rejected swapped) -> verifier reports
+          "chosen_does_not_pass,rejected_incorrectly_passes"; a receipt carrying
+          violations>0 is REFUSED.
+    GREEN "[gate] verified receipt OK - dpo_pairs_capped.jsonl (918 pairs);
+          0 violations, hashes match", then execution proceeds to import torch.
+    Scope, stated because it is the weak part: enforced at TWO call sites,
+    train_native.py and train_dpo.py, which are the only trainers in the repo
+    today. A new trainer that does not call dataset_gate.require_verified is NOT
+    covered by anything automatic. This is a chokepoint by convention, not by
+    construction — and that is itself a candidate instance for #13's Q3 sweep.
 
 --------------------------------------------------------------------------------
 1. WHAT THIS IS
