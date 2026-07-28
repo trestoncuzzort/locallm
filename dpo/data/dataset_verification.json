@@ -1,0 +1,80 @@
+{
+  "schema": 2,
+  "total_pairs": 1269,
+  "total_rows_across_files": 2190,
+  "violations": 0,
+  "violation_detail": [],
+  "per_tid": {
+    "atoi": {
+      "n": 231,
+      "bad": 0
+    },
+    "lps": {
+      "n": 124,
+      "bad": 0
+    },
+    "two_sum": {
+      "n": 64,
+      "bad": 0
+    },
+    "simplify_path": {
+      "n": 126,
+      "bad": 0
+    },
+    "spiral": {
+      "n": 150,
+      "bad": 0
+    },
+    "decode_ways": {
+      "n": 240,
+      "bad": 0
+    },
+    "balanced": {
+      "n": 43,
+      "bad": 0
+    },
+    "merge_intervals": {
+      "n": 14,
+      "bad": 0
+    },
+    "next_permutation": {
+      "n": 195,
+      "bad": 0
+    },
+    "multiply_strings": {
+      "n": 41,
+      "bad": 0
+    },
+    "three_sum": {
+      "n": 29,
+      "bad": 0
+    },
+    "word_break": {
+      "n": 7,
+      "bad": 0
+    },
+    "roman": {
+      "n": 5,
+      "bad": 0
+    }
+  },
+  "files": {
+    "dpo_pairs.jsonl": {
+      "sha256": "ff78db763a773336c16ccfec23f3d4a68ab132a9723b0874f5cf5f3ca30811a5",
+      "pairs": 1234,
+      "violations": 0
+    },
+    "dpo_pairs_capped.jsonl": {
+      "sha256": "85fc0bdc23bf36701db851dd01dcd4b1d5f02e610ccdfc668908cc32b4655ae6",
+      "pairs": 918,
+      "violations": 0
+    },
+    "repair_pairs.jsonl": {
+      "sha256": "9eaa4666ad2b80eb6bd27a88a9b701d7054a1ca979fdb0c7efcdff4b6353e92f",
+      "pairs": 38,
+      "violations": 0
+    }
+  },
+  "known_hard": [],
+  "reconcile_contradictions": {}
+}

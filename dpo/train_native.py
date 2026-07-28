@@ -1,0 +1,164 @@
+#!/usr/bin/env python3
+"""train_native.py — Windows-native QLoRA DPO, no Unsloth (avoids triton/xformers).
+
+Runs in .venv-train (Python 3.11 + torch cu121). Model-agnostic: base model, LoRA
+targets, and seq length come from config.py ($SRLM_MODEL / $SRLM_HF_BASE).
+
+Run 1 discipline: DPO on the verified frontier pairs only; the 38
+repair pairs are EXCLUDED by default (single variable). Pass --include-repair to add.
+
+    .venv-train\\Scripts\\python train_native.py            # frontier pairs only
+    .venv-train\\Scripts\\python train_native.py --include-repair
+
+Output: dpo_adapter_native/  (LoRA adapter only). Nothing is ever merged: the
+adapter is applied at inference via Ollama's ADAPTER instruction against the
+untouched base GGUF. See export_adapter.py.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+from pathlib import Path
+
+import config
+import dataset_gate
+
+HERE = Path(__file__).parent
+M = config.MODEL
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--include-repair", action="store_true",
+                    help="also train on data/repair_pairs.jsonl (default: off)")
+    ap.add_argument("--epochs", type=float, default=1.0)
+    ap.add_argument("--max-steps", type=int, default=-1,
+                    help="cap optimizer steps (smoke test); -1 = full epochs")
+    ap.add_argument("--limit", type=int, default=0,
+                    help="use only first N pairs (smoke test); 0 = all")
+    ap.add_argument("--lr", type=float, default=5e-6,
+                    help="from the alignment-handbook zephyr QLoRA-DPO recipe; "
+                         "replaces an earlier unsourced 8e-6 default")
+    ap.add_argument("--out", default=str(HERE / "dpo_adapter_native"))
+    ap.add_argument("--raw-pairs", action="store_true",
+                    help="train on the uncapped dpo_pairs.jsonl instead of the "
+                         "918-pair capped file (NOT the run-1 configuration)")
+    args = ap.parse_args()
+
+    if not M.trainable:
+        raise SystemExit(f"No HF base for '{M.ollama_tag}'; set SRLM_HF_BASE.")
+
+    # Run 1 trains from the CAPPED, stratified 918-pair file, not the raw
+    # 1,234. The cap is the attribution guard — a ruler drop on the 54%-skewed raw
+    # set cannot be distinguished from three-template overfit. Build it with
+    # build_training_set.py and record its sha256 in the prereg.
+    #
+    # Resolved BEFORE the heavy imports so the data gate below fails in a second
+    # instead of after a 16 GB model load.
+    capped = HERE / "data" / "dpo_pairs_capped.jsonl"
+    if args.raw_pairs:
+        files = [str(HERE / "data" / "dpo_pairs.jsonl")]
+        print("[train] WARNING: --raw-pairs — training on the UNCAPPED set. "
+              "This is not the run-1 configuration.")
+    elif capped.exists():
+        files = [str(capped)]
+    else:
+        raise SystemExit(
+            f"Missing {capped.name}. Run: python build_training_set.py\n"
+            f"(or pass --raw-pairs to deliberately train on the uncapped set)")
+    rp = HERE / "data" / "repair_pairs.jsonl"
+    if args.include_repair and rp.exists():
+        files.append(str(rp))
+
+    # THE GATE. Every pair in every file about to be trained on must have been
+    # re-verified bidirectionally (chosen passes / rejected fails) against the
+    # exact bytes on disk. No bypass flag: one would make the guarantee false.
+    dataset_gate.require_verified(files, HERE / "data")
+
+    import torch
+    from datasets import load_dataset
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+    from peft import LoraConfig, prepare_model_for_kbit_training
+    from trl import DPOConfig, DPOTrainer
+
+    print(f"[train] base={M.hf_base} targets={M.target_modules} "
+          f"cuda={torch.cuda.is_available()} "
+          f"gpu={torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'CPU!'}")
+    if not torch.cuda.is_available():
+        raise SystemExit("CUDA not available in venv — check the torch cu121 install.")
+
+    tok = AutoTokenizer.from_pretrained(M.hf_base)
+    if tok.pad_token is None:
+        tok.pad_token = tok.eos_token
+
+    # The unsloth *-bnb-4bit repos are standard bitsandbytes NF4 checkpoints;
+    # transformers loads them directly (quant config is embedded).
+    model = AutoModelForCausalLM.from_pretrained(
+        M.hf_base, device_map={"": 0}, torch_dtype=torch.bfloat16)
+    model = prepare_model_for_kbit_training(model)
+    model.config.use_cache = False
+
+    peft_cfg = LoraConfig(
+        r=16, lora_alpha=32, lora_dropout=0.05, bias="none",
+        target_modules=M.target_modules, task_type="CAUSAL_LM")
+
+    ds = load_dataset("json", data_files=files, split="train")
+    keep = {"prompt", "chosen", "rejected"}
+    ds = ds.remove_columns([c for c in ds.column_names if c not in keep])
+    if args.limit:
+        ds = ds.select(range(min(args.limit, len(ds))))
+    # Wrap the prompt in this model's own chat template (correct across models).
+    if getattr(tok, "chat_template", None):
+        ds = ds.map(lambda ex: {"prompt": tok.apply_chat_template(
+            [{"role": "user", "content": ex["prompt"]}],
+            tokenize=False, add_generation_prompt=True)})
+    print(f"[train] {len(ds)} pairs from {[Path(f).name for f in files]}")
+
+    cfg = DPOConfig(
+        output_dir=args.out,
+        per_device_train_batch_size=2,
+        gradient_accumulation_steps=8,          # effective batch 16
+        num_train_epochs=args.epochs,
+        max_steps=args.max_steps,
+        learning_rate=args.lr,
+        beta=0.1,
+        rpo_alpha=1.0,              # DPO+NLL. Without this the NLL branch in
+                                    # TRL 0.12.2's dpo_trainer never executes and
+                                    # chosen-likelihood can fall while margin grows
+                                    # (Pal 2024, arXiv:2402.13228; Pang 2024, 2404.19733)
+        lr_scheduler_type="cosine",  # cosine, not TRL's default linear
+        warmup_ratio=0.1,
+        bf16=True,
+        optim="adamw_bnb_8bit",     # NON-paged (paging never fires under the
+                                    # VRAM assert and is the least-tested path here)
+        logging_steps=5,
+        save_strategy="no",
+        max_length=1024,            # 1024/512, not config.max_seq's 2048/1024
+        max_prompt_length=512,
+        report_to="none",
+    )
+    trainer = DPOTrainer(model=model, args=cfg, train_dataset=ds,
+                         processing_class=tok, peft_config=peft_cfg)
+    trainer.train()
+    trainer.save_model(args.out)
+    print(f"[train] adapter saved to {args.out}")
+
+    # NOTHING IS MERGED. The old --merge path called merge_and_unload() on the
+    # 4-bit model and labelled the output "fp16"; it was deleted rather than
+    # fixed. Export is: convert_lora_to_gguf.py -> Ollama's ADAPTER
+    # instruction, applying the adapter at inference against the untouched base.
+    # See export_adapter.py. Do not reintroduce a merge step here.
+
+    # Record what ran, for the preregistration trail.
+    (Path(args.out) / "run_meta.json").write_text(json.dumps({
+        "base": M.hf_base, "ollama_tag": M.ollama_tag, "pairs": len(ds),
+        "include_repair": args.include_repair, "epochs": args.epochs,
+        "lr": args.lr, "beta": 0.1, "targets": M.target_modules,
+        "rpo_alpha": 1.0, "lr_scheduler_type": "cosine",
+        "optim": "adamw_bnb_8bit", "max_length": 1024, "max_prompt_length": 512,
+        "lora_r": 16, "lora_alpha": 32, "lora_dropout": 0.05,
+    }, indent=2))
+
+
+if __name__ == "__main__":
+    main()
