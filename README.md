@@ -271,3 +271,9 @@ tools already. This is the other thing: a model that has read **only** what you 
 that started as random numbers on your machine, and whose every line you can read.
 
 It is small. It is yours. It is honest about what it is.
+
+## License
+
+MIT — see [LICENSE](LICENSE). Copyright (c) 2026 Treston Malachi Cuzzort.
+
+Use it, change it, ship it, sell it. Keep the copyright notice.
