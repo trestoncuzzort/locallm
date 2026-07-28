@@ -5346,3 +5346,68 @@ NOT CLAIMED: that 30.4% is the settled rate either. Stated so the next revision 
 not mistaken for a surprise.
 
 standing by for next DIRECTIVE
+
+--------------------------------------------------------------------------------
+51. EXECUTOR LOG  (2026-07-28 - SCREEN COMPLETE. 30 admitted tasks, all in band.
+    The replacement instrument now has a candidate set.)
+--------------------------------------------------------------------------------
+RESULT, MEASURED:
+    screened          121 candidates
+    ADMITTED           30   24.8%   <- target reached, run stopped early
+    floor (0/8)        39   32.2%
+    ceiling (8/8)      36   29.8%
+    outside band       16   13.2%
+    wall time        43.2 min   (21.4 s per candidate)
+
+ADMITTED SET PROPERTIES - this is the number that matters, because the whole point
+was an instrument that can register a change:
+    base pass rate   min 0.23   median 0.42   max 0.75
+    every admitted task inside [0.2, 0.8]: TRUE (checked, not assumed)
+Contrast the instrument this replaces: 6 of its 10 tasks sat at exactly 1.000 across
+all 57 logged runs and could not move in either direction. The new set has 30 tasks
+with a median near the middle of the band, which is where variance - and therefore
+sensitivity - is greatest.
+
+THIRD PREDICTION MISS IN THREE ENTRIES, recorded because the pattern is the point.
+Section 50 projected the target at "roughly candidate 99"; it actually took 121. The
+cause is visible in the drift I had already flagged: the admit rate fell steadily as
+the sample grew.
+    at n=24   33.3%
+    at n=46   30.4%
+    at n=121  24.8%   <- final
+Each projection was made from the rate to date and each was optimistic, because the
+rate was still falling. Section 49 said "the number that counts is the one at the
+end" and then section 50 projected from a mid-run number anyway. The honest form is
+that early admit rates on a shuffled pool are biased by nothing except sample size,
+and I should have widened the projection rather than restating it as a point value.
+24.8% is now a completed-run figure, not an estimate.
+
+WHAT THIS DOES AND DOES NOT MEAN:
+  DOES - the authoring job is definitively dead. 121 candidates screened by machine
+    produced 30 usable tasks in 43 minutes. Hand-writing 30 in-band tasks would have
+    meant authoring 60-90 and screening them anyway.
+  DOES NOT - this is a screened CANDIDATE SET, not a wired-in ruler. Nothing has
+    replaced HELD_OUT, no baseline has been scored on the new set, and no claim about
+    the model has changed. The 30 tasks are recorded in data/screen_results.jsonl
+    with their full task definitions under the "task" key.
+
+REMAINING BEFORE THE NEW INSTRUMENT IS USABLE, in order:
+  1. Confirm the 30 are disjoint from SEED_TASKS by CONTENT, not just by id. The ids
+     are ace_* so collision is impossible, but skill overlap is not - section 43's
+     non-claim on the old set (reverse_words/rle/dedup overlap what SEED_TASKS
+     teaches) applies here too and is not answered by an id check.
+  2. Score iteration-0 on the new set to establish the baseline the whole thing
+     exists to provide.
+  3. Re-derive the noise floor ON THE NEW SET. The 0.0199 sd and +/-0.055 bar are
+     properties of the OLD ten-task instrument and do not transfer. A 30-task set
+     with a median near 0.42 should be substantially tighter, but "should be" is not
+     a measurement and the published numbers must not be reused.
+  4. Keep the old ten as a legacy line, per the section 43 ruling and Recht et al.
+     2019 - new test sets shift absolute numbers while preserving model ORDERING, so
+     the old set stays informative for the 4 tasks that can actually move.
+
+NOT CLAIMED: that the new instrument is better. It has better STRUCTURAL properties
+(30 movable tasks vs 4, median mid-band vs 6 pinned at ceiling). Whether that
+translates into a tighter measured noise floor is item 3 and is unmeasured.
+
+standing by for next DIRECTIVE
