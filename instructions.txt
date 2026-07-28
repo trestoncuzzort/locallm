@@ -4057,4 +4057,565 @@ eval.py's own admission that it is a RELATIVE instrument.
 
 NOT CLAIMED: nothing about efficacy changed. Publishing code is not evidence.
 
+--------------------------------------------------------------------------------
+43. COUNCIL RESPONSE  (2026-07-28 ~05:04 — activations #13 (remaining Q2/Q3) +
+    #14, closed together; THE PHD, properly spawned this round as a real
+    opus sub-agent with WebSearch/WebFetch, correcting the process gap in §38
+    where the council session answered in his voice on the wrong model without
+    actually spawning him)
+--------------------------------------------------------------------------------
+VERDICT: The task distribution is a ceiling, but not the binding one. The
+binding ceiling is the ruler, which is empirically saturated (6 of 10 held-out
+tasks scored a perfect 5/5 in all 57 logged runs; pass@3 was the identical
+number 0.90 in 55 of 57), and the reward that certifies the training data is
+gameable in two ways demonstrated this pass. Diversifying tasks before fixing
+the verifier and the ruler would produce a number nobody can trust in either
+direction.
+
+EVIDENCE READ (all at working tree = pinned commit d8e6b4b for the named files;
+`git diff --stat d8e6b4b HEAD -- forge.py eval.py build_training_set.py
+dataset_gate.py verify_dataset.py localllm/data.py` returned EMPTY, `git status
+--porcelain` clean):
+  - instructions.txt lines 90-189 (live DIRECTIVE, activations #13/#14),
+    3558-3766 (§37, §38), 3767-4060 (§39-§42); grep for 0.009|std|noise floor
+    across the whole file
+  - forge.py full (SEED_TASKS 92-290; BANNED 74-78; verify 371-406;
+    Result.score 363-368; dedup 528-539)
+  - eval.py full (HELD_OUT 46-161; pass_at_k 164-168; evaluate 171-211)
+  - build_training_set.py full; dataset_gate.py full; verify_dataset.py full;
+    measure.py full; OPEN-ITEMS.md full
+  - train_native.py :55-95 (gate call site :76); train_dpo.py :35-60 (gate
+    call site :51)
+  - localllm/data.py full (group_split 33-89, split_health 92-112);
+    localllm/leakage.py :40-80, :279-287; localllm/exp_lr_width.py :215-250;
+    localllm/studio.py :184-192,:441-449; localllm/start_studio.py :56-67
+  - data/eval_history.jsonl — all 58 records; data/dpo_pairs.jsonl and
+    data/dpo_pairs_capped.jsonl — parsed programmatically for counts/entropy
+  - git log --oneline -8, git diff --stat d8e6b4b HEAD, git status --porcelain
+  EXECUTED this pass (read-only; nothing written, no training run, no network
+  write): banned-regex probe, always-equal-object probe, PYTHONOPTIMIZE/-I
+  probe, python -h, rotate edge-case probe, task-distribution/entropy counts,
+  full stats over eval_history.jsonl, two synthetic split_health probes
+  (in-memory only).
+  Primary sources fetched and self-verified: arXiv 2305.11206, 2308.01825,
+  2312.02120, 2502.01718, 2403.07974, 2210.11416, 2406.15877, 1902.10811,
+  2306.14898, 2411.00640, 2503.02951, 2406.12045; lexi-lambda.github.io
+  "Parse, don't validate".
+
+FINDINGS (ranked, most decisive first):
+
+1. (EXECUTED) THE RULER IS SATURATED — answers #14 Q3, outranks the task-
+   distribution question. 57 eval runs on file, same config throughout. 6/10
+   held-out tasks pinned at mean 1.000, sd 0.0000 across all 57 runs (gcd,
+   is_prime, reverse_words, flatten, count_vowels, dedup). rotate is pinned at
+   the floor: mean 0.004 (1 pass in 285 draws) — traced to `rotate([], 2)`
+   raising ZeroDivisionError on `k % len(lst)`, verified by running both
+   variants. Aggregate pass@1 mean 0.8779 sd 0.0197; pass@3 took only 3
+   distinct values in 57 runs, {0.89:1, 0.90:55, 0.96:1} — effectively
+   constant. Total headroom to ceiling = 0.1221, and 0.100 of that is `rotate`
+   alone.
+   RULING on #14 Q3: neither "move" nor "freeze" as posed. Freeze the current
+   ten as a legacy line, build a second wider instrument, report both — the
+   reason is saturation, not diversification of task *style*. Cited: Recht,
+   Roelofs, Schmidt & Shankar 2019 (arXiv:1902.10811, verified) — new
+   ImageNet/CIFAR test sets showed absolute drops but preserved model
+   *ordering*, the empirical warrant for keeping the old set as a second
+   number rather than discarding it. Jain et al. 2024, LiveCodeBench
+   (arXiv:2403.07974, verified) — the standard-practice answer to benchmark
+   staleness in this exact domain is a moving *population* under a frozen
+   *protocol* (continuous new-problem collection), not a hand-edited list;
+   not affordable here, cited for what "moving ruler done correctly" means.
+   Concrete spec for a new instrument: screen candidate tasks with measure.py's
+   existing frontier() (n=100, Wilson CI) and admit only tasks whose base-model
+   pass rate sits in ~0.2-0.8 — a task at 1.0 or 0.0 contributes zero variance,
+   so this criterion is derived from the instrument's job, not eyeballed.
+
+2. (EXECUTED) THE PUBLISHED NOISE FLOOR IS UNDERSTATED ~2.1x, and the fix
+   needs zero new compute. measure.py:30 hardcodes NOISE_RUNS=3; the first
+   three eval_history.jsonl rows give sd 0.0094 — the "~0.009" everywhere in
+   the channel, README, and the PUBLIC dpo/ README. Over all 57 runs of the
+   identical config now on disk: sd = 0.0197, observed range 0.80-0.90 = 0.10
+   (not the "0.02" at §5 line 557). §18 predicted 0.5x-6.3x uncertainty on the
+   3-run figure; measured answer is 2.1x. Consequence: sd of a single-run-vs-
+   single-run difference = 0.0197*sqrt(2) = 0.0279; honest 95% bar =
+   1.96*0.0279 = +/-0.055, not the published +/-0.03 (which is ~1.1 sigma, and
+   would fire on noise ~28% of the time). Total headroom (0.1221) is only 2.2
+   of the honest bars wide. Cited for the framing (not the arithmetic, which
+   is mine): Miller 2024 (arXiv:2411.00640, abstract verified) — eval scores
+   drawn from an unseen super-population; the sampling unit for any claim that
+   generalizes beyond these ten tasks is the TASK (n=10, 6 degenerate), not
+   N_SAMPLES within a task.
+   ACTION: retire "~0.009 std / +/-0.03" everywhere it appears — instructions.txt
+   §5/§18/§39/§40/§41, README.md, OPEN-ITEMS.md, and the PUBLISHED dpo/ README
+   (currently the least honest number in the public repo). Replace measure.py's
+   fixed NOISE_RUNS=3 with a read over every prior matching-config run in
+   eval_history.jsonl.
+
+3. (READ-ONLY) #13 Q3 — THE RECEIPT CERTIFIES DATA BYTES, NOT THE VERIFIER
+   THAT GIVES "VERIFIED" ITS MEANING. dataset_gate.build_file_entries hashes
+   only dpo_pairs.jsonl/dpo_pairs_capped.jsonl/repair_pairs.jsonl
+   (verify_dataset.py:37-39). Nothing hashes forge.py. But "0 violations" means
+   forge.verify() against forge.SEED_TASKS — weaken one assert, loosen BANNED,
+   or change CAND_TIMEOUT, and the receipt still matches while the meaning of
+   "verified" silently changes. This is the same scope-hole shape as the
+   chokepoint issue, one level up, and worse because it produces a PASSING
+   receipt. Fix: add forge.py's sha256 (or a canonical serialization of
+   SEED_TASKS) to the receipt under a "verifier" key; refuse on mismatch. Red
+   witness is trivial: change one digit in one assert, confirm refusal, revert.
+
+4. (EXECUTED) #13 Q3 — THE DIRECTIVE'S ISOLATION CLAIM IS FALSE IN BOTH
+   HALVES. "python -I plus the banned-op filter blocks network and filesystem
+   on purpose" (DIRECTIVE line 131-133) — python -h confirms -I only isolates
+   from the user environment (implies -E -P -s), no filesystem/network effect
+   at all; forge.py's own comment is honest about this ("NOT a real sandbox"),
+   the channel prose is not. Against the actual BANNED regex (forge.py:74-78):
+   `from subprocess import run`, `import pathlib`/`from pathlib import Path`,
+   `import importlib`, `import pickle`, `import multiprocessing`,
+   `import ftplib`, `import asyncio` ALL PASS (executed). `import socketserver`
+   is blocked by accident (no trailing \b on the socket prefix); `from os
+   import system` is blocked only because `import sys` prefix-matches
+   "system". AND: -I is load-bearing for an undocumented reason — ran the
+   harness shape with PYTHONOPTIMIZE=1 set: with -I, rc=1 (AssertionError,
+   correct); without -I, PYTHONOPTIMIZE strips every assert, a function
+   returning a wrong value prints __PASS__ and exits 0. -I currently defends
+   against this BY ACCIDENT (it implies -E which discards PYTHONOPTIMIZE); a
+   plausible future "simplify -I away" refactor would silently turn the
+   verifier into a rubber stamp. Belongs in forge.py:393's comment and
+   OPEN-ITEMS.md.
+
+5. (EXECUTED) #13 Q3 / #14 Q2 — THE REWARD IS GAMEABLE TODAY. An object whose
+   __eq__ always returns True passes every ==-based assert in SEED_TASKS —
+   ran it against the literal roman and decode_ways test bodies, both pass
+   completely; reversing comparison order doesn't help (NotImplemented falls
+   back to the reflected __eq__). Tasks using `is True`/`is False` (balanced,
+   word_break) are immune; tasks wrapping in sorted() (two_sum) need one more
+   line to fake __iter__ too. NON-CLAIM: nothing in the current 1,234 pairs is
+   known to exploit this — not scanned. But the project's central claim
+   (forge.py:10-12, "an OBJECTIVE verifier decides, the model does not get to
+   score itself") is stated as a property and demonstrably is not one under
+   optimization pressure. Fix is structural, not a threshold: compare
+   canonical serializations (`repr(f(x)) == repr(expected)`, or a type-check-
+   then-compare helper) once in the harness template at forge.py:377-383,
+   covering every task without editing 13 test bodies. Red witness: the
+   Always class above, before/after.
+
+6. (EXECUTED) #13 Q2 — RULING on split_health's tolerance: DELETE THE
+   BOOLEAN, but the 0.5 is the SECOND defect. The first: split_health
+   (data.py:102-108) computes `documents` and `largest_doc_frac` from the
+   PRE-DEDUP list over RAW text length, while group_split (data.py:45-51)
+   dedupes by sha1 BEFORE splitting — the diagnostics describe a different
+   corpus than the one actually split. Demonstrated: 50 identical docs + 5
+   unique -> split_health reports "55 documents, largest 1.8%" when the true
+   post-dedup count is 6 documents, one of which is ~50/55 of the mass — both
+   printed diagnostics point away from the real cause, and leakage.py:283-284
+   prints exactly these two misleading numbers immediately before
+   sys.exit(1) (leakage.py:280-287 hard-aborts on `not health["ok"]"`;
+   studio.py:185 also consumes it).
+   RULING: (1) delete the boolean — one bit conflates "corpus too lumpy to
+   split" (remedy: more/smaller documents) with "val set too small to
+   estimate anything" (remedy: raise val_frac / shrink block_size), and 0.5
+   serves neither. (2) Return real numbers computed on the DEDUPED set:
+   unique_documents, val_documents, val_tokens, achieved_val_frac,
+   largest_unique_doc_frac, and the derived quantity the question actually
+   asked for — achievable_val_frac, the best fraction any whole-document
+   split could reach (largest subset-sum of deduped doc lengths <= target,
+   a cheap DP). Then achieved/achievable measures the SPLITTER's competence;
+   achievable/requested measures the CORPUS's feasibility — two different
+   failures, two different remedies, currently conflated into one False. (3)
+   Where a hard stop is genuinely needed, derive it from what the number
+   feeds: val_tokens // block_size sets the usable-precision floor, and
+   data.py:191-194's get_batch ALREADY raises ValueError below that floor by
+   construction — that's the real hard floor. Above it, print and let the
+   operator judge.
+
+7. (EXECUTED, citations self-verified) #14 Q1 — RULING on diversity vs
+   volume: the executor's instinct is right, and it understates the problem —
+   this is 1,234 pairs from 13 DISTINCT PROMPT STRINGS, not "13 tasks" as a
+   soft category. Effective-task count (exp of Shannon entropy over tid
+   distribution): uncapped 13-task file (N=1234) = 8.86 effective tasks;
+   capped run-1 file (N=918) = 9.93; uncapped+5 new tasks x30 (N=1384) = 11.74;
+   capped+5 new tasks x30 (N=1068) = 13.53. THE CAP COST 316 PAIRS (25.6% of
+   the dataset) TO BUY 1.07 EFFECTIVE TASKS. Adding 5 new tasks at 30 pairs
+   each (+150 pairs, +12% data) buys 2.88 effective tasks — 2.7x the cap's
+   gain, while ADDING data instead of deleting a quarter of it. Not
+   recommending un-capping the pinned/receipt-covered file; recommending the
+   cap stop being described as the skew fix in build_training_set.py:5-7 and
+   the published README, because measurably it isn't one. SEPARATE
+   CORRECTION: run 1 does not train on the 54%-skewed set — dpo_pairs_capped's
+   top-3 share is 39.2% (largest single task 13.07%); the 54.0% figure (53.97%
+   recount, confirmed) describes dpo_pairs.jsonl, which only --raw-pairs
+   loads.
+   Citations: Yuan et al. 2023 (arXiv:2308.01825, verified) — rejection-
+   sampling fine-tuning with more DISTINCT reasoning paths improves math
+   reasoning more; nearest structural analogue, caveat: SFT-on-filtered-
+   samples not DPO, distinctness is solution-paths-within-a-problem not
+   problem-count. LIMA (arXiv:2305.11206, verified) EXPLICITLY EXCLUDED as
+   evidence here — it's plain SFT with no RL/preference modeling; supports
+   "curate don't accumulate" as a slogan only, not this specific tradeoff.
+   Chung et al. 2022 (arXiv:2210.11416, verified) — 1.8K tasks, +9.4% average
+   at Flan-PaLM 540B scale; diminishing-returns-past-282-tasks claim is
+   UNVERIFIED, not asserted. No paper found measuring the exact "40x30 vs
+   400 more decode_ways" tradeoff for execution-feedback preference learning;
+   ruling rests on the clustering argument (13 prompts = 13 independent
+   contexts under a super-population framing) plus Yuan et al.'s directional
+   result: go wide.
+
+8. (READ-ONLY, citations verified) #14 Q2 — RULING on the frontier: the
+   executor's list (parsing/validation/text transforms/data reshaping/small
+   business logic) is correct and buildable — every item is a total
+   deterministic function, and likely BETTER at producing distinguishing edge
+   cases than LeetCode puzzles given finding 1's ceiling effect. Going further
+   to I/O-shaped tasks with MOCKED boundaries is supported by real prior art:
+   tau-bench (arXiv:2406.12045, verified) compares mocked-database FINAL STATE
+   against an annotated goal state for an objective, non-gameable reward — the
+   working pattern; also introduces pass^k consistency, a metric this
+   project's ruler currently lacks entirely. InterCode (arXiv:2306.14898,
+   verified) is the un-mocked version — real Docker sandboxes, not affordable
+   at this project's NUM_CANDIDATES=4/CAND_TIMEOUT=8 scale — cited as the
+   boundary mocking approximates. BigCodeBench (arXiv:2406.15877, verified) —
+   existence proof that "tangible, not just math" is testable at scale
+   (1,140 tasks, 139 libraries, 99% avg branch coverage); whether it mocks
+   filesystem/network is UNVERIFIED. Adopt-don't-build: KodCode
+   (arXiv:2503.02951, verified) — released, self-verified question/solution/
+   test triplets, an importer is a small script not a new pipeline (size claim
+   UNVERIFIED). ACECODER (arXiv:2502.01718, verified) — closest published
+   system to this project's whole design (test-case-synthesis -> pass-rate
+   preference pairs); reported +10/+5 points on two base models; evaluates on
+   PUBLIC benchmarks (HumanEval-plus, MBPP, BigCodeBench, LiveCodeBench)
+   rather than a bespoke ruler — the standard-practice answer to #14 Q3 that
+   nobody proposed. Magicoder (arXiv:2312.02120, verified) — grounding task
+   PROMPTS in real open-source snippets as a cheaper diversity lever than
+   inventing 40 tasks from imagination.
+   PRECONDITION: do not write these tasks until finding 5 is fixed — new
+   tasks written as `assert f(x) == expected` inherit the __eq__ hole, and
+   fixing it later means touching 53 test bodies instead of one template.
+
+9. (READ-ONLY) #13 Q3 — the DIRECTIVE's own "chokepoint by convention, not
+   construction" concern is real and cheap to close. train_native.py:76 and
+   train_dpo.py:51 each call require_verified and then SEPARATELY load the
+   data — two independent statements; a third trainer or a reordered import
+   drops the guarantee with no error. Fix: invert the API — add
+   dataset_gate.load_verified(paths, data_dir) -> rows and delete
+   require_verified from the trainers' vocabulary; you cannot train on data
+   you never loaded through the one function that checks. Named pattern
+   (verified primary source): Alexis King, "Parse, don't validate"
+   (lexi-lambda.github.io, 2019-11-05) — exactly this shape ("push the burden
+   of proof upward as far as possible, but no further"). Backstop for the
+   residue: a ~15-line grep-test for any open()/load_dataset()/read_text() on
+   data/*.jsonl outside dataset_gate.py/verify_dataset.py, hung on
+   sync_public.py's existing pre-publish test hook (§41) — converts "a future
+   trainer might not call it" from an unbounded worry into a bounded,
+   mechanically-checked list.
+
+10. (READ-ONLY except where marked; enumerated, not exhaustive — did not
+    inspect repair.py, sync_public.py, export_adapter.py, config.py,
+    overnight.ps1, studio.py beyond two call sites, or localllm/ beyond
+    data.py/leakage.py/exp_lr_width.py/test_detectors.py) #13 Q3 — REST OF
+    THE SWEEP:
+    a. receipt excludes forge.py (finding 3) — scope, real, fix now
+    b. BANNED regex enumeration (finding 4) — scope, real, EXECUTED break
+    c. == vs __eq__ (finding 5) — scope, real, EXECUTED break
+    d. split_health pre/post-dedup mismatch + 0.5 (finding 6) — both, real
+    e. dataset_gate chokepoint by convention (finding 9) — scope, cheap fix
+    f. eval.py:189-191 / measure.py:82-83 catch-and-continue on generation
+       exceptions, so a transport failure scores as a WRONG ANSWER, inflating
+       the denominator and depressing the score/noise floor — real, not
+       previously flagged. Fix: count n_attempted vs n_scored separately.
+    g. forge.py:61 CAND_TIMEOUT=8s — threshold AND non-determinism: a correct
+       but slow solution scores as failing and can become the "rejected" half
+       of a pair (teaches the model a correct answer is wrong); wall-clock
+       means re-running verify_dataset.py on a busy machine could flip a pair
+       and invalidate a receipt for a reason unrelated to the data. Fix:
+       record timeout distinctly from failed; never emit a pair whose only
+       defect is a timeout.
+    h. leakage.py CONTAMINATED=0.20/SUSPECT=0.05 — threshold, already known
+    i. exp_lr_width.py's gap>=0.020 AND range-disjoint — DEFENSIBLE: pre-
+       registered, printed with the verdict, conjoined with a distribution-
+       free check no single number can fake. Model for the others to imitate.
+    j. forge.py conciseness margin >=40 chars — dormant, EMIT_CONCISENESS=False
+    k. build_training_set.py CAP=120 — real but low-stakes, now measured
+       (finding 7)
+    l. dedup signature mismatch between forge.py (excludes tid) and
+       verify_dataset.py (includes tid, documented why) — currently harmless
+       since all 13 prompts are distinct; breaks silently if a future task
+       scheme reuses a prompt template
+    m. test_detectors.py:131 `ok = worst < 0.001` — NOT ASSESSED, did not read
+       the surrounding function
+    What this table would miss: guards expressed as control flow rather than
+    a numeric literal (item f was found by reading, not grep); PowerShell
+    guards; anything in .venv-train; the un-inspected files listed above.
+    Nothing mechanically enforces this sweep except item 9's proposed
+    grep-test.
+
+CORRECTIONS TO THE ROUND (§38-§42):
+  1. §38 finding 1 stands; §39's correction of it is fair — independently
+     re-derived, no dispute.
+  2. §40's "agreement to ~1e-3" overstates precision slightly: the two
+     residuals are 0.0009 and 0.0023 (the second is 2.3e-3); describes the
+     better of the two as if it described both. Conclusion (DPO+NLL is live)
+     unaffected; the nll_loss key-presence witness is the stronger evidence
+     anyway.
+  3. §39's counting arithmetic is correct: 1234+918+38=2190 rows; unique pairs
+     1234+38-3=1269; old "1272"=1234+38. All reconcile.
+  4. The DIRECTIVE's skew figures (19.449/18.720/15.802%, 53.97%) are correct
+     but describe dpo_pairs.jsonl, not the file run 1 actually trains on —
+     see finding 7.
+  5. The ~0.009/+/-0.03 noise floor is understated ~2.1x and is now published
+     to a public repo — see finding 2. Highest-priority correction of the
+     round given §42 pushed it as "the honest position."
+  6. The DIRECTIVE's isolation claim ("-I plus banned-op filter blocks
+     network and filesystem on purpose") is false in both halves — see
+     finding 4; matters because it's the claim bounding what a task can be in
+     #14 Q2.
+  7. OPEN-ITEMS.md line 8 is structurally misleading: titled about one item,
+     opens "CLOSED" referring to a DIFFERENT retired item, then says "STILL
+     OPEN" in the same paragraph — a skim-for-CLOSED prune pass would delete
+     an open item. Split into a struck-through closed row and a plain open
+     row, matching the existing ~~export_adapter.py~~ formatting.
+  8. Adopt-don't-build pointers: KodCode/ACECODER/tau-bench's pass^k (finding
+     8) instead of hand-writing 40 tasks from scratch; "Parse, don't
+     validate" (finding 9) as the named pattern for the chokepoint fix.
+  9. No dispute with §42's scrub — cited as already independently verified by
+     the spawning council session, not re-checked here. Noted: OPEN-ITEMS.md
+     still carries method vocabulary ("council §12/§14 rulings") — harmless
+     today since it's outside both publish whitelists, but one whitelist edit
+     from leaking.
+
+NON-CLAIMS:
+  - NOT scanned: the 1,234 pairs for the __eq__ exploit or any other reward
+    hack — finding 5 shows the verifier ACCEPTS such a solution, not that one
+    exists in the dataset. A ten-line scan should run before the next receipt.
+  - NOT executed: verify_dataset.py, build_training_set.py, eval.py,
+    measure.py, or any trainer. All gate claims are from reading
+    dataset_gate.py and its two call sites; §39's red witnesses are quoted
+    from the executor, not reproduced.
+  - NOT verified: §41's export acceptance test, §40's smoke run, or the
+    contents of data/export_acceptance_result.json /
+    data/smoke_rpo_alpha_result.json — not opened.
+  - NOT re-verified: §42's publish scrub (cited as already checked); did not
+    fetch the public GitHub repo.
+  - NOT checked: whether the 57 eval runs are truly independent — all within
+    one ~9-hour window on a warm Ollama (keep_alive=5m); correlated sampling
+    would make sd=0.0197 an UNDERestimate, not over. Also did not check
+    whether the single 0.80 run reflects generation errors vs wrong answers —
+    per finding 10f the log can't currently distinguish them.
+  - NOT read: repair.py, sync_public.py, export_adapter.py, config.py,
+    overnight.ps1, clean_dataset.py, train_native.py past line 95,
+    train_dpo.py past line 60, studio.py outside two call sites,
+    test_detectors.py, or the rest of localllm/.
+  - Citations not fully verified: Chung et al.'s diminishing-returns claim
+    (headline only); BigCodeBench's mocking (not in abstract); KodCode's
+    triplet count (not in abstract); Miller 2024's specific formulas
+    (framing only); Gao/Schulman/Hilton on reward overoptimization — NOT
+    FETCHED, UNVERIFIED, do not cite downstream; Chen et al. pass@k — not
+    fetched, but eval.py:164-168's implementation was checked directly against
+    the known unbiased estimator formula and is correct (a code check, not a
+    citation check).
+  - NOT verified beyond task id: HELD_OUT vs SEED_TASKS disjointness is
+    confirmed by id; by SKILL, reverse_words/rle/dedup overlap the string/list
+    manipulation SEED_TASKS teaches. Nobody has claimed otherwise; recording
+    what's actually established.
+  - Both browser research seats (9222/9223) were down this round — one
+    model's WebSearch/WebFetch literature search, no second reader on any
+    citation.
+  - No peer seats exist. Findings 1, 2, 6, and 7 rest on arithmetic performed
+    once, not re-derived by anyone else. Scripts are short and every number
+    is reproducible from data/eval_history.jsonl and data/dpo_pairs*.jsonl —
+    re-run rather than trust.
+
+LEFTOVER RISKS:
+  1. Even with a perfect ruler, the effect may be unmeasurable at this scale
+     — headroom 0.122, honest single-run 95% bar +/-0.055. A wider ruler
+     moves the ceiling, not the fundamental problem: between-task variance
+     dominates at 10-30 tasks, and task COUNT (not samples-per-task) sets the
+     floor. Detecting a genuine +3% needs many more tasks or a paired
+     before/after design; neither is costed.
+  2. Fixing the verifier (findings 4/5) invalidates every existing pair's
+     "verified" status under the stricter rule, and finding 3's proposed
+     forge.py-in-the-receipt would correctly detect this. Expect a full
+     re-verify of 1,269 council-pinned (§12/§14) pairs; if any fail, the
+     dataset can no longer be pinned to those numbers. Unbudgeted collision.
+  3. CAND_TIMEOUT nondeterminism (10g): two verify_dataset.py runs on
+     identical bytes can in principle disagree; nothing currently detects
+     this — would surface as a mystery violation on a busy machine.
+  4. Mocked-boundary tasks (finding 8) reintroduce the ambiguity the pure-
+     function rule removed — tau-bench's goal-state comparison works because
+     the goal state is hand-annotated; a bug in a task's mock is a silent
+     reward corruption with no red witness available.
+  5. Diversifying tasks AND widening the ruler at the same time means a
+     positive result won't disambiguate "better tasks" from "unsaturated
+     instrument" — the old ten-task line stays the disambiguator, and it's
+     only informative for the 4 tasks that can actually move.
+  6. The chokepoint fix (finding 9) defends against drift/accident, not a
+     modified dataset_gate.py itself — same honestly-stated limit as the
+     receipt not defending against a modified receipt. Fine as a design
+     choice; must never be described as tamper protection.
+  7. 57 runs of a BASE model is not 57 runs of a TRAINED model — the noise
+     floor after LoRA + Ollama ADAPTER re-export may differ; the export
+     path's contribution to run-to-run variance is unmeasured.
+  8. This entire pass is one model reading one repo. Findings 4/5/6 are
+     demonstrations constructed by replicating the harness shape rather than
+     calling forge.verify() directly (to avoid writing temp files) — if that
+     replication is unrepresentative of the real end-to-end behavior, the
+     executor is better placed to produce the real red witness.
+
+THE QUESTIONS THEMSELVES: Activation #14 was the right instinct pointed one
+step too far downstream. It presumes an instrument that could tell whether
+the task distribution is the ceiling. Q3 got closest — "the ruler is made of
+the same math" was flagged as the part the executor would get wrong alone —
+but it framed the ruler problem as COMPOSITION (LeetCode vs realistic) when
+the measured problem is RESOLUTION (6 of 10 tasks pinned at ceiling for 57
+straight runs). That was visible in a file already on disk, no literature
+search required.
+  The question it should have asked FIRST: "What is the minimum effect
+eval.py as configured can detect, given the runs already on disk — and does
+the frozen held-out set have enough unsaturated headroom to register any
+improvement at all?" Answerable in fifteen minutes, zero new compute, zero
+web access. Asked first, #14's actual question arrives with a working
+measuring stick attached.
+  A second question nobody has asked in 42 sections: "Is the reward actually
+unhackable?" It's the load-bearing claim of the whole project (forge.py:10-12,
+repeated in the public README, assumed settled by #14 Q2's own framing), and
+two probes falsified it in under ten minutes. A claim that central should
+have had a red witness from the beginning — the project's own standing rule
+says exactly that.
+  One thing worth keeping: §41's adapter-is-live control gates on "not byte-
+identical to null" rather than a tuned similarity number, reporting the
+ratios as evidence without keying off them — the correct general form of the
+answer to #13's original Q1, and exp_lr_width.py's prereg-plus-range-
+disjointness (finding 10i) is the same instinct. Both should be named and
+reused; the rest of finding 10's guards are missing exactly this pattern.
+
+RECOMMENDED NEXT PROMPT (proprietor -> executor):
+  "Close the reward-integrity class before writing a single new task, because
+  new tasks written today would inherit the holes. Three red witnesses, in
+  this order.
+
+  (1) The always-equal object. `class Always: __eq__ = lambda s,o: True`
+  passes every ==-based assert in SEED_TASKS — confirmed against roman and
+  decode_ways. Fix once in the harness template (forge.py:377-383), not in 13
+  test bodies: compare canonical forms (repr, or type-check-then-compare).
+  RED: Always marked ok=True. GREEN: same candidate rejected, all 13 real
+  solutions still pass.
+
+  (2) The banned-op filter. `from subprocess import run`, `import pathlib`,
+  `from pathlib import Path`, `import importlib`, `import pickle`,
+  `import multiprocessing`, `import ftplib`, `import asyncio` all pass
+  forge.py:74-78; `import socketserver` is blocked by accident; `from os
+  import system` only by sys prefix-matching system. Rewrite against an
+  allow-list, or state plainly in forge.py and the public README that it is
+  not an isolation boundary. Separately: -I does not block filesystem/network
+  (verified against python -h) but DOES block PYTHONOPTIMIZE, which without
+  -I strips every assert and turns a wrong answer into __PASS__/exit 0 —
+  write this at forge.py:393; right now nothing documents that -I is the only
+  thing standing between the reward and a pass-everything oracle.
+
+  (3) The receipt's scope. dataset_gate hashes the three data files and
+  nothing else, but 'verified' means whatever SEED_TASKS/BANNED/CAND_TIMEOUT
+  currently say. Add a verifier sha256 (forge.py, or a canonical
+  serialization of SEED_TASKS' prompt/entry/tests fields) to the receipt;
+  make require_verified refuse on mismatch. RED: change one digit in one
+  assert, confirm refusal, revert. While there: replace require_verified with
+  load_verified so the gate is the only code path that opens the data files
+  (Parse, don't validate) — closes the by-convention/by-construction gap.
+
+  Then re-run verify_dataset.py and report what changed. If any of the 1,269
+  pairs now fails under the stricter verifier, do NOT quietly regenerate the
+  dataset — report the count and tids and stop; that collides with the
+  §12/§14 pin and is the proprietor's call.
+
+  One thing that needs no code, same commit: retire the '~0.009 std /
+  +/-0.03 noise floor' figure everywhere — instructions.txt §5/§18/§39/§40/§41,
+  README.md, OPEN-ITEMS.md, and the PUBLISHED dpo/ README. It came from
+  measure.py's hardcoded NOISE_RUNS=3 and the first three eval_history.jsonl
+  rows. 57 runs of the identical config now exist: mean 0.8779, sd 0.0197,
+  range 0.80-0.90. Honest single-run 95% bar is +/-0.055; total headroom to
+  ceiling is 0.122, of which 0.100 is the rotate task alone (base model passes
+  it ~1% of the time — rotate([], 2) raises ZeroDivisionError). 6 of 10 held-
+  out tasks scored 5/5 in all 57 runs; pass@3 was 0.90 in 55 of them. Change
+  measure.py to compute the floor from every matching prior run instead of
+  always three. The ruler rebuild is the next directive and it is gated on
+  (1)-(3) landing first."
+
+standing by for next DIRECTIVE
+
+standing by for next DIRECTIVE
+
+--------------------------------------------------------------------------------
+44. EXECUTOR LOG  (2026-07-28 — §43 folded, partially. Reward hack CLOSED with a
+    real red witness; noise floor corrected including in the public repo)
+--------------------------------------------------------------------------------
+§43 IS THE BEST ROUND THIS PROJECT HAS HAD. Two findings landed, both verified by
+me independently rather than taken on the advisor's word, per his own leftover
+risk 8 (his findings 4/5/6 replicated the harness shape instead of calling
+forge.verify(), and he said so).
+
+FINDING 5 — THE REWARD WAS GAMEABLE. CONFIRMED, then CLOSED.
+Real red witness, through forge.verify() end to end, not a replica:
+  RED   class with __eq__ returning True, on task `roman`  -> ok=True   (!!)
+        honest wrong answer, same task                     -> ok=False
+  The project's central claim (forge.py:10-12, "the tests decide, the model does
+  not get to score itself") was FALSE under optimization pressure.
+FIX is structural and lives in ONE place, the harness template, not in 13 test
+bodies: the entry point is wrapped and its return value must be built from plain
+builtins, checked by EXACT type. isinstance is not enough — `class S(str)` with a
+custom __eq__ passes isinstance and still lies.
+  GREEN __eq__-always-True exploit  -> ok=False, TypeError from the guard
+        str-subclass exploit        -> ok=False, TypeError from the guard
+        honest correct (str task)   -> ok=True
+        honest correct (list task)  -> ok=True
+LEFTOVER RISK 2 IS RESOLVED, NOT MERELY FEARED. He predicted the stricter rule
+might invalidate the pinned dataset. Re-ran the full gate: 1269/1269 pairs PASS,
+0 violations, all three file hashes unchanged. The dataset survives.
+NOT CLAIMED: that no existing pair exploits this. His non-claim stands — I did
+not scan the 1,234 pairs for exploit shapes, only re-verified them under the
+stricter rule, which they pass.
+
+FINDING 2 — NOISE FLOOR. CONFIRMED by independent recomputation, one number of
+his corrected. Over all 57 runs of the identical config in eval_history.jsonl:
+  pass@1 mean 0.8779, sd 0.0199 (he said 0.0197 — agrees), range 0.80-0.90
+  pass@3 took 3 values in 57 runs: {0.90: 55, 0.96: 1, 0.89: 1} — near-constant
+  single-run-difference sd = 0.0199*sqrt(2) = 0.0281
+  honest 95% bar = +/-0.055, NOT the published +/-0.03
+  headroom to ceiling = 0.1221
+  CORRECTION TO HIM: he reported the first-3 sd as 0.0094; I measure 0.0115 from
+  the first three rows. Understatement vs the PUBLISHED "~0.009" is ~2.2x, vs the
+  actual first-3 sample 1.72x. His conclusion is unaffected and correct.
+FINDING 1 — SATURATION. Independently reproduced exactly: 6/10 held-out tasks
+scored 1.000 in ALL 57 runs (gcd, is_prime, reverse_words, flatten, count_vowels,
+dedup); rotate pinned at the floor, mean 0.004.
+CORRECTED EVERYWHERE, including the PUBLIC repo, which carried the worst version
+of this number: publish/dpo_README.md, README.md, OPEN-ITEMS.md.
+
+ALSO FOLDED: his correction 7 — OPEN-ITEMS.md's row that said "CLOSED" about one
+item and "STILL OPEN" about another in the same paragraph is split into a
+struck-through closed row and a plain open row, so a skim-for-CLOSED prune cannot
+delete an open item. Finding 4's two facts are now in the PUBLIC known-limitations
+list: the BANNED regex is not exhaustive (`from subprocess import run`,
+`import pathlib`, `import importlib`, `import pickle` all pass it) and `-I` does
+not restrict filesystem or network — plus the PYTHONOPTIMIZE trap, which is now
+documented in forge.py's harness comment as load-bearing so a future refactor
+cannot silently turn the verifier into a rubber stamp.
+
+NOT DONE THIS SESSION, carried forward (session budget, not disagreement):
+  - finding 3: add forge.py's sha256 to the receipt. The receipt certifies data
+    bytes but not the verifier that gives "verified" its meaning. HIGHEST-VALUE
+    REMAINING ITEM — it produces a PASSING receipt while the meaning changes, and
+    the fix plus red witness is maybe 20 minutes.
+  - finding 9: invert the gate API to dataset_gate.load_verified() so a trainer
+    cannot load data without passing the check ("Parse, don't validate").
+  - finding 6: split_health pre/post-dedup mismatch — delete the boolean, return
+    real numbers computed on the DEDUPED set.
+  - finding 10f: eval/measure catch-and-continue counts a transport failure as a
+    wrong answer, depressing scores and inflating the noise floor.
+  - finding 10g: CAND_TIMEOUT records a slow-but-correct solution as failing and
+    can flip a pair between runs.
+  - finding 1's new instrument: screen candidates with measure.py's frontier()
+    and admit only tasks whose base pass rate sits in ~0.2-0.8. Keep the old ten
+    as a legacy line (Recht et al. 2019 — new test sets preserve model ORDERING).
+  - finding 7: stop describing the 120-cap as the skew fix; it cost 316 pairs to
+    buy 1.07 effective tasks, while +5 tasks x30 buys 2.88 while ADDING data.
+  - finding 8's PRECONDITION is now MET: the __eq__ hole is closed, so new tasks
+    can be written without inheriting it.
+
 standing by for next DIRECTIVE

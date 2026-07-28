@@ -374,11 +374,46 @@ def verify(code: str, task: Task) -> Result:
         res.error = "empty or contains banned operation"
         return res
 
+    # STRICT RETURN TYPES. Every test body compares with `==`, and `==` is not a
+    # fact about values - it is a method call the solution controls. A class whose
+    # __eq__ returns True passes every assert in every task at once (red witness:
+    # a 6-line _Always class scored ok=True on `roman`). That makes "the tests
+    # decide, not the model" false under exactly the optimization pressure this
+    # pipeline applies.
+    #
+    # So the entry point is wrapped once, here, rather than hardening 13 test
+    # bodies: the return value must be built from plain builtins, checked by EXACT
+    # type (not isinstance - `class S(str)` with a custom __eq__ passes isinstance
+    # and still lies). A solution returning anything else fails before its value is
+    # ever compared. This closes the class for every current and future task.
+    #
+    # -I is also load-bearing beyond env hygiene: it implies -E, which discards
+    # PYTHONOPTIMIZE. With PYTHONOPTIMIZE=1 the interpreter strips every assert and
+    # a wrong answer prints __PASS__ and exits 0. Do not "simplify" -I away.
+    guard = (
+        "_OK_T = {bool, int, float, str, bytes, type(None), list, tuple, dict,"
+        " set, frozenset}\n"
+        "def _strict(v):\n"
+        "    t = type(v)\n"
+        "    if t not in _OK_T:\n"
+        "        raise TypeError('solution returned %r; the verifier accepts only'\n"
+        "                        ' plain builtins so that == cannot be overridden'\n"
+        "                        % (t.__name__,))\n"
+        "    if t in (list, tuple, set, frozenset):\n"
+        "        return t(_strict(x) for x in v)\n"
+        "    if t is dict:\n"
+        "        return {_strict(k): _strict(x) for k, x in v.items()}\n"
+        "    return v\n"
+        f"_entry = {task.entry}\n"
+        "def _checked(*a, **k):\n"
+        "    return _strict(_entry(*a, **k))\n"
+    )
     harness = (
         f"{code}\n\n{task.tests}\n"
+        f"{guard}"
         "import time as _t\n"
         "_start = _t.perf_counter()\n"
-        f"run_tests({task.entry})\n"
+        "run_tests(_checked)\n"
         "print('__PASS__', round((_t.perf_counter()-_start)*1000, 2))\n"
     )
     with tempfile.NamedTemporaryFile(

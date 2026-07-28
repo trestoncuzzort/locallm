@@ -5,17 +5,21 @@ Parked is not done. Prune entries when they close.
 
 ## Track A (DPO pipeline)
 
-- **No run on the real base; no efficacy result.** CLOSED as of 2026-07-28: the
-  "zero gradient steps" item is retired — the path was exercised end to end on
+- ~~**Zero gradient steps.**~~ CLOSED 2026-07-28 — the path was exercised end to end on
   `Qwen/Qwen2.5-0.5B-Instruct` (10 steps, real adapter + `run_meta.json` written,
-  DPO+NLL confirmed live). STILL OPEN: nothing has run on the real 8B base, no
-  held-out evaluation has been scored, and no prereg is signed. A smoke test is
-  not a result.
+  DPO+NLL confirmed live).
+
+- **No run on the real base; no efficacy result.** Nothing has run on the real 8B
+  base, no held-out evaluation has been scored, and no prereg is signed. A smoke
+  test is not a result.
   *Where:* `data/smoke_rpo_alpha_result.json`, README "Track A" status paragraph.
 
-- **The noise floor makes small effects unmeasurable.** Ruler cross-run std ~0.009
-  (Track A §5, 3 runs) and 0.0093 (Track B, 6 seeds), so anything under roughly
-  ±0.03 is indistinguishable from measurement noise. The shared noise-floor
+- **The ruler is saturated, and its noise floor was understated.** Measured over 57
+  logged runs of the identical config: pass@1 sd **0.0199** (not the ~0.009 a 3-run
+  sample gave), honest 95% single-run bar **±0.055**, total headroom 0.1221. 6 of 10
+  held-out tasks scored 1.000 in every run and pass@3 was 0.90 in 55 of 57 — most of
+  the instrument carries no information. `rotate` is pinned at the floor (0.004),
+  traced to `k % len(lst)` raising on the empty list. The shared noise-floor
   utility (§18 finding 4: dedicated `torch.Generator`, k≥5 seeds, test-retest
   sigma separated from between-config sigma) is still unbuilt — until it is, an
   efficacy run cannot report a trustworthy effect size.

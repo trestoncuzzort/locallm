@@ -124,8 +124,9 @@ on the real base under a prereg signed *beforehand*; `eval.py`'s frozen held-out
 set scored before and after; a null baseline (the same Modelfile with the
 `ADAPTER` line removed, so "the adapter did something" is not confounded with
 "the export path did something"); and k≥5 seeds with test-retest sigma reported
-separately from between-config sigma. The ruler's own cross-run std is ~0.009,
-so any effect below roughly ±0.03 is inside the noise floor. `eval.py`'s docstring
+separately from between-config sigma. The ruler's measured cross-run std is
+**0.0199** over 57 logged runs, putting the honest 95% bar at **±0.055** — and it is
+saturated besides: 6 of its 10 tasks scored 1.000 in every one of those runs. `eval.py`'s docstring
 also concedes its task shapes may overlap the base model's pretraining, making it
 a *relative* instrument — iteration-N against iteration-0 on a frozen set. It
 cannot support a statement like "the model is N% better at coding."
