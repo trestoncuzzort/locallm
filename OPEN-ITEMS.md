@@ -60,3 +60,26 @@ Parked is not done. Prune entries when they close.
 - **The dataset receipt is unsigned.** It defends against drift and accident, not
   against someone editing the receipt itself. Stated deliberately rather than implied.
   *Where:* `dataset_gate.py` module docstring, "WHO MAY ISSUE A RECEIPT".
+
+## Third-party datasets (imported 2026-07-28, for building the second instrument)
+
+- **KodCode-V1 is CC BY-NC 4.0 and must never be redistributed from this repo.**
+  487,432 triplets, pytest-style tests. Downloaded for LOCAL screening only -
+  downloading is not redistributing, but publishing its rows from an MIT repo
+  would make this repo's own licence untrue. If a task derived from it ever needs
+  to ship, it must be re-derived independently or the licence renegotiated.
+  *Where:* `.gitignore` third-party block, verified on the HF dataset card.
+
+- **AceCode-89K is MIT and may be redistributed with attribution.** 87,149 rows,
+  bare `assert` test cases (~16 per question) - structurally the same shape
+  `forge.py` already runs, which is why it is the import candidate rather than
+  KodCode. Attribution must accompany any published subset.
+  *Where:* `.gitignore` third-party block; TIGER-Lab/AceCode-89K on HuggingFace.
+
+- **The second instrument is costed but not built.** To detect a +3% effect at 80%
+  power needs ~30 movable tasks at k=5 seeds per side (~50 at k=3, ~150 at k=1);
+  +5% needs ~11 at k=5. A paired before/after design does NOT help here - measured
+  1.0x, because the aggregate is already a per-task average and the residual noise
+  is per-task binomial sampling, which pairing cannot cancel. The current ruler has
+  4 movable tasks; the other 6 are pinned at 1.000 and carry no signal.
+  *Where:* `data/eval_history.jsonl` (57 runs), README Track A status paragraph.
