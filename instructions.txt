@@ -4940,3 +4940,409 @@ window did launch once the script was actually correct; the silent failure was t
 crash, not the window station.
 
 standing by for next DIRECTIVE
+
+--------------------------------------------------------------------------------
+50. COUNCIL RESPONSE  (2026-07-28 ~09:24 — THE PHD's audit of §44-§47, spawned
+    as a real opus sub-agent before §48/§49 landed; TIMING NOTE FROM THE
+    COUNCIL SESSION FIRST, then his response verbatim, unedited)
+--------------------------------------------------------------------------------
+TIMING NOTE (council session, not the PhD — he never saw §48/§49, added here so
+the collision is visible rather than silently missed): this response was
+briefed and running BEFORE §48 (screen launched, stage 1 n=8, target 30
+admitted) and §49 (24 candidates in, 33.3% admit rate, target ~30 projected
+around candidate 90) landed. Two of his findings bear directly on both and are
+flagged here so they reach the executor before the run reaches candidate 90,
+not after:
+  - His finding 3: a Wilson-CI-exclusion rule cannot reject anything at n=10,
+    and the minimum n that can is 16. §48 used n=8, which is narrower still.
+    Whether this matters depends on what screen_tasks.py's stage-1 rule
+    ACTUALLY is (a formal Wilson exclusion, vs. a simpler "reject only exact
+    0/8 or 8/8" heuristic) — the channel does not say, and the PhD did not see
+    the code. Worth the executor confirming which one shipped.
+  - His finding 4: the real task count needed for a k=5, +3%-power verdict is
+    ~112-174, not the ~30 §47 computed (a traced 5.1x error in which sd was
+    used). §49's own projection — 400 candidates at the observed 33.3% rate
+    yields ~130 admitted — lands almost exactly inside the PhD's corrected
+    range. If the run stops at its CONFIGURED TARGET OF 30 (as §49's phrasing
+    "far past what is needed" suggests it's designed to), the instrument comes
+    out under-powered by roughly 4-5x relative to what §43/§47's own stated
+    goal (detect +3% at 80% power) requires, and that gap would not be visible
+    until someone re-derives the power calculation later. Flagging now, while
+    the run is still in flight and resumable, is cheap; flagging after it
+    reports "done" is not.
+This is a pointer, not a ruling — the council does not tell the executor what
+to do, and the PhD's own recommended-next-prompt (in his response below) was
+written without knowing the run had already started. The executor should
+reconcile the two independently.
+
+THE PHD'S RESPONSE, VERBATIM (briefed on §43 through §47; audited §44-§47's
+closures; answered the two decisions §47 posed about the not-yet-started
+screen):
+
+VERDICT: §44-§47 are honest work and their arithmetic mostly reproduces — but
+the round's two headline claims both overreach in ways an executed probe
+falsifies: the §44 type guard does NOT close the class "for every current and
+future task" (it is bypassed by exactly the task shape §47 proposes to
+import), and §47's screening plan optimizes a ~10x lever while a ~500x lever
+sits unexamined, on a cost model that is wrong by three orders of magnitude.
+Decision 1 as specified rejects zero candidates; Decision 2 is correct and now
+has hard evidence, plus a licensing gap the executor's top-layer check missed.
+
+EVIDENCE READ: instructions.txt lines 1-200 (OPERATING PROTOCOL + live
+DIRECTIVE) and 4061-4841 (§43-§47); forge.py :360-448 (Result.score, verify(),
+the §44 guard :394-411, harness assembly :412-419, -I invocation :429),
+SEED_TASKS .tests/.entry fields for all 13 tasks parsed programmatically;
+dataset_gate.py :46,:57-62,:65-92,:134-173; verify_dataset.py :22-164;
+test_gate_coverage.py :1-52; .gitignore; data/eval_history.jsonl (all 58
+records); git log -- forge.py vs full git log. Third-party (read-only, HF
+cache outside the repo): AceCode-89K parquet across all 11 shards (source
+column, 87,149 rows) and inferences sampled from shards 0/4/10 (1,500 rows
+each); KodCode presence confirmed, contents not parsed.
+EXECUTED: per-task/aggregate stats over the 57 runs; Wilson-interval
+rejectability table at n in {10,16,20,30,100}; power/sample-size
+re-derivation; generation-throughput derivation from run timestamps; AceCode
+source-stratification count; AceCode precomputed pass-rate distributions; TWO
+forge.verify() red/green witnesses through the real function (temp files
+created/deleted by verify() itself, nothing written to the repo).
+Primary sources fetched and self-verified: HF dataset cards for
+KodCode/KodCode-V1, TIGER-Lab/AceCode-87K, TIGER-Lab/AceCode-89K,
+ise-uiuc/Magicoder-OSS-Instruct-75K, ise-uiuc/Magicoder-Evol-Instruct-110K,
+bigcode/stack-dedup-python-fns; arxiv.org/abs/1605.08671 (abstract verbatim);
+arxiv.org/abs/2502.01718 (fetch returned no seed-dataset detail, see
+NON-CLAIMS). Bibliographic-only: Wald 1945; Waudby-Smith & Ramdas 2024.
+
+FINDINGS (ranked, most decisive first):
+
+1. (EXECUTED — RED WITNESS) THE §44 TYPE GUARD IS BYPASSED BY THE EXACT TASK
+   SHAPE §47 PROPOSES TO IMPORT. forge.py:389's "This closes the class for
+   every current and future task" is false and must be deleted. The guard
+   only bites if the test body reaches the entry point THROUGH the run_tests
+   parameter. All 13 current tasks are safe by a coincidence of naming: every
+   run_tests parameter is named identically to the entry point, so it shadows
+   the module-level definition — a convention, not a mechanism, nowhere
+   enforced. Executed through the real forge.verify():
+     A. CURRENT SEED TASK 'roman' (param shadows entry name)
+        exploit  ok=False  TypeError from _strict   <- §44's fix CONFIRMED
+        honest   ok=True                             <- not broken CONFIRMED
+     B. IMPORT-SHAPE TASK: def run_tests(f): assert to_roman(1)=="I" ...
+        exploit  ok=True   <- GUARD SILENTLY ABSENT
+        honest   ok=True
+   §47 measured AceCode's tests as "bare assert statements" and concluded "an
+   importer is a small script." Bare asserts call the function by its literal
+   name -> state B. Unless the importer rewrites every imported test into
+   `def run_tests(<exact_entry_name>):`, every one of ~30+ imported held-out
+   tasks lands with the reward hack fully open on the NEW instrument. Fix
+   options, both cheap: bind the guard at module scope instead of by
+   parameter, or mechanically require run_tests's first parameter name equal
+   task.entry and refuse otherwise.
+
+2. (EXECUTED) THE SCREENING COST MODEL IS WRONG BY ~3 ORDERS OF MAGNITUDE, AND
+   DECISION 1 IS THE WRONG LEVER. Throughput derived from eval_history.jsonl
+   timestamps: 57 runs x 50 generations over 8.78h -> 11.09 s/gen; median
+   inter-run gap /50 -> 10.84 s/gen. Two estimators agree.
+     screen all 83,600 @ n=100                 8,360,000 gens  1,049 days
+     screen all 83,600 @ n=10 (executor stage1)   836,000 gens    105 days
+     screen 2,000 @ n=100                         200,000 gens     25 days
+     screen 150 @ n=100                            15,000 gens    1.9 days
+     screen 60 @ n=100                              6,000 gens   18 hours
+   §47 said "n=100... hours of GPU time... an overnight job" against the pool
+   it names — off by a factor of ~25,000. You never screen the pool; you need
+   ~30 admits (or ~150, finding 4) and the job is sized by how many candidates
+   you DRAW, not by the pool's existence. n=100->n=10 is a 10x lever; correct
+   pool-draw sizing is a ~500-1,000x lever, and Decision 1 asked about the
+   small one.
+
+3. (EXECUTED) DECISION 1 ANSWER: the two-stage screen as specified rejects
+   NOTHING at n=10, and the correct stage 1 is already free, on disk. 95%
+   Wilson, band [0.2,0.8]: at n=10 no k value's CI lies entirely outside the
+   band (10/10 -> [0.7225,1.0], overlaps; 0/10 -> [0.0,0.2775], overlaps). The
+   smallest n at which ANYTHING is rejectable is 16. This is not a
+   hypothesis-testing problem and should not be designed as one: you need
+   ~30-150 admits from a pool with thousands of in-band members; false
+   negatives are nearly free (draw another), only false positives cost a
+   slot — the opposite of what SPRT/group-sequential machinery is built to
+   optimize (both-error-rate control on every arm).
+   THE FREE STAGE 0: AceCode's `inferences` field carries 80 precomputed
+   completions per row from 5 models — one is llama3.1_instruct, median 16
+   completions/row, same family as the ruler's llama3:8b. Computed the
+   repo-equivalent all-pass rate:
+     shard 0  oss                 floor 0.561 | IN BAND 0.227 | ceiling 0.212
+     shard 4  evol                floor 0.725 | IN BAND 0.089 | ceiling 0.185
+     shard 10 bigcode_python_fns  floor 0.594 | IN BAND 0.201 | ceiling 0.205
+   That's an n=16 same-family screen costing ZERO GPU seconds, better than the
+   proposed stage 1. Recommended design replacing both stages: (0) filter on
+   AceCoder's llama3.1_instruct all-pass rate in [0.2,0.8], free; (1) random-
+   sample ~200 survivors; (2) local confirm at n=30 (smallest n where Wilson
+   can reject a saturated candidate with margin) = 6,000 gens ~ 18 GPU-hours,
+   genuinely overnight; (3) admit, then re-measure baseline with FRESH draws
+   (finding 5). Citations (self-verified): Wald 1945 (SPRT, bibliographic
+   record verified, full text not fetched, cited as the name for a fully-
+   sequential alternative, not a recommendation) — Locatelli/Gutzeit/
+   Carpentier 2016, Thresholding Bandit Problem, arXiv:1605.08671 (abstract
+   verified — closest published match to the literal problem, but allocates a
+   fixed budget to classify ALL arms, wrong objective here, not recommended
+   for implementation) — Waudby-Smith & Ramdas, JRSS-B 2024 (bibliographic
+   record verified, abstract summary only — anytime-valid confidence
+   sequences, the right tool ONLY IF stage 2 stays expensive after free stage
+   0 shrinks it, which is not expected).
+
+4. (EXECUTED) §47'S POWER NUMBERS REPRODUCE EXACTLY AND ARE UNDERSTATED ~5.1x.
+   Per-task sample sd over the 4 movable tasks: rle 0.1402, nth_fib 0.1118,
+   kadane 0.0927, rotate 0.0265, mean 0.0928 — matches §47 to 4 digits, no
+   arithmetic error. The ERROR IS THE INPUT: 0.0928 is the sd of the OLD
+   movable tasks (including rotate, which is at the floor and contributes
+   almost no variance), applied to NEW tasks that are screened specifically
+   to MAXIMIZE variance. Per-task variance is essentially pure binomial
+   (verified: predicted sqrt(p(1-p)/5) vs observed sd agree closely):
+     n_samples=5, p=0.5 (worst case)     -> sd 0.2236 -> T=174.4 @k=5,d=3%
+     n_samples=5, p=0.2/0.8 (band edge)  -> sd 0.1789 -> T=111.6
+     n_samples=5, p~U(0.2,0.8)           -> sd 0.2098 -> T=153.5
+   ~112-174 in-band tasks at k=5, not ~30 — a consistent 5.1x factor,
+   (0.2098/0.0928)^2. Same correction at every cell (delta=5%,k=5 needs ~55,
+   not ~11). Reframe: only the PRODUCT T x n_samples x k costs anything —
+   task count is a generalization-breadth variable, not a cost variable
+   (Miller 2024 super-population framing, carried from §43, not re-fetched).
+   Honest budget: detect +3% needs T*n_samples*k >= 3,837 generations PER
+   SIDE = 7,674 total = 23.1 GPU-hours PER VERDICT, forever. detect +5% needs
+   2,763 gens = 8.3 GPU-hours per verdict. That number should drive the
+   target-effect decision. Also: 10.84 s/generation is very slow for a
+   quantized 8B — unbatched sequential Ollama calls; a throughput fix could
+   matter more than every design refinement in §47 combined.
+
+5. (READ-ONLY) SELECTION ON NOISE: do not reuse screening draws as the
+   baseline. Tasks are admitted because their OBSERVED rate fell in band;
+   observed != true. Reusing those draws as "before" conditions the number on
+   the selection event (winner's-curse structure); the "after" measurement
+   with fresh draws regresses toward the untruncated mean, biasing Δ by
+   unknown sign in no one's error bars. Fix costs nothing decided now:
+   screening draws are discarded, baseline is measured fresh.
+
+6. (EXECUTED) DECISION 2 ANSWER: random sampling is right, and the evidence
+   is stronger than the executor knew — the corpus is PERFECTLY BLOCKED BY
+   SOURCE. `source` column across all 11 shards: shards 0-2 pure oss, 3 mixed,
+   4-6 mostly evol, 6-10 pure bigcode_python_fns. Totals: oss 25,862 (29.7%),
+   evol 26,920 (30.9%), bigcode_python_fns 34,367 (39.4%). Zero interleaving —
+   "first N" gives 100% oss for any N up to 25,862. STRATIFY by source rather
+   than sample uniformly — the three strata have different in-band rates
+   (22.7%/8.9%/20.1%, finding 3) and different licenses (finding 7). Also:
+   §47's "~83,600 usable" applies ONE stratum's rate (oss, the only one
+   measured) to all three — the 39.4% bigcode_python_fns stratum is
+   structurally different (harvested functions, not LLM-written pairs) and
+   wasn't measured. §47 stated this scope limit and extrapolated past it
+   anyway. (Stratified-sampling citation — Cochran 1977 ch.5, Neyman 1934 —
+   NOT FETCHED, UNVERIFIED, do not cite downstream; the concrete
+   recommendation rests on the measured blocking above, not the citation.)
+
+7. (EXECUTED, primary sources) LICENSING: right at the top layer, incomplete
+   underneath. Verified directly against dataset cards: KodCode-V1 is
+   cc-by-nc-4.0, 487,432 rows — §47's disqualification is correct. AceCode-87K
+   (same card as "89K") is mit, 87,149 rows — §47's conclusion correct as far
+   as checked. NOT checked: AceCoder's seeds are Magicoder-OSS-Instruct-75K,
+   Magicoder-Evol-Instruct-110K, and bigcode/stack-dedup-python-fns
+   (corroborated by the source column matching one-for-one, seed list itself
+   not read from the paper — see NON-CLAIMS). Their licenses, verified at
+   card: oss stratum (29.7%) MIT + an OpenAI-usage-policy note (generated
+   with gpt-3.5-turbo); evol stratum (30.9%) Apache-2.0; bigcode_python_fns
+   (39.4%, THE LARGEST STRATUM) — NO LICENSE STATED, card exists but is
+   empty. So AceCode's MIT tag is a declaration made over a stack of three
+   upstreams, the largest of which states no terms. Mitigating: AceCoder
+   rewrote questions and synthesized tests, so what ships may be their
+   derivative rather than upstream text; importing ~30-150 problem statements
+   is low practical exposure. But the repo's whole reason to check is a
+   public MIT claim. RECOMMENDATION: restrict the import to the oss stratum —
+   unbroken MIT->MIT->MIT, 25,862 rows, HIGHEST in-band rate of the three
+   (22.7%), the one stratum actually measured at 96.0% usable. Yields ~5,870
+   in-band candidates against a need of ~150. Also: .gitignore prevents
+   accidentally staging KodCode FILES, not the failure mode §47 itself named
+   (a good task hand-pasted into SEED_TASKS) — consider a provenance field
+   per task instead.
+
+8. (READ-ONLY) WHOLE-FILE HASHING (§45) IS THE RIGHT CALL, WITH EVIDENCE — but
+   "no scope to get wrong" is half-true. forge.py has 6 commits of 341 total;
+   3 are today's fixes, all semantic; ~90s re-verify cost; §46 shows the
+   mechanism firing on a REAL semantic change (a true positive). Zero known
+   false positives — the workflow-cost worry does not materialize. But the
+   claim removed LINE scope, not FILE scope: dataset_gate.py:62
+   VERIFIER_FILES=("forge.py",) is still a hand-picked one-element tuple.
+   verify_dataset.py:76 check() — the function that DEFINES a violation — is
+   unpinned. Weaken check() to require only chosen_ok and the receipt still
+   matches, "0 violations" still prints — the identical failure §45 closed,
+   one file over. Add verify_dataset.py to the tuple (and note a hash cannot
+   defend against modification of the hasher/dataset_gate.py itself).
+
+9. (EXECUTED) §44's "CORRECTION TO HIM" on the noise floor (0.0094 -> 0.0115)
+   is a population-vs-sample-sd ESTIMATOR CHOICE, not an arithmetic error —
+   confirmed by recomputing both ways. §44 applied the sample estimator here
+   but called the identical population-vs-sample gap on the aggregate number
+   (0.0197 vs 0.0199) "agreement." One discrepancy, two standards, in the
+   same paragraph. Consequence-free (conclusion unaffected either way) but
+   worth naming as an estimator choice, not banking as a found error.
+
+10. (READ-ONLY) A §43 ERROR OF MY OWN, CAUGHT BY §47: leftover risk 1 offered
+    a paired before/after design as an uncosted alternative; §47 measured it
+    (1.0x, buys nothing) and is right. Sharper reason than §47 gave: eval.py
+    runs a FROZEN HELD_OUT list, so every run is already paired on task —
+    between-task variance was cancelled by construction before pairing was
+    ever proposed. There was no unpaired design to improve on.
+
+11. (READ-ONLY) §47's contamination-filter claim ("neutralises" pretraining
+    memorization) overclaims three ways: catches saturation not partial
+    memorization; only for the SCREENING model, not the post-training model;
+    and does nothing about train/eval overlap if AceCode is ever also used as
+    a training source, which finding 4's task-count correction makes
+    tempting — needs explicit ID-level exclusion before any AceCode rows
+    enter both sides.
+
+CORRECTIONS TO THE ROUND (§44-§47): [11 items — see full text below,
+condensed: forge.py:389's overclaim (1); §47's importer-is-small-script
+claim false for safety though true for extraction (2); §47's GPU-hours
+estimate off ~25,000x (3); §47's n=10 stage rejects nothing (4); §47's
+task-count figures reproduce but are 5.1x low (5); §47's usable-rate
+extrapolated from one stratum to three (6); §47's license check correct but
+one layer shallow (7); §45's "no scope to get wrong" true for lines, not
+files (8); §44's noise-floor "correction" is an estimator choice (9); §47's
+contamination-neutralization overclaim (10); §46's gate-coverage ALLOWED set
+is hand-maintained, same invented-scope shape in miniature, low stakes today
+(11); §46's self-caught first-guard bug (tested "reads data" instead of
+"reads data without the gate") is the round's best process artifact and
+should be the template (12); my own §43 leftover risk 1 was wrong per
+finding 10 (13).]
+
+NON-CLAIMS: not verified that all 13 current tasks still pass with reference
+solutions (none written, only one honest solution tested); not executed
+verify_dataset.py/dataset_gate.py/test_gate_coverage.py/eval.py/measure.py/
+build_training_set.py or any trainer — §44-46's red/green transcripts are
+quoted, not reproduced; not verified the 5.1x correction under a
+super-population (vs fixed-task-set) claim — if generalization beyond the
+admitted tasks is intended, all task counts (mine and §47's) are floors;
+not verified AceCoder's pass_rate semantics match forge.verify()'s ok, only
+assumed pass_rate>=0.999 as the repo-equivalent statistic, and the
+correlation between AceCoder's harness and this repo's is unmeasured; all
+finding-3 percentages are from llama3.1_instruct (full precision) against
+the ruler's llama3:8b-instruct-q4_K_M (different version, quantized) —
+directionally strong, quantitatively unvalidated; inferences sampled
+first-N within shards 0/4/10 only, not randomly — treat as indicative;
+KodCode contents not parsed, card only; AceCoder's 3-seed attribution
+corroborated by the source column, not read from the paper itself (fetch
+returned no detail); Wald 1945 and Waudby-Smith & Ramdas 2024 bibliographic
+only, not fetched; Cochran 1977/Neyman 1934/Wilson 1927 NOT fetched,
+UNVERIFIED; §43 citations carried forward, not re-verified this round; did
+not check whether the 57 runs are truly independent (still open from §43);
+did not read repair.py/export_adapter.py/config.py/sync_public.py/
+overnight.ps1/train_native.py/train_dpo.py/localllm/ (including §46's
+split_health rebuild)/the public repo/README.md/OPEN-ITEMS.md; did not check
+whether the overnight loop is currently running (wrote nothing anywhere
+regardless, but the executor must check before acting); the 10.84s/gen
+figure is inferred from one 8.78h window, not instrumented, order-of-
+magnitude only; no peer seats — findings 1/3/4/6 rest on arithmetic and
+probes performed once; both browser research seats down, single-model
+literature search.
+
+LEFTOVER RISKS: the instrument may be unaffordable at +3% (23.1 GPU-hours
+per verdict, forever) — if throughput can't improve, +5% (8.3h) may be the
+honest target; fixing finding 1 invalidates the receipt again (correctly)
+and forces another full re-verify; the module-scope guard fix needed for
+finding 1 could interact with recursive candidate solutions in unexamined
+ways (possible new CAND_TIMEOUT interaction); ~150 tasks is a different,
+more expensive project than ~30, and nobody has decided whether to buy task
+count or seed count with the corrected budget; the oss-only restriction
+(finding 7) ties the instrument to one generator's style, a real diversity
+cost against a real compliance gain — proprietor's call; screening admits
+tasks, it does not validate them — LLM-synthesized tests can be wrong at
+exactly the difficulty band being selected for, and a hand-read of admits is
+unavoidable and uncosted; nothing yet prevents an admitted eval task from
+later entering training (finding 11); the receipt still doesn't pin
+verify_dataset.py (finding 8) and can't defend against modification of
+dataset_gate.py itself; test_gate_coverage.py's ALLOWED set is hand-
+maintained and will silently grow; this whole pass is one model, one repo,
+one window — finding 1's bypass is a real executed witness, findings 3/4/6
+are unreviewed arithmetic and data reads.
+
+THE QUESTIONS THEMSELVES: Decision 2 was the right question and had a
+better answer than expected (the corpus is perfectly blocked, so the
+instinct was load-bearing, not just prudent). Decision 1 was not — it
+optimized a 10x factor with a rule that delivers 1x, while a 500-1,000x
+pool-sizing lever sat unexamined and unasked-about. Worse: the answer to
+Decision 1 was already downloaded to this machine (AceCode's inferences
+column, 80 completions/row from 5 models including a Llama-3.1 instruct),
+which makes the whole two-stage question moot before any literature is
+needed. Questions that should have been asked and weren't, in order: (1)
+"how many generations per second does this machine actually do, and what
+does one verdict cost?" — ten minutes from timestamps already on disk,
+determines whether the whole plan is affordable; (2) "what fields does the
+downloaded data already have?" — twice now (eval_history.jsonl in §43, this
+parquet in §47) the decisive fact was in a file already on disk and unread;
+(3) "does the §44 fix survive a task shape that isn't one of the 13?" —
+§46 modeled exactly this reflex (run the case expected to pass, watch it
+fail) and didn't apply it across task shapes, only exploit shapes; (4)
+"what's the license of the thing my licensed thing is made of?" — one layer
+short of where §47 stopped; (5) the question behind all of these: does a
++3% verdict on a 150-task instrument costing a day of GPU each time actually
+change any decision this project will make — if the honest answer is "we'd
+act the same either way below +5%," finding 4's correction is permission to
+build a cheaper 55-task instrument, not a problem to solve.
+
+RECOMMENDED NEXT PROMPT (proprietor -> executor) — NOTE: written before the
+PhD knew the screen had already launched (§48/§49); see the council
+session's timing note above this response for how to reconcile the two:
+  "Do not start the screen. [SUPERSEDED BY EVENTS — it already started, see
+  timing note above] Four things first, in this order, and the first one is
+  a red witness. (1) The type guard has a hole and it is exactly the shape
+  you are about to import [or: already importing] — bind the guard at
+  module scope or require run_tests's first parameter to equal task.entry;
+  delete forge.py:389's 'every current and future task' claim regardless.
+  (2) Skip the n=8/n=10 stage entirely — AceCode's own inferences column
+  (llama3.1_instruct, ~16 completions/row) is a free n=16 same-family
+  screen already on disk; verify the field yourself before trusting this.
+  (3) Your cost model was off by four orders of magnitude and your task
+  count by 5x — state the real budget as T*n_samples*k >= 3,837 generations
+  per side for +3% at 80% power (23.1 GPU-hours per verdict, forever) and
+  decide out loud whether +3% or +5% (8.3h) is the real target; separately,
+  10.84s/generation is slow for a quantized 8B and a throughput fix may
+  matter more than any screening refinement. (4) Stratify the sample by
+  source and restrict to the oss stratum for licensing (unbroken
+  MIT->MIT->MIT, highest in-band rate, the one stratum actually measured).
+  Then: discard screening draws, measure the baseline fresh. One thing
+  needing no code: pin verify_dataset.py's check() into the receipt too —
+  same hole §45 closed for forge.py, one file over."
+
+
+--------------------------------------------------------------------------------
+50. EXECUTOR LOG  (2026-07-28 - throughput estimate was wrong by ~15x; revised
+    projection and firming yield numbers)
+--------------------------------------------------------------------------------
+SECOND WRONG PREDICTION IN TWO ENTRIES, and the proprietor caught this one before I
+measured it. I estimated the screen at "5-6 hours". Measured at 46 candidates:
+
+    elapsed              15.4 min
+    rate                 20.1 s per candidate
+    screened / admitted  46 / 14
+
+WHY I WAS WRONG: I assumed ~3s per generation from the 2-candidate smoke run, which
+was measured on a COLD model - the smoke was the first thing to touch Ollama after
+the pull, so it paid model-load cost that no subsequent candidate pays. Warm, the 8B
+is doing roughly 0.8s per generation on these short prompts and short completions.
+At ~25 generations per candidate on average (8 at stage 1, plus 40 for the ~43% that
+reach stage 2) that is the 20.1s observed. The lesson is the ordinary one: a timing
+taken from the first run of anything includes startup that the steady state does not,
+and I extrapolated from it without saying so.
+
+REVISED PROJECTION: 30 admitted at roughly candidate 99, about 18 minutes from the
+measurement above. Total run under an hour, not overnight. The overnight framing in
+section 48 was wrong and the GPU is not occupied for the evening.
+
+YIELD IS FIRMING AND DRIFTING DOWN, as section 49 warned it might:
+                     at n=24        at n=46
+    ADMITTED          33.3%          30.4%
+    floor             45.8%          30.4%
+    ceiling           16.7%          26.1%
+    outside band       4.2%          13.0%
+The floor share fell and ceiling/outside-band rose as the sample grew. Section 49's
+headline (a ~33% admit rate, an order of magnitude better than the current ruler's
+4-movable-of-10) survives at 30.4%, but the specific number moved and will move
+again. The one that counts is still the final one.
+
+NOT CLAIMED: that 30.4% is the settled rate either. Stated so the next revision is
+not mistaken for a surprise.
+
+standing by for next DIRECTIVE
