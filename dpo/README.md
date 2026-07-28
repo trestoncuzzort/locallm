@@ -37,6 +37,14 @@ are the curriculum for the next round.
 timeout with a coarse banned-operation filter (`forge.py`). This is defense in depth,
 **not a sandbox** — for untrusted or large runs, use a container or a throwaway VM.
 
+**Return types are checked, so `==` cannot be faked.** Every test compares with
+`==`, and `==` is a method the solution controls: a class whose `__eq__` returns
+`True` passed every assertion in a task before this was fixed. The harness now wraps
+the entry point once and requires the return value to be built from plain builtins,
+checked by exact type (`isinstance` is not enough — a `str` subclass with a custom
+`__eq__` passes it). Both exploits are refused; honest solutions are unaffected, and
+re-verifying all 1,269 existing pairs under the stricter rule produced 0 violations.
+
 **A correctness gap, or no pair at all.** A pair is emitted only when `chosen` passes
 every assertion and `rejected` demonstrably fails. Preferring the *shorter* of two
 passing solutions is a length-bias reward hack, so that pair type is disabled
@@ -94,9 +102,18 @@ None of this has been done, and the numbers below are why it is not a formality:
 - k>=5 seeds, with test-retest variance reported separately from between-config
   variance.
 
-The ruler's own cross-run standard deviation is about **0.009**, so any effect below
-roughly **±0.03** cannot be distinguished from measurement noise. A pass@k moving
-from 0.42 to 0.44 would prove nothing.
+**The ruler is currently saturated, and this is the binding constraint.** Across 57
+logged runs of the identical configuration, 6 of the 10 held-out tasks scored a
+perfect 1.000 every single time (`gcd`, `is_prime`, `reverse_words`, `flatten`,
+`count_vowels`, `dedup`) and pass@3 took the value 0.90 in 55 of 57 runs. A task
+that never varies contributes no information, so most of the instrument is inert.
+
+The measured cross-run standard deviation of pass@1 is **0.0199** over those 57
+runs — not the ~0.009 a 3-run sample suggested. That puts the honest 95% bar for a
+single-run-vs-single-run comparison at **±0.055** (0.0199 x sqrt(2) x 1.96), and
+total headroom to the ceiling is only 0.1221, most of which is one broken task
+(`rotate` fails on the empty list). A pass@k moving from 0.42 to 0.44 would prove
+nothing; so would most movements this instrument can currently produce.
 
 `eval.py`'s docstring also concedes that its task shapes may overlap a base model's
 pretraining, so absolute pass@k partly measures recall. It is a *relative*
@@ -125,7 +142,14 @@ base from `SRLM_MODEL` / `SRLM_HF_BASE`, with per-architecture LoRA targets.
 
 ## Known limitations
 
-- The banned-operation filter is a regex, not a sandbox.
+- The banned-operation filter is a regex, not a sandbox, and it is **not
+  exhaustive**: `from subprocess import run`, `import pathlib`, `import importlib`,
+  `import pickle` and others pass it. `python -I` isolates from the user environment;
+  it does **not** restrict the filesystem or network. Treat generated code as
+  untrusted and run it in a container or throwaway VM at any real scale.
+- `-I` is load-bearing for a second, non-obvious reason: it implies `-E`, which
+  discards `PYTHONOPTIMIZE`. With `PYTHONOPTIMIZE=1` the interpreter strips every
+  `assert` and a wrong answer would print `__PASS__` and exit 0. Do not remove it.
 - The reward covers only what the hidden tests cover.
 - Tasks are pure-function coding problems on purpose — objective reward, small blast
   radius. Keep new tasks that shape and the loop stays sound.
