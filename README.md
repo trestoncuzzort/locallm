@@ -4,23 +4,32 @@ A failure-driven self-rewarding loop that trains a local model to fix its own
 mistakes. The model proposes; **unit tests decide**; preferences are learned
 from the verdict. No ungrounded self-judging, so it improves instead of drifting.
 
-## Benchmark findings
+## Benchmark findings (Track B — `localllm`, the from-scratch trainer)
 
-The latest local runs produced a few clear, publishable takeaways:
+These are results from the from-scratch model in `localllm/`. They say nothing
+about the DPO pipeline below, which has never been trained.
 
-- The leakage detector now catches document leakage much more reliably. The old
-  positional split let about 82.6% of validation content leak into training,
-  while the document-aware split reduced that to 1.5%.
-- The learning-rate sweep on an RTX 4080 passed the preregistered check. The
-  width-appropriate learning rate improved mean train loss from 0.1495 to 0.1056
-  over 2000 steps, with a gap of about 0.0439 and no overlap in the seed ranges.
-- A faster 800-step profile also passed, reaching lower train loss sooner with a
-  mean of 0.1884 versus 0.2937 for the baseline.
-- Device timings show the GPU is dramatically faster than CPU for the default
-  model size: about 13.6s for 2000 steps on CUDA versus 324.2s on CPU.
+- **Splitting the corpus by document, not by position, removes most contamination.**
+  The old positional split put 82.6% of validation content inside training; the
+  document-aware split drops that to 1.5%. Separately, the detector that measures
+  this is an exact-substring scanner with measured recall of 100% on verbatim
+  copies, 90% on reformatted text, and **0% once identifiers are renamed**
+  (`localllm/leakage.py`). A CLEAN verdict means nobody copy-pasted — it does not
+  mean validation is independent.
+- **The learning-rate sweep passed its preregistered check** (RTX 4080, CUDA). The
+  width-appropriate LR improved mean *train* loss from 0.1495 to 0.1056 over 2000
+  steps — a gap of 0.0439 across 5 seeds with no overlap in the seed ranges.
+- **A faster 800-step profile also passed**, reaching lower train loss sooner:
+  mean 0.1884 versus 0.2937 for the baseline. Its own verdict string records that
+  this is a *speed* claim, not the canonical effect size.
+- **GPU vs CPU on the default 3.18M model: ~13.6s versus ~324.2s for 2000 steps.**
+  Both are extrapolations from a short timing window — 200 measured steps on CUDA,
+  25 on CPU — not wall-clock times of full 2000-step runs.
 
-These numbers are stored in the benchmark result files under the localllm
-folder and are included in this repository for reproducibility.
+The LR and device numbers come from `localllm/exp_lr_width_result.json`,
+`exp_lr_width_result_fast.json` and `bench_device_result.json`, all committed here.
+The 82.6% / 1.5% contamination figures are recorded in `localllm/README.md`; there
+is no separate result file for them.
 
 ## The loop
 
@@ -38,6 +47,13 @@ fails  -> failures.jsonl                |
 `failures.jsonl` is the point: the tasks no candidate could solve are the
 curriculum for the next round and the seed for training from scratch on
 current failures.
+
+**The left half of that diagram has run; the right half has not.** Generation and
+verification have produced 1,234 gate-verified pairs over 284 logged generation
+rounds (`data/round_stats.jsonl`).
+No training step has ever executed, so no adapter and no `llama3-forged` model
+exist — the loop has not yet been closed end to end. Details in the status
+paragraph below and in `OPEN-ITEMS.md`.
 
 ## The DPO pipeline & objective verification (Track A)
 
