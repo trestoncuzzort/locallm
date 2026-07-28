@@ -75,7 +75,7 @@ def wilson(c: int, n: int) -> tuple[float, float]:
     return (round(max(0.0, centre - half), 4), round(min(1.0, centre + half), 4))
 
 
-def candidates(limit: int, seed: int) -> list[dict]:
+def candidates(limit: int, seed: int, stratum: str | None = None) -> list[dict]:
     """Random sample, not the head of the file, so the admitted set is not an
     artifact of dataset ordering."""
     import pyarrow.parquet as pq
@@ -85,8 +85,14 @@ def candidates(limit: int, seed: int) -> list[dict]:
     rng = random.Random(seed)
     rows: list[dict] = []
     for f in files:
-        t = pq.read_table(f, columns=["id", "question", "test_cases"])
+        t = pq.read_table(f, columns=["id", "source", "question", "test_cases"])
         rows.extend(t.to_pylist())
+    if stratum:
+        before = len(rows)
+        rows = [r for r in rows if r.get("source") == stratum]
+        print(f"[screen] stratum '{stratum}': {len(rows):,} of {before:,} rows eligible")
+        if not rows:
+            raise SystemExit(f"no rows with source={stratum!r}")
     rng.shuffle(rows)
 
     taken, out = 0, []
@@ -145,6 +151,12 @@ def main() -> None:
     ap.add_argument("--temp", type=float, default=0.8)
     ap.add_argument("--seed", type=int, default=1337)
     ap.add_argument("--target", type=int, default=30, help="stop once this many admitted")
+    ap.add_argument("--stratum", default=None,
+                    help="restrict to one AceCode source stratum. 'oss' is the only "
+                         "one with unbroken MIT provenance: bigcode_python_fns "
+                         "descends from a dataset whose own card states no licence, "
+                         "and evol is unverified. Rows outside the chosen stratum are "
+                         "never drawn, so nothing unpublishable can be admitted.")
     args = ap.parse_args()
 
     OUT.parent.mkdir(exist_ok=True)
@@ -158,7 +170,8 @@ def main() -> None:
     admitted = sum(1 for line in (OUT.open(encoding="utf-8") if OUT.exists() else [])
                    if '"admitted": true' in line)
 
-    cands = [c for c in candidates(args.candidates, args.seed) if c["tid"] not in done]
+    cands = [c for c in candidates(args.candidates, args.seed, args.stratum)
+             if c["tid"] not in done]
     print(f"[screen] {len(cands)} candidates to screen "
           f"({len(done)} already done, {admitted} admitted so far)")
     print(f"[screen] band [{BAND_LO}, {BAND_HI}] | stage1 n={args.stage1} "
