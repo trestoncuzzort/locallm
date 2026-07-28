@@ -39,6 +39,62 @@ fails  -> failures.jsonl                |
 curriculum for the next round and the seed for training from scratch on
 current failures.
 
+## The DPO pipeline & objective verification (Track A)
+
+While the from-scratch model (Track B) is the focus of the GUI, this repository
+also contains an automated Direct Preference Optimization (DPO) pipeline built to
+keep the reward signal out of a language model's hands entirely.
+
+Instead of asking a larger model to grade candidate outputs, the pipeline grounds
+its reward in execution:
+
+* **Isolated subprocess verification.** `forge.py` samples K candidates from a
+  local instruction-tuned model via Ollama and runs each against unit tests the
+  model never sees, in a `python -I` subprocess under an 8-second timeout with a
+  coarse banned-operation filter (`forge.py:74-78`, `:392-394`). This is
+  defense-in-depth, **not a sandbox** — see the safety notes below.
+* **Correctness-gap preference pairs.** A `(prompt, chosen, rejected)` pair is
+  emitted only when `chosen` passes every assert and `rejected` demonstrably
+  fails (`forge.py:481-485`). The weaker "conciseness" pair type — preferring the
+  shorter of two passing solutions — is a length-bias reward hack and is gated off
+  (`EMIT_CONCISENESS = False`, `forge.py:62`); the one legacy pair of that kind was
+  removed by `clean_dataset.py`, with the pre-clean file preserved as
+  `data/dpo_pairs.raw.jsonl`. What makes the signal hard to game is that the tests
+  are fixed and held out of the prompt — not any inherent property of unit tests.
+* **A bidirectional gate that training cannot skip.** `verify_dataset.py`
+  re-executes both sides of every pair: `chosen` must still pass, `rejected` must
+  still fail. It then writes a receipt recording the sha256 of each file it
+  verified, and both trainers refuse to start unless a receipt matches the exact
+  bytes they are about to load (`dataset_gate.py`). Edit a dataset and the hash
+  stops matching, so training halts until it is re-verified. There is no bypass
+  flag.
+
+Latest gate run: **1,269 unique pairs, 0 violations**, covering 2,190 rows across
+`dpo_pairs.jsonl` (1,234), `dpo_pairs_capped.jsonl` (918, the run-1 training file,
+sha256 `85fc0bdc…`) and `repair_pairs.jsonl` (38). Unique is below the 1,272 row
+total because 3 pairs appear in both `dpo_pairs.jsonl` and `repair_pairs.jsonl` —
+they are verified once and would be seen twice per epoch only under
+`--include-repair`, not in the default run-1 configuration.
+
+**Status: implemented and data-verified; parked before any gradient step.** No
+training run has been executed — there is no adapter directory and no
+`run_meta.json` in this repository, and `export_adapter.py`, referenced by
+`train_native.py`, does not exist yet. Every training hyperparameter below is
+configured, not exercised.
+
+**A configuration defect found by reading the library source.** TRL's `rpo_alpha`
+defaults to `None`, and in that state the NLL branch of `DPOTrainer` never runs
+(`trl/trainer/dpo_config.py:178`; `dpo_trainer.py:1291-1299`, `:1337-1338`). Our
+trainer had never set it, so a configuration labelled "DPO+NLL" would in fact have
+run vanilla DPO — the NLL term is what counters chosen-likelihood collapse on the
+low-edit-distance pairs this pipeline produces (Pal 2024, arXiv:2402.13228; Pang
+2024, arXiv:2404.19733). Comparing our `DPOConfig` against the installed TRL 0.12.2
+source caught it; the fix is `rpo_alpha=1.0` at `train_native.py:115`. **This was a
+defect in our configuration, not in TRL** — the library behaves as documented, and
+nothing in TRL, PEFT (0.14.0) or transformers (4.46.3) is patched: both TRL files
+carrying that path hash byte-identical to the published wheel per its own
+`RECORD`.
+
 ## What you need to make it run
 
 1. **Ollama up with a model** (not currently reachable on this box):
@@ -51,7 +107,13 @@ current failures.
    python forge.py
    ```
    → `data/dpo_pairs.jsonl` and `data/failures.jsonl`
-3. **Train** — in a *separate* Python 3.10–3.12 env with CUDA torch (the
+3. **Verify the data** (required — training refuses without a current receipt):
+   ```
+   python verify_dataset.py
+   ```
+   → re-runs every pair in both directions and writes
+   `data/dataset_verification.json`. Re-run it whenever a dataset changes.
+4. **Train** — in a *separate* Python 3.10–3.12 env with CUDA torch (the
    system 3.14 can't run Unsloth/torch). See the header of `train_dpo.py`.
 
 ## VRAM budget (16 GB card)

@@ -21,6 +21,7 @@ import json
 from pathlib import Path
 
 import config
+import dataset_gate
 
 HERE = Path(__file__).parent
 M = config.MODEL
@@ -46,6 +47,33 @@ def main() -> None:
 
     if not M.trainable:
         raise SystemExit(f"No HF base for '{M.ollama_tag}'; set SRLM_HF_BASE.")
+
+    # §12/§14: run 1 trains from the CAPPED, stratified 918-pair file, not the raw
+    # 1,234. The cap is the attribution guard — a ruler drop on the 54%-skewed raw
+    # set cannot be distinguished from three-template overfit. Build it with
+    # build_training_set.py and record its sha256 in the prereg.
+    #
+    # Resolved BEFORE the heavy imports so the data gate below fails in a second
+    # instead of after a 16 GB model load.
+    capped = HERE / "data" / "dpo_pairs_capped.jsonl"
+    if args.raw_pairs:
+        files = [str(HERE / "data" / "dpo_pairs.jsonl")]
+        print("[train] WARNING: --raw-pairs — training on the UNCAPPED set. "
+              "This is not the run-1 configuration.")
+    elif capped.exists():
+        files = [str(capped)]
+    else:
+        raise SystemExit(
+            f"Missing {capped.name}. Run: python build_training_set.py\n"
+            f"(or pass --raw-pairs to deliberately train on the uncapped set)")
+    rp = HERE / "data" / "repair_pairs.jsonl"
+    if args.include_repair and rp.exists():
+        files.append(str(rp))
+
+    # THE GATE. Every pair in every file about to be trained on must have been
+    # re-verified bidirectionally (chosen passes / rejected fails) against the
+    # exact bytes on disk. No bypass flag: one would make the guarantee false.
+    dataset_gate.require_verified(files, HERE / "data")
 
     import torch
     from datasets import load_dataset
@@ -74,24 +102,6 @@ def main() -> None:
         r=16, lora_alpha=32, lora_dropout=0.05, bias="none",
         target_modules=M.target_modules, task_type="CAUSAL_LM")
 
-    # §12/§14: run 1 trains from the CAPPED, stratified 918-pair file, not the raw
-    # 1,234. The cap is the attribution guard — a ruler drop on the 54%-skewed raw
-    # set cannot be distinguished from three-template overfit. Build it with
-    # build_training_set.py and record its sha256 in the prereg.
-    capped = HERE / "data" / "dpo_pairs_capped.jsonl"
-    if args.raw_pairs:
-        files = [str(HERE / "data" / "dpo_pairs.jsonl")]
-        print("[train] WARNING: --raw-pairs — training on the UNCAPPED set. "
-              "This is not the run-1 configuration.")
-    elif capped.exists():
-        files = [str(capped)]
-    else:
-        raise SystemExit(
-            f"Missing {capped.name}. Run: python build_training_set.py\n"
-            f"(or pass --raw-pairs to deliberately train on the uncapped set)")
-    rp = HERE / "data" / "repair_pairs.jsonl"
-    if args.include_repair and rp.exists():
-        files.append(str(rp))
     ds = load_dataset("json", data_files=files, split="train")
     keep = {"prompt", "chosen", "rejected"}
     ds = ds.remove_columns([c for c in ds.column_names if c not in keep])

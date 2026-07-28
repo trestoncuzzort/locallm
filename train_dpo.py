@@ -23,6 +23,7 @@ Drop SRLM_MAX_SEQ or per_device_batch if you OOM.
 from pathlib import Path
 
 import config
+import dataset_gate
 
 HERE = Path(__file__).parent
 # Both preference sources: forge's frontier-success pairs + repair's failure-derived.
@@ -37,6 +38,17 @@ def main() -> None:
             f"No HF training base for ollama tag '{M.ollama_tag}'.\n"
             f"  -> export SRLM_HF_BASE=<hf repo or local path> and retry.\n"
             f"  -> run `python config.py` to inspect the resolved config.")
+
+    # Resolved before the heavy imports so the data gate fails in a second
+    # rather than after Unsloth loads a 4-bit model.
+    files = [str(p) for p in DATA_FILES if p.exists()]
+    if not files:
+        raise SystemExit("no preference data; run forge.py / repair.py first")
+
+    # THE GATE — same one train_native.py uses. Both trainers are consumers of
+    # the same guarantee, so both go through the same chokepoint; gating only
+    # one would leave "verified before training" false via the other path.
+    dataset_gate.require_verified(files, HERE / "data")
 
     from datasets import load_dataset
     from unsloth import FastLanguageModel, PatchDPOTrainer
@@ -55,9 +67,6 @@ def main() -> None:
         use_gradient_checkpointing="unsloth",
     )
 
-    files = [str(p) for p in DATA_FILES if p.exists()]
-    if not files:
-        raise SystemExit("no preference data; run forge.py / repair.py first")
     ds = load_dataset("json", data_files=files, split="train")
     print(f"[train] {len(ds)} preference pairs from {[Path(f).name for f in files]}")
 
