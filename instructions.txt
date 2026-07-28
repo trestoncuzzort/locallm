@@ -3526,3 +3526,315 @@ NOT DONE from your list: the val_frac saturation at 0.14 and split_health's own
 hand-picked 0.5 tolerance (your finding 3a) are UNFIXED. The permutation null and
 the noise-floor utility remain unbuilt. bench_device is not yet surfaced as a
 pre-selected choice (your finding 4).
+
+--------------------------------------------------------------------------------
+37. COUNCIL ROSTER AMENDMENT — CUT TO THE PHD ONLY  (2026-07-28 — proprietor
+    mandate, delivered live in the COUNCIL pane, logged so it doesn't live only
+    in conversation)
+--------------------------------------------------------------------------------
+PROPRIETOR'S INSTRUCTION, VERBATIM INTENT: remove every council member except
+THE PHD. THE PHD's own abilities stay intact — nothing about his role is being
+cut, only the other seats.
+
+THIS IS A CONFIG CHANGE, NOT A FINDING. The COUNCIL pane is advisory-only this
+session and does not write project config (agreed with the proprietor before
+logging this) — the executor owns implementing it.
+
+WHAT "the other members" refers to, per the roster as currently binding in this
+file (§20, §26): the five style advisors — CONTRARIAN, FIRST PRINCIPLES,
+EXPANSIONIST, OUTSIDER, PRAGMATIST (haiku, sealed, brief-only). THE ASSHOLE is
+already retired as a seat (§20) — no action needed there. The "chairman
+(synthesis)" role is ambiguous in the current text: §20 lists it as a role
+separate from the PhD, but activation headers from §27 onward already read
+"closed by The PhD (opus)", suggesting the closing/synthesis job may already
+have folded into the PhD's closing pass. Executor/proprietor should confirm
+which is true before editing, rather than assume.
+
+TWO PLACES ENCODE THE ROSTER — both need the edit, not just one:
+  1. THIS FILE — the "COUNCIL ROSTER (current, binding)" block (~line 1025) and
+     its amendments at §20 (~line 1527) and §26 (~line 2132).
+  2. C:\Users\t\.claude\skills\llm-council\SKILL.md — the actual mechanism that
+     spawns the five style advisors each activation (referenced in §20's "Encoded
+     in..." line). Editing only this file's prose without editing SKILL.md would
+     leave the next activation spawning the same five seats regardless of what
+     this log says.
+
+WHAT TO PRESERVE ON THE PHD SEAT (do not drop these while cutting the others):
+  - research lens / citation-backed advice, proprietor-granted web access
+  - read-only repo access, exempt from THIS-FILE-ONLY scope
+  - point-advisor status (§26) and per-question routing addressed to him
+  - inherited audit duty from the retired Asshole seat (§20): auditing for
+    arithmetic/logic/statistics mistakes, resolving contradictions at the
+    source, flagging infeasible/stale steps, prior-art/adopt-don't-build notes
+  - closes the round, self-verifies citations
+
+NOT CLAIMED: that this entry itself changes anything. It is a log of the
+instruction and a pointer to the two files that need the edit — the edit is
+pending until the executor makes it and a live activation confirms only the
+PhD seat ran.
+
+--------------------------------------------------------------------------------
+38. COUNCIL RESPONSE — SOLO ROUND, THE PHD ONLY  (2026-07-28 — proprietor ran
+    this activation PhD-only, ahead of §37's roster edit landing; ad-hoc
+    request pasted directly to the council pane, NOT a channel DIRECTIVE — no
+    commit hash, no NON-CLAIMS were supplied with it, logged as SCOPE gaps
+    below rather than silently assumed)
+--------------------------------------------------------------------------------
+ASK AS RECEIVED (paraphrased, full text not reproduced here): build a
+zero-dependency sha256 receipt gate — verify_dataset.py writes a receipt after
+bidirectional verification, train_native.py refuses to start on any hash
+mismatch or missing receipt — plus corrected README prose describing a "TRL
+0.12.2 defective rpo_alpha" claim being fixed and an "Objective Verification"
+section. Framed as ready to implement, "do not debate the necessity."
+
+EVIDENCE READ (all this pass, all READ-ONLY — no script executed, no code
+written or edited by the council):
+  - train_native.py:81 (loads data/dpo_pairs_capped.jsonl), :107-150 (DPOConfig,
+    rpo_alpha=1.0, run_meta.json)
+  - verify_dataset.py:1-90 (full file) — checks data/dpo_pairs.jsonl +
+    data/repair_pairs.jsonl only
+  - build_training_set.py:1-88 (full file) — samples dpo_pairs_capped.jsonl
+    from dpo_pairs.jsonl, unmodified rows, seed 1337, cap 120/task
+  - data/dataset_verification.json (existing output: 1272 pairs, 0 violations)
+  - `wc -l` on data/dpo_pairs.jsonl (1234), data/dpo_pairs_capped.jsonl (918),
+    data/repair_pairs.jsonl (38)
+  - .venv-train/Lib/site-packages/trl/trainer/dpo_config.py:131-134 and
+    dpo_trainer.py:1291-1338 (installed TRL 0.12.2 source, self-verified
+    against the primary source, not taken from the ask's prose)
+  - README.md (full grep for TRL/DPO/Track A/headings) — no matches beyond the
+    pipeline diagram
+  - git log --all, git branch -a — two branches only (master,
+    protocol/merge-moonwalker), no commit or branch matching this work
+
+FINDINGS (ranked, most decisive first):
+
+1. (READ-ONLY, and load-bearing) THE PREMISE FOR TASKS 1 AND 3 DOESN'T MATCH
+   THIS CHECKOUT. train_native.py:115's rpo_alpha comment already says "without
+   this the NLL branch in TRL 0.12.2's dpo_trainer never executes" — that IS
+   the config-default framing the ask wants corrected TO, not the "TRL is
+   defective" framing it wants corrected FROM. Checked against TRL's own
+   source: dpo_config.py:131-134 documents rpo_alpha as `Optional[float] =
+   None` by design, "If None, no weighting is applied and the loss is the same
+   as the DPO loss" — this is intentional, documented behavior, not a defect,
+   and this repo's own comment already says so. Separately, README.md has no
+   "Track A", "DPO Pipeline", or "Objective Verification" heading at all
+   (grep, full file) — there's no existing prose to correct. I cannot find the
+   "recent audit" this ask describes anywhere at HEAD, on either branch, or in
+   council/ transcripts. Per this file's own SCOPE rule ("a claim about code
+   ships with the code... a ruling issued on prose alone is labelled
+   READ-ONLY"): name the file+commit this audit refers to, or confirm it never
+   landed, before Task 3 is attempted — otherwise the "fix" edits a claim that
+   isn't there.
+
+2. (READ-ONLY) TASK 1/2'S REAL PROBLEM IS PROVENANCE DRIFT, NOT "IS IT
+   VERIFIED" — AND IT'S A LEGITIMATE GAP. verify_dataset.py never reads
+   dpo_pairs_capped.jsonl (grep confirms — only dpo_pairs.jsonl and
+   repair_pairs.jsonl appear in FILES). build_training_set.py:42-63 samples
+   the capped file straight from dpo_pairs.jsonl's rows unmodified — no
+   re-verification, no row edits — so every row currently in the capped file
+   WAS covered by the last verify_dataset.py pass over its source, IF that
+   pass is still current. The actual hole: nothing on disk proves
+   dpo_pairs_capped.jsonl wasn't hand-edited, regenerated with a different
+   seed, or built from a dpo_pairs.jsonl that verify_dataset.py never re-ran
+   against, after the fact. That's a real, well-scoped, worth-closing problem
+   — the ask's underlying instinct is right even though its stated premise
+   (Task 1/3's "TRL/README" framing) isn't.
+
+3. (READ-ONLY, adopt-don't-build) THE EXACT HASH ALREADY EXISTS IN THIS REPO,
+   UNWIRED. build_training_set.py:74-76 computes `sha256(body)` over the exact
+   capped-file bytes and prints it with the comment "Put N and this sha256 in
+   the prereg; train run 1 from THIS file only." That is the identical
+   artifact Task 1 Part A asks to newly invent — it's a manually-copied
+   process promise (human pastes it into a prereg doc) rather than a
+   mechanically-enforced one, which is precisely the promise-vs-gate
+   distinction this file's own OPERATING PROTOCOL names for red witnesses.
+   The design work is wiring this existing hash into an automatic write/check,
+   not building a new receipt scheme from nothing.
+
+4. (READ-ONLY, inherited audit note) BROADER PATTERN, NOT WORTH ADOPTING A
+   LIBRARY FOR: "hash the input, refuse to run on mismatch" is the same shape
+   as pip's `--require-hashes`, npm's package-lock integrity field, and
+   Terraform's `.terraform.lock.hcl`. None are installable here without adding
+   a dependency, which cuts against this project's stated zero-dependency
+   stance (localllm is deliberately torch-only/no-base). Hand-rolling the
+   stdlib hashlib/json version is the right call for this repo specifically —
+   noting this so the executor doesn't spend time evaluating those tools.
+
+5. (READ-ONLY, design risk — not yet tested against any input) THE PROPOSED
+   RECEIPT SHAPE HAS A SELF-ISSUE GAP. A receipt is only meaningful if
+   verify_dataset.py is the ONLY code path that can write dpo_receipt.json,
+   and it refuses to write one when violations > 0. Worth stating explicitly
+   in the executor's design rather than leaving it implicit. This project's
+   own standing rule (a guard needs a red witness) applies here directly —
+   which is exactly what the ask's own Task 2 already requests (tamper one
+   byte, confirm the RuntimeError). That test, run for real with a pasted
+   traceback, is the right bar and should happen regardless of how Task 1/3
+   get resolved.
+
+6. (READ-ONLY, cross-reference for the executor, not a ruling) This proposed
+   gate is itself a new guard, landing on a channel where the LIVE
+   unanswered DIRECTIVE (top of this file, activation #13) asks the PhD to
+   find the general form behind three guards whose own threshold or scope was
+   invented and passed while the thing they guarded broke. A byte-equality
+   hash check has no eyeballed threshold (unlike the leakage 0.20/0.05 or
+   split_health's 0.5) — its failure mode, per finding 5, is a SCOPE question
+   (who may write the receipt), the same shape as invented-guard example #3
+   (dangling-reference check scoped to quoted-only). If the executor builds
+   this and gets the scope right, it's a real data point for that DIRECTIVE's
+   Q1 — worth writing up as one when it ships, not asserting now.
+
+NON-CLAIMS:
+  - NOT claiming the described "recent audit" happened — no evidence for it
+    found in this checkout, on either branch, or in council/.
+  - NOT claiming the TRL rpo_alpha framing needs correcting — the existing
+    comment already matches TRL's documented default, verified against
+    installed source.
+  - NOT claiming any README section needs redrafting — the named section
+    doesn't exist to redraft.
+  - NOT claiming this response is a code deliverable. No code was written;
+    per this project's protocol the council writes zero code regardless of
+    format (chat text or file edit) — Tasks 1/2 as literal ready-to-paste
+    snippets were declined for that reason, not produced then withheld.
+  - NOT claiming this closes activation #13's invented-guard-class DIRECTIVE
+    — still open; finding 6 only offers this as one relevant case.
+
+LEFTOVER RISKS:
+  - Whether verify_dataset.py has been re-run against the CURRENT
+    dpo_pairs.jsonl since it last grew (1234 rows now) — the on-disk
+    dataset_verification.json's total (1272 = 1234 + 38 repair) is consistent
+    with a current run, but this pass didn't re-execute the script to confirm
+    freshness; a real receipt design should hash-pin the SOURCE file, not
+    only the capped output, since the capped file's validity is inherited.
+  - This pass read TRL's rpo_alpha branch only; it did not sweep the rest of
+    DPOConfig's surface for other silent-default footguns.
+  - Absence of evidence for the "recent audit" in this checkout doesn't prove
+    it never happened elsewhere (another machine, an unpushed branch, a chat
+    log) — only that it isn't findable at HEAD.
+
+THE QUESTIONS THEMSELVES:
+  The ask requested finished code and finished prose. The question that was
+  actually answerable — and had a better answer sitting in the repo already —
+  was "does build_training_set.py's existing sha256 already solve this, and
+  what's the smallest wiring change to make it a gate?" It also should have
+  asked "what's the current true state of the TRL/README claims this is
+  meant to correct?" before drafting a fix — rewriting unverified prose risks
+  shipping a correction to a claim nobody can locate, which is worse than
+  leaving it alone.
+
+RECOMMENDED NEXT PROMPT (proprietor -> executor):
+  "Wire build_training_set.py's existing sha256 (line 74-76) into a real
+  gate instead of building a new receipt scheme: write it to a small JSON
+  receipt only when a fresh verify_dataset.py pass over data/dpo_pairs.jsonl
+  reports 0 violations; add a check at the top of train_native.py's main()
+  that recomputes data/dpo_pairs_capped.jsonl's hash, compares to the
+  receipt, and hard-fails with RuntimeError on any mismatch or missing
+  receipt. Red witness it for real: hand-edit one byte in the capped file
+  after a clean receipt exists, confirm the refusal, paste the traceback.
+  Separately — point me at the file+commit for the 'TRL defective' and
+  README 'Track A' claims, or confirm there isn't one; I can't find them at
+  HEAD to correct."
+
+standing by for next DIRECTIVE
+
+--------------------------------------------------------------------------------
+39. EXECUTOR LOG  (2026-07-28 — §37 roster cut EXECUTED; training gate built;
+    README corrected against the code)
+--------------------------------------------------------------------------------
+§37 ROSTER CUT — DONE IN BOTH PLACES, as §37 required. Edits to
+C:\Users\t\.claude\skills\llm-council\SKILL.md (the mechanism, not just prose):
+  - frontmatter `description`: no longer advertises "5 AI advisors ... peer-review
+    ... chairman"; now describes the single PhD seat. Confirmed live — the skill
+    listing in-session re-rendered with the new text.
+  - MODEL & RESEARCH BUDGET seat table: reduced to one row, The PhD on `opus`.
+  - Added a retirement block in the same form as The Asshole's: the five style
+    advisors AND the chairman are removed, with the reason recorded as cost.
+  - "how a council session works": a binding override banner ahead of step 1;
+    steps 2/3/4 retitled "RETIRED 2026-07-28, HISTORY ONLY" so the five-agent
+    flow cannot be followed by accident.
+  - srlm-forge monitoring flow: step 2 spawns ONE opus sub-agent; 2b banks his
+    raw response; 2c makes him the round; step 3 has him write the COUNCIL
+    RESPONSE block himself (no sonnet chairman).
+ON §37'S OPEN QUESTION (is the chairman a seat separate from the PhD?): resolved
+by proprietor instruction this session — cut everything except the PhD, the
+reason being token cost. The chairman is therefore retired too, which also
+matches the §27-onward headers reading "closed by The PhD (opus)".
+PENDING, NOT CLAIMED: no activation has run since the edit. §37's completion bar
+("a live activation confirms only the PhD seat ran") is NOT met. The PhD's own
+abilities were deliberately left untouched — web, both browser seats, read-only
+repo, inherited audit duty.
+
+THE DATA GATE — "verified before training" is now a mechanism, not a habit.
+The claim was true as process and false as machinery: verify_dataset.py never
+read the file training loads, and neither trainer called it. New dataset_gate.py
+is one chokepoint; verify_dataset.py writes a receipt carrying each verified
+file's sha256; train_native.py AND train_dpo.py both refuse to start unless a
+receipt covers their exact input bytes with zero violations. No bypass flag.
+  RED 1  pre-gate receipt      -> "receipt schema is None, this code needs 2", exit 1
+  RED 2  tampered capped file  -> "CONTENT CHANGED since verification", verified
+         85fc0bdc... vs on-disk 80cca364..., exit 1 (file restored byte-identical)
+  RED 3  chosen/rejected swapped on a real pair ->
+         "chosen_does_not_pass,rejected_incorrectly_passes"; a receipt recording
+         violations>0 -> REFUSED
+  GREEN  clean state -> "[gate] verified receipt OK - dpo_pairs_capped.jsonl
+         (918 pairs); 0 violations, hashes match", proceeds to import torch
+GATE RUN (executed, not summarized): 1269 unique pairs, 0 violations, covering
+2190 rows across dpo_pairs.jsonl (1234), dpo_pairs_capped.jsonl (918),
+repair_pairs.jsonl (38). The old "1272" counted rows, not pairs: 3 pairs exist in
+BOTH dpo_pairs.jsonl and repair_pairs.jsonl (rows 13/2, 435/35, 1016/21), so they
+are seen twice per epoch under --include-repair. Default run-1 config unaffected.
+
+SECOND BUG, RED-WITNESSED. build_training_set.py printed a sha256 computed over
+LF text while write_text() wrote CRLF — the number it tells you to "put in the
+prereg" never matched the file (printed 0bb9a659..., file was 85fc0bdc...). Now
+writes newline="" and aborts if written bytes disagree with the reported hash.
+I ALSO RAISED A FALSE ALARM AND RETRACTED IT: I briefly concluded the capped file
+was not reproducible. It is — LF-normalised it is exactly the builder's output.
+Line endings were the entire discrepancy.
+
+§38'S FINDINGS, FOLDED. The PhD was right on both counts. (a) The sha256 already
+existed at build_training_set.py:74-76 — I now import the shared one instead of
+adding a second implementation. (b) "Who may issue a receipt" is now stated
+explicitly in dataset_gate.py: the receipt is unsigned, defends against drift and
+accident, NOT against someone editing the receipt itself, and certifies bytes not
+judgement. §38 also could not locate the "recent audit" it was asked about — correct:
+it existed only in the executor chat until this commit. It is now in git.
+CORRECTING §38's FINDING 1 IN ONE RESPECT ONLY: it read train_native.py:115's
+comment as already carrying the right framing, and concluded there was nothing to
+fix. True of that comment; the defective framing was in a README section drafted
+but not yet committed. Both now say the same thing — a config default, not a TRL
+defect. Verified harder than prose: trl/trainer/dpo_config.py and dpo_trainer.py
+hash byte-identical to the published wheel per trl-0.12.2.dist-info/RECORD, so
+nothing in the library is patched.
+
+README CORRECTED AGAINST THE CODE (it is what the proprietor's lab reads):
+  - Track A section added, stating plainly: implemented and data-verified, PARKED
+    before any gradient step. No adapter, no run_meta.json, export_adapter.py
+    absent though train_native.py:140 points at it.
+  - The loop diagram now says the left half has run and the right half has not.
+    Corrected "267 overnight rounds" to 284 logged rounds (round_stats.jsonl) —
+    the commit-message counter and the log disagree; used the measured one.
+  - Benchmark section relabelled Track B and three inaccuracies fixed: the
+    82.6%->1.5% figures are contamination-split numbers, not detector reliability
+    (leakage.py's measured recall is 100/90/0/0 by clone type, and 0% once
+    identifiers are renamed); the 13.6s/324.2s device timings are EXTRAPOLATIONS
+    from 200 (cuda) and 25 (cpu) measured steps, not full 2000-step wall clock;
+    and "stored in the benchmark result files" was false for the leakage numbers,
+    which live in localllm/README.md prose with no result file.
+  - Verified still-true and left alone: LR sweep 0.1495->0.1056, gap 0.04391,
+    ranges_overlap false; fast profile 0.1884 vs 0.2937; Ollama unreachable on
+    this box (checked, HTTP 000).
+NEW: OPEN-ITEMS.md — zero gradient steps, missing export_adapter.py, no Track A
+prereg, the CRLF capped file, the 3 duplicated pairs, and the receipt's unsigned
+scope. Parked is not done; each row carries why + where.
+
+TIER 3 (efficacy) REMAINS UNTOUCHED AND UNCLAIMED. Nothing above is evidence that
+DPO+NLL improves anything. That needs an adapter on disk, eval.py's frozen
+held-out set scored before/after, a null baseline (same Modelfile, ADAPTER line
+removed), and k>=5 seeds with test-retest sigma reported apart from
+between-config sigma. With the current instrument (Track A ruler std 0.009 over 3
+runs, §5; Track B 0.0093) anything under roughly +/-0.03 is inside the noise. The
+shared noise-floor utility is still unbuilt. eval.py's own docstring concedes the
+held-out shapes may overlap pretraining, so it is a RELATIVE ruler — iteration-N
+vs iteration-0 on a frozen set — and cannot support "the model is N% better".
+
+standing by for next DIRECTIVE
