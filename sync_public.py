@@ -278,6 +278,18 @@ def main() -> None:
     # ModuleNotFoundError on every publish, blocking the repo for environment
     # reasons rather than test failures. Pick the interpreter deliberately.
     test_py = TEST_PYTHON if TEST_PYTHON.exists() else Path(sys.executable)
+
+    # Gate-coverage runs on the DPO track and needs no torch, so the system
+    # interpreter is fine. It fails if any module reads training data without
+    # going through dataset_gate.load_verified.
+    g = subprocess.run([sys.executable, str(HERE / "test_gate_coverage.py")],
+                       cwd=HERE, capture_output=True, text=True)
+    print(f"gate coverage: {g.stdout.strip().splitlines()[-1] if g.stdout.strip() else '?'}")
+    if g.returncode != 0:
+        print("\n!!! ABORT: gate coverage FAILED. NOTHING was published.\n")
+        print(g.stdout[-2000:] or g.stderr[-2000:])
+        raise SystemExit(1)
+
     print(f"running the detector tests before publishing...  ({test_py.name})")
     t = subprocess.run([str(test_py), str(SRC / "test_detectors.py")],
                        cwd=SRC, capture_output=True, text=True)

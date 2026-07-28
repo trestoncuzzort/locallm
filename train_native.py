@@ -48,10 +48,11 @@ def main() -> None:
     if not M.trainable:
         raise SystemExit(f"No HF base for '{M.ollama_tag}'; set SRLM_HF_BASE.")
 
-    # Run 1 trains from the CAPPED, stratified 918-pair file, not the raw
-    # 1,234. The cap is the attribution guard — a ruler drop on the 54%-skewed raw
-    # set cannot be distinguished from three-template overfit. Build it with
-    # build_training_set.py and record its sha256 in the prereg.
+    # Run 1 trains from the CAPPED, stratified 918-pair file, not the raw 1,234.
+    # The cap takes the top-3 task share from 54.0% to 39.2%. Measured, it is a
+    # mild improvement and not a fix: it spends 25.6% of the data to buy 1.06
+    # effective tasks (8.86 -> 9.93 by entropy), where 5 new tasks would buy 3.60
+    # while adding data. See build_training_set.py. Record its sha256 in the prereg.
     #
     # Resolved BEFORE the heavy imports so the data gate below fails in a second
     # instead of after a 16 GB model load.
@@ -73,7 +74,7 @@ def main() -> None:
     # THE GATE. Every pair in every file about to be trained on must have been
     # re-verified bidirectionally (chosen passes / rejected fails) against the
     # exact bytes on disk. No bypass flag: one would make the guarantee false.
-    dataset_gate.require_verified(files, HERE / "data")
+    files = dataset_gate.load_verified(files, HERE / "data")
 
     import torch
     from datasets import load_dataset

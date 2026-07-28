@@ -59,9 +59,9 @@ def main() -> int:
             h = split_health(text)
             print(f"corpus: {len(text):,} characters, {docs} document(s), "
                   f"{len(set(text))} distinct characters")
-            if not h["ok"]:
-                print(f"  NOTE: only {docs} document(s), and the largest is "
-                      f"{h['largest_doc_frac']:.0%} of the text. Validation loss")
+            if h["val_chars"] == 0 or h["achieved_val_frac"] < h["achievable_val_frac"]:
+                print(f"  NOTE: {h['unique_documents']} unique document(s), largest is "
+                      f"{h['largest_unique_doc_frac']:.0%} of them. Validation loss")
                 print("  will not mean much until there are more, smaller files.")
                 print("  Judge runs on TRAINING loss for now.")
         except Exception:                        # noqa: BLE001

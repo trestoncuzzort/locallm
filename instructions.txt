@@ -4665,3 +4665,92 @@ scored as wrong answer), 10g (timeout scored as failure), finding 1's second
 instrument, finding 7 (stop calling the 120-cap a skew fix).
 
 standing by for next DIRECTIVE
+
+--------------------------------------------------------------------------------
+46. EXECUTOR LOG  (2026-07-28 - findings 6, 7, 9, 10f, 10g CLOSED. Everything
+    fact-checked by re-derivation, not by trusting the advisor)
+--------------------------------------------------------------------------------
+EVERY NUMBER BELOW WAS RE-DERIVED HERE. He has no peer seats, said so, and asked
+to be re-run rather than trusted. Where I got a different number I say so.
+
+10f - A TRANSPORT FAILURE WAS SCORED AS A WRONG ANSWER. Confirmed at both sites:
+eval.py continued on a generation exception while still dividing by N_SAMPLES,
+and measure.py did the same over its own n. So an Ollama hiccup depressed the
+score AND inflated the run-to-run spread - in the very file that is the ruler,
+and therefore in the 0.0199 noise floor published in section 44. Fixed:
+attempted / scored / gen_errors counted separately; the score is over what was
+actually measured; a task where nothing could be sampled is EXCLUDED rather than
+counted as zero; pass@k skips tasks with fewer than k scored samples. eval.py now
+records coverage and gen_errors_total per run.
+  Synthetic check (no Ollama): 3 tasks, one with 2 gen errors, one with 5 ->
+  pass@1 0.8333 over 2/3 tasks, task c excluded and named. Old behaviour scored
+  c as 0/5.
+  NOT CLAIMED: that this changes the published 0.0199. The historical runs cannot
+  be re-scored - the old records do not distinguish the two cases (his own
+  non-claim, and it still stands). The number is honest for what it measured;
+  future runs will measure it better.
+
+10g - A TIMEOUT WAS A WRONG ANSWER. Result now carries timed_out, and a timed-out
+candidate can never become the rejected half of a pair. It was previously
+possible to teach the model that a correct-but-slow answer is wrong, and because
+CAND_TIMEOUT is wall-clock the same bytes could flip between runs on a busy
+machine. Red witness: an infinite-loop solution -> ok=False timed_out=True.
+
+9 - CHOKEPOINT. dataset_gate.load_verified() added (the Parse-Do-Not-Validate
+pattern); both trainers now OBTAIN their file list from the gate instead of
+calling a check and then separately naming files. AND the honest part: that alone
+does not close it, so test_gate_coverage.py fails if any module reads training
+data without going through the gate.
+  GREEN 9 modules scanned, 5 exempt, 2 routed through the gate -> PASS
+  RED   planted a 2-line bypass trainer -> FAIL, names the file and line
+Wired into the sync_public.py pre-publish hook, so it runs on every publish.
+MY OWN GUARD WAS WRONG FIRST, and this is worth recording because it is exactly
+the class activation 13 is about: version 1 tested "reads training data", which
+flagged BOTH legitimate trainers. The property that matters is "reads training
+data WITHOUT passing the gate". I caught it because I ran the green case and it
+failed.
+
+6 - split_health DESCRIBED A DIFFERENT CORPUS THAN THE ONE IT SPLIT. Reproduced
+his probe exactly: 50 identical documents + 5 unique reported "55 documents,
+largest 2.5%" when the truth is 7 unique documents with one at 15.9%. Both
+printed diagnostics pointed away from the cause, and leakage.py hard-exits on
+them. Rebuilt on the DEDUPED corpus, boolean deleted, and the derived quantity
+his ruling asked for is implemented: achievable_val_frac, the best fraction any
+whole-document split could reach (subset-sum over deduped document lengths,
+quantised so the bitset stays cheap). Now achieved/achievable measures the
+SPLITTER and achievable/requested measures the CORPUS - two failures, two
+remedies, previously one False. Consumers swept: studio.py (3 sites), leakage.py,
+start_studio.py; grep confirms no surviving reference to the removed keys. Track
+B detector tests still pass 4/4.
+
+7 - THE CAP IS NOT THE SKEW FIX, and I re-derived every figure. Effective task
+count (exp of Shannon entropy over tid): uncapped 8.86, capped 9.93. The cap
+spends 316 pairs - 25.6% of the data - to buy 1.06 effective tasks (he said 1.07;
+rounding). Adding 5 tasks x30 on top of the capped file: 13.53 effective, +3.60,
+while ADDING 150 pairs. HIS CORRECTION 4 CONFIRMED: run 1 does NOT train on the
+54%-skewed set - the capped top-3 share is 39.2%; 54.0% describes
+dpo_pairs.jsonl, which only --raw-pairs loads. Both docstrings corrected to stop
+calling the cap an attribution guard.
+
+VERIFIER CHANGED -> THE GATE CAUGHT IT, on real work rather than a planted edit.
+The 10g fix altered forge.py and training refused: "the VERIFIER changed since
+this data was verified. forge.py: receipt d84e4a54... on-disk a00ca660...". Full
+re-verify under the new verifier: 1269/1269 PASS, 0 violations, all three data
+hashes unchanged. That is the section 45 mechanism doing its job unprompted.
+
+FACT-CHECK PASS (all executed just now): 26 files parse; no surviving consumer of
+the removed boolean; Track B detector tests 4/4; leakage.py runs end to end;
+gate-coverage PASS with its planted-bypass RED; reward-hack exploit still refused
+and honest solution still accepted after every edit above; receipt schema 3 with
+the verifier pin present; publish dry-run clean on both tracks.
+
+NOT DONE - the one item I am not pretending to have finished:
+  finding 1 SECOND INSTRUMENT. The ruler is saturated (6/10 tasks at 1.000 in all
+  57 runs) and that is the binding ceiling. Building the replacement means
+  AUTHORING new held-out tasks and screening each with the measure.py frontier()
+  routine at n=100 to keep only those with base pass rate ~0.2-0.8 - hours of
+  Ollama time plus task design, not a code edit. Scoped, not started. Everything
+  else is now closed. The finding 8 precondition is met (the __eq__ hole is
+  shut), so new tasks can be written safely whenever that work starts.
+
+standing by for next DIRECTIVE

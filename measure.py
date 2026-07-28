@@ -74,20 +74,30 @@ def frontier() -> dict:
     out = {}
     for tid, n in FRONTIER.items():
         task = tasks[tid]
-        c = 0
+        # Same defect as eval.py: a transport failure is not a failed solution.
+        # Rate is over samples actually scored, and the shortfall is reported.
+        c = scored = errors = 0
         for j in range(n):
             try:
                 code = forge.extract_code(
                     actor.generate(task.prompt, forge.ACTOR_SYSTEM, FRONTIER_TEMP))
             except Exception:  # noqa: BLE001
+                errors += 1
                 continue
+            scored += 1
             if forge.verify(code, task).ok:
                 c += 1
-        lo, hi = wilson(c, n)
-        out[tid] = {"passes": c, "n": n, "rate": round(c / n, 4),
-                    "wilson95": [lo, hi],
+        if scored == 0:
+            out[tid] = {"passes": 0, "n": 0, "requested": n, "gen_errors": errors,
+                        "rate": None, "wilson95": None, "lane": "UNMEASURED"}
+            print(f"  {tid}: UNMEASURED - all {n} samples failed to generate")
+            continue
+        lo, hi = wilson(c, scored)
+        out[tid] = {"passes": c, "n": scored, "requested": n, "gen_errors": errors,
+                    "rate": round(c / scored, 4), "wilson95": [lo, hi],
                     "lane": "self (>0)" if c > 0 else "candidate 0-mass"}
-        print(f"  {tid}: {c}/{n}  rate={c/n:.3f}  95%CI=[{lo},{hi}]")
+        flag = f"  [{errors} gen error(s)]" if errors else ""
+        print(f"  {tid}: {c}/{scored}  rate={c/scored:.3f}  95%CI=[{lo},{hi}]{flag}")
     actor.release()
     return out
 
