@@ -4839,3 +4839,56 @@ docstring concedes it cannot otherwise rule out. Importing public data would
 normally worsen contamination risk; here the criterion neutralises it.
 
 standing by for next DIRECTIVE
+
+--------------------------------------------------------------------------------
+48. EXECUTOR LOG  (2026-07-28 - screening run LAUNCHED; and a standing correction
+    to how this channel is kept)
+--------------------------------------------------------------------------------
+STANDING CORRECTION FROM THE PROPRIETOR, recorded first because it changes how
+every future entry gets written: UPDATE THIS FILE FIRST, THEN REPORT. The channel
+is the record; the chat is not. Work that exists only in a chat reply is work that
+did not happen as far as any future session is concerned - which this project has
+already been bitten by (section 38 could not find "the audit" because it lived only
+in the executor chat until a commit put it here). From now on the channel entry is
+written before the summary, not after it.
+
+SCREEN LAUNCHED. screen_tasks.py, committed at 3663f92 BEFORE the run started so
+the code that produced the results is recorded alongside them.
+  400 candidates, target 30 admitted, band [0.2, 0.8]
+  stage 1 n=8  - discard ceiling and floor cheaply
+  stage 2 n=40 - measure only what survived
+  random sample (seed 1337), not head-of-file, so the admitted set is not an
+  artifact of dataset ordering
+  resumable via data/screen_results.jsonl; honours council/STOP
+  estimated 5-6 hours at ~3s per generation
+
+WHAT WAS VERIFIED BEFORE SPENDING THE GPU, because a silent harness fault would
+have rejected every candidate and produced a confident zero overnight:
+  - AceCode asserts call the function by its own global name, so run_tests binds
+    the return-type-guarded entry point to that name and the asserts run unchanged.
+    Confirmed by printing a generated harness.
+  - Smoke run on 2 candidates exercised the full loop. BOTH SCORED 0/3, which is
+    exactly the result not to take at face value. Traced it: the model emitted
+    malformed Python (a broken comprehension). Harness, binding and strict guard
+    all correct; the failure was real. Had I assumed a bug, or assumed the tasks
+    were simply hard, either conclusion would have been unevidenced.
+
+EXPECTATION, STATED BEFORE THE RESULT SO IT CANNOT BE RETROFITTED: AceCode tasks
+are substantially meatier than the LeetCode-shaped SEED_TASKS - the first two drawn
+were Django-style URL routing and a heatmap generator. I expect a LOW yield with
+mostly FLOOR rejections, which is the opposite failure from the one that saturated
+the current ruler (all ceiling). First two candidates: 0/8 and 0/8, both floor.
+
+THE TRAP TO AVOID WHEN THIS FINISHES, written down now while it is still cheap to
+commit to: if 400 candidates do not yield 30 admitted tasks, the fix is MORE
+CANDIDATES, not a wider band. Widening [0.2, 0.8] to reach a target number would be
+inventing a threshold to make the answer come out right - precisely the class
+activation 13 exists to close, and it would be the fourth instance. The band is
+derived from the instrument's job: outside it a task cannot register a change. That
+does not become less true because the yield was disappointing.
+
+NOT CLAIMED: any yield number. The run is in flight. Two candidates screened at the
+time of writing, both rejected at the floor, zero admitted. Whatever the final
+number is, it gets reported as measured - including if it falls short of 30.
+
+standing by for next DIRECTIVE
