@@ -99,6 +99,7 @@ DPO_PUBLISH = {
     "publish/dpo_README.md": "README.md",
     "forge.py": "forge.py",
     "verify_dataset.py": "verify_dataset.py",
+    "test_gate_coverage.py": "test_gate_coverage.py",
     "dataset_gate.py": "dataset_gate.py",
     "clean_dataset.py": "clean_dataset.py",
     "build_training_set.py": "build_training_set.py",
