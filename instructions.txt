@@ -3903,3 +3903,75 @@ plus the noise-floor utility, are the remaining blockers — the training path
 itself is no longer one.
 
 standing by for next DIRECTIVE
+
+--------------------------------------------------------------------------------
+41. EXECUTOR LOG  (2026-07-28 — export path BUILT and VERIFIED; publish gate was
+    broken and is fixed; the GitHub question answered)
+--------------------------------------------------------------------------------
+WHY THERE ARE NO NEW COMMITS ON github.com/jonhhjackson-a11y/locallm — three
+reasons, all verified, none of them "the work wasn't done":
+  1. srlm-forge HAS NO GIT REMOTE. `git remote -v` returns nothing, by design
+     (.gitignore says so in its first lines). Every commit in this repo is local
+     and CANNOT appear on GitHub. That is the intended containment.
+  2. The public repo only ever receives the localllm PRODUCT — sync_public.py's
+     21-file PUBLISH whitelist. All recent work is Track A (dataset gate,
+     trainers, channel, export) and is not part of that product, so even a
+     working publish would send none of it.
+  3. THE PUBLISH GATE WAS BROKEN, independently. sync_public.py ran
+     test_detectors.py with sys.executable — the system Python 3.14, which has no
+     torch — so every publish aborted on ModuleNotFoundError and shipped nothing.
+     RED   "!!! ABORT: test_detectors.py FAILED" / "No module named 'torch'"
+     PROOF the tests are fine under .venv-train: "all 4 tests pass, and the phase
+           test still fails on the old sampler", exit 0
+     GREEN "running the detector tests before publishing... (python.exe)" /
+           "tests pass." / "no product changes since the last sync."
+     Fixed to choose the interpreter, and to say "this is an ENVIRONMENT failure,
+     not a test failure" when the abort is an import error. A gate that blocks for
+     the wrong reason trains you to ignore it.
+
+EXPORT PATH BUILT — export_adapter.py, the file train_native.py:140 has pointed at
+since §22 while not existing. Nothing is merged: llama.cpp's convert_lora_to_gguf.py
+produces a GGUF adapter, Ollama's ADAPTER directive applies it at inference against
+the untouched base. Prereqs installed this session: llama.cpp shallow clone
+(C:\Users\t\llama.cpp, override with SRLM_LLAMA_CPP), gguf into .venv-train,
+ollama serve started, qwen2.5:0.5b-instruct pulled. Ollama also still holds the
+REAL base, llama3:8b-instruct-q4_K_M.
+
+THE §18 ACCEPTANCE TEST, RUN, ALL FOUR CHECKS PASS:
+  1. conversion exit 0, tensor count adapter=336 gguf=336 MATCH
+  2. ollama create succeeded for forged-qwen05b AND forged-qwen05b-null
+  3. spot check coherent: "Certainly! Below is a Python function that takes a list
+     of numbers as input and returns th..."
+  4. ADAPTER-IS-LIVE CONTROL PASSED. lora_B x 50,000 collapses output to
+     "');?>\"defdefeft def:def defndef')..." — similarity 0.0238 vs the null
+     baseline, versus 0.8736 for the honest adapter. This is the check that
+     distinguishes "the directive was applied" from "the directive parsed and was
+     ignored", and it is the one an export can silently fail.
+Recorded: data/export_acceptance_result.json.
+
+ON CHECK 4's PASS CRITERION, given the live DIRECTIVE about invented guards: it
+gates on "amplified output is NOT byte-identical to null" — a bright line, not a
+tuned similarity number. A "similarity < 0.8" rule would have been exactly the
+invented-threshold mistake activation #13 is asking about. The ratios are reported
+as evidence to read; nothing keys off them. Offering this as a data point for that
+DIRECTIVE's Q1, per §38 finding 6.
+
+TWO BUGS I INTRODUCED AND FIXED IN THE SAME SESSION, both caught by running it:
+  - passed a HF repo id to the converter's --base, which takes a local DIRECTORY;
+    it looked for "Qwen\Qwen2.5-0.5B-Instruct\config.json" on disk and died. The
+    two base flags are not interchangeable; --base-model-id takes a repo id.
+  - printed raw model output to a cp1252 console; the degenerate amplified output
+    contained U+FF09 and crashed the run at the moment it was about to report the
+    finding. Output is now sanitised for the console only; the JSON keeps the real
+    text. Note the failure mode: the check WORKED and the reporting killed it.
+
+STILL NOT AN EFFICACY RESULT. Everything above is mechanism. The export was
+exercised against a 0.5B stand-in, not the real 8B. No held-out scoring, no
+prereg, no seeds. What is now unblocked: a real run has somewhere to put its
+adapter and a null baseline to be compared against.
+
+REMAINING BLOCKERS FOR RUN 1: the prereg must be SIGNED FIRST, and the shared
+noise-floor utility (§18 finding 4) is still unbuilt — without it, with a ruler
+std ~0.009, any effect under roughly +/-0.03 cannot be told from noise.
+
+standing by for next DIRECTIVE

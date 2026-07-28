@@ -21,10 +21,15 @@ Parked is not done. Prune entries when they close.
   efficacy run cannot report a trustworthy effect size.
   *Where:* `instructions.txt` §18 finding 4, README "Track A" status paragraph.
 
-- **`export_adapter.py` does not exist.** `train_native.py:140` points readers at it
-  for the "convert_lora_to_gguf.py → Ollama ADAPTER directive" export path. A training
-  run would produce an adapter with no documented way to apply it.
-  *Where:* `train_native.py` closing comment; `instructions.txt` §18 (adopt-don't-build).
+- ~~**`export_adapter.py` does not exist.**~~ CLOSED 2026-07-28. Built and verified
+  end to end on the smoke adapter: conversion exit 0 with tensor count 336 = 336,
+  both the adapted model and the null baseline created, coherent spot check, and
+  the adapter-is-live control passed (lora_B × 50,000 → output similarity 0.0238
+  vs null, i.e. the ADAPTER directive is genuinely applied, not silently ignored).
+  Requires llama.cpp's converter — set `SRLM_LLAMA_CPP` if it is not at
+  `C:\Users\t\llama.cpp`. *Where:* `export_adapter.py`, `data/export_acceptance_result.json`.
+  STILL OPEN: only exercised against a 0.5B stand-in; the real 8B base is untested
+  on this path.
 
 - **No Track A prereg.** The only prereg files are `localllm/prereg_lr_width{,_fast}.json`,
   both Track B. §14/§18 specify N + sha256 + recipe must be recorded before run 1.

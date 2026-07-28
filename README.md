@@ -99,8 +99,17 @@ training path has been exercised on a small stand-in model
 which wrote a real adapter and `run_meta.json`. That is a *smoke test*: it shows
 the machinery executes. **No run on the real base model has happened, no
 held-out evaluation has been scored, and no claim is made that DPO improves
-anything.** `export_adapter.py`, referenced by `train_native.py`, still does not
-exist, so a trained adapter has no documented path into Ollama.
+anything.**
+
+The export path now exists and is verified: `export_adapter.py` converts the LoRA
+to GGUF with llama.cpp and applies it through Ollama's `ADAPTER` directive against
+the **untouched** base — nothing is ever merged. Its `--verify` mode ran clean on
+the smoke adapter: conversion exit 0 with tensor count 336 = 336, both the adapted
+model and the null baseline created, a coherent spot check, and — the check that
+matters — an adapter-is-live control. Scaling the LoRA `B` matrices by 50,000×
+collapses output into gibberish (similarity 0.0238 against the null baseline),
+which is what proves Ollama is genuinely applying the adapter rather than parsing
+the directive and ignoring it. Full record in `data/export_acceptance_result.json`.
 
 That smoke test did settle one thing that source-reading could not. TRL adds the
 NLL term only when `rpo_alpha` is set, so the question "is this actually DPO+NLL
