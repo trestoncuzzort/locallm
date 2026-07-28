@@ -48,12 +48,13 @@ fails  -> failures.jsonl                |
 curriculum for the next round and the seed for training from scratch on
 current failures.
 
-**The left half of that diagram has run; the right half has not.** Generation and
-verification have produced 1,234 gate-verified pairs over 284 logged generation
-rounds (`data/round_stats.jsonl`).
-No training step has ever executed, so no adapter and no `llama3-forged` model
-exist — the loop has not yet been closed end to end. Details in the status
-paragraph below and in `OPEN-ITEMS.md`.
+**The left half of that diagram has run; the right half has been smoke-tested
+only.** Generation and verification have produced 1,234 gate-verified pairs over
+284 logged generation rounds (`data/round_stats.jsonl`).
+Training has been executed once, on a small stand-in model, purely to prove the
+path runs — no run on the real base, no `llama3-forged` model, and no
+re-injection back into the actor. **The loop has never been closed end to end.**
+Details in the status paragraph below and in `OPEN-ITEMS.md`.
 
 ## The DPO pipeline & objective verification (Track A)
 
@@ -92,11 +93,33 @@ total because 3 pairs appear in both `dpo_pairs.jsonl` and `repair_pairs.jsonl` 
 they are verified once and would be seen twice per epoch only under
 `--include-repair`, not in the default run-1 configuration.
 
-**Status: implemented and data-verified; parked before any gradient step.** No
-training run has been executed — there is no adapter directory and no
-`run_meta.json` in this repository, and `export_adapter.py`, referenced by
-`train_native.py`, does not exist yet. Every training hyperparameter below is
-configured, not exercised.
+**Status: the pipeline runs end to end; no result has been produced.** The
+training path has been exercised on a small stand-in model
+(`Qwen/Qwen2.5-0.5B-Instruct`, 10 optimizer steps on 64 gate-verified pairs),
+which wrote a real adapter and `run_meta.json`. That is a *smoke test*: it shows
+the machinery executes. **No run on the real base model has happened, no
+held-out evaluation has been scored, and no claim is made that DPO improves
+anything.** `export_adapter.py`, referenced by `train_native.py`, still does not
+exist, so a trained adapter has no documented path into Ollama.
+
+That smoke test did settle one thing that source-reading could not. TRL adds the
+NLL term only when `rpo_alpha` is set, so the question "is this actually DPO+NLL
+or silently vanilla DPO?" is answered by whether `nll_loss` appears in the
+training metrics. Run with `rpo_alpha=1.0` it does; run with it unset, the key is
+absent entirely — and the losses differ by exactly that term
+(`0.6914 + 0.4036 = 1.0950` against an observed `1.0959`). Both runs are recorded
+in `data/smoke_rpo_alpha_result.json`.
+
+**What would be needed for an efficacy claim**, none of which has been done: a run
+on the real base under a prereg signed *beforehand*; `eval.py`'s frozen held-out
+set scored before and after; a null baseline (the same Modelfile with the
+`ADAPTER` line removed, so "the adapter did something" is not confounded with
+"the export path did something"); and k≥5 seeds with test-retest sigma reported
+separately from between-config sigma. The ruler's own cross-run std is ~0.009,
+so any effect below roughly ±0.03 is inside the noise floor. `eval.py`'s docstring
+also concedes its task shapes may overlap the base model's pretraining, making it
+a *relative* instrument — iteration-N against iteration-0 on a frozen set. It
+cannot support a statement like "the model is N% better at coding."
 
 **A configuration defect found by reading the library source.** TRL's `rpo_alpha`
 defaults to `None`, and in that state the NLL branch of `DPOTrainer` never runs

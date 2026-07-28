@@ -5,10 +5,21 @@ Parked is not done. Prune entries when they close.
 
 ## Track A (DPO pipeline)
 
-- **Zero gradient steps.** No training run has ever executed: no adapter directory,
-  no `run_meta.json`. Every hyperparameter in `train_native.py` is configured but
-  unexercised. Parked pending the items below plus a signed prereg.
-  *Where:* `train_native.py`, README "Track A" status paragraph, `instructions.txt` §18 finding 3.
+- **No run on the real base; no efficacy result.** CLOSED as of 2026-07-28: the
+  "zero gradient steps" item is retired — the path was exercised end to end on
+  `Qwen/Qwen2.5-0.5B-Instruct` (10 steps, real adapter + `run_meta.json` written,
+  DPO+NLL confirmed live). STILL OPEN: nothing has run on the real 8B base, no
+  held-out evaluation has been scored, and no prereg is signed. A smoke test is
+  not a result.
+  *Where:* `data/smoke_rpo_alpha_result.json`, README "Track A" status paragraph.
+
+- **The noise floor makes small effects unmeasurable.** Ruler cross-run std ~0.009
+  (Track A §5, 3 runs) and 0.0093 (Track B, 6 seeds), so anything under roughly
+  ±0.03 is indistinguishable from measurement noise. The shared noise-floor
+  utility (§18 finding 4: dedicated `torch.Generator`, k≥5 seeds, test-retest
+  sigma separated from between-config sigma) is still unbuilt — until it is, an
+  efficacy run cannot report a trustworthy effect size.
+  *Where:* `instructions.txt` §18 finding 4, README "Track A" status paragraph.
 
 - **`export_adapter.py` does not exist.** `train_native.py:140` points readers at it
   for the "convert_lora_to_gguf.py → Ollama ADAPTER directive" export path. A training

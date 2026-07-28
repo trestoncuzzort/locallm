@@ -3838,3 +3838,68 @@ held-out shapes may overlap pretraining, so it is a RELATIVE ruler — iteration
 vs iteration-0 on a frozen set — and cannot support "the model is N% better".
 
 standing by for next DIRECTIVE
+
+--------------------------------------------------------------------------------
+40. EXECUTOR LOG  (2026-07-28 — first gradient steps in this project's history,
+    on a stand-in model; DPO+NLL confirmed live by a controlled experiment)
+--------------------------------------------------------------------------------
+"ZERO GRADIENT STEPS" IS NO LONGER TRUE. Proprietor authorized a small stand-in
+model to unblock the smoke test. Downloaded Qwen/Qwen2.5-0.5B-Instruct (chosen
+because it uses llama-style projection names, so config.py's existing
+target_modules apply with no code change — resolved via registry:qwen2.5+env-hf).
+Ran: train_native.py --limit 64 --max-steps 10, in .venv-train on the RTX 4080.
+The gate fired first and passed. 10 optimizer steps completed in 19.5s. A real
+adapter_model.safetensors (35 MB) and run_meta.json were written.
+
+THIS IS A SMOKE TEST, NOT A RESULT. It shows the machinery executes. It says
+NOTHING about whether DPO improves anything. No eval.py, no held-out scoring, no
+null baseline, no prereg. The base is a 0.5B stand-in, not the real 8B.
+
+WHAT IT DID SETTLE — the one claim source-reading could not.
+Until now "rpo_alpha=1.0 makes this DPO+NLL" was reasoned from TRL's source, not
+demonstrated. TRL logs `nll_loss` only when rpo_alpha is not None
+(dpo_trainer.py:1355-1356), so the metric's presence is a direct witness.
+Controlled experiment, both runs identical except the one keyword:
+  TREATMENT rpo_alpha=1.0   step 5: loss 1.0959  nll_loss 0.4036
+                            step 10: loss 1.0720  nll_loss 0.3981
+  CONTROL   rpo_alpha=None  step 5: loss 0.6914  nll_loss KEY ABSENT
+                            step 10: loss 0.6762  nll_loss KEY ABSENT
+Additivity checks out against dpo_trainer.py:1338 (losses + rpo_alpha*nll_loss):
+0.6914+0.4036 = 1.0950 vs observed 1.0959; 0.6762+0.3981 = 1.0743 vs 1.0720.
+Agreement to ~1e-3, residual is batch-level variation between runs. The control
+ran from a TEMPORARY copy of train_native.py; the copy was deleted afterwards and
+the real file was never edited.
+Recorded in data/smoke_rpo_alpha_result.json. The adapter itself is NOT committed
+(.gitignore extended: smoke_adapter_*/ — matching the existing convention for
+dpo_adapter*/).
+
+A PREDICTION I MADE THAT DID NOT COME TRUE, stated because it was on the record:
+I flagged prepare_model_for_kbit_training (train_native.py:70) as a likely first
+failure on an unquantized base, since the model loads plain bfloat16 with no
+quantization_config. It ran without error. That is not evidence it is correct in
+general — the real base is a bnb-4bit repo, which is the intended path.
+
+README UPDATED, because the previous wording became false the moment this ran.
+"No training run has been executed / there is no adapter directory and no
+run_meta.json" is now replaced by the honest version: the pipeline runs end to
+end, a smoke test produced a real adapter on a stand-in, and no efficacy claim is
+made. The loop-diagram note likewise changed from "the right half has not run" to
+"has been smoke-tested only", and now states plainly that the loop has never been
+closed end to end. The README also now carries what an efficacy claim would
+require — prereg signed beforehand, frozen held-out scored before/after, null
+baseline with the ADAPTER line removed, k>=5 seeds with test-retest sigma
+separate from between-config sigma — and the +/-0.03 noise floor that follows
+from the ~0.009 ruler std, plus eval.py's own admission that it is a RELATIVE
+instrument because its task shapes may overlap pretraining.
+
+OPEN-ITEMS.md: the "zero gradient steps" row is retired and replaced by "no run
+on the real base; no efficacy result", and a new row records that the unbuilt
+shared noise-floor utility is what currently makes small effects unmeasurable.
+
+NEXT REAL DECISION (not taken, proprietor's call): run 1 on the real base needs
+the prereg SIGNED FIRST, and export_adapter.py still does not exist, so an
+adapter produced by run 1 would have no documented path into Ollama. Those two,
+plus the noise-floor utility, are the remaining blockers — the training path
+itself is no longer one.
+
+standing by for next DIRECTIVE

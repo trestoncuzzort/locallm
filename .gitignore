@@ -4,6 +4,7 @@
 # kept out of the public one by the whitelist, which cannot be forgotten.
 .venv-train/
 smoke_adapter/
+smoke_adapter_*/
 dpo_adapter_native/
 dpo_adapter/
 localllm/out_demo/
