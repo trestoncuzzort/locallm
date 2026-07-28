@@ -4754,3 +4754,88 @@ NOT DONE - the one item I am not pretending to have finished:
   shut), so new tasks can be written safely whenever that work starts.
 
 standing by for next DIRECTIVE
+
+--------------------------------------------------------------------------------
+47. EXECUTOR LOG  (2026-07-28 - the replacement instrument: costed, sourced, and
+    the authoring job cancelled. Datasets downloaded and measured.)
+--------------------------------------------------------------------------------
+FINDING 1 IS THE ONLY THING LEFT FROM THE LAST ROUND, and this entry moves it from
+"scoped, not started" to "sized and sourced, screen not yet run". No new activation
+opened: the design was already ruled (finding 1 gave the admission criterion,
+finding 8 ruled the frontier), and re-asking would spend quota to re-derive a
+settled answer. The DIRECTIVE block is deliberately left as activation 14 rather
+than rewritten, because rewriting it fires the watcher.
+
+FIRST: THE JOB IS NOW COSTED. He flagged this as explicitly uncosted (leftover
+risk 1) and it decides whether hand-authoring is real work or theatre. Computed
+from the 57 identical-config runs in eval_history.jsonl:
+    detect +3% @ 80% power, k=1 seed/side  -> ~150 movable tasks
+    detect +3% @ 80% power, k=3            -> ~50
+    detect +3% @ 80% power, k=5            -> ~30
+    detect +5% @ 80% power, k=5            -> ~11
+  mean per-task test-retest sd among movable tasks: 0.0928.
+
+CORRECTION TO HIM, MEASURED: he offered "a paired before/after design" as the
+alternative to more tasks. IT BUYS NOTHING HERE - 1.0x tighter, unpaired 95% bar
++/-0.0549 vs paired +/-0.0564. Pairing cancels BETWEEN-TASK variance, but the
+aggregate is already a per-task average and the residual noise is per-task
+binomial sampling, which pairing cannot remove. More movable tasks and more seeds
+are the only levers. This matters because the paired design was the cheap-looking
+escape route from building a new instrument, and it is not one.
+Also confirming his finding 1 arithmetic independently: 6/10 tasks pinned at
+1.000 across all 57 runs (gcd, is_prime, reverse_words, flatten, count_vowels,
+dedup); rotate at the floor, mean 0.004. FOUR movable tasks total.
+
+SECOND: ADOPT-DON'T-BUILD, VERIFIED - and the two candidates are not
+interchangeable. His KodCode size claim was labelled UNVERIFIED; it is now
+verified, and the licence is the deciding fact he did not have:
+    KodCode-V1   487,432 triplets | pytest-style tests | CC BY-NC 4.0
+    AceCode-89K   87,149 rows     | bare assert statements | MIT
+KODCODE IS DISQUALIFIED AS A SOURCE FOR PUBLISHED TASKS. CC BY-NC is
+non-commercial; this repo is MIT and publishes its dataset, so shipping KodCode
+rows would make this repo's own licence untrue. Downloading is NOT redistributing,
+so it stays available for local screening - but nothing derived from it may be
+committed or published. Recorded in .gitignore and OPEN-ITEMS.md rather than left
+in conversation, because the failure mode is silent: screen against it, paste a
+good task into SEED_TASKS, and the licence quietly becomes false.
+
+THIRD: THE AUTHORING JOB IS CANCELLED. Both datasets downloaded (KodCode 1.2 GB,
+AceCode 751 MB, in the HF cache OUTSIDE this repo on purpose). Measured AceCode
+shard 0 (7,923 rows) using this repo's own forge.BANNED filter rather than
+eyeballing:
+    USABLE (single extractable entry point, all-assert tests, no banned op)
+                        7,604   96.0%
+    entry ambiguous       220    2.8%
+    non-assert line        44    0.6%
+    entry unparseable      38    0.5%
+    banned op              17    0.2%
+  median 18 tests per usable task; ~83,600 usable extrapolated over 11 shards.
+Both open questions answered: the entry function name IS consistently extractable
+(exactly one unique callee per row), and these ARE pure functions (0.2% touch
+anything the sandbox blocks). His "an importer is a small script not a new
+pipeline" is verified FOR ACECODE specifically, not for KodCode.
+So the 60-90 task hand-authoring job I costed is replaced by a screening job over
+~83,600 candidates to find ~30 in band.
+
+SCOPE LIMIT, STATED: I measured ONE of eleven shards and every row in it is
+source='oss'. 96.0% is the rate in the shard I checked, not a dataset-wide
+guarantee. Other shards may carry other sources with other shapes.
+
+NOT DONE, AND NOT STARTED WITHOUT A DECISION: the screen itself. At n=100 per
+candidate against the local 8B this is hours of GPU time - an overnight job. Two
+choices change its cost materially and should be made before it runs:
+  1. TWO-STAGE SCREEN. The 0.2-0.8 band does not need n=100 to reject a task
+     sitting at 1.0 or 0.0. n=10 to discard obvious ceiling/floor cases, then
+     n=100 only on survivors, should cut GPU time by most of an order of magnitude
+     for the same admissions. Wilson CI at n=10 is wide enough that only clear
+     rejects get dropped, which is the point.
+  2. RANDOM SAMPLING of the candidate pool, not the first N, so the admitted set
+     is not an artifact of dataset ordering.
+
+A SIDE EFFECT WORTH KEEPING: the 0.2-0.8 admission criterion doubles as a
+contamination filter. A task the base model memorised in pretraining scores ~1.0
+and is rejected automatically - which is the exact weakness eval.py's own
+docstring concedes it cannot otherwise rule out. Importing public data would
+normally worsen contamination risk; here the criterion neutralises it.
+
+standing by for next DIRECTIVE
