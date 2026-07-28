@@ -5478,3 +5478,70 @@ to a re-derived target. That is not a setback in the pipeline - the pipeline wor
 43 minutes for 121 candidates - it is a setback in what the run was pointed at.
 
 standing by for next DIRECTIVE
+
+--------------------------------------------------------------------------------
+53. EXECUTOR LOG  (2026-07-28 - §50's remaining two claims re-derived. Task count
+    CONFIRMED 5.16x too low. Free prefilter CONFIRMED to exist and MEASURED too
+    weak to use. Rerun correctly sized - and a cheaper shape found.)
+--------------------------------------------------------------------------------
+DECISION ON THE PROPRIETOR'S QUESTION (report to council, or build?): BUILD. Every
+open item was answerable here, and three of the four were answered in minutes below.
+A round spent reporting these back would buy confirmation of what he already said.
+
+CLAIM 3 - TASK COUNT - CONFIRMED, and his 5.1x is almost exactly right. Re-derived
+from the 30 admitted tasks rather than from his arithmetic:
+    OLD instrument, MEASURED per-task test-retest sd     0.0928
+    NEW admitted set, implied sd at median p=0.42, k=5   0.2108
+    ratio 2.27x noisier per task -> task count scales 5.16x
+He said 5.1x and a range of 112-174; I get 155 at k=5. His range brackets mine.
+The mechanism is the one he named and it is my error: I took the variance of the OLD
+SATURATED tasks and applied it to deliberately mid-band new ones. Binomial variance
+is maximal near p=0.5, so screening FOR sensitivity necessarily produces tasks that
+are individually noisier. Section 51 item 3 named this exact trap ("the old
+instrument's numbers do not transfer") one entry before I fell into it.
+
+    detect +3% @80% power   k=3 -> 258 tasks   k=5 -> 155   k=10 -> 77
+    detect +5% @80% power   k=3 ->  93 tasks   k=5 ->  56   k=10 -> 28
+
+A CHEAPER SHAPE, which falls out of the table and which nobody proposed: eval cost
+per run is tasks x k, so 155 tasks at k=5 is 775 generations and 77 tasks at k=10 is
+770 - IDENTICAL running cost and identical power. But 77 admitted tasks needs half
+the SCREENING to build: ~385 candidates (~2.3 h) against ~850 (~5.1 h). Same
+instrument, same sensitivity, half the build. Recommend targeting ~80 tasks at k=10
+seeds rather than ~155 at k=5.
+
+CLAIM 4 - FREE STAGE-1 SCREEN - the FACT is true, his CONCLUSION is not. The
+`inferences` column does carry 80 completions per task with a `pass_rate` and a
+`model_name` - no GPU needed to read it. But the rates are from a different model
+family (codellama_instruct), and measured against my 121 screened tasks:
+    correlation(precomputed rate, measured llama3 rate) = 0.451
+    prefilter [0.1,0.9] keeps 83% of candidates, retains 27/30 in-band
+    prefilter [0.2,0.8] keeps 60% of candidates, retains 21/30 in-band
+At [0.1,0.9] it discards 17% of the work while losing 10% of the good tasks; at
+[0.2,0.8] it discards 40% while losing 30%. That is a poor trade in both directions,
+so his "the two-stage design is largely redundant with a free column" does not hold.
+It is a weak prior, not a substitute. KEEPING the GPU stage-1. Worth recording that
+this only became knowable because 121 tasks had already been measured the expensive
+way - the cheap check was validated against the expensive one, not instead of it.
+
+RUNNING TALLY ON THE §50 AUDIT, now that all four are checked: licence contamination
+CONFIRMED and I under-checked; task count CONFIRMED at 5.16x; reward-hack bypass real
+as a general claim but DOES NOT APPLY to the harness I shipped; free-prefilter fact
+true, conclusion wrong. Two clean hits out of four, and the two hits are the two that
+actually change what gets built.
+
+THE RERUN, correctly scoped:
+    stratum   oss only - the only unbroken MIT provenance (12 of my 30 admitted are
+              bigcode_python_fns with no upstream licence; 11 evol, unverified)
+    target    ~80 admitted at k=10 eval seeds  (not 30, not 155)
+    draw      ~400 oss candidates at the measured 20.0% oss admit rate
+    cost      ~2.3 h, one run, GPU only
+    keep      the existing 30 as a discardable pilot - it proved the pipeline and
+              produced the variance number that resized this. Its 7 oss tasks are
+              re-usable; the other 23 are not publishable.
+
+NOT CLAIMED: that the oss stratum contains 400 screenable candidates. Not counted
+yet - that is the first thing the rerun must check, and if it does not, the shortfall
+is reported rather than backfilled from a stratum that cannot ship.
+
+standing by for next DIRECTIVE
