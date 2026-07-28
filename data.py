@@ -89,26 +89,75 @@ def group_split(text: str, val_frac: float = 0.1, seed: int = 1337) -> tuple[str
     return "\n\n".join(train), "\n\n".join(val)
 
 
-def split_health(text: str, val_frac: float = 0.1, seed: int = 1337) -> dict:
-    """Can this corpus actually support the requested split?
+def _unique_docs(text: str) -> list[str]:
+    """The documents group_split actually splits: deduplicated, in order."""
+    seen, out = set(), []
+    for d in documents(text):
+        key = hashlib.sha1(d.encode("utf-8")).hexdigest()
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(d)
+    return out
 
-    A document-level split cannot hit 10% if the corpus is three documents, or
-    if one document is most of the text. Rather than silently returning a wildly
-    wrong ratio, report what was actually achieved so the caller can say so.
+
+def achievable_val_frac(lengths: list[int], val_frac: float) -> float:
+    """Best validation fraction ANY whole-document split could reach.
+
+    Subset-sum over document lengths, largest total not exceeding the target.
+    This is the number the old boolean was groping for: it separates "the
+    splitter did badly" from "no splitter could do better on this corpus".
+    Quantised when the corpus is large so the bitset stays cheap.
+    """
+    total = sum(lengths)
+    if total == 0:
+        return 0.0
+    target = int(total * val_frac)
+    scale = max(1, total // 200_000)          # bound the bitset width
+    bits, tgt = 1, target // scale
+    for w in lengths:
+        bits |= bits << max(1, w // scale)
+        bits &= (1 << (tgt + 1)) - 1          # nothing above target can help
+    best = bits.bit_length() - 1
+    return (best * scale) / total
+
+
+def split_health(text: str, val_frac: float = 0.1, seed: int = 1337) -> dict:
+    """What this corpus can support, in numbers. No verdict.
+
+    THIS USED TO REPORT ON A DIFFERENT CORPUS THAN THE ONE IT SPLIT. It counted
+    documents and measured the largest document BEFORE deduplication, while
+    group_split dedupes FIRST. On 50 copies of one document plus 5 unique ones it
+    reported "55 documents, largest 2.5%" when the truth was 7 documents with one
+    dominating the mass - both printed diagnostics pointed away from the cause.
+
+    The boolean is gone too. One bit conflated "corpus too lumpy to split"
+    (remedy: more, smaller documents) with "val set too small to estimate
+    anything" (remedy: raise val_frac or shrink block_size), and its 0.5
+    tolerance was an eyeballed number that served neither. Two ratios replace it:
+
+        achieved / achievable  - how well the SPLITTER did
+        achievable / requested - whether the CORPUS can support the request
+
+    A caller that wants a hard stop should derive it from what the number feeds:
+    val_chars // block_size is the usable-precision floor, and get_batch already
+    raises below that floor by construction.
     """
     train_text, val_text = group_split(text, val_frac, seed)
     total = len(train_text) + len(val_text)
     achieved = len(val_text) / max(total, 1)
-    docs = documents(text)
-    largest = max((len(d) for d in docs), default=0)
+    docs = _unique_docs(text)
+    lengths = [len(d) for d in docs]
+    uniq_total = sum(lengths) or 1
+    achievable = achievable_val_frac(lengths, val_frac)
     return {
-        "documents": len(docs),
+        "unique_documents": len(docs),
         "requested_val_frac": val_frac,
         "achieved_val_frac": achieved,
-        "largest_doc_frac": largest / max(len(text), 1),
-        # Achieving less than half the requested validation size means the
-        # document sizes, not the setting, are in charge.
-        "ok": achieved >= val_frac * 0.5 and len(val_text) > 0,
+        "achievable_val_frac": achievable,
+        "largest_unique_doc_frac": max(lengths, default=0) / uniq_total,
+        "val_documents": len(_unique_docs(val_text)),
+        "val_chars": len(val_text),
     }
 
 

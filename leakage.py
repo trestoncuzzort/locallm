@@ -277,13 +277,23 @@ def main() -> None:
 
     if args.split == "grouped":
         h = split_health(text, args.val_frac, args.seed)
-        if not h["ok"]:
+        # Two ratios, two different failures, two different remedies - which the
+        # single boolean this replaced could not tell apart.
+        corpus_cannot = h["achievable_val_frac"] < h["requested_val_frac"]
+        splitter_missed = h["achieved_val_frac"] < h["achievable_val_frac"]
+        if h["val_chars"] == 0 or corpus_cannot or splitter_missed:
             print(f"\n  WARNING: asked for a {h['requested_val_frac']:.0%} validation "
-                  f"split, got {h['achieved_val_frac']:.1%}.")
-            print(f"  This corpus has only {h['documents']} document(s) and the largest "
-                  f"is {h['largest_doc_frac']:.0%} of the text,")
-            print("  so whole-document splitting cannot hit the target. A clean split")
-            print("  needs more, smaller documents. Prefer train loss until then.")
+                  f"split, got {h['achieved_val_frac']:.1%}; the best any whole-document "
+                  f"split could reach is {h['achievable_val_frac']:.1%}.")
+            print(f"  {h['unique_documents']} unique document(s) after de-duplication, "
+                  f"largest is {h['largest_unique_doc_frac']:.0%} of them.")
+            if corpus_cannot:
+                print("  The CORPUS cannot support the request: it needs more, smaller "
+                      "documents.")
+            elif splitter_missed:
+                print("  The corpus could support it but this SPLIT fell short: try "
+                      "another seed.")
+            print("  Prefer train loss until then.")
             sys.exit(1)
     sys.exit(0 if rep.trustworthy else 1)
 
