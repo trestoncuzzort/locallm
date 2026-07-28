@@ -138,6 +138,8 @@ def main() -> int:
         "violation_detail": violations[:50],
         "per_tid": by_tid,
         "files": dataset_gate.build_file_entries(DATA, per_file),
+        # What "verified" meant when these numbers were produced.
+        "verifier": dataset_gate.verifier_fingerprint(),
         "known_hard": kh,
         "reconcile_contradictions": contradictions,
     }
