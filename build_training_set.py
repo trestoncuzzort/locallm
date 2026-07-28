@@ -25,6 +25,8 @@ import json
 import random
 from pathlib import Path
 
+import dataset_gate
+
 HERE = Path(__file__).resolve().parent
 SRC = HERE / "data" / "dpo_pairs.jsonl"
 OUT = HERE / "data" / "dpo_pairs_capped.jsonl"
@@ -78,9 +80,21 @@ def main() -> None:
     if args.check:
         print("\n--check: nothing written.")
         return
-    OUT.write_text(body, encoding="utf-8")
+    # newline="" is load-bearing. write_text() defaults to translating "\n" to
+    # os.linesep, so on Windows this wrote CRLF while `sha` above was computed
+    # over the LF text — the number printed for the prereg did not match the
+    # bytes on disk (measured: printed 0bb9a659…, file was 85fc0bdc…). Writing
+    # LF verbatim makes the prereg hash checkable and the file platform-stable.
+    with open(OUT, "w", encoding="utf-8", newline="") as fh:
+        fh.write(body)
+    on_disk = dataset_gate.sha256_file(OUT)
+    if on_disk != sha:
+        raise SystemExit(f"ABORT: wrote bytes hashing {on_disk} but reported "
+                         f"{sha}. The prereg number must match the file.")
     print(f"\nwrote {OUT.relative_to(HERE)}  ({total} pairs)")
     print("Put N and this sha256 in the prereg; train run 1 from THIS file only.")
+    print("Re-run verify_dataset.py — this new file is not covered by the old "
+          "receipt, and training will refuse until it is.")
 
 
 if __name__ == "__main__":
