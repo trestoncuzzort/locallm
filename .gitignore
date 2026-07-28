@@ -14,3 +14,12 @@ localllm/corpus.txt
 **/__pycache__/
 *.pyc
 _locallm_publish/
+
+# Imported third-party datasets. These live in the HF cache OUTSIDE this repo on
+# purpose; these patterns are the backstop in case anything is ever staged here.
+# KodCode-V1 is CC BY-NC 4.0 - it may be used locally to screen candidate tasks,
+# but its rows must NEVER be committed to or published from this MIT repo.
+# AceCode-89K is MIT and may be redistributed with attribution.
+data/kodcode*
+data/acecode*
+data/imported_*
