@@ -1,5 +1,5 @@
 {
-  "schema": 2,
+  "schema": 3,
   "total_pairs": 1269,
   "total_rows_across_files": 2190,
   "violations": 0,
@@ -74,6 +74,9 @@
       "pairs": 38,
       "violations": 0
     }
+  },
+  "verifier": {
+    "forge.py": "d84e4a544c20e20883ab3f1bb19dc62343605cbe27f850e266892a8d279b7912"
   },
   "known_hard": [],
   "reconcile_contradictions": {}
