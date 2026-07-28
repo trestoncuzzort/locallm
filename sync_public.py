@@ -90,6 +90,49 @@ ALLOW_LICENCE_PROSE = re.compile(
     r"Treston Malachi Cuzzort\.\s*$", re.IGNORECASE)
 
 
+# --- SECOND PUBLISHED TRACK: the DPO pipeline, into dpo/ --------------------
+# Published 2026-07-28 by proprietor decision. Mapping is {source -> path under
+# dpo/} so the public README can be a separate file from this repo's own.
+DPO_SRC = HERE
+DPO_DEST = "dpo"
+DPO_PUBLISH = {
+    "publish/dpo_README.md": "README.md",
+    "forge.py": "forge.py",
+    "verify_dataset.py": "verify_dataset.py",
+    "dataset_gate.py": "dataset_gate.py",
+    "clean_dataset.py": "clean_dataset.py",
+    "build_training_set.py": "build_training_set.py",
+    "train_native.py": "train_native.py",
+    "train_dpo.py": "train_dpo.py",
+    "export_adapter.py": "export_adapter.py",
+    "eval.py": "eval.py",
+    "repair.py": "repair.py",
+    "measure.py": "measure.py",
+    "config.py": "config.py",
+    "data/dpo_pairs.jsonl": "data/dpo_pairs.jsonl",
+    "data/dpo_pairs_capped.jsonl": "data/dpo_pairs_capped.jsonl",
+    "data/repair_pairs.jsonl": "data/repair_pairs.jsonl",
+    "data/known_hard.json": "data/known_hard.json",
+    "data/dataset_verification.json": "data/dataset_verification.json",
+    "data/smoke_rpo_alpha_result.json": "data/smoke_rpo_alpha_result.json",
+    "data/export_acceptance_result.json": "data/export_acceptance_result.json",
+}
+
+# The DPO track carries a DIFFERENT forbidden list, and the difference is the
+# whole point. `srlm` and `dpo_pairs` are forbidden in the product track because
+# mentioning them there would leak the existence of this pipeline; here they ARE
+# the product, so they are fine. Everything belonging to the family's licensed
+# method still aborts, because that is what must never ship — and it would leak
+# without ever printing its own name, which is why the seat vocabulary is listed.
+DPO_FORBIDDEN = [
+    r"moonwalker", r"starter[- ]kit", r"cuzzort", r"moonwalker[- ]?seat",
+    r"council", r"asshole", r"proprietor", r"executor", r"directive",
+    r"instructions\.txt", r"the phd", r"contrarian", r"expansionist", r"§",
+]
+DPO_PATTERN = re.compile("|".join(rf"\b{t}\b" if t[0].isalpha() else t
+                                  for t in DPO_FORBIDDEN), re.IGNORECASE)
+
+
 def _permitted_copyright_line(line: str, match: str) -> bool:
     """True only for the copyright-holder's own name on a copyright line."""
     if match.lower() != "cuzzort":
@@ -133,6 +176,21 @@ def scan() -> list[tuple[str, int, str]]:
                 if _permitted_copyright_line(line, m.group(0)):
                     continue
                 hits.append((name, i, f"{m.group(0)!r} in: {line.strip()[:90]}"))
+    return hits
+
+
+def scan_dpo() -> list[tuple[str, int, str]]:
+    """Same refusal, applied to the DPO track with its own forbidden list."""
+    hits = []
+    for src in DPO_PUBLISH:
+        p = DPO_SRC / src
+        if not p.is_file():
+            raise SystemExit(f"ABORT: {src} is on the DPO publish list but missing")
+        for i, line in enumerate(p.read_text(encoding="utf-8", errors="ignore").splitlines(), 1):
+            for m in DPO_PATTERN.finditer(line):
+                if _permitted_copyright_line(line, m.group(0)):
+                    continue
+                hits.append((src, i, f"{m.group(0)!r} in: {line.strip()[:90]}"))
     return hits
 
 
@@ -192,8 +250,9 @@ def main() -> None:
         print("!" * 68)
         print()
 
-    print(f"scanning {len(PUBLISH)} publish-listed files for internal references...")
-    hits = scan()
+    print(f"scanning {len(PUBLISH)} product + {len(DPO_PUBLISH)} DPO files "
+          f"for internal references...")
+    hits = scan() + scan_dpo()
     if hits:
         print("\n!!! ABORT: internal references found. NOTHING was published.\n")
         for name, ln, detail in hits:
@@ -247,6 +306,11 @@ def main() -> None:
         dest = CLONE / name
         dest.parent.mkdir(parents=True, exist_ok=True)   # PUBLISH may contain paths
         shutil.copy2(SRC / name, dest)
+
+    for src, rel in DPO_PUBLISH.items():
+        dest = CLONE / DPO_DEST / rel
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(DPO_SRC / src, dest)
 
     status = run(["git", "status", "--porcelain"], cwd=CLONE, quiet=True).stdout.strip()
     if not status:

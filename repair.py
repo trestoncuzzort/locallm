@@ -2,7 +2,7 @@
 """repair.py — turn all-fail tasks into training signal (failure-derived pairs).
 
 forge.py only builds pairs from tasks the model already solves, so all-fail tasks
-emit ZERO gradient (instructions.txt, council item 1). This closes that gap
+emit ZERO gradient. This closes that gap
 WITHOUT a stronger external model, using two purely-local moves on an all-fail task:
 
   1. best-of-N search    : sample far more candidates; the verifier keeps any pass.
@@ -12,7 +12,7 @@ WITHOUT a stronger external model, using two purely-local moves on an all-fail t
      `rejected`. This trains the no-feedback base model to one-shot what currently
      needs iteration.
 
-Honesty guard (answers the DIRECTIVE ask): feedback carries NO test internals or
+Honesty guard: feedback carries NO test internals or
 expected outputs, so nothing leaks into the pair. That keeps the reward grounded
 and doubles as an anti-hardcode defense -- the model can't memorize an answer it
 was never shown. `chosen` is always re-checked by forge.verify (the same ground

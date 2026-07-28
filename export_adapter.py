@@ -5,19 +5,19 @@ train_native.py has always pointed here and this file did not exist, so a traine
 adapter had no documented way into Ollama. This is that path.
 
 NOTHING IS EVER MERGED. The 4-bit merge round-trip (dequantize -> add -> requantize)
-was deleted from train_native.py by council §22 and is not reintroduced here.
-Instead llama.cpp converts the PEFT adapter to GGUF and Ollama's ADAPTER directive
+was deleted from train_native.py deliberately and is not reintroduced here.
+Instead llama.cpp converts the PEFT adapter to GGUF and Ollama's ADAPTER instruction
 applies it at inference against the base GGUF, which is never rewritten.
 
     python export_adapter.py --adapter smoke_adapter_qwen05b \
         --base-tag qwen2.5:0.5b-instruct --name forged-qwen05b --verify
 
-WHAT --verify CHECKS (the acceptance test council §18 specified):
+WHAT --verify CHECKS (the acceptance test):
   1. conversion exits 0 AND the GGUF carries the same tensor count as the adapter
   2. `ollama create` succeeds for both the adapted model and the null baseline
   3. a coherent-output spot check on the adapted model
   4. THE ADAPTER-IS-LIVE CONTROL. An adapter can be silently ignored — a wrong
-     path, an unsupported architecture, a directive that parsed but did nothing —
+     path, an unsupported architecture, an instruction that parsed but did nothing —
      and every check above still passes. So we build a THIRD model from the same
      adapter with its LoRA B matrices scaled by a large factor and confirm its
      output changes. If a 50,000x amplification leaves output byte-identical to

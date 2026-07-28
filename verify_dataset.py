@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""verify_dataset.py — the data-integrity GATE (council §12 item 1a).
+"""verify_dataset.py — the data-integrity GATE.
 
 Before any training, re-run every preference pair through the verifier in BOTH
 directions: `chosen` must still PASS its hidden tests and `rejected` must still

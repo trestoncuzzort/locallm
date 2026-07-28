@@ -3975,3 +3975,59 @@ noise-floor utility (§18 finding 4) is still unbuilt — without it, with a rul
 std ~0.009, any effect under roughly +/-0.03 cannot be told from noise.
 
 standing by for next DIRECTIVE
+
+--------------------------------------------------------------------------------
+42. EXECUTOR LOG  (2026-07-28 — Track A published to the public repo under dpo/;
+    source sanitised of the family's method vocabulary)
+--------------------------------------------------------------------------------
+PROPRIETOR AUTHORIZED PUBLICATION: "as long as moonwalker isnt mentioned hell yes
+push it", then clarified that Moonwalker is his father's LICENSED project, used
+only for back-end working method and unrelated to the locallm product.
+
+I READ THAT CONDITION AS COVERING THE WHOLE VOCABULARY, NOT THE WORD. "council
+§14", "the DIRECTIVE", "the executor", "the proprietor", "The PhD/Contrarian/
+Expansionist" ARE the licensed method; publishing them would have leaked it
+without ever printing its name. All of it is gone from the published source.
+
+SANITISED IN THE SOURCE, NOT AT PUBLISH TIME. sync_public.py's own docstring
+refuses silent scrubbing ("it mangles meaning and hides the mistake"), so the
+fix went into the files. 22 rewrites across 7 files, each asserted to match
+exactly once, preserving the technical reasoning and dropping the provenance —
+e.g. "Council §12 adjudicated a 120-pairs-per-task cap" became the reason itself:
+"a loss drop measured on the full 54%-skewed set cannot be told apart from
+overfit to the three most common task templates." The provenance still lives
+HERE, in this file, which is where it belongs.
+Four "directive" hits were legitimate — Ollama's ADAPTER directive — and were
+reworded to "ADAPTER instruction" so the scanner can stay strict rather than
+carrying an exception.
+Measured before: 73 hits. After: 0 kit terms across all 12 pipeline files, all
+12 parse, the gate still passes, argparse still renders.
+
+SECOND PUBLISH TRACK ADDED to sync_public.py, deliberately with its OWN forbidden
+list. `srlm` and `dpo_pairs` are forbidden in the PRODUCT track because mentioning
+them there leaks this pipeline's existence; in the DPO track they ARE the product.
+Everything belonging to the licensed method still aborts in both.
+
+PUSHED AND VERIFIED ON THE REMOTE, not just claimed by the script:
+  origin/main fcb94dd "Add the self-rewarding DPO pipeline (dpo/)"
+  20 files under dpo/, 4.2 MB, origin and local 0/0
+  earlier this session: 3ff5be7 "Add MIT license"
+Scope chosen by the proprietor: code + result files + THE FULL DATASET (1,234
+pairs, the 918-pair capped file, 38 repair pairs), so a stranger can re-run the
+gate and reproduce the training set. All data files scanned clean beforehand.
+
+A FALSE ALARM I RAISED AND CLEARED: my own leak sweep flagged "executor" inside
+`ThreadPoolExecutor`. It was a substring grep; the real scanner uses word
+boundaries and never matched. Re-swept with \b — zero hits. Worth recording
+because it is the exact failure the scanner's design comment already warned about.
+
+THE PUBLIC README STATES THE HONEST POSITION and does not soften it: the pipeline
+runs end to end and has produced no result; the smoke test is a stand-in model;
+the rpo_alpha table is included as the one demonstrated claim; the export's
+50,000x adapter-is-live control is described; and the efficacy requirements are
+spelled out including the ~0.009 ruler std and the +/-0.03 noise floor, plus
+eval.py's own admission that it is a RELATIVE instrument.
+
+NOT CLAIMED: nothing about efficacy changed. Publishing code is not evidence.
+
+standing by for next DIRECTIVE

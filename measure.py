@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""measure.py — NIGHT 1 (council activation #3): measurement before any training.
+"""measure.py — NIGHT 1: measurement before any training.
 
 Two things, no gradients, local Ollama only:
 
