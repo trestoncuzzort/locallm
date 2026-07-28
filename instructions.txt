@@ -4892,3 +4892,51 @@ time of writing, both rejected at the floor, zero admitted. Whatever the final
 number is, it gets reported as measured - including if it falls short of 30.
 
 standing by for next DIRECTIVE
+
+--------------------------------------------------------------------------------
+49. EXECUTOR LOG  (2026-07-28 - live monitor GUI shipped; and my section 48
+    prediction is FALSIFIED by the first 24 candidates)
+--------------------------------------------------------------------------------
+MY OWN PREDICTION WAS WRONG, and it is recorded here first because section 48 wrote
+it down specifically so it could not be retrofitted afterwards. I predicted "a LOW
+yield with mostly FLOOR rejections". Measured over the first 24 candidates:
+
+    ADMITTED        8   33.3%
+    floor (0/8)    11   45.8%
+    ceiling (8/8)   4   16.7%
+    outside band    1    4.2%
+
+The floor-heavy half was right; "low yield" was not. A 33% admit rate is roughly an
+order of magnitude better than the ~4% the current held-out set achieves (4 movable
+of 10). At this rate the 30-task target is reached around candidate 90, not 400, and
+400 candidates would yield ~130 admitted - far past what is needed.
+NOT CLAIMED: that 33% holds. 24 candidates is a small sample and the rate can drift;
+the number that counts is the one at the end of the run.
+
+CONSEQUENCE WORTH NOTING NOW: if the rate holds, the binding constraint stops being
+"can we find enough movable tasks" and becomes "how many seeds can we afford", since
+k drives the detectable effect once task count is satisfied. That reopens the k=3 vs
+k=5 choice on cost grounds rather than availability grounds.
+
+MONITOR SHIPPED - screen_monitor.py plus a double-click "Screen Monitor.bat".
+Read-only by construction: it watches data/screen_results.jsonl and never talks to
+the screening process, so opening or closing it cannot disturb a run that holds the
+GPU for hours. Shows screened/target progress, admitted/target, elapsed, observed
+seconds-per-candidate, the rejection breakdown, and a tail of recent verdicts.
+The ETA reports BOTH ways the run can end - pool exhausted or admitted target
+reached - and highlights whichever lands first, because with a 33% admit rate the
+target arrives long before the pool does. If the projection falls short of target it
+says so in amber rather than only showing a time.
+Running as pythonw pid 114388, window title "srlm-forge - task screening".
+
+A BUG I SHIPPED AND CAUGHT BEFORE HANDING IT OVER: tk.Label's own `pady` takes a
+single screen distance and rejects the (top, bottom) tuple that pack() accepts, so
+the first version died on construction with `bad screen distance "14 0"`. Found by
+running it rather than by trusting that a GUI script which imports cleanly works -
+the same reason the screening smoke run was worth doing. pady now goes to pack().
+Also worth recording for future sessions: this shell has no interactive
+window-station access, so the first Start-Process attempt reported nothing. The
+window did launch once the script was actually correct; the silent failure was the
+crash, not the window station.
+
+standing by for next DIRECTIVE
