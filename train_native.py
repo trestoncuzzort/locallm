@@ -4,14 +4,14 @@
 Runs in .venv-train (Python 3.11 + torch cu121). Model-agnostic: base model, LoRA
 targets, and seq length come from config.py ($SRLM_MODEL / $SRLM_HF_BASE).
 
-Run 1 discipline (council §12): DPO on the verified frontier pairs only; the 38
+Run 1 discipline: DPO on the verified frontier pairs only; the 38
 repair pairs are EXCLUDED by default (single variable). Pass --include-repair to add.
 
     .venv-train\\Scripts\\python train_native.py            # frontier pairs only
     .venv-train\\Scripts\\python train_native.py --include-repair
 
 Output: dpo_adapter_native/  (LoRA adapter only). Nothing is ever merged: the
-adapter is applied at inference via Ollama's ADAPTER directive against the
+adapter is applied at inference via Ollama's ADAPTER instruction against the
 untouched base GGUF. See export_adapter.py.
 """
 from __future__ import annotations
@@ -37,8 +37,8 @@ def main() -> None:
     ap.add_argument("--limit", type=int, default=0,
                     help="use only first N pairs (smoke test); 0 = all")
     ap.add_argument("--lr", type=float, default=5e-6,
-                    help="council §14 THE RECIPE (alignment-handbook zephyr QLoRA-DPO); "
-                         "the old 8e-6 default was the 'vibes' number §14 corrected")
+                    help="from the alignment-handbook zephyr QLoRA-DPO recipe; "
+                         "replaces an earlier unsourced 8e-6 default")
     ap.add_argument("--out", default=str(HERE / "dpo_adapter_native"))
     ap.add_argument("--raw-pairs", action="store_true",
                     help="train on the uncapped dpo_pairs.jsonl instead of the "
@@ -48,7 +48,7 @@ def main() -> None:
     if not M.trainable:
         raise SystemExit(f"No HF base for '{M.ollama_tag}'; set SRLM_HF_BASE.")
 
-    # §12/§14: run 1 trains from the CAPPED, stratified 918-pair file, not the raw
+    # Run 1 trains from the CAPPED, stratified 918-pair file, not the raw
     # 1,234. The cap is the attribution guard — a ruler drop on the 54%-skewed raw
     # set cannot be distinguished from three-template overfit. Build it with
     # build_training_set.py and record its sha256 in the prereg.
@@ -122,18 +122,18 @@ def main() -> None:
         max_steps=args.max_steps,
         learning_rate=args.lr,
         beta=0.1,
-        rpo_alpha=1.0,              # §14: DPO+NLL. Without this the NLL branch in
+        rpo_alpha=1.0,              # DPO+NLL. Without this the NLL branch in
                                     # TRL 0.12.2's dpo_trainer never executes and
                                     # chosen-likelihood can fall while margin grows
                                     # (Pal 2024, arXiv:2402.13228; Pang 2024, 2404.19733)
-        lr_scheduler_type="cosine",  # §14: cosine, not TRL's default linear
+        lr_scheduler_type="cosine",  # cosine, not TRL's default linear
         warmup_ratio=0.1,
         bf16=True,
-        optim="adamw_bnb_8bit",     # §14: NON-paged (paging never fires under the
+        optim="adamw_bnb_8bit",     # NON-paged (paging never fires under the
                                     # VRAM assert and is the least-tested path here)
         logging_steps=5,
         save_strategy="no",
-        max_length=1024,            # §14: 1024/512, not config.max_seq's 2048/1024
+        max_length=1024,            # 1024/512, not config.max_seq's 2048/1024
         max_prompt_length=512,
         report_to="none",
     )
@@ -145,11 +145,11 @@ def main() -> None:
 
     # NOTHING IS MERGED. The old --merge path called merge_and_unload() on the
     # 4-bit model and labelled the output "fp16"; it was deleted rather than
-    # fixed (council §22). Export is: convert_lora_to_gguf.py -> Ollama ADAPTER
-    # directive, applying the adapter at inference against the untouched base.
+    # fixed. Export is: convert_lora_to_gguf.py -> Ollama's ADAPTER
+    # instruction, applying the adapter at inference against the untouched base.
     # See export_adapter.py. Do not reintroduce a merge step here.
 
-    # Record what ran, for the executor log / prereg trail.
+    # Record what ran, for the preregistration trail.
     (Path(args.out) / "run_meta.json").write_text(json.dumps({
         "base": M.hf_base, "ollama_tag": M.ollama_tag, "pairs": len(ds),
         "include_repair": args.include_repair, "epochs": args.epochs,

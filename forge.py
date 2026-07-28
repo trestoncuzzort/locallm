@@ -59,7 +59,7 @@ NUM_CANDIDATES = 4          # samples per task; more = better pairs, more time
 GEN_TEMP     = 0.8          # diversity matters for preference pairs
 KEEP_ALIVE   = "5m"         # keep model warm between tasks; released on exit
 CAND_TIMEOUT = 8            # seconds per candidate execution
-EMIT_CONCISENESS = False    # council item 2: length-preference is a reward-hack;
+EMIT_CONCISENESS = False    # length-preference is a reward-hack;
                             # off until a robustness signal (mutation tests) exists
 OUT_DIR      = Path(__file__).with_name("data")
 

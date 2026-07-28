@@ -1,0 +1,139 @@
+# A self-rewarding DPO pipeline with an executable reward
+
+The model proposes solutions. **Unit tests decide.** Preferences are learned from the
+verdict, never from another model's opinion.
+
+This is the training half of a local-LLM loop: it generates candidate solutions to
+coding tasks, runs them against hidden tests in an isolated subprocess, and emits
+`(prompt, chosen, rejected)` preference pairs only where a real correctness gap
+exists. The reward signal is an exit code, not a judgement.
+
+## Why not use a bigger model as the judge
+
+Because an LLM judge can be talked out of its verdict, and a model being trained
+against one learns to talk it out of its verdict. A unit test has no opinion to
+change. The trade is that the reward only covers what the tests cover — which is a
+real limitation, stated here rather than hidden.
+
+## The loop
+
+```
+forge.py                                  train_native.py
+--------                                  ---------------
+actor    -> K candidate solutions
+verify   -> hidden unit tests = reward --> DPO+NLL on (prompt, chosen, rejected)
+pair     -> chosen vs rejected         --> LoRA adapter
+failures -> failures.jsonl                     |
+    ^                                          v
+    +---------- better actor <---- export_adapter.py -> Ollama ADAPTER
+```
+
+`failures.jsonl` is the interesting output: tasks *no* candidate could solve. Those
+are the curriculum for the next round.
+
+## What makes the data trustworthy
+
+**Isolated execution.** Candidates run in a `python -I` subprocess under an 8-second
+timeout with a coarse banned-operation filter (`forge.py`). This is defense in depth,
+**not a sandbox** — for untrusted or large runs, use a container or a throwaway VM.
+
+**A correctness gap, or no pair at all.** A pair is emitted only when `chosen` passes
+every assertion and `rejected` demonstrably fails. Preferring the *shorter* of two
+passing solutions is a length-bias reward hack, so that pair type is disabled
+(`EMIT_CONCISENESS = False`).
+
+**A gate training cannot skip.** `verify_dataset.py` re-executes both sides of every
+pair — `chosen` must still pass, `rejected` must still fail — then writes a receipt
+recording the sha256 of each verified file. Both trainers refuse to start unless a
+receipt covers their exact input bytes with zero violations (`dataset_gate.py`). Edit
+a dataset and the hash stops matching, so training halts until it is re-verified.
+There is no bypass flag.
+
+Latest gate run: **1,269 unique pairs, 0 violations**, covering 2,190 rows across
+`dpo_pairs.jsonl` (1,234), `dpo_pairs_capped.jsonl` (918 — the training file) and
+`repair_pairs.jsonl` (38). Unique is below the row total because 3 pairs appear in
+two files. All of it is in `data/`, so you can re-run the gate yourself.
+
+## Honest status
+
+**The pipeline runs end to end. It has not produced a result.**
+
+Training has been executed once, on a small stand-in model
+(`Qwen/Qwen2.5-0.5B-Instruct`, 10 optimizer steps), purely to prove the path works.
+No run on a full-size base, no held-out evaluation, and **no claim that any of this
+improves a model.**
+
+What that smoke test did establish is narrow and real. TRL adds its NLL term only
+when `rpo_alpha` is set, so "is this actually DPO+NLL or silently plain DPO?" is
+answered by whether `nll_loss` appears in the metrics:
+
+| `rpo_alpha` | `loss` | `nll_loss` |
+|---|---|---|
+| `1.0` | 1.0959 | **0.4036** |
+| unset | 0.6914 | *absent* |
+
+`0.6914 + 0.4036 = 1.0950` against an observed `1.0959` — the NLL term is added
+exactly as documented. Recorded in `data/smoke_rpo_alpha_result.json`.
+
+The export path is verified too (`data/export_acceptance_result.json`): conversion
+tensor counts match, the adapted model and a null baseline both build, and — the
+check that matters — scaling the LoRA `B` matrices by 50,000x collapses output into
+gibberish. That is what proves Ollama is genuinely applying the adapter rather than
+parsing the instruction and ignoring it. An adapter that is silently dropped passes
+every other check.
+
+## What an efficacy claim would require
+
+None of this has been done, and the numbers below are why it is not a formality:
+
+- a preregistration signed **before** the run;
+- `eval.py`'s frozen held-out set scored before and after (it is disjoint from the
+  training tasks by design — that is what makes it a ruler);
+- a null baseline: the same Modelfile with the `ADAPTER` line removed, so "the
+  adapter did something" is not confounded with "the export did something";
+- k>=5 seeds, with test-retest variance reported separately from between-config
+  variance.
+
+The ruler's own cross-run standard deviation is about **0.009**, so any effect below
+roughly **±0.03** cannot be distinguished from measurement noise. A pass@k moving
+from 0.42 to 0.44 would prove nothing.
+
+`eval.py`'s docstring also concedes that its task shapes may overlap a base model's
+pretraining, so absolute pass@k partly measures recall. It is a *relative*
+instrument — iteration N against iteration 0 on a frozen set. It cannot support a
+claim like "the model is 12% better at coding."
+
+## Running it
+
+```bash
+python forge.py              # generate + verify pairs   (needs Ollama + a model)
+python verify_dataset.py     # the gate; required before training
+python build_training_set.py # the stratified, capped training file
+python train_native.py       # QLoRA DPO+NLL            (needs a CUDA venv)
+python export_adapter.py --adapter <dir> --base-tag <ollama tag> \
+                         --name <new model> --verify
+python eval.py               # score any Ollama model on the frozen set
+```
+
+Generation needs only `requests` plus a running Ollama. Training needs a separate
+Python 3.10-3.12 environment with CUDA torch; see the header of `train_native.py`.
+Export needs llama.cpp's `convert_lora_to_gguf.py` — set `SRLM_LLAMA_CPP` if it is
+not at the default path.
+
+Model choice is not hardcoded: `config.py` resolves an Ollama tag and a Hugging Face
+base from `SRLM_MODEL` / `SRLM_HF_BASE`, with per-architecture LoRA targets.
+
+## Known limitations
+
+- The banned-operation filter is a regex, not a sandbox.
+- The reward covers only what the hidden tests cover.
+- Tasks are pure-function coding problems on purpose — objective reward, small blast
+  radius. Keep new tasks that shape and the loop stays sound.
+- 3 pairs appear in both `dpo_pairs.jsonl` and `repair_pairs.jsonl`, so they are seen
+  twice per epoch under `--include-repair`. The default configuration is unaffected.
+- The dataset receipt is unsigned. It defends against drift and accident, not against
+  someone editing the receipt itself.
+
+## License
+
+MIT — see [../LICENSE](../LICENSE). Copyright (c) 2026 Treston Malachi Cuzzort.

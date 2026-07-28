@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """build_training_set.py — the N=918 stratified, capped run-1 training file.
 
-Council §12 adjudicated a 120-pairs-per-task cap and §14 corrected the resulting N
-to 918 (the removed poisoned pair was `balanced`, an under-cap task, so it subtracts
-straight through). Rationale, in the council's words: a ruler drop on the full
-54%-skewed set cannot be told apart from three-template overfit.
+A 120-pairs-per-task cap, giving N=918 (the one removed poisoned pair was
+`balanced`, an under-cap task, so it subtracts straight through). The rationale: a
+loss drop measured on the full 54%-skewed set cannot be told apart from overfit to
+the three most common task templates.
 
-The cap was specified in §12 but enforced nowhere — train_native.py loaded all 1,234
-rows. This builds the file that run 1 trains from, and prints the sha256 that goes
-into the prereg.
+The cap was specified long before it was enforced anywhere — train_native.py used to
+load all 1,234 rows. This builds the file that run 1 trains from, and prints the
+sha256 that goes into the preregistration.
 
-NOTE ON THE COUNCIL'S PRESCRIPTION: §18 recommended `groupby('tid')`. There is no
-top-level `tid` column — the task id lives at meta.tid. Lifted here explicitly.
+NOTE: stratifying with `groupby('tid')` does not work directly — there is no
+top-level `tid` column, the task id lives at meta.tid. Lifted here explicitly.
 
     python build_training_set.py            # writes data/dpo_pairs_capped.jsonl
     python build_training_set.py --check    # report only, write nothing
