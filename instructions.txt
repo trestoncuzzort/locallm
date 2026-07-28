@@ -5308,7 +5308,7 @@ session's timing note above this response for how to reconcile the two:
 
 
 --------------------------------------------------------------------------------
-50. EXECUTOR LOG  (2026-07-28 - throughput estimate was wrong by ~15x; revised
+51. EXECUTOR LOG  (2026-07-28 - throughput estimate was wrong by ~15x; revised
     projection and firming yield numbers)
 --------------------------------------------------------------------------------
 SECOND WRONG PREDICTION IN TWO ENTRIES, and the proprietor caught this one before I
@@ -5348,7 +5348,7 @@ not mistaken for a surprise.
 standing by for next DIRECTIVE
 
 --------------------------------------------------------------------------------
-51. EXECUTOR LOG  (2026-07-28 - SCREEN COMPLETE. 30 admitted tasks, all in band.
+52. EXECUTOR LOG  (2026-07-28 - SCREEN COMPLETE. 30 admitted tasks, all in band.
     The replacement instrument now has a candidate set.)
 --------------------------------------------------------------------------------
 RESULT, MEASURED:
@@ -5369,7 +5369,7 @@ with a median near the middle of the band, which is where variance - and therefo
 sensitivity - is greatest.
 
 THIRD PREDICTION MISS IN THREE ENTRIES, recorded because the pattern is the point.
-Section 50 projected the target at "roughly candidate 99"; it actually took 121. The
+Section 51 projected the target at "roughly candidate 99"; it actually took 121. The
 cause is visible in the drift I had already flagged: the admit rate fell steadily as
 the sample grew.
     at n=24   33.3%
@@ -5377,7 +5377,7 @@ the sample grew.
     at n=121  24.8%   <- final
 Each projection was made from the rate to date and each was optimistic, because the
 rate was still falling. Section 49 said "the number that counts is the one at the
-end" and then section 50 projected from a mid-run number anyway. The honest form is
+end" and then section 51 projected from a mid-run number anyway. The honest form is
 that early admit rates on a shuffled pool are biased by nothing except sample size,
 and I should have widened the projection rather than restating it as a point value.
 24.8% is now a completed-run figure, not an estimate.
@@ -5413,7 +5413,7 @@ translates into a tighter measured noise floor is item 3 and is unmeasured.
 standing by for next DIRECTIVE
 
 --------------------------------------------------------------------------------
-52. EXECUTOR LOG  (2026-07-28 - monitor said "stalled" about a run that had
+53. EXECUTOR LOG  (2026-07-28 - monitor said "stalled" about a run that had
     FINISHED; and the §50 audit verified, two of four claims corrected)
 --------------------------------------------------------------------------------
 A GUARD THAT REPORTED THE WRONG THING - mine, again, and the proprietor hit it
@@ -5461,7 +5461,7 @@ does not apply, one is unre-derived:
       His mechanism is real: I took per-task sd 0.0928 from the OLD movable tasks
       and applied it to deliberately mid-band new ones, and binomial variance is
       maximal near p=0.5, so the new set should be NOISIER per task, not quieter.
-      This is the same error class as section 51 item 3 (do not carry the old
+      This is the same error class as section 52 item 3 (do not carry the old
       instrument's numbers onto the new one) - I named it and then committed it one
       entry earlier. NOT accepting the specific 112-174 on his arithmetic alone;
       two of his four claims needed correction, so this gets re-derived here first.
@@ -5480,7 +5480,7 @@ to a re-derived target. That is not a setback in the pipeline - the pipeline wor
 standing by for next DIRECTIVE
 
 --------------------------------------------------------------------------------
-53. EXECUTOR LOG  (2026-07-28 - §50's remaining two claims re-derived. Task count
+54. EXECUTOR LOG  (2026-07-28 - §50's remaining two claims re-derived. Task count
     CONFIRMED 5.16x too low. Free prefilter CONFIRMED to exist and MEASURED too
     weak to use. Rerun correctly sized - and a cheaper shape found.)
 --------------------------------------------------------------------------------
@@ -5497,7 +5497,7 @@ He said 5.1x and a range of 112-174; I get 155 at k=5. His range brackets mine.
 The mechanism is the one he named and it is my error: I took the variance of the OLD
 SATURATED tasks and applied it to deliberately mid-band new ones. Binomial variance
 is maximal near p=0.5, so screening FOR sensitivity necessarily produces tasks that
-are individually noisier. Section 51 item 3 named this exact trap ("the old
+are individually noisier. Section 52 item 3 named this exact trap ("the old
 instrument's numbers do not transfer") one entry before I fell into it.
 
     detect +3% @80% power   k=3 -> 258 tasks   k=5 -> 155   k=10 -> 77
@@ -5543,5 +5543,48 @@ THE RERUN, correctly scoped:
 NOT CLAIMED: that the oss stratum contains 400 screenable candidates. Not counted
 yet - that is the first thing the rerun must check, and if it does not, the shortfall
 is reported rather than backfilled from a stratum that cannot ship.
+
+standing by for next DIRECTIVE
+
+--------------------------------------------------------------------------------
+55. EXECUTOR LOG  (2026-07-28 - the channel had TWO section 50s. Record repaired.)
+--------------------------------------------------------------------------------
+A DEFECT IN THE RECORD ITSELF, which is worse than a defect in the code because
+every later entry cites it. The PhD's audit was written as section 50 at ~09:24
+while my screening run was in flight. I appended my throughput entry as section 50
+as well, not having read his. Two sections shared a number, and sections 52/53/54
+all cite "50" - which of the two was ambiguous.
+
+REPAIRED, oldest-wins. His audit was written first and keeps 50; my four entries
+shifted up by one:
+    50  COUNCIL RESPONSE - the PhD's audit of 44-47   (unchanged)
+    51  throughput estimate wrong by ~15x            (was 50)
+    52  SCREEN COMPLETE, 30 admitted                 (was 51)
+    53  monitor said stalled about a finished run    (was 52)
+    54  the audit's last two claims re-derived       (was 53)
+Cross-references repaired with them: four internal citations pointed at entries
+that moved. Two cited "section 50 projected the target at candidate 99" - that was
+MY throughput entry, now 51, not his audit. Two cited "section 51 item 3" for the
+do-not-carry-the-old-numbers trap, now 52. All four rewritten to their new targets.
+His audit is still cited as 50 in sections 53 and 54, which remains correct and was
+deliberately left alone.
+
+VERIFIED, not assumed: 44 numbered EXECUTOR LOG / COUNCIL RESPONSE sections, ZERO
+duplicates, and the apparent numbering gaps (14->16, 20->22, 22->25, 25->27, 28->30)
+are other section types the check does not match - SESSION HANDOFF at 15, PROJECT
+VISION at 21, the installer goal at 23, the publish rule at 24, advisory weighting
+at 26, the asking-for-help rule at 29. Confirmed by reading each. No content was
+altered, only numbers and the citations that point at them.
+
+HOW THIS HAPPENED AND HOW IT STOPS: the council pane and I both append to this file,
+and neither checks what number the other just took. The PhD's own report notes he hit
+the same class this morning ("a channel-ordering mistake put it between 47 and 48 on
+first write"). Appending blind to a shared file is the mechanism. The cheap fix is to
+read the last section number immediately before writing rather than assuming the next
+one - which is what I will do from here, and it costs one grep.
+
+NOT CLAIMED: that this is the only collision in the file's history. I checked the
+CURRENT state for duplicates and found none after the repair; I did not audit whether
+an earlier pair was silently merged or overwritten before I started reading.
 
 standing by for next DIRECTIVE
