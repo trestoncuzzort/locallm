@@ -5411,3 +5411,70 @@ NOT CLAIMED: that the new instrument is better. It has better STRUCTURAL propert
 translates into a tighter measured noise floor is item 3 and is unmeasured.
 
 standing by for next DIRECTIVE
+
+--------------------------------------------------------------------------------
+52. EXECUTOR LOG  (2026-07-28 - monitor said "stalled" about a run that had
+    FINISHED; and the §50 audit verified, two of four claims corrected)
+--------------------------------------------------------------------------------
+A GUARD THAT REPORTED THE WRONG THING - mine, again, and the proprietor hit it
+within minutes. screen_monitor.py judged liveness ONLY by whether the results file
+was still growing, so a run that completed successfully displayed
+"no new result for Xh - finished, stopped, or stalled". Three very different
+states collapsed into one amber line, and the reader correctly read the worst one.
+The run was fine: target of 30 admitted reached at candidate 121, exit code 0.
+FIXED by checking the conditions that actually define completion before falling
+back to the ambiguous case - admitted >= target, or candidate pool exhausted - so
+COMPLETE now reads green and distinct from a genuine stall, which is now red and
+says explicitly "target not reached, pool not exhausted".
+This is the same shape as the invented-guard class (activation 13): the check was
+built on the signal that was easy to observe (file mtime) rather than the property
+that mattered (did it finish). Third instance of mine in this project. Monitor
+relaunched, pythonw pid 135840.
+
+§50 IS THE PHD'S AUDIT OF §44-§47 and it fired WHILE the screen was running, so he
+never saw §48/§49. Verified rather than accepted - two of four claims stand, one
+does not apply, one is unre-derived:
+
+  (1) REWARD-HACK BYPASS - DOES NOT APPLY TO WHAT I SHIPPED. He is right that
+      forge.py's "closes the class for every current and future task" is too strong,
+      and right that AceCode's bare asserts call the function by its GLOBAL name.
+      But screen_tasks.as_task() emits `def run_tests(_f): <entry> = _f` FIRST, which
+      shadows the global inside run_tests, so the asserts hit the guarded function.
+      Tested directly through forge.verify() against a real admitted task: the
+      always-equal exploit is REFUSED with "solution returned 'A'; the verifier
+      accepts only plain builtins". The general claim in forge.py should still be
+      softened; the construction in flight is safe.
+
+  (2) LICENCE CONTAMINATION - CONFIRMED AND WORSE THAN I CHECKED. He reports 39.4%
+      of AceCode descends from a stratum whose own card states no licence. Measured
+      against my 30 admitted:
+          bigcode_python_fns   12   (no upstream licence stated)
+          evol                 11   (provenance unverified)
+          oss                   7   (clean MIT)
+      So only 7 of 30 are safe to publish from an MIT repo. I checked AceCode's
+      top-level licence and stopped there - the same one-layer check that section 47
+      correctly applied to KodCode, not applied deeply enough here. Admit rate by
+      stratum is near-identical (oss 20.0%, bigcode 26.1%, evol 27.5%), so
+      restricting to oss costs yield but not quality.
+
+  (3) TASK COUNT 5.1x TOO LOW (~112-174, not ~30) - PLAUSIBLE, NOT YET RE-DERIVED.
+      His mechanism is real: I took per-task sd 0.0928 from the OLD movable tasks
+      and applied it to deliberately mid-band new ones, and binomial variance is
+      maximal near p=0.5, so the new set should be NOISIER per task, not quieter.
+      This is the same error class as section 51 item 3 (do not carry the old
+      instrument's numbers onto the new one) - I named it and then committed it one
+      entry earlier. NOT accepting the specific 112-174 on his arithmetic alone;
+      two of his four claims needed correction, so this gets re-derived here first.
+
+  (4) FREE STAGE-1 SCREEN IN THE DOWNLOADED DATA - UNVERIFIED, CHEAP TO CHECK.
+      He says AceCode's `inferences` column carries precomputed pass rates from a
+      same-family model, which would make the n=8 stage largely redundant. Not
+      checked yet.
+
+CONSEQUENCE: the 30 admitted tasks are NOT the instrument. They are 7 publishable
+tasks plus 23 that cannot ship, sized by a task-count target that is probably too
+low by several fold. The screen needs re-running restricted to the oss stratum and
+to a re-derived target. That is not a setback in the pipeline - the pipeline worked,
+43 minutes for 121 candidates - it is a setback in what the run was pointed at.
+
+standing by for next DIRECTIVE
