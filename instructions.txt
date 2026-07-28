@@ -5647,3 +5647,130 @@ load_verified, and offered to #13's sweep as another instance.
 NOT CLAIMED: any result from the running screen. It was launched minutes ago.
 
 standing by for next DIRECTIVE
+
+--------------------------------------------------------------------------------
+57. COUNCIL NOTE  (2026-07-28 ~10:27 — session-continuity bookkeeping, not a
+    finding; council session read the last section number first, per §55)
+--------------------------------------------------------------------------------
+THE PHD IS ALREADY WORKING ON ACTIVATION #15 (your Q1/Q2 above), spawned
+automatically when the watcher fired at 10:19. Proprietor flagged being close to
+this session's limit, so a save point is recorded in case the session ends before
+he reports back: `council\phd-round-pending-2026-07-28_1027.md` holds the exact
+brief verbatim. If a new COUNCIL session starts and no response to activation #15
+has landed here yet, that file lets it relaunch the identical round in one step
+rather than reconstructing the ask from scratch. If this response DOES land
+normally (as the next numbered section), this note and that file are stale —
+ignore both.
+
+standing by for next DIRECTIVE
+
+--------------------------------------------------------------------------------
+58. EXECUTOR LOG  (2026-07-28 - sponsor handoff package read and ruled on. Three
+    items adopted, the rest declined. The corpus finding REPRODUCED on our bytes.)
+--------------------------------------------------------------------------------
+A package arrived from the project sponsor at C:\Users\t\Downloads\
+S12-LOCAL-MODEL-HANDOFF-2026-07-28 - 101 files, 1.99 MB. It is a PROPOSAL set:
+two Designs of Record, a 53-card owner-choice workbench, three research seeds,
+and a council review trail. It ratifies nothing and authorizes no repo work.
+That is its own stated boundary and it matches ours.
+
+WHAT I ACTUALLY READ - enumerated, not swept.
+  READ AT THE BYTE (14 files, ~460 KB): the four entry docs (00, 00A, 01, 02);
+    03-DOR-DECISION-WORKBENCH in full (2,184 lines, all 53 cards);
+    COMPANION-00-START-HERE; the council-method companion; S12-SEAM-CONTRACT;
+    S12-DOR1-SPONSOR-RULINGS; RESEARCH-SEED-01/02/03; LOCALLM-CORPUS-FORENSICS;
+    LOCALLM-OWNER-NORTHSTAR-STATEMENT.
+  GREPPED, NOT READ: LOCALLM-DOR-FACTORY-v0.4, targeted at OC-16.
+  NOT OPENED (~77% by bytes): the trainer DoR; 31 code companions; the raw
+    research routes (~640 KB); the 18 council verdict/reconciliation files
+    (~290 KB); source-snapshots/code; package-manifest.
+  What this misses: every conclusion I cite below rests on the summary layer
+    plus the one grep. I did not audit the evidence beneath it.
+
+PROPRIETOR RULING (2026-07-28): adopt items 1-3. Item 4 (three-pool separation)
+was offered, considered, and DECLINED. The 53-card workbench is NOT adopted as a
+second decision record - THIS CHANNEL REMAINS THE SINGLE SOURCE OF TRUTH. Adopted
+items carry the sponsor's card ID so provenance is traceable back to his package.
+
+ITEM 1 - CORPUS CONCENTRATION. ADOPTED, and REPRODUCED HERE. Not inherited.
+  RED   localllm/corpus.txt, 549,023 chars read (569,852 bytes on disk; the delta
+        is CRLF collapsing under text-mode read). 13 documents. The block marked
+        `# file: localllm/train.py` is 473,621 chars = 86.3% of the corpus.
+        Sampling it at 20/50/80% offsets returns simplify_path,
+        longest_palindrome, decode_ways - forge's generated candidate stream,
+        not train.py. The real train.py is ~8.8 KB.
+  Sponsor measured 492,430 / 86.4% / 98 unique chars against his copy; I measure
+  473,621 / 86.3% / 97 against ours. Same file, same finding, newline handling
+  explains the delta. CONFIRMED INDEPENDENTLY.
+  THREE CONSEQUENCES, and they bound results we already banked:
+    a. Low training loss on this corpus means repetition, not learning.
+    b. group_split MUST put a 86.3% document in TRAIN, leaving validation filled
+       with hand-written source. Val loss measured DISTRIBUTION SHIFT, not
+       held-out generalization. That is not a leakage failure and no leakage
+       scan can see it.
+    c. leakage.py reporting CLEAN was the scanner working exactly as documented
+       - 0% recall on identifier-renamed clones - and still not saying the thing
+       that mattered.
+  NOT CLAIMED: I have not yet re-derived which banked runs are affected, nor
+  restated exp_lr_width's claim boundary. Those are follow-on work, still open.
+
+ITEM 2 - DPO ADMISSIBILITY (sponsor card F-18 / Factory OC-16). ADOPTED AS AN
+  OPEN QUESTION, not as an answer. The package registers a genuine unresolved
+  conflict: whether same-prompt DPO is conceptually mis-specified when labels are
+  deterministic pass/fail, with verified-positive SFT and KTO as better-fitting
+  alternatives. It explicitly declines to declare a winner (DoR-FACTORY:628).
+  Its sheet-ordering rule (:887) says the admissibility question is asked BEFORE
+  the experiment-topology question "because accepting an experiment order before
+  ruling on the disputed method inside it would decide the dispute by accident."
+  THAT IS WHAT THIS BRANCH HAS BEEN DOING. fix/verified-training-gate has been
+  sizing an instrument to detect a +3% pass@1 move from DPO. The screening work
+  itself is method-agnostic and survives; the method it feeds does not.
+
+ITEM 3 - TRACE AS PRIMARY RECORD (sponsor card F-10 / Factory OC-09). ADOPTED.
+  The immutable task -> attempt -> verifier-outcome trace becomes the primary
+  record; SFT rows, KTO rows and DPO pairs become DERIVED VIEWS over trace IDs.
+  Cheap now, expensive to retrofit. It also dissolves item 2 as a blocker: with
+  traces primary, the DPO-vs-SFT-vs-KTO question can be answered later without
+  regenerating a single candidate.
+
+EXECUTOR DECISION - THE OSS SCREEN STAYS DOWN. I am not restarting it.
+  It died at 10:29 with the previous session (24 of 500 candidates, 7 admitted;
+  no python process; file untouched for 4h). Restarting costs ~2.3 GPU-hours to
+  finish sizing an instrument whose target effect belongs to a method that item 2
+  just moved to unresolved. Item 3 also changes the shape of what screening
+  should be writing. Doing item 3 first and re-screening once is strictly cheaper
+  than screening now and re-screening after. The 24 rows already banked are kept
+  as evidence, not deleted.
+
+FLAG FOR THE PHD, activation #15 - the premise of Q1 has narrowed. Q1 asks how
+  big the instrument must be to see a DPO effect. Given item 2, the useful form
+  is wider: what effect size to expect for verifier-grounded SFT / KTO / DPO at
+  this scale, so the instrument is sized for whichever method wins. The actor is
+  UNCHANGED - llama3:8b-instruct-q4_K_M - so the "8B, ~900 pairs, LoRA r=16"
+  premise still holds. Answer the wider form if the literature supports it.
+
+HOUSEKEEPING, done this session.
+  - ollama rm qwen3.5:9b-q8_0 (10 GB, downloaded today, zero references in this
+    repo). KEPT and NOT deleted, because each is load-bearing evidence:
+    llama3:8b-instruct-q4_K_M (the measured actor, every instrument number is
+    against it); qwen2.5:0.5b-instruct (base tag, export_adapter.py:13);
+    forged-qwen05b; forged-qwen05b-null (null re-export baseline, S38);
+    forged-qwen05b-amplified (check 4's POSITIVE CONTROL - the acceptance
+    criterion is "amplified output is NOT byte-identical to null", so deleting it
+    destroys the proof the adapter is not a no-op).
+  - Deleted a duplicate copy of the method kit found in Downloads. Verified
+    byte-identical to C:\Moonwalker-Starter-Kit\ via `diff -rq` (empty output)
+    BEFORE deleting. Canonical copy intact, 10 files. The kit is not in this repo
+    and never will be.
+  - A PC-control plugin was reported installed. I searched the MCP server config,
+    global npm packages, pip packages matching interpreter|agent|pyautogui|
+    pywinauto|computer|control, new directories in Program Files / Program Files
+    (x86) / LOCALAPPDATA\Programs / APPDATA within 14h, and all running
+    non-system processes. NOT FOUND. That search would still miss a browser
+    extension, a portable app run from Downloads, something inside .venv-train,
+    or an Ollama-side integration. Recorded as UNRESOLVED, not as absent.
+
+STILL OPEN: implement item 3 (trace schema + derived views); re-derive which
+banked localllm runs item 1 bounds; identify the plugin; re-screen after item 3.
+
+standing by
