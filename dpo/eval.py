@@ -179,26 +179,43 @@ def evaluate(model_tag: str) -> dict | None:
         print(f"[!] Ollama not reachable at {forge.OLLAMA_URL} ({e}).")
         return None
 
+    # A GENERATION ERROR IS NOT A WRONG ANSWER. This loop used to `continue` on a
+    # transport failure while still dividing by N_SAMPLES, so an Ollama hiccup was
+    # scored as the model getting the task wrong -- depressing the score and
+    # inflating the run-to-run spread that this file is the ruler for. Attempted
+    # and scored are now counted separately; the score is over what was actually
+    # measured, and a task nothing could be sampled for is EXCLUDED rather than
+    # silently counted as zero.
     per_task = []
     for t in HELD_OUT:
-        c = 0
+        c = scored = errors = 0
         for i in range(N_SAMPLES):
             temp = 0.0 if i == 0 else TEMP  # one greedy anchor + diverse rest
             try:
                 raw = actor.generate(t.prompt, forge.ACTOR_SYSTEM, temp)
             except Exception as e:  # noqa: BLE001
+                errors += 1
                 print(f"  [{t.tid}] gen error: {e}")
                 continue
+            scored += 1
             if forge.verify(forge.extract_code(raw), t).ok:
                 c += 1
-        per_task.append({"tid": t.tid, "correct": c, "n": N_SAMPLES})
-        marks = "".join("#" if j < c else "." for j in range(N_SAMPLES))
-        print(f"  {t.tid:14} {marks} {c}/{N_SAMPLES}")
+        per_task.append({"tid": t.tid, "correct": c, "n": scored,
+                         "requested": N_SAMPLES, "gen_errors": errors})
+        marks = "".join("#" if j < c else "." for j in range(scored))
+        flag = f"  [{errors} gen error(s), not scored]" if errors else ""
+        print(f"  {t.tid:14} {marks} {c}/{scored}{flag}")
     actor.release()
 
-    agg = {f"pass@{k}": round(
-        sum(pass_at_k(N_SAMPLES, p["correct"], k) for p in per_task) / len(per_task), 4
-    ) for k in KS}
+    # pass@k is undefined when fewer than k samples were actually scored, so those
+    # tasks drop out of that k rather than being counted as failures.
+    agg, coverage = {}, {}
+    for k in KS:
+        usable = [p for p in per_task if p["n"] >= k]
+        agg[f"pass@{k}"] = round(
+            sum(pass_at_k(p["n"], p["correct"], k) for p in usable) / len(usable), 4
+        ) if usable else None
+        coverage[f"pass@{k}"] = {"tasks_scored": len(usable), "tasks_total": len(per_task)}
 
     return {
         "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
@@ -207,6 +224,8 @@ def evaluate(model_tag: str) -> dict | None:
         "temp": TEMP,
         "n_tasks": len(HELD_OUT),
         "aggregate": agg,
+        "coverage": coverage,
+        "gen_errors_total": sum(p["gen_errors"] for p in per_task),
         "per_task": per_task,
     }
 

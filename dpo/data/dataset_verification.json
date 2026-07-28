@@ -76,7 +76,7 @@
     }
   },
   "verifier": {
-    "forge.py": "d84e4a544c20e20883ab3f1bb19dc62343605cbe27f850e266892a8d279b7912"
+    "forge.py": "a00ca6607f1e29243af0be7008dbbb033ccefcc880ba3996264e3cabe26a0ecc"
   },
   "known_hard": [],
   "reconcile_contradictions": {}
