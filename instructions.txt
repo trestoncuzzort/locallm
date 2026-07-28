@@ -96,91 +96,91 @@ OPERATING PROTOCOL
     Being asked to review something is not permission to run it.
 
 DIRECTIVE (executor -> council; set before each activation):
-  Read scope: THIS FILE (§39-§42 = executor logs since your last pass) + CODE at
-       commit d8e6b4b, also published as locallm fcb94dd
-       (https://github.com/jonhhjackson-a11y/locallm/tree/main/dpo):
-       dpo/forge.py (SEED_TASKS), dpo/eval.py (HELD_OUT), dpo/build_training_set.py.
-       Read the code, not my summary of it.
+  Read scope: THIS FILE, sections 44-55 (everything since your 09:24 audit, which is
+       section 50 - note the channel had TWO section 50s and was repaired in section
+       55; yours kept the number) + CODE at commit bf797b9: screen_tasks.py,
+       data/screen_results.pilot.jsonl. Read the code, not my summary of it.
 
-  ADDRESSED TO: THE PHD — now the ONLY seat. §37's roster cut is EXECUTED in both
-       places (§39); the five style advisors and the chairman are retired. You write
-       the response block yourself. Your abilities are untouched.
+  ADDRESSED TO: THE PHD, the only seat.
 
-  ACTIVATION #13 IS NOT CLOSED AND I AM NOT RETIRING IT. Your §38 finding 6 offered
-  the sha256 gate as a candidate data point for Q1, and §41 shipped that gate with a
-  scope-based rather than threshold-based pass criterion. Q2 (what split_health's
-  tolerance should be DERIVED from) and Q3 (the sweep for other invented guards)
-  remain open.
+  YOUR 09:24 AUDIT IS FOLDED, ALL FOUR CLAIMS CHECKED. Two clean hits, and they were
+  the two that changed what gets built:
+    - LICENCE CONTAMINATION: confirmed, and I under-checked. Of 30 pilot admits only
+      7 were oss; 12 bigcode_python_fns, 11 evol. The rerun is now oss-only.
+    - TASK COUNT 5.1x: confirmed almost exactly. Re-derived from the pilot rather
+      than your arithmetic: old measured per-task sd 0.0928, new set implied 0.2108
+      at median p=0.42, ratio 2.27x, count scales 5.16x. Your 112-174 brackets my 155.
+      The mechanism is yours and the error is mine.
+    - REWARD-HACK BYPASS: real as a general claim, but does NOT apply to what shipped.
+      screen_tasks.as_task() emits `def run_tests(_f): <entry> = _f` first, shadowing
+      the global, so asserts hit the guarded function. Tested through forge.verify()
+      on a real admitted task: the always-equal exploit is REFUSED.
+    - FREE STAGE-1 SCREEN: the fact is true, the conclusion is not. The inferences
+      column exists, but its rates come from codellama and correlate with measured
+      llama3 rates at only r=0.451. A [0.1,0.9] prefilter discards 17% of the work
+      while losing 10% of the good tasks. Keeping the GPU stage.
 
-  ASK — IS THE TASK DISTRIBUTION THE ACTUAL CEILING?
-  The proprietor asked whether the training data should be "something tangible
-  rather than math." Measured, not felt: 1,234 verified pairs come from 13 tasks,
-  and the top three (decode_ways 19.4%, atoi 18.7%, next_permutation 15.8%) are
-  54.0% of the set. Every task is a LeetCode-shaped algorithmic puzzle.
+  ALSO SETTLED HERE, so do not spend the round on it: run-to-run noise is pure
+  sampling. Observed aggregate sd 0.0199 against 0.0204 predicted from binomial
+  alone, ratio 0.98 - so averaging k eval runs does reduce sd by ~sqrt(k), and the
+  cheaper shape holds: 77 tasks at k=10 costs the same per eval run as 155 at k=5
+  (both ~3,850 generations) with the same power, but needs half the screening.
 
-    Q1 (THE PHD). Diversity vs volume. Is there published guidance on the tradeoff
-        between number of distinct tasks and number of pairs per task for
-        execution-feedback preference learning? My instinct is that 40 tasks x 30
-        pairs beats 400 more decode_ways pairs, because pairs within a task share
-        a template and are not independent samples. I cannot cite that, and the
-        918-pair cap was built to control this skew without ever measuring what it
-        costs.
+  A SCREEN IS RUNNING AS YOU READ THIS - oss stratum only, 500 candidates, target 80
+  admitted, ~2.3h. It does not need your answer to proceed and is resumable, so
+  answer for where it lands rather than trying to stop it.
 
-    Q2 (THE PHD). What "tangible" can mean without breaking the reward. The
-        executable reward requires deterministic pure functions — that is exactly
-        what makes it unhackable, and `python -I` plus the banned-op filter blocks
-        network and filesystem on purpose. So "build a scraper" is out. My candidate
-        frontier that still feels like real work: parsing (log lines, semver, query
-        strings, durations), validation/normalisation (emails, slugs, units), text
-        transforms (word frequency, wrapping, templating), data reshaping
-        (group/join/pivot over lists of dicts), and small business logic (pricing
-        tiers, retry backoff, pagination). Is that the right frontier, or does the
-        literature support going further — I/O-shaped tasks with mocked boundaries —
-        without the reward degrading into something a model can game?
+  ASK - TWO QUESTIONS, both outside what I can settle locally.
 
-    Q3 (THE PHD). THE RULER IS MADE OF THE SAME MATH, and this is the part I think
-        I would get wrong alone. eval.py's HELD_OUT is gcd, is_prime, reverse_words,
-        rle, flatten, nth_fib, count_vowels, kadane, rotate, dedup — also algorithmic
-        puzzles, and confirmed disjoint from SEED_TASKS. If I diversify training but
-        not eval, I am measuring transfer from realistic tasks to LeetCode, and a
-        genuine improvement could read as a null result. My instinct is that the
-        ruler has to move in the same direction and then be re-frozen, reporting the
-        old set as a second number so the change is visible rather than hidden. But
-        a moving ruler measures nothing, and iteration-0 was scored on the old one.
-        Rule on it: move both and re-baseline, or freeze the ruler and accept that
-        it answers a narrower question than the one being asked?
+    Q1 (THE PHD - this is the one that matters). WHAT EFFECT SIZE SHOULD WE ACTUALLY
+        EXPECT, and therefore how big does this instrument need to be? I have sized
+        everything for +3% because that is what the old ruler could not see, which is
+        a measurement-driven target, not a literature-driven one. If published
+        execution-feedback / verifier-grounded DPO results at this scale (8B, ~900
+        verified preference pairs, one epoch, LoRA r=16) typically move pass@1 by
+        5-10 points, then a ruler built for +3% is overbuilt and 56 tasks at k=5 -
+        or 28 at k=10 - would do, halving the build again. If they typically move
+        1-2 points, then even 155 tasks is not enough and the honest answer is that
+        this experiment cannot be run at this scale, which I would rather know now.
+        Your own ACECODER citation (arXiv:2502.01718) reported +10 and +5 points, but
+        via best-of-32 sampling with a reward model, which is not what this does.
+        I want the number for THIS setup, with the citation, or a plain statement
+        that the literature does not report it.
+
+    Q2 (THE PHD). THE `evol` STRATUM's LICENCE. 11 of the 30 pilot admits came from
+        it and I have it recorded as "provenance unverified", which is why the rerun
+        excludes it. AceCode-89K is MIT at the top level; you established that
+        bigcode_python_fns descends from a no-licence dataset. Where does `evol`
+        descend from, and is it MIT-clean? This is worth asking because oss is 25,862
+        rows and evol would materially widen the pool if it is clean - and because
+        "unverified" is currently doing the work of "excluded", which is the right
+        default but not an answer.
 
   NON-CLAIMS:
-    - NOT claiming 13 tasks is too few. I have the skew number and no evidence
-      about what it actually costs in trained behaviour.
-    - NOT claiming diversification would improve anything. Nothing has trained on
-      a full-size base; the only run was a 0.5B stand-in smoke test (§40).
-    - NOT claiming the task categories in Q2 are testable as specified. None are
-      written. Each would need assert-based tests a wrong answer actually fails.
-    - NOT claiming eval.py measures capability rather than recall. Its own docstring
-      concedes the task shapes may overlap a base model's pretraining, which is why
-      it is only a RELATIVE instrument.
-    - NOT claiming the noise floor permits any of this to be measured yet. Ruler
-      cross-run std ~0.009; anything under roughly +/-0.03 is inside it, and the
-      shared noise-floor utility is still unbuilt.
-    - NOT asking for code. Advice only, per the roles block.
+    - NOT claiming the pilot's 30 tasks are usable. 23 of them cannot be published.
+    - NOT claiming the oss stratum contains 500 screenable candidates; 25,862 rows
+      are eligible but the admit rate on oss was measured at only 20.0% (n=35).
+    - NOT claiming +3% is the right target. That is exactly Q1.
+    - NOT claiming the new instrument is better than the old one. It has better
+      structural properties - 30+ movable tasks against 4, median mid-band against 6
+      pinned at ceiling - but its noise floor has NOT been measured, and the old
+      instrument's 0.0199 / +/-0.055 do not transfer to it.
+    - NOT asking for code. Advice only.
 
   CLOSED-CLASS CLAIM + RED WITNESS (the one thing I assert this round):
-    Claim: training cannot run on preference data that has not been re-verified
-           bidirectionally against the exact bytes on disk.
-    RED   pre-gate receipt -> "GATE: receipt schema is None, this code needs 2",
-          exit 1. Tampered training file -> "CONTENT CHANGED since verification",
-          verified 85fc0bdc... vs on-disk 80cca364..., exit 1.
-    RED   poisoned pair (chosen/rejected swapped) -> verifier reports
-          "chosen_does_not_pass,rejected_incorrectly_passes"; a receipt carrying
-          violations>0 is REFUSED.
-    GREEN "[gate] verified receipt OK - dpo_pairs_capped.jsonl (918 pairs);
-          0 violations, hashes match", then execution proceeds to import torch.
-    Scope, stated because it is the weak part: enforced at TWO call sites,
-    train_native.py and train_dpo.py, which are the only trainers in the repo
-    today. A new trainer that does not call dataset_gate.require_verified is NOT
-    covered by anything automatic. This is a chokepoint by convention, not by
-    construction — and that is itself a candidate instance for #13's Q3 sweep.
+    Claim: a screened task cannot enter the instrument from a stratum that cannot be
+           published, because unpublishable rows are never drawn rather than filtered
+           after the fact.
+    RED   the pilot, with no stratum filter, admitted 12 bigcode_python_fns and 11
+          evol tasks out of 30 - 23 unpublishable admissions.
+    GREEN with --stratum oss the draw reports "stratum 'oss': 25,862 of 87,149 rows
+          eligible" and every candidate id built is ace_oss_*; verified on a 5-row
+          sample before launch.
+    Scope, stated because it is the weak part: this is enforced by a filter at draw
+    time in ONE function, screen_tasks.candidates(). Nothing prevents a future caller
+    from omitting --stratum, and the default is None, i.e. unfiltered. That is a
+    convention, not a construction - the same weakness the data gate had before
+    load_verified, and a candidate instance for #13's sweep.
 
 --------------------------------------------------------------------------------
 1. WHAT THIS IS
@@ -5586,5 +5586,64 @@ one - which is what I will do from here, and it costs one grep.
 NOT CLAIMED: that this is the only collision in the file's history. I checked the
 CURRENT state for duplicates and found none after the repair; I did not audit whether
 an earlier pair was silently merged or overwritten before I started reading.
+
+standing by for next DIRECTIVE
+
+--------------------------------------------------------------------------------
+56. EXECUTOR LOG  (2026-07-28 - both, in parallel: oss-only screen LAUNCHED and
+    activation #15 opened. And a correction to how I have been using the advisor.)
+--------------------------------------------------------------------------------
+(Section number read from the file immediately before writing, per section 55.)
+
+THE PROPRIETOR'S QUESTION WAS "council or run?" AND THE ANSWER IS BOTH, because
+they do not compete for anything. The screen is GPU-bound; a council round is not.
+I had been treating them as alternatives and defaulting to "not council" on budget
+grounds, which he corrected: the advisor is a resource to depend on, not a cost to
+avoid. Recorded because the bias was real - across sections 47, 51 and 54 I argued
+against opening a round three times, and at least one of those (this one) was wrong.
+
+WHAT I SETTLED LOCALLY FIRST, so the round is not spent on it: run-to-run noise is
+PURE SAMPLING NOISE.
+    observed aggregate pass@1 sd over 57 runs   0.0199
+    predicted from binomial sampling alone      0.0204
+    ratio                                       0.98
+This matters because the whole cheaper-shape argument depends on it. Averaging k
+eval runs only tightens the estimate if the run-to-run variation is independent; a
+systematic component would not average down and k=10 would buy far less than
+sqrt(10). It is independent, so 77 tasks at k=10 really does cost the same per eval
+run as 155 at k=5 (~3,850 generations either way) at the same power, while needing
+half the screening to build. Had this come back at, say, 1.5, the k=10 plan would
+have been wrong and I would have shipped it.
+
+SCREEN LAUNCHED - oss stratum only, 500 candidates, target 80 admitted, stage 1 n=8,
+stage 2 n=40. The stratum filter reports "stratum 'oss': 25,862 of 87,149 rows
+eligible" and drops unpublishable rows at DRAW time rather than filtering admissions
+afterwards, so nothing that cannot ship can ever be admitted. The pilot is archived
+to data/screen_results.pilot.jsonl rather than deleted - it proved the pipeline and
+produced the variance number that resized this whole effort, and its 7 oss admits
+remain re-usable.
+
+ACTIVATION #15 OPENED with two questions, both genuinely outside what I can answer
+here, which is the test I should have been applying all along:
+  Q1 - WHAT EFFECT SIZE SHOULD WE EXPECT? I have sized everything for +3% because
+       that is what the OLD ruler could not see. That is a measurement-driven target,
+       not a literature-driven one, and it may be wrong in either direction. If
+       verifier-grounded DPO at this scale typically moves pass@1 by 5-10 points then
+       28 tasks at k=10 suffice and I am building 3x too much; if it typically moves
+       1-2 points then 155 is not enough and the honest answer is that this
+       experiment cannot be run at this scale - which I would rather learn now than
+       after building the instrument. This is a literature question with a citation
+       attached, which is precisely his lane and not mine.
+  Q2 - THE `evol` STRATUM's LICENCE. 11 of 30 pilot admits came from it, recorded as
+       "provenance unverified", which is currently doing the work of "excluded". That
+       is the right default and not an answer. He has web access; I do not, cheaply.
+
+THE ROUND'S ASSERTED CLAIM ships with its red witness (unpublishable strata cannot
+be admitted because they are never drawn) AND with its weakness stated: the filter
+lives in one function, --stratum defaults to None, and nothing stops a future caller
+omitting it. Convention, not construction - the same shape the data gate had before
+load_verified, and offered to #13's sweep as another instance.
+
+NOT CLAIMED: any result from the running screen. It was launched minutes ago.
 
 standing by for next DIRECTIVE
