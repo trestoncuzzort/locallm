@@ -41,6 +41,8 @@ import difflib
 import json
 import shutil
 import subprocess
+
+import venv_guard
 import sys
 from pathlib import Path
 
@@ -56,24 +58,6 @@ AMPLIFY = 50_000.0
 SPOT_PROMPT = "Write a Python function that returns the sum of a list of numbers."
 
 
-def _reexec_in_venv_if_needed() -> None:
-    """This script needs torch/gguf/safetensors, which live in .venv-train, but it
-    is natural to launch it with the system Python like every other script here.
-    Rather than fail on an import three steps in, hand off to the right
-    interpreter immediately. Same lesson as sync_public.py's test gate."""
-    try:
-        import gguf, safetensors, torch  # noqa: F401
-        return
-    except ModuleNotFoundError:
-        pass
-    me = Path(__file__).resolve()
-    if VENV_PY.exists() and Path(sys.executable).resolve() != VENV_PY.resolve():
-        r = subprocess.run([str(VENV_PY), str(me), *sys.argv[1:]])
-        sys.exit(r.returncode)
-    raise SystemExit(
-        "export_adapter.py needs torch, gguf and safetensors.\n"
-        f"  expected interpreter: {VENV_PY}\n"
-        "  install into that venv:  .venv-train\\Scripts\\python -m pip install gguf")
 
 
 def safe(s: str) -> str:
@@ -308,5 +292,6 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    _reexec_in_venv_if_needed()
+    venv_guard.ensure(__file__, "gguf", "safetensors", "torch",
+                      install_hint="install into that venv:  .venv-train\Scripts\python -m pip install gguf")
     sys.exit(main())

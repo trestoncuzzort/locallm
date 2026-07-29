@@ -7842,3 +7842,84 @@ Screen run 2 continues in parallel: 33 screened, 8 admitted at the time of
 writing. Its result gets its own section.
 
 standing by
+
+--------------------------------------------------------------------------------
+67. EXECUTOR LOG  (2026-07-29 - section 65's open item bit within the hour. The
+    venv-guard class is now actually closed: one implementation, three callers.
+    build_ruler.py added and nominating.)
+--------------------------------------------------------------------------------
+SECTION 65 SAID: "What would actually close the class is one shared entry-point
+helper the scripts import rather than three copies of the same function - noted
+as an open item, not done, because two copies existed before I arrived and a
+third does not justify a refactor of all three mid-run."
+
+That reasoning was wrong and it cost the next hour.
+
+RED, and it is the copy failing exactly where a copy fails. build_ruler.py
+imported screen_tasks' guard to avoid writing a fourth one:
+
+  python build_ruler.py nominate
+  usage: screen_tasks.py [-h] [--candidates ...] [--stratum STRATUM]
+  screen_tasks.py: error: unrecognized arguments: nominate
+
+The guard re-executes `me = Path(__file__).resolve()`, and inside screen_tasks.py
+that is screen_tasks.py. So importing it made build_ruler re-launch a DIFFERENT
+script with build_ruler's arguments. The function was correct in its own file and
+wrong the instant it was reused, because it had a caller baked into it. That is
+the tell that duplication here is not a style preference: a helper that only
+knows its own filename cannot be shared, so every new script must copy it, so the
+copies keep accumulating.
+
+GREEN. venv_guard.py, one implementation, caller passed as a parameter:
+
+    venv_guard.ensure(__file__, "pyarrow")
+
+  screen_tasks     --help  OK (exit 0)
+  export_adapter   --help  OK (exit 0)
+  build_ruler      --help  OK (exit 0)
+  grep for guard implementations across the repo -> exactly one:
+      ./venv_guard.py:38:def ensure(caller, *modules, install_hint="")
+  tests/test_screen_sizing.py  0 failed
+  tests/test_training_seam.py  0 failed
+
+export_adapter.py was migrated too rather than left as the last copy. It was
+working, and leaving it would have preserved the exact condition that produced
+this bug. It uses find_spec rather than import, so proving torch exists no longer
+loads it.
+
+BUILD_RULER.PY ADDED, and NOMINATE RUN (CPU only, no GPU, screen still running):
+
+  admitted in band : 46
+    -> ruler side  : 17
+    -> train side  : 29   (complement, reserved)
+  1 of 17 nominees sits >0.25 from band centre 0.5
+
+TWO THINGS IT IS DELIBERATELY CAREFUL ABOUT:
+
+  POOL DISJOINTNESS. The screened band is the natural source for BOTH the ruler
+  and future training prompts. If a task can land in both, the ruler stops being
+  held out. Split is sha256(tid)-based, so it is deterministic, reproducible, and
+  independent of draw order and pool size - a later training draw takes the
+  complement with no coordination. Verified over 2,000 synthetic tids: 50.1%
+  ruler, stable across calls.
+
+  SELECTION ON NOISE (section 62 leftover-risk 6). The screen admits on a stage-2
+  estimate at n=40, se ~= 0.077 at p=0.5, so some admitted tasks have a TRUE rate
+  outside the band and would behave as partial floor/ceiling tasks in the ruler -
+  re-importing the exact bias the ruler exists to escape. Admission here is
+  therefore a NOMINATION, not a decision. `build_ruler.py confirm --n 60`
+  re-measures every nominee and keeps only those still in band. Regression to the
+  mean is expected; the dropped set is reported rather than hidden, because its
+  average movement IS the selection error made visible.
+
+CAVEAT ON THE CURRENT SPLIT: 17/46 is 37%, not the intended 50%. At n=46 that is
+~1.8 sd from expectation, so it is small-sample variation rather than a broken
+hash - the function measures 50.1% over 2,000 ids. The ruler side should even out
+as the screen fills toward 78 admitted. Re-run `nominate` when the screen
+finishes; these numbers are preliminary by construction.
+
+NOT DONE: `confirm` has not run - it needs the GPU and the screen is using it.
+The ruler is nominated, not confirmed, and nothing may be measured against it
+yet.
+
+standing by
