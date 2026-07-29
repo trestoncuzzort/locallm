@@ -7696,3 +7696,74 @@ run. I did not check the TRL 0.12.2 double-BOS question section 62 raised, which
 would compound the seam and is still open.
 
 standing by
+
+--------------------------------------------------------------------------------
+65. EXECUTOR LOG  (2026-07-29 - screen run 2 launch FAILED on the wrong
+    interpreter. Root cause found, class closed, relaunched. Logged as its own
+    section per the proprietor's one-run-one-section ruling, including because
+    it failed.)
+--------------------------------------------------------------------------------
+FIRST LAUNCH OF THE RULER-REPLACEMENT SCREEN FAILED IMMEDIATELY.
+
+  python screen_tasks.py --stratum oss --candidates 500 --target 78
+  Traceback (most recent call last):
+    File "screen_tasks.py", line 271, in <module>  main()
+    File "screen_tasks.py", line 217, in main
+      cands = [c for c in candidates(args.candidates, args.seed, args.stratum)
+    File "screen_tasks.py", line 116, in candidates
+      import pyarrow.parquet as pq
+  ModuleNotFoundError: No module named 'pyarrow'
+
+  Zero rows written; data/screen_results.jsonl unchanged at 24.
+
+ROOT CAUSE, measured rather than guessed:
+  default `python`              3.14.6   pyarrow ABSENT
+  .venv-train/Scripts/python    3.11.9   pyarrow 25.0.0, requests present
+
+screen_tasks.py reads AceCode's parquet shards, so it needs pyarrow, which lives
+only in .venv-train. The repo's default interpreter is 3.14 because that is the
+system Python; the training stack cannot use it, which is why .venv-train exists
+at 3.11 in the first place. Nothing in screen_tasks.py said so, and the failure
+surfaced a hundred lines in, from inside candidates(), AFTER argparse had
+accepted every flag and printed nothing.
+
+THE CLASS, and it was already solved elsewhere in this repo. export_adapter.py
+carries _reexec_in_venv_if_needed() for exactly this reason - its own docstring
+says "rather than fail on an import three steps in, hand off to the right
+interpreter immediately. Same lesson as sync_public.py's test gate." So this is
+the THIRD script to need the guard and the first two already had it. I did not
+invent a new mechanism; I copied the one that was there (build from what's
+there), keyed on pyarrow instead of torch/gguf/safetensors.
+
+  RED   python screen_tasks.py --stratum oss --candidates 500 --target 78
+        -> ModuleNotFoundError from inside candidates(), 0 rows written
+  GREEN python screen_tasks.py --help
+        -> re-execs into .venv-train and prints usage, exit 0
+        tests/test_screen_sizing.py -> 0 failed, no regression
+
+  SCOPE: the guard keys on pyarrow specifically. A future import that exists in
+  neither interpreter still fails the old way, and a fourth script needing the
+  same treatment is not fixed automatically. Enumerated, not swept. What would
+  actually close the class is one shared entry-point helper the scripts import
+  rather than three copies of the same function - noted as an open item, not
+  done, because two copies existed before I arrived and a third does not justify
+  a refactor of all three mid-run.
+
+RELAUNCHED under .venv-train, same arguments, resuming against the 24 rows
+already on disk (the screen skips already-screened ids, so the earlier partial
+oss draw is reused rather than redrawn). Running now; its result gets its own
+section.
+
+WHY THIS IS A SECTION AT ALL. Proprietor ruling 2026-07-29: one run, one
+numbered section, after every run rather than at milestones - and section 64 was
+named as the violation that prompted it, having folded R4 and R1 together. A
+failed launch is a run: it produced evidence (the interpreter split), it changed
+the repo (the guard), and a future session that hits ModuleNotFoundError here
+should find this rather than rediscover it.
+
+NOT CHECKED: whether the other scripts in this repo that touch parquet, torch or
+gguf all carry the guard. I checked export_adapter.py (has it) and screen_tasks.py
+(now has it) and took sync_public.py's on the word of export_adapter.py's
+docstring without opening it.
+
+standing by

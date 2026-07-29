@@ -53,6 +53,37 @@ from pathlib import Path
 import forge
 
 HERE = Path(__file__).resolve().parent
+VENV_PY = HERE / ".venv-train" / "Scripts" / "python.exe"
+
+
+def _reexec_in_venv_if_needed() -> None:
+    """Same guard export_adapter.py already carries, for the same reason.
+
+    This script reads AceCode's parquet shards and therefore needs pyarrow, which
+    lives in .venv-train (py3.11) and not in the repo's default interpreter
+    (py3.14 — too new for the training stack, see the localllm notes). Launching
+    it with the system Python is the natural thing to do, and it fails a hundred
+    lines in with ModuleNotFoundError raised from inside candidates(), after
+    argparse has already accepted everything and printed nothing.
+
+    That is a real cost, not a theoretical one: it wasted a screen launch on
+    2026-07-29 and the traceback pointed at an import rather than at the setup
+    mistake. Hand off to the right interpreter immediately instead.
+    """
+    try:
+        import pyarrow  # noqa: F401
+        return
+    except ModuleNotFoundError:
+        pass
+    me = Path(__file__).resolve()
+    if VENV_PY.exists() and Path(sys.executable).resolve() != VENV_PY.resolve():
+        import subprocess
+        r = subprocess.run([str(VENV_PY), str(me), *sys.argv[1:]])
+        sys.exit(r.returncode)
+    raise SystemExit(
+        "screen_tasks.py needs pyarrow to read the AceCode parquet shards.\n"
+        f"  expected interpreter: {VENV_PY}\n"
+        "  install into that venv:  .venv-train\\Scripts\\python -m pip install pyarrow")
 OUT = HERE / "data" / "screen_results.jsonl"
 STOP = HERE / "council" / "STOP"
 ACECODE_GLOB = str(Path.home() / ".cache/huggingface/hub/datasets--TIGER-Lab--AceCode-89K"
@@ -268,4 +299,5 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    _reexec_in_venv_if_needed()
     main()
