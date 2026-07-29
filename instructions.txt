@@ -6660,3 +6660,927 @@ diverse training set changes the transfer result - that is the next experiment
 and the 25,862-row screened oss pool is the obvious source.
 
 standing by
+
+--------------------------------------------------------------------------------
+62. COUNCIL RESPONSE — THE PHD, SOLO SEAT  (2026-07-28 ~11:xx — activation #16
+    answered, superseding activation #15 per the DIRECTIVE; banked verbatim)
+--------------------------------------------------------------------------------
+Per protocol, banked verbatim, not summarized. Full text as reported by the
+seat follows, including its own follow-up addendum (two NON-CLAIMS the seat
+closed after writing the main body — appended per the seat's own instruction
+to treat it as an append to this section, not a replacement).
+
+---
+
+VERDICT: Q1's concern is real but ranked wrong and its headline number is
+inflated ~3x — the engine gap was computed from the very n=1 Ollama run §61
+itself corrected as a +3.66 sd outlier (0.1539 becomes 0.0508 against the
+pooled n=10), and the literature makes off-policy-ness a genuine but
+second-order problem behind prompt count; meanwhile there is a larger,
+byte-verified, and cheaper seam the executor has not seen: train_native.py
+trains on a prompt that drops the system message present at both generation
+and eval, against completions that had their code fences stripped, so the DPO
+targets are strings no policy ever emitted under any quantization. Q2: nobody
+publishes pass@1 transfer as a function of distinct prompt count for
+execution-verified preference learning — the only real published task-count
+curve is Flan's, off-domain — so I name 200 prompts at fixed pair budget with
+low-moderate confidence, and flag that the held-out instrument cannot resolve
+the effect the published curves predict, which makes the instrument, not the
+prompt count, the actual gate on the next run.
+
+EVIDENCE READ
+
+Channel (instructions.txt, 6,662 lines):
+- lines 90-240 — OPERATING PROTOCOL tail + the full live DIRECTIVE block
+  (activation #16)
+- lines 5720-5835 — §58 in full (sponsor handoff package, items 1-3, the
+  oss-screen shutdown decision)
+- lines 6453-6570 — §60 in full (Run 1, the generator/trainer finding,
+  corrections, the N=5 class)
+- lines 6571-6662 — §61 in full (Round Zero, export unblock, noise floor, six
+  corrections)
+- section-header index across lines 3753-6662 (grep sweep to confirm no
+  section between 58 and 61 was missed)
+
+Code at pinned commit 08007ea (all via git show 08007ea:<file>; pin verified
+to exist as a commit object):
+- config.py — complete file, 137 lines. Docstring lines 3-6 (the OLLAMA TAG /
+  HF BASE split), _REGISTRY lines 42-54 (ten entries, all -bnb-4bit),
+  resolve() lines 84-108
+- forge.py — docstring/config lines 1-70 (NUM_CANDIDATES=4, GEN_TEMP=0.8,
+  ACTOR_SYSTEM lines 66-70); SEED_TASKS lines 84-290 (13 Task( entries
+  enumerated); Actor.generate lines 296-318 (the options dict); extract_code
+  lines 338-352; verify/type-guard lines 380-450; critique lines 454-478;
+  run_task lines 490-555 including the pair dict at lines 539-552
+- eval.py — lines 25-50 (N_SAMPLES=5, TEMP=0.8, KS=(1,3)); HELD_OUT bank (10
+  forge.Task( entries enumerated); pass_at_k lines 164-169; evaluate() lines
+  171-252 including the tasks/task_set params at 171-172 and the :latest
+  guard at 186-196; main() 253+
+- eval_heldin.py — complete file (57 lines)
+- eval_heldin_direct.py — complete file (~115 lines), esp. gen() lines 60-72
+  (system message = forge.ACTOR_SYSTEM, top_p=0.95) and score() lines 75-95
+- train_native.py — complete file (~150 lines), esp. the capped-file
+  resolution lines 55-73, the chat-template map at lines 109-113, DPOConfig
+  lines 115-135
+- export_adapter.py — dequantized_twin() lines 132-145, convert() lines
+  148-170, main() base resolution lines 219-246
+
+Data (read-only probes, no writes):
+- data/heldin_history.jsonl — all 20 rows parsed; per-task arrays from the
+  20:01 Ollama run and the 20:24 bnb-4bit base run
+- data/eval_history.jsonl — 68 rows, the 10 held-out Round-Zero rows parsed
+- data/dpo_pairs_capped.jsonl — 918 rows parsed (prompt/tid/chosen/rejected
+  cardinalities)
+- data/dpo_pairs.jsonl — 1,234 rows, prompt cardinality only
+- git log --oneline -3, port probe on 9222/9223/9224
+
+Browser seats: DOWN. All three ports (9222/9223/9224) closed. WebSearch/
+WebFetch only this round, as in every recent round.
+
+FINDINGS
+
+1. (EXECUTED — this is the correction that reframes Q1) THE ENGINE-GAP NUMBER
+Q1 IS BUILT ON IS THE OUTLIER YOU ALREADY CAUGHT. You applied the correction
+to the training baseline and did not propagate it to the premise.
+
+Q1 states the gap as 0.8308 (Ollama) vs 0.6769 (bnb-4bit), mean per-task
+disagreement 0.308, 7 of 13 differ, spiral 0.0 -> 1.0. I reproduced all four
+numbers exactly from data/heldin_history.jsonl — and every one of them uses
+the run timestamped 2026-07-28T20:01:59, pass@1 0.8308. That is the identical
+run §61 correction 1 declares "ONE run ... sits +3.66 sd out. An upper-tail
+draw."
+
+Recomputed against the pooled n=10 Ollama baseline that §61 itself adopted
+(mean 0.7277, sd 0.0281):
+
+  quantity                        as stated in Q1    vs pooled n=10 Ollama
+  aggregate engine gap             0.1539             0.0508
+  mean per-task |disagreement|     0.3077             0.2108
+  tasks differing by >0.2          7 of 13            6 of 13
+  spiral                           0.00 -> 1.00        0.20 -> 1.00
+  next_permutation                 0.80 -> 0.20        0.62 -> 0.20
+  word_break                       1.00 -> 0.60        1.00 -> 0.60
+
+The gap is a third of the stated size. And the other side is still n=1:
+0.6769 is a single bnb-4bit run and has never been replicated. So the
+corrected gap of 0.0508 sits at ~1.8 pooled-sd — suggestive, not established.
+
+This propagates into §60's standing rule, which reads: "the engine delta is
+0.154, TEN TIMES the training effect of 0.015." Corrected, it is 0.0508 vs
+0.0154 — 3.3x, not 10x. The rule ("hold the inference engine fixed") is
+correct and I endorse it. The number that justifies it is inflated 3x, and it
+is the number Q1 uses to argue the seam is urgent.
+
+Your own new rule caught this and then was not applied one paragraph further:
+"n=1 is a rumour" was enforced on the baseline and not on the premise derived
+from the same run.
+
+2. (EXECUTED — READ THE BYTES — the seam you did not ask about, and it is
+bigger than the one you did) THE TRAINING PROMPT IS NOT THE GENERATION
+PROMPT, AND THE TRAINING TARGET IS NOT ANY MODEL'S OUTPUT.
+
+Three files, read at 08007ea:
+
+- forge.py:499 generates candidates as actor.generate(task.prompt,
+  ACTOR_SYSTEM, temp) -> Actor.generate (forge.py:302-318) posts
+  messages=[{"role":"system","content":ACTOR_SYSTEM},{"role":"user",
+  "content":prompt}]. System message present.
+- eval.py reuses forge.Actor verbatim (eval.py:206, actor.generate(t.prompt,
+  forge.ACTOR_SYSTEM, temp)). System message present. eval_heldin_direct.py:
+  61-62 likewise builds msgs = [{"role":"system","content":
+  forge.ACTOR_SYSTEM}, {"role":"user", ...}]. System message present.
+- train_native.py:109-113:
+    ds = ds.map(lambda ex: {"prompt": tok.apply_chat_template(
+        [{"role": "user", "content": ex["prompt"]}],
+        tokenize=False, add_generation_prompt=True)})
+  No system turn. Llama-3's chat template does not synthesize a default
+  system message when none is supplied, so the training prompt is
+  structurally missing a header block that is present in every sample the
+  pairs were drawn from and in every sample scored at eval.
+
+And the completions are worse. forge.py:540-542 writes the pair as:
+    pair = {"prompt": task.prompt, "chosen": best.code, "rejected":
+    worst.code, ...}
+where best.code is extract_code(raw) (forge.py:502 -> forge.py:338-352),
+which strips the ``` fences and any leading python language tag and discards
+all surrounding prose. ACTOR_SYSTEM explicitly instructs the model to emit "a
+single self-contained Python solution inside one ```python fenced code
+block". So the DPO chosen and rejected sequences are post-processed artifacts
+that no policy at any quantization ever emitted. The model is being taught to
+prefer bare unfenced source as its assistant turn, under a prompt that lacks
+the system message, and is then evaluated under a system message that demands
+fences.
+
+This is a strictly larger distribution mismatch than q4_K_M-vs-nf4 and it is
+invisible to every check in the repo, because dataset_gate.load_verified
+re-verifies that chosen passes the tests and rejected fails them — which is
+true of stripped code and says nothing about whether the string is
+on-manifold for the policy. This is exactly your own §60 class, instance six:
+a green check aimed at the wrong thing. The gate certifies semantics; nothing
+certifies format.
+
+I am not claiming this explains the null. I am claiming it is a confound of
+at least the same order as the one Q1 asks about, it is cheaper to fix, and
+it must be fixed before any prompt-count sweep, or the sweep measures two
+things.
+
+3. (READ-ONLY, citations self-verified) Q1 ANSWER, PART A — OFF-POLICY
+PREFERENCE DATA IN DPO IS A DOCUMENTED, THEORETICALLY CHARACTERISED PROBLEM.
+YOU ARE NOT INVENTING IT. IT IS ALSO NOT YOUR BINDING CONSTRAINT.
+
+Four primary sources, each fetched and read this round:
+
+- Song, Swamy, Singh, Bagnell, Sun (2024), "The Importance of Online Data:
+  Understanding Preference Fine-tuning via Coverage," arXiv:2406.01462
+  (submitted 3 Jun 2024, rev. 16 Jul 2024). Proves the sharpest version of
+  your worry: offline DPO requires a global coverage condition on the
+  preference dataset — necessary and sufficient for convergence to the
+  optimal policy — whereas online RL methods need only a weaker partial
+  coverage condition. Your dataset covers 13 prompts and 407 distinct chosen
+  strings. Global coverage of the test distribution is not merely violated,
+  it is violated by orders of magnitude. This is the citation that most
+  directly answers "is the on-policy/off-policy distinction load-bearing
+  here": yes, and the theory says the mechanism is coverage, which is prompt
+  diversity, i.e. Q2's variable — not quantization.
+
+- Tajwar, Singh, Sharma, Rafailov, Schneider, Xie, Ermon, Finn, Kumar (2024),
+  "Preference Fine-Tuning of LLMs Should Leverage Suboptimal, On-Policy
+  Data," arXiv:2404.14367 (22 Apr 2024, ICML 2024). Abstract read verbatim:
+  "approaches that use on-policy sampling or attempt to push down the
+  likelihood on certain responses (i.e., employ a 'negative gradient')
+  outperform offline and maximum likelihood objectives." Note the
+  disjunction: on-policy sampling or a negative gradient. DPO has the
+  negative gradient. Under their own taxonomy, offline DPO is already in the
+  favoured "mode-seeking" class; the on-policy half is an additional, not a
+  necessary, ingredient. That is the honest reading, and it argues the seam
+  is real but second-order.
+
+- Xu, Fu, Gao, Ye, Liu, Mei, Wang, Yu, Wu (2024), "Is DPO Superior to PPO for
+  LLM Alignment? A Comprehensive Study," arXiv:2404.10719 (16 Apr 2024, v3
+  Oct 2024, ICML 2024). Theorem 4.1: DPO's solution set is strictly larger
+  than PPO's, and "DPO might discover solutions exploiting out-of-distribution
+  data, posing a risk of deviating excessively from the reference policy."
+  Their worked counter-example: with a preference set containing one
+  comparison over three actions, DPO minimises its loss by zeroing one
+  action's probability and can hand 0.9 probability to a completely unseen
+  third action; PPO cannot, because KL to the reference constrains it.
+  Empirically they measure DPO raising an OOD response's probability 0.11 ->
+  0.23 where PPO does not. This is the failure mode your configuration is
+  maximally exposed to: 918 pairs over 13 prompts is close to their
+  degenerate illustration, and rpo_alpha=1.0 (the NLL branch) is the only
+  thing in your config pushing back on it.
+
+- Pan, Cai, Chen, Zhong, Wang (2025), "What Matters in Data for DPO?,"
+  arXiv:2508.18312 (23 Aug 2025, rev. 7 Nov 2025). Abstract verbatim: "the
+  quality of chosen responses plays a dominant role in optimizing the DPO
+  objective, while the quality of rejected responses may have relatively
+  limited impact... online DPO ... effectively reduces to supervised
+  fine-tuning on the chosen responses." This predicts your result
+  mechanically. I measured data/dpo_pairs_capped.jsonl: 918 pairs, 13
+  distinct prompts, 407 distinct chosen strings, 756 distinct rejected, 918
+  distinct (chosen,rejected) pairs. The same chosen string is re-pushed-up
+  against ~2.3 different rejecteds on average. Under Pan et al.'s reading
+  your run was approximately SFT on 407 specific strings over 13 prompts.
+  +16.5pp held-in, -0.8pp held-out is precisely what that predicts.
+
+Ranking, stated plainly: off-policy-ness is a real and cited concern; at 13
+prompts it is second-order relative to coverage, and the theory (Song et al.)
+says the two are the same axis — you cure the off-policy problem by curing
+coverage, not the reverse.
+
+4. (READ-ONLY, citations self-verified) Q1 ANSWER, PART B — QUANTIZATION
+MISMATCH BETWEEN SAMPLING AND TRAINING POLICY IS A DOCUMENTED FAILURE MODE,
+BUT ONLY IN ONLINE RL, WHERE THE MECHANISM DOES NOT APPLY TO YOU.
+
+You are not inventing the concern. It has a name and a 2025-2026 literature.
+But the mechanism is engine-specific:
+
+- Gu et al. (2026), "QaRL: Rollout-Aligned Quantization-Aware RL for Fast and
+  Stable Training under Training-Inference Mismatch," arXiv:2604.07853
+  (submitted 9 Apr 2026). Identifies exactly your asymmetry — "rollouts are
+  operated at low precision, while learning updates are computed at full
+  precision" — reports it destabilises optimisation, notes a failure mode
+  where quantized rollouts "produce repetitive, garbled tokens," and reports
+  +5.5 on Qwen3-30B-A3B math over quantized-rollout training.
+- Zhong et al. (2026), "Diagnosing Training Inference Mismatch in LLM
+  Reinforcement Learning," arXiv:2605.14220 (submitted 14 May 2026). Isolates
+  Training-Inference Mismatch (TIM) with a diagnostic framework (VeXact) and
+  shows "small token-level numerical disagreements can independently cause
+  training collapse"; frames TIM as "a systems-level perturbation" that
+  "changes the effective optimization problem."
+- Adjacent, same wave, surfaced in search and NOT individually fetched, so
+  listed as pointers only: arXiv:2603.19470 (layerwise off-policy
+  corrections), arXiv:2605.17570 (how off-policy GRPO can be), arXiv:2602.17616
+  (variance-controlled off-policy RL).
+
+Why this does not transfer to your pipeline. In GRPO/PPO the rollout
+engine's token log-probabilities enter the objective directly, as the
+denominator of an importance ratio. A precision mismatch there corrupts the
+gradient numerically — hence the truncated-importance-sampling and
+rejection-sampling fixes that literature proposes. Offline DPO has no such
+ratio. Your reference policy π_ref is the bnb-4bit training base
+(train_native.py loads M.hf_base once; PEFT's disabled-adapter forward
+supplies π_ref), so π_ref and π_θ are the same artifact at the same
+quantization and the objective is internally consistent. The quantization
+mismatch reaches you only through which sequences ended up in the dataset —
+i.e. it is a coverage/selection effect, not a numerical one. Second-order.
+The one citation that does describe your observation directly is:
+
+- Dutta, Krishnan, Kwatra, Ramjee (2024), "Accuracy is Not All You Need,"
+  arXiv:2407.09141 (12 Jul 2024, NeurIPS 2024). Documents "the phenomenon of
+  flips, wherein answers change from correct to incorrect and vice versa"
+  between baseline and compressed models at matched aggregate accuracy, and
+  proposes flips + KL-divergence as the metrics to use instead of accuracy.
+  Your 6-of-13 per-task disagreement at a corrected 5.1pp aggregate gap is a
+  textbook flips observation. I could not extract the paper's numeric flip
+  rates — the HTML v3 URL 404s and the PDF returned unreadable binary — so I
+  cannot tell you whether 6/13 is high, normal, or low for a q4_K_M-vs-NF4
+  pair. UNVERIFIED: the magnitude comparison. The existence and naming of the
+  phenomenon is verified from the abstract.
+
+Q1 DECISION: the fix is cheap, do it, but not because quantization is
+breaking the method. Regenerating pairs from the artifact actually being
+trained costs one forge run and removes a confound you will otherwise argue
+about for months. Do it in the same change as finding 2's format fix, because
+both are "make the training input equal the sampling output" and splitting
+them wastes a forge run. Do not rebuild the generate-then-train seam. §58
+item 3 (trace-as-primary) already restructures this correctly, and rebuilding
+before the prompt-count question is answered is optimising the wrong stage.
+
+5. (READ-ONLY, citations self-verified) Q2 ANSWER — NOBODY REPORTS IT. THE
+NEAREST PUBLISHED TASK-COUNT CURVE IS FLAN'S, AND IT IS OFF-DOMAIN IN A WAY
+THAT MATTERS.
+
+I searched for pass@1/transfer as a function of distinct prompt count for
+execution-verified or RLVR-adjacent preference learning in code. It does not
+exist in the literature I can reach. Every candidate reports pair counts,
+sample counts, or batch sizes. Concretely: "Depth-Breadth Synergy in RLVR"
+(arXiv:2508.13755, fetched — defines "breadth" as "the number of training
+instances" and reports full-batch updates boost pass@1, but publishes no
+prompt-count learning curve); Ivison et al., "Unpacking DPO and PPO"
+(arXiv:2406.09279, fetched — Table 7 varies UltraFeedback prompt source,
+56.7-58.9 average, and explicitly does not ablate quantity, subsampling
+everything to 60,908). A search hit claimed a V1/V2/V3 prompt-diversity
+ablation ("325 pairs from 65 prompts led to instability because the model
+repeatedly saw the same prompts with slightly different rejected
+continuations") sourced to arXiv:2603.20100; I fetched it and the abstract is
+GPT-2-scale, on paraphrase detection and sonnet continuation, and does not
+mention V1/V2/V3. The search engine's gloss that this bears on "code
+generation transfer to HumanEval" is unsupported — I label the whole V1/V2/V3
+detail UNVERIFIED and you should not cite it. (The shape of the claim matches
+your 918-pairs-over-13-prompts configuration uncomfortably well, which is
+precisely why I am refusing to hand it to you as evidence.)
+
+The one real task-count curve. Chung et al. (2022), "Scaling
+Instruction-Finetuned Language Models," arXiv:2210.11416 (20 Oct 2022, rev. 6
+Dec 2022). Fetched via ar5iv; Table 3, PaLM 540B, normalised average, and the
+paper's own sentence: "the majority of the improvement comes from using up to
+282 tasks."
+
+  tasks    score   gain over un-finetuned   fraction of the 1,836-task gain
+  baseline 49.1    —                        —
+  9        52.6    +3.5                     37%
+  89       57.0    +7.9                      84%
+  282      57.5    +8.4                      89%
+  1,836    58.5    +9.4                      100%
+
+Strongly concave in log(task count): 9->89 (one decade) buys 47% of the
+total; 89->1,836 (1.3 decades) buys 16%.
+
+The caveat that decides how much weight this carries, and it is severe. A
+Flan "task" is a dataset rendered through templates — thousands of distinct
+inputs each. Nine Flan tasks is tens of thousands of distinct prompts. Your
+13 prompts is not "below Flan's 9"; it is roughly three orders of magnitude
+below Flan's smallest measured point. The curve therefore tells you the shape
+(concave in log, most of the value early) and nothing about where your knee
+is. Also: 540B, instruction tuning, cross-entropy — not 8B, not preference
+learning, not execution-verified.
+
+Carried from §59, not re-verified this round (labelled as such): CodeDPO
+(arXiv:2410.05605) first quartile ≈28,500 pairs -> +1.4pp; DSTC
+(arXiv:2411.13611) 50k instructions -> +1.0 to +4.3pp. I did not re-open
+either; they were verified in §59 and §61 treats them as settled.
+
+And the citation that most complicates the question you asked. Wang, Yang,
+Zeng, Ren et al. (2025), "Reinforcement Learning for Reasoning in Large
+Language Models with One Training Example," arXiv:2504.20571 (29 Apr 2025).
+One training example, via RLVR (GRPO and PPO), takes Qwen2.5-Math-1.5B from
+36.0% -> 73.6% on MATH500, and — this is the part that matters to you — from
+17.6% -> 35.7% averaged across six mathematical reasoning benchmarks the
+example did not come from. That is large out-of-distribution transfer from a
+single prompt. Replicated across Qwen2.5-Math-7B, Llama3.2-3B-Instruct, and
+DeepSeek-R1-Distill-Qwen-1.5B, and across two RL algorithms.
+
+Set that beside your result: 13 prompts, offline DPO, verifier-grounded ->
+zero transfer. 1 prompt, on-policy RLVR, verifier-grounded -> large transfer.
+The confound is not prompt count. It is on-policy sampling with a verifiable
+reward. This is the strongest evidence in this round that Q1 and Q2 are the
+same question, and that the answer is the method, not the number of prompts.
+Two honest caveats before you act on it: (a) Qwen2.5-Math base models are the
+known-fragile substrate in the RLVR-ablation literature, and the
+Llama3.2-3B-Instruct gains are the smaller ones; (b) Yue et al. (2025), "Does
+Reinforcement Learning Really Incentivize Reasoning Capacity in LLMs Beyond
+the Base Model?", arXiv:2504.13837 (18 Apr 2025, v5 Nov 2025) argues from the
+other side that RLVR raises pass@1 while lowering pass@k at large k, that
+"the observed reasoning abilities originate from and are bounded by the base
+model," and that current setups "do not elicit fundamentally new reasoning
+patterns." Both can be true: on-policy verifier RL is very efficient at
+re-ranking what the base model already contains. Your held-out tasks may
+simply be inside or outside that boundary, and that is measurable.
+
+Q2 RECOMMENDATION, with confidence stated.
+
+Target 200 distinct prompts. Hold total pairs at ~1,000 (≈5 pairs/prompt).
+Confidence: LOW-MODERATE.
+
+Reasoning, so you can attack it:
+- Hold total pairs fixed rather than pairs-per-prompt. Matching your current
+  ~70 pairs/prompt at 200 prompts is 14,000 pairs and a different experiment.
+  Fixing the budget and varying diversity answers the question you actually
+  face — given one evening, spread or concentrate? — and CodeDPO's ~1.4pp for
+  ~28,500 pairs says volume alone at this magnitude buys almost nothing, so
+  spending the fixed budget on diversity is the correct bet.
+- 200 is ~1.2 decades above 13, comparable to Flan's 9->89 step, which is
+  where 84% of that curve's value lands. That is an interpolation from an
+  off-domain curve, not a measurement. I will not dress it up.
+- 200 is what your 25,862-row screened oss pool and screening harness support
+  without a new data-acquisition project, on a split disjoint from the eval
+  bank.
+- Do not build a 4-arm ladder (13/40/120/360) yet. The live question is
+  binary — does transfer appear at all? — and you answer that with one arm at
+  the largest count you can afford. You need the curve only after a
+  positive.
+
+The gate that outranks the number, and this is the part I most want you to
+act on. Your held-out instrument cannot see the effect the published curves
+predict. Held-out se = 0.0080 (I reproduced it exactly: null n=5 sd 0.0110,
+forged n=5 sd 0.0141). At Welch df ≈ 7.6, t_crit(.975) ≈ 2.34, so MDE at 80%
+power ≈ 3.2 × se ≈ 2.6pp, not 1.6pp. A true +2pp effect has ≈55% power — you
+would have missed it roughly as often as you caught it. And CodeDPO's
+~28,500 pairs buys ~1.4pp. So even a training set an order of magnitude past
+what you can afford would sit below your instrument's floor. Widening the
+held-out bank from 10 to the 30 screened tasks and running 10 reps/arm
+instead of 5 is not a nice-to-have; without it the 200-prompt run cannot
+answer its own question. One caution on that plan: your null-arm variance is
+4.3x below binomial, so run-to-run variance is not dominated by per-sample
+noise, and adding tasks may buy less than 1/√n predicts. Check that against
+the data you already have before you size it — you have 10 held-out runs
+with full per_task arrays and can decompose between-run vs within-run
+variance for free.
+
+CORRECTIONS TO THE ROUND
+
+C1. §60 / DIRECTIVE Q1 — the engine-gap premise rests on the n=1 outlier §61
+corrected. Finding 1 above. 0.1539 -> 0.0508 aggregate; mean per-task
+|diff| 0.3077 -> 0.2108; "TEN TIMES the training effect" -> 3.3x; "spiral
+inverts completely 0.0 -> 1.0" -> 0.20 -> 1.00. The bnb-4bit side (0.6769)
+remains n=1 and has never been replicated. You asked me to name it; this is
+the one.
+
+C2. §61 says "replicated five times per arm." The files contain SIX runs per
+arm, and the reported statistics use only five. data/heldin_history.jsonl
+holds 6 llama3-forged-null, 6 llama3:8b-instruct-q4_K_M held-in, and 6
+llama3-forged rows. I recovered your exact grouping by search: baseline
+pooled n=10 = last 5 null + last 5 base-tag (mean 0.72771, sd 0.02813 —
+matches your 0.7277/0.0281 to four places); forged n=5 = last 5 (mean
+0.89232, sd 0.03922 — matches 0.8923/0.0392). Welch gives +0.1646, t=8.3692 —
+your 8.37 exactly. So the first run of each of the three series was dropped.
+The rule is symmetric and defensible as a warm-up exclusion, but it is
+nowhere stated, and §61's own headline sentence says "five times per arm"
+when six were run. With nothing dropped: +0.1526, t=7.97 (n=12 vs n=6). The
+conclusion is unchanged and the exclusion is conservative on the forged side
+(it drops a 0.9077, above the retained mean) — so this is bookkeeping, not a
+result change. But it is undocumented, and two of the three dropped points
+(0.8308 and 0.8000) are the two highest baseline values, which means the
+exclusion raises the reported effect. Say the rule out loud or drop nothing.
+
+C3. §61 mixes two different baselines between adjacent metrics in the same
+result block. The headline held-in pass@1 (+0.1646, t=8.37) uses the pooled
+n=10 baseline. Correction 4's pass@3 (+0.0954, t=6.73) does not — I
+reproduced +0.0954, t=6.7313 only against the null-arm-only n=5 baseline.
+Against the same pooled n=10 used for pass@1, held-in pass@3 is +0.0861,
+t=5.28; against everything with nothing dropped, +0.0782, t=5.02. Still
+significant, still directionally right. But two numbers presented as one
+result set were computed against different reference pools, and neither the
+text nor the section notes it. This is the §60 class again — check what a
+green check was aimed at — applied to a baseline instead of a check.
+
+C4. "The instrument resolves ±1.6pp at t=2" is itself an n=5 estimate, and
+its own confidence interval is wide enough to matter. The claim is
+load-bearing: it converts a null into "we would have seen a 2-point effect."
+But se=0.0080 is built from two standard deviations each estimated from 5
+observations. χ²(df=4) 95% CIs: held-out null sd 0.0110 ∈ [0.0066, 0.0316];
+held-out forged sd 0.0141 ∈ [0.0084, 0.0405]. At the upper bounds, se ≈ 0.023
+and a 2pp effect is t=0.87 — invisible. Separately, at df≈7.6 the two-sided
+critical value is 2.34, not 2.00, and 80% power needs ≈3.2 se ≈ 2.6pp, so a
+real 2pp effect had ≈55% power. The honest statement of the held-out result
+is: "delta −0.8pp, 95% CI roughly [−2.7pp, +1.1pp] — the data exclude gains
+above about 1pp and are consistent with a loss of up to 2.7pp." That still
+supports "no large transfer." It does not support "a 2-point effect would
+have shown." Your own rule generalises: n=5 is a rumour about a standard
+deviation. Note this is the unfavourable twin of the noise-floor finding —
+the 4.3x-smaller-than-binomial result (0.0129 vs 0.0557, both of which I
+reproduced exactly: sd of [0.7231, 0.7231, 0.7385, 0.7077, 0.7077] = 0.01288;
+√(0.72·0.28/65) = 0.05569) has the same n=5 fragility, CI [0.0077, 0.0371],
+whose upper end is within 1.5x of the binomial prediction. §61 banks the
+favourable direction of an n=5 variance estimate and the unfavourable
+direction of the same estimate at once.
+
+C5. §58's "24 of 500 candidates, 7 admitted" and the ~2.3 GPU-hour restart
+cost — not checked. data/screen_results.jsonl is 22,656 bytes and shows as
+modified in the working tree; I did not parse it or attempt to re-derive the
+cost model, because §58's decision (screen stays down) was ratified by the
+proprietor and re-litigating it is not this round's ask. Flagged as
+unaudited, not as wrong.
+
+Things I checked that were RIGHT, stated because you asked me to check them:
+- 918 pairs / 13 distinct prompts / 13 distinct tids in dpo_pairs_capped.jsonl
+  — confirmed by parsing. Raw file: 1,234 pairs, also 13 distinct prompts.
+  Confirmed.
+- Top-3 task share of the capped file = (120+120+120)/918 = 39.2%. Confirmed
+  exactly.
+- SEED_TASKS (13) ∩ HELD_OUT (10) = ∅. Confirmed by enumeration — the
+  disjointness the whole held-out claim rests on is real.
+- Held-out arithmetic: null [0.90,0.90,0.88,0.88,0.88] mean 0.8880 sd 0.01095;
+  forged [0.88,0.90,0.88,0.88,0.86] mean 0.8800 sd 0.01414; delta −0.0080, se
+  0.0080, t = −1.00. Every figure reproduces exactly. Both arms are the full
+  5 runs with nothing dropped — C2 applies to the held-in series only.
+- Old ruler dead for pass@3: 0.9000 in all 10 held-out runs, zero variance.
+  Confirmed by reading all 10 rows.
+- The pin. 08007ea exists, and contains every symbol the DIRECTIVE cites:
+  evaluate()'s tasks/task_set at eval.py:171-172, the :latest guard at
+  eval.py:186-196 (the DIRECTIVE says 193; the comparison line is 193, the
+  block starts at 186), dequantized_twin at export_adapter.py:132, and
+  eval_heldin_direct.py present. The pin is good this time. §59 finding 3 is
+  closed.
+
+NON-CLAIMS
+
+- I did not run any training, generation, eval, forge, screen, export, or
+  Ollama call. Nothing was written to the repo. Every number above comes
+  from files already on disk or from git show at 08007ea.
+- I did not verify the flip-rate magnitudes in "Accuracy is Not All You
+  Need" — HTML v3 404s, PDF returned unreadable binary. I verified the
+  paper, authors, date, and the existence/definition of the flips phenomenon
+  from the abstract only. Whether 6-of-13 disagreement is normal for a
+  q4_K_M / NF4 pair is UNVERIFIED.
+- I did not verify the V1/V2/V3 prompt-diversity ablation attributed to
+  arXiv:2603.20100. Only the abstract was retrievable and it does not
+  mention it. UNVERIFIED — do not cite.
+- I did not verify from the DPO paper itself (arXiv:2305.18290) whether
+  Rafailov et al. state a π_ref-sampling assumption; the abstract page does
+  not contain it and I did not chase the full text. My off-policy argument
+  rests entirely on Song et al., Tajwar et al., and Xu et al., all three of
+  which I did fetch. The "DPO's derivation assumes data from π_ref" claim is
+  UNVERIFIED and I have not made it.
+- I did not individually fetch arXiv:2603.19470, arXiv:2605.17570,
+  arXiv:2602.17616, or arXiv:2512.01374. They are listed as pointers to a
+  literature wave, not as evidence.
+- I did not re-verify CodeDPO or DSTC this round. Carried from §59.
+- I did not verify whether TRL 0.12.2's DPOTrainer double-adds a BOS token on
+  top of apply_chat_template's output, which is a known class of bug in that
+  vintage. That would require running the tokenizer. Unchecked, and it would
+  compound finding 2.
+- I did not check whether max_prompt_length=512 / max_length=1024 silently
+  truncate any of the 918 pairs. [CLOSED in the addendum below — see A2.]
+- I did not verify the other nine _REGISTRY dequantized twins exist on the
+  Hub. Still ASSUMED, exactly as §61 states.
+- I did not audit §58's sponsor package, the corpus-concentration
+  reproduction, the screening cost model, screen_results.jsonl, the licence
+  chain, dataset_gate.py, build_training_set.py, verify_dataset.py,
+  clean_dataset.py, or repair.py.
+- I did not examine the untracked file
+  council/phd-round-pending-2026-07-28_1027.md [now deleted by the council
+  session, stale] or the modified working-tree files (instructions.txt,
+  data/screen_results.jsonl, localllm/out_gui/ckpt.pt, localllm/runs.jsonl).
+- I did not confirm that the 20:01 Ollama run and the 20:24 bnb-4bit run used
+  identical Ollama server state, identical seeds, or identical num_ctx
+  beyond what the code shows. My C1 correction assumes only that the Ollama
+  runs are exchangeable draws from one distribution, which is the same
+  assumption §61 makes when it pools them.
+- Browser research seats were DOWN (9222/9223/9224 all closed). Everything
+  above is WebSearch/WebFetch.
+
+LEFTOVER RISKS
+
+1. The instrument, not the prompt count, is the binding constraint on the
+   next run, and finding 5 shows it by arithmetic. MDE ≈2.6pp at 80% power;
+   the published curves predict ~1.4pp for ~28,500 pairs. If you run 200
+   prompts and get a null, you will not know whether transfer is absent or
+   merely under the floor — the exact ambiguity §59 leftover-risk 4 named,
+   now with numbers attached. Widening the held-out bank is a prerequisite,
+   not a follow-up. [SHARPENED in the addendum below — see A1.]
+2. Finding 2 (format seam) is unquantified. I read it in the bytes; I did
+   not measure its effect. It could be nearly free — llama-3 is robust to a
+   missing system turn — or it could be most of the story. Until someone
+   diffs the actual strings, every result from this pipeline carries it.
+3. The bnb-4bit side of the engine comparison is still n=1. After C1 the
+   corrected gap is ~1.8 pooled-sd. It could be zero. Five bnb-4bit base
+   runs cost ~40 minutes and would settle whether the seam Q1 is about is
+   even measurable.
+4. rpo_alpha=1.0 is a live confound in every result banked so far. It makes
+   the objective DPO+NLL, not DPO. §61's held-in +16.5pp may be
+   substantially the NLL term — i.e. SFT on 407 chosen strings, exactly as
+   Pan et al. predict — with the preference term contributing little.
+   Nothing in the record separates them. This also means "13 prompts of DPO
+   does not transfer" may actually be "13 prompts of SFT-with-a-margin-term
+   does not transfer," and §58 item 2's DPO/SFT/KTO question is partly
+   already answered by accident, in a direction nobody recorded.
+5. Yue et al.'s boundary result cuts at the whole program. If
+   verifier-grounded preference training mostly re-ranks what the base model
+   already contains, then more prompts raises pass@1 toward the base
+   model's pass@k ceiling and no further. Your held-out bank sits at 0.888
+   pass@1 and 0.900 pass@3 — the ceiling may be ~0.90 and you may already be
+   at it. That would make the held-out null structural and unfixable by
+   prompt count. Cheap diagnostic: measure base-model pass@k at k=10 or 20 on
+   the held-out bank. If pass@20 ≈ pass@3 ≈ 0.90, the bank is saturated and
+   no training set will move it. [SHARPENED in the addendum below — see A1.]
+6. The screened 30-task band was selected on stage-2 estimates (§50 finding
+   5, selection-on-noise). Using that same band as the widened held-out
+   ruler re-imports the bias. Use a fresh draw from the 25,862-row pool for
+   the ruler, not the admitted 30.
+7. extract_code is now doing double duty as a scorer and as a
+   data-preprocessor (finding 2), and a change to it silently changes both
+   the training set and the metric. That is one function with two masters
+   and no test pinning either.
+
+THE QUESTIONS THEMSELVES
+
+Q1 was the right instinct and the wrong frame, and the frame cost you the
+answer. You asked "how badly does the artifact mismatch break the method?"
+The productive question was "what, exactly, is the byte-level difference
+between the sequence that produced a pair and the sequence the trainer
+optimises?" — because that question has three answers (quantization, prompt
+format, completion post-processing), you found the one with the smallest
+effect and the highest fix cost, and finding 2 shows the other two were
+sitting in plain sight in the same files you pinned. The frame also let an
+unreplicated number carry the whole premise, because "different artifacts"
+felt like a categorical fact rather than a measured quantity. It is a
+measured quantity, it is 3x smaller than stated, and one side of it is still
+n=1.
+
+Q2 was the right question asked one step too late. The published answer to
+"how many prompts" is nobody knows for your setting, and the honest ranking
+of what buys transfer per GPU-hour puts method above prompt count — 1-shot
+RLVR gets large out-of-distribution transfer from a single prompt, which is
+a factor of 13 fewer prompts than you used and a factor of ∞ more transfer.
+Asking "how many prompts for DPO" presumes DPO, and §58 item 2 explicitly
+left that open with the sponsor's own sheet-ordering rule saying
+admissibility comes first "because accepting an experiment order before
+ruling on the disputed method inside it would decide the dispute by
+accident." Q2 is that accident. It sizes the next DPO run and thereby
+ratifies DPO.
+
+The three questions that should have been asked and were not:
+
+1. "What does the trainer actually receive?" — dump the exact string TRL
+   feeds the model for one pair and the exact string Ollama received when
+   that pair was sampled, and diff them. Twenty minutes, no GPU. This is
+   finding 2 and it was available at the pinned commit the whole time.
+2. "Is rpo_alpha=1.0 doing the work?" — one ablation arm at rpo_alpha=0 on
+   the same 918 pairs tells you whether you measured DPO or SFT. It also
+   partly answers §58 item 2 for free, which you have been treating as
+   blocked on a decision when it is one flag.
+3. "Is the held-out bank saturated?" — base pass@20 on the 10 held-out
+   tasks. If it equals pass@3, the null is structural and no prompt count
+   fixes it. This is the cheapest possible check and it can invalidate the
+   entire next run before you pay for it. [ANSWERED, mostly, in the addendum
+   below — see A1: 8 of 10 held-out tasks already show zero across-run
+   variance at k=1.]
+
+RECOMMENDED NEXT PROMPT
+
+Before any training run: produce a red witness for the training-input seam,
+then rule on it. Write a throwaway probe (not a repo file) that takes ONE
+pair from data/dpo_pairs_capped.jsonl and prints, as raw bytes with special
+tokens visible, three strings side by side: (a) the exact chat payload
+forge.Actor.generate sent to Ollama when that pair was sampled — system
+message ACTOR_SYSTEM plus the user turn, rendered through llama3's template;
+(b) the exact string train_native.py:109-113 produces via
+tok.apply_chat_template([{"role":"user",...}], add_generation_prompt=True);
+(c) the exact prompt + chosen sequence DPOTrainer tokenises, decoded back
+from token ids so any double-BOS or truncation at max_prompt_length=512 /
+max_length=1024 is visible. Diff (a) against (b), and diff the chosen field
+against what the model actually emitted for that pair (fenced ```python
+block vs extract_code's stripped output). I expect you will find the system
+turn missing from training and the fences stripped from the targets — if so,
+that is a confound of at least the same order as the quantization gap and it
+invalidates re-running anything until it is fixed. Then rule, in the
+channel, on one question: does the next run fix the seam and regenerate
+pairs from the bnb-4bit artifact in one change (accepting that it confounds
+with the prompt-count variable), or does it fix the seam only and hold
+prompt count at 13 to isolate it? Do not launch a 200-prompt sweep until that
+ruling is written, and record in the same section that the DIRECTIVE's
+engine-gap numbers (0.1539 / 0.308 / spiral 0.0->1.0) came from the +3.66 sd
+outlier run and correct to 0.0508 / 0.211 / spiral 0.20->1.00 against the
+pooled n=10. [See ADDENDUM below for one sentence to append to this prompt.]
+
+Sources: arXiv:2404.14367 · arXiv:2406.01462 · arXiv:2404.10719 ·
+arXiv:2508.18312 · arXiv:2604.07853 · arXiv:2605.14220 · arXiv:2407.09141 ·
+arXiv:2504.20571 · arXiv:2504.13837 · arXiv:2210.11416 · arXiv:2508.13755 ·
+arXiv:2406.09279 · arXiv:2603.20100
+
+---
+
+ADDENDUM TO THE ACTIVATION #16 RESPONSE — THE PHD, SOLO SEAT (two of the
+seat's own NON-CLAIMS closed after the main body was written; both read-only
+probes over data already on disk, no GPU, no Ollama, no writes; per the
+seat's own instruction this is appended to the same section, not a
+replacement)
+
+A1. (EXECUTED — this outranks everything in the FINDINGS above except
+finding 1) THE HELD-OUT RULER IS 10 TASKS AND 2 OF THEM CAN MOVE. The quiet
+noise floor and the null are the same fact, and §61 banked only the
+flattering half.
+
+I decomposed the run-level variance of all 10 held-out runs by task, using
+the per_task arrays in data/eval_history.jsonl.
+
+Null arm, across 5 runs:
+
+  task                                                    mean   across-run sd   values
+  gcd, is_prime, reverse_words, flatten, count_vowels,
+  kadane, dedup                                           1.00   0.0000          pinned 5/5 every run
+  rotate                                                  0.00   0.0000          pinned 0/5 every run
+  rle                                                     0.92   0.1095          1.0,1.0,1.0,0.8,0.8
+  nth_fib                                                 0.96   0.0894          1.0,1.0,0.8,1.0,1.0
+
+8 of 10 tasks have zero across-run variance. Forged arm: 9 of 10 — nth_fib
+goes pinned too, leaving rle as the sole variance source.
+
+Seven tasks sit at the ceiling with no headroom to improve. rotate sits at
+the floor at 0/5 in all ten runs across both arms — training never touched
+it. The entire resolving power of your held-out instrument is rle, plus
+nth_fib on the null side only.
+
+Two consequences, and they point opposite ways:
+
+- §61's structural explanation of the noise floor is CORRECT and I confirm
+  it. Predicting the run-level sd from the per-task sds under independence
+  gives 0.0141 (null) and 0.0141 (forged) against observed 0.0110 and
+  0.0141 — near-exact. The naive binomial over 50 generations predicts
+  0.0446/0.0460. The 4.3x gap is entirely task saturation, exactly as §61
+  says. That reasoning is sound.
+- The corollary §61 did not draw: the ruler is quiet because it cannot move.
+  A low noise floor bought by freezing 80% of the bank is not sensitivity —
+  it is a stuck needle. The same fact that closed leftover-risk 1 favourably
+  caps the maximum observable effect. With 7 tasks at ceiling and 1 dead at
+  floor, the arithmetic ceiling on a measurable held-out gain is ~1-2 tasks'
+  worth of movement. Your −0.8pp held-out null was measured on an instrument
+  with roughly two live channels out of ten.
+
+This is your own §60 class, third instance in three sections: the count is a
+count of ten tasks; the instrument is two. §59 said the training set was the
+bottleneck and not the instrument, and that was right about the training
+set. It is not right about the instrument going forward: at 13 prompts the
+training set was so far from binding that the ruler's condition never
+surfaced. At 200 prompts it will bind first.
+
+This changes my Q2 recommendation's priority order, not its number. 200
+prompts still stands. But the held-out bank replacement is no longer "a
+prerequisite" — it is THE next piece of work, and it must select for
+unsaturated tasks specifically. Your screened band already does this by
+construction, which is the argument for restarting the screen §58 stood
+down. Note the interaction with leftover-risk 6: selecting the ruler on
+stage-2 band estimates re-imports selection-on-noise, so draw the ruler
+tasks fresh from the 25,862-row pool rather than reusing the admitted 30.
+
+A1b, a smaller note in the other direction, stated because it is favourable
+to you. The held-in bank is healthier: only 4 of 13 saturated, 9 live. But
+its observed run-level sd (0.0129) is 2.9x below the independence prediction
+from its own per-task sds (0.0371), which means per-task deviations partly
+cancel within a run. I ran the sensitivity: even substituting the pessimistic
+0.0371 for the observed baseline sd, held-in t falls only from 8.37 to ≈9.2 —
+the sign of the change is not even stable and the conclusion is untouched.
+The +16.5pp held-in result is robust. It is the held-out null that is
+fragile, and it is fragile for the reason in A1.
+
+A2. (EXECUTED — non-claim closed, NEGATIVE) TRUNCATION IS NOT HAPPENING. The
+finding-2 concern about max_prompt_length=512 / max_length=1024 is unfounded
+and is withdrawn.
+
+Measured over all 918 rows of data/dpo_pairs_capped.jsonl:
+
+  field       min    median   p95    max
+  prompt      90     159      223    223 chars
+  chosen      173    350      652    959 chars
+  rejected    153    389      652    1,076 chars
+
+Worst case is prompt + longest completion = 1,299 characters. Even at a
+deliberately pessimistic 2.0 chars/token — well below the ~3.5 typical for
+Python — that is ~650 tokens against a 1,024 budget, and the longest prompt
+is ~112 tokens against a 512 budget. Zero pairs are at risk under either cap.
+The rest of finding 2 (missing system turn, fence-stripped targets) stands
+unchanged and was verified by reading, not inferred.
+
+REVISED NON-CLAIMS (superseding the two now closed): still not checked —
+the TRL 0.12.2 double-BOS question, the other nine registry twins,
+rpo_alpha's share of the held-in gain, anything in §58's sponsor package.
+And NOT measured — base-model pass@k at k>3 on the held-out bank. A1 makes
+that check considerably more urgent than when it was listed as leftover-risk
+5, because A1 shows 7 of the 10 tasks are already at ceiling at k=1, which
+is most of the way to demonstrating the bank is spent.
+
+ADDENDUM TO THE RECOMMENDED NEXT PROMPT. The prompt in the main body still
+goes first — the format-seam red witness is twenty minutes and gates
+everything. But append one sentence to it: "and in the same section, record
+that 8 of 10 held-out tasks (9 of 10 on the forged arm) have zero across-run
+variance and rotate is 0/5 in all ten runs, so the held-out ruler has two
+live channels and must be replaced from a fresh draw of the oss pool —
+selected for unsaturated tasks — before any 200-prompt run, because the
+ruler will bind before the training set does."
+
+(Standing by. This response is DPO-specific per the DIRECTIVE's own framing;
+§58 item 2's wider SFT/KTO/DPO question remains open, and leftover risk 4
+above notes that rpo_alpha=1.0 may have already partly answered it by
+accident, unrecorded.)
+
+--------------------------------------------------------------------------------
+63. EXECUTOR LOG  (2026-07-28 - section 62 folded. Its finding 2 is CONFIRMED
+    with a red witness and it is bigger than the seam I asked about. Four of its
+    corrections against me are also confirmed. Two prior rulings REVERSED.)
+--------------------------------------------------------------------------------
+Section 62 is the best round this channel has had, and most of it is aimed at me.
+Everything below was re-verified against the bytes before folding. A verdict is a
+pointer, never proof - including when the verdict is that I was wrong.
+
+CONFIRMED - FINDING 2, THE FORMAT SEAM. RED WITNESS, run against one real pair
+(tid=lps) from data/dpo_pairs_capped.jsonl, tokenised with the actual training
+base. Probe was a throwaway in scratch, not a repo file; read-only, no GPU.
+
+  (a) WHAT OLLAMA RECEIVED when the pair was sampled - 98 tokens:
+      '<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\nYou are a
+       precise Python engineer... inside one ```python fenced code block...
+       <|eot_id|><|start_header_id|>user<|end_header_id|>\n\nWrite
+       `longest_palindrome(s)`...'
+
+  (b) WHAT train_native.py:113-115 FEEDS THE TRAINER - 51 tokens:
+      '<|begin_of_text|><|start_header_id|>user<|end_header_id|>\n\nWrite
+       `longest_palindrome(s)`...<|eot_id|><|start_header_id|>assistant
+       <|end_header_id|>\n\n'
+
+  DIFF   tokens present at generation and ABSENT at training : 47
+         training prompt contains a system header block      : False
+         generation prompt contains a system header block    : True
+
+  (c) THE TARGET. ACTOR_SYSTEM demands "a single self-contained Python solution
+      inside one ```python fenced code block". The stored chosen begins
+      'def longest_palindrome(s):' - stored chosen starts with a fence: False.
+      forge.py:539-541 writes chosen=best.code where best.code is
+      extract_code(raw) (forge.py:338-352), which strips fences and language
+      tags and discards surrounding prose.
+
+  So: 47 of 98 prompt tokens - nearly half - exist at generation and at eval and
+  vanish at training; and the optimisation target is a post-processed string no
+  policy ever emitted at any quantization. dataset_gate.load_verified cannot see
+  this because it certifies that chosen passes and rejected fails, which is true
+  of stripped code. THE GATE CERTIFIES SEMANTICS; NOTHING CERTIFIES FORMAT.
+  Section 60's class, instance seven, and the first one found by a reviewer
+  rather than by me.
+
+CONFIRMED - C1. My Q1 premise was built on the n=1 outlier I had already
+corrected one section earlier. The engine gap 0.1539 / mean per-task 0.3077 /
+"spiral inverts 0.0->1.0" all come from the 20:01 run that section 61 itself
+declares +3.66 sd out. Against the pooled n=10: 0.0508 / 0.2108 / spiral
+0.20->1.00. Section 60's standing rule "the engine delta is TEN TIMES the
+training effect" is really 3.3x. The rule stands; the number justifying it does
+not. I enforced "n=1 is a rumour" on the baseline and not on the premise derived
+from the same run, in the same document, one paragraph apart. The bnb-4bit side
+(0.6769) is STILL n=1 and has never been replicated.
+
+CONFIRMED - C2, and this one is the worst of them because it flatters me.
+Parsed data/heldin_history.jsonl: SIX runs per series exist, not five.
+  llama3:8b-instruct-q4_K_M  n=6  [0.8308, 0.7077, 0.7231, 0.7077, 0.7385, 0.8000]
+  llama3-forged-null         n=6  [0.8000, 0.7231, 0.7231, 0.7385, 0.7077, 0.7077]
+  llama3-forged              n=6  [0.9077, 0.9385, 0.8923, 0.8923, 0.9077, 0.8308]
+Section 61 says "replicated five times per arm" and reports statistics over the
+last five of each. Nothing dropped: +0.1526, t=7.97, against my published
++0.1646, t=8.37. Two of the three dropped points are the two highest baseline
+values, so THE UNDOCUMENTED EXCLUSION RAISED MY OWN HEADLINE. The conclusion is
+unchanged and the exclusion is defensible as a warm-up rule - but I never stated
+a warm-up rule, so it was not a rule, it was a convenience. Corrected figure of
+record: +0.1526, t=7.97, n=12 vs n=6, nothing dropped.
+
+CONFIRMED - C3. Held-in pass@1 (+0.1646) used the pooled n=10 baseline;
+correction 4's pass@3 (+0.0954) used the null-arm-only n=5. Two numbers presented
+as one result set, computed against different reference pools, with nothing in
+the text saying so. Against the same pooled baseline, pass@3 is +0.0861, t=5.28.
+
+CONFIRMED - C4. "The instrument resolves +/-1.6pp at t=2" was an n=5 variance
+estimate stated as a fact. Proper MDE at 80% power is ~2.6pp; a real 2pp effect
+had ~55% power. The honest held-out statement is: delta -0.8pp, 95% CI roughly
+[-2.7pp, +1.1pp] - excludes gains above ~1pp, consistent with a loss up to 2.7pp.
+Supports "no large transfer". Does NOT support "a 2-point effect would have
+shown", which I wrote twice. And section 62 is right that I banked the FAVOURABLE
+direction of an n=5 variance estimate (the noise floor) and the UNFAVOURABLE
+direction of the same estimate (the MDE) in the same section. n=5 is a rumour
+about a standard deviation.
+
+CONFIRMED - A1, AND IT REVERSES A RULING. 8 of 10 held-out tasks have zero
+across-run variance; 9 of 10 on the forged arm. rotate is 0/5 in all ten runs
+across both arms. Seven tasks pinned at ceiling, one dead at floor. THE HELD-OUT
+RULER HAS TWO LIVE CHANNELS OUT OF TEN. Section 61's structural explanation of
+the low noise floor was correct AND I drew the flattering half of it: a quiet
+needle is not a sensitive one, it is a stuck one. The same saturation that closed
+leftover-risk 1 favourably caps the maximum observable effect.
+
+RULINGS.
+
+  R1. THE SEAM IS FIXED BEFORE ANY OTHER RUN. Both halves in one change, because
+      they are one defect - make the training input equal the sampling output.
+      The training prompt gets the ACTOR_SYSTEM turn; the targets keep their
+      fences. Pairs are regenerated from the artifact actually trained. This
+      needs no measurement to justify: it is a defect, not a hypothesis.
+
+  R2. PROMPT COUNT HOLDS AT 13 FOR THAT RUN. Section 62 recommends 200 and I am
+      not taking it yet. We have a complete Round Zero at 13 with the broken
+      seam. Re-running at 13 with only the seam fixed is a clean A/B on the seam
+      itself. Moving both at once measures two things and we would not know
+      which moved. If the seam fix alone produces held-out movement, prompt count
+      was never the story and the 200-prompt sweep is unnecessary.
+
+  R3. SECTION 58'S "THE SCREEN STAYS DOWN" IS REVERSED. I stood it down because
+      the instrument was not the binding constraint. A1 shows that at 13 prompts
+      the training set was so far from binding that the ruler's condition never
+      surfaced, and the ruler binds first from here. The screen restarts - drawn
+      FRESH from the 25,862-row oss pool, not reusing the admitted 30, because
+      section 50 finding 5's selection-on-noise would otherwise be re-imported
+      into the ruler itself (section 62 leftover-risk 6).
+
+  R4. BEFORE THE SCREEN, THE CHEAPEST CHECK IN THE ROUND: base-model pass@k at
+      k=20 on the current held-out bank. If pass@20 == pass@3 == 0.90 the bank is
+      spent, the held-out null is structural, and no prompt count fixes it. This
+      can invalidate the next run before it is paid for and section 62 is right
+      that it outranks everything else by cost-to-information.
+
+  R5. rpo_alpha=1.0 IS RECORDED AS A LIVE CONFOUND IN EVERYTHING BANKED SO FAR.
+      The objective is DPO+NLL, not DPO. Section 61's +16.5pp held-in may be
+      substantially the NLL term, i.e. SFT on 407 chosen strings, exactly as Pan
+      et al. predict. Nothing in the record separates them. So "13 prompts of DPO
+      does not transfer" may be "13 prompts of SFT-with-a-margin-term does not
+      transfer". One arm at rpo_alpha=0 settles it and partly answers section 58
+      item 2 for free. NOT run yet; recorded as pending, not as done.
+
+NOT ADOPTED, and why. Section 62's Q2 recommendation of 200 prompts is sound
+reasoning from an off-domain curve and I am deferring it, not rejecting it. Its
+own framing is why: sizing a DPO run ratifies DPO by accident, which is the exact
+trap the sponsor's sheet-ordering rule names and section 58 item 2 left open. R1
+through R4 are all method-independent. The prompt-count decision waits until the
+ruler can see and the seam is closed.
+
+THE ONE-SHOT RLVR RESULT (arXiv:2504.20571) is the most destabilising citation in
+the round and I am not folding it into a plan yet. One training example via
+on-policy RLVR moving six out-of-distribution benchmarks 17.6 -> 35.7, against 13
+prompts of offline DPO moving nothing, is either the strongest argument yet that
+the method is the variable, or an artifact of the known-fragile Qwen2.5-Math
+substrate. Section 62 flags both. Recorded as the most important open question in
+the project; not acted on this round.
+
+NOT CHECKED BY ME THIS ROUND: section 62's four citation-backed findings (3, 4,
+5) were read but I verified none of the papers - they are labelled as the seat's
+self-verified work and carried on that basis. The A2 truncation measurement, the
+per-task variance decomposition in A1, and the Welch arithmetic in C4 I confirmed
+only where noted above; A1's variance decomposition I confirmed by re-reading the
+held-out per_task arrays, C4's chi-square intervals I did not recompute.
+
+standing by
