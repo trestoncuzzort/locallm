@@ -7767,3 +7767,78 @@ gguf all carry the guard. I checked export_adapter.py (has it) and screen_tasks.
 docstring without opening it.
 
 standing by
+
+--------------------------------------------------------------------------------
+66. EXECUTOR LOG  (2026-07-29 - section 62's double-BOS non-claim CLOSED, and
+    the answer is NEGATIVE: TRL 0.12.2 does not double-add for this model. The
+    seam fix in section 63 is not compounded.)
+--------------------------------------------------------------------------------
+Section 62 left this open: "I did not verify whether TRL 0.12.2's DPOTrainer
+double-adds a BOS token on top of apply_chat_template's output, which is a known
+class of bug in that vintage. That would require running the tokenizer.
+Unchecked, and it would compound finding 2."
+
+It would compound it because apply_chat_template already emits
+<|begin_of_text|>. A second BOS would give every training sequence a prefix no
+sampled sequence ever carried - the same defect class section 63 just closed,
+one layer down. Ran the tokenizer. CPU only, no GPU, no weights, no writes.
+
+THE HAZARD IS REAL AT THE TOKENIZER LEVEL:
+
+  bos_token='<|begin_of_text|>' id=128000
+  build_training_prompt() output starts with bos text : True
+  tok(prompt)                            -> first ids [128000, 128000, 128006]  BOS count 2
+  tok(prompt, add_special_tokens=False)  -> first ids [128000, 128006,   9125]  BOS count 1
+
+So if anything tokenizes our prompt with library defaults, it DOES double-add.
+The question was only ever whether TRL does.
+
+IT DOES NOT, for this model. Read from the installed source, trl 0.12.2:
+
+  dpo_trainer.py:580-582   prompt/chosen/rejected are each tokenized with
+                           add_special_tokens=False
+  dpo_trainer.py:585       if add_special_tokens:
+                               prompt_input_ids = [tokenizer.bos_token_id] + prompt_input_ids
+  dpo_trainer.py:473       "add_special_tokens": self.is_encoder_decoder
+
+and for our base:
+
+  unsloth/llama-3-8b-Instruct-bnb-4bit
+    architectures      ['LlamaForCausalLM']
+    is_encoder_decoder  False
+
+So TRL binds add_special_tokens=False, the manual BOS-prepend branch never runs,
+and the explicit add_special_tokens=False on all three fields prevents the
+tokenizer from adding one either. Exactly one BOS reaches the model, supplied by
+apply_chat_template, which is what the sampler also sent.
+
+VERDICT: NEGATIVE FINDING. No defect. Section 63's seam fix stands unqualified -
+the training sequence now matches the sampled sequence at the BOS/system-turn
+level, and nothing downstream re-breaks it.
+
+WHY A NEGATIVE FINDING GETS ITS OWN SECTION. Because it was a live open item that
+would have invalidated the next run's interpretation, and "we checked and it was
+fine" is only worth anything if the check is on the record with its evidence. An
+unchecked hazard and a checked-clean hazard look identical in a summary and are
+not the same thing. Also the one-run-one-section ruling does not have a
+"good news" exemption.
+
+SCOPE, and it is narrow. This is true for THIS model (decoder-only) and THIS TRL
+version (0.12.2). A future encoder-decoder base would set is_encoder_decoder=True
+and the branch WOULD fire on top of our template's BOS - so the safe reading is
+not "TRL never double-adds", it is "TRL double-adds exactly when
+is_encoder_decoder is True, and ours is False". A TRL upgrade re-opens this; the
+binding at line 473 is the thing to re-read, not the conclusion.
+
+NOT CHECKED: whether the EOS handling has an analogous issue (TRL appends
+eos_token to completions; our chosen/rejected now end with a ``` fence rather
+than <|eot_id|>, and whether that matters is unmeasured). Whether
+max_prompt_length truncation interacts with the now-longer system-turn prompt -
+section 62's A2 measured the OLD prompt at ~112 tokens against a 512 budget, and
+the system turn adds ~47, so the headroom is still large but the measurement is
+now stale by construction.
+
+Screen run 2 continues in parallel: 33 screened, 8 admitted at the time of
+writing. Its result gets its own section.
+
+standing by
