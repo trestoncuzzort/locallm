@@ -7988,3 +7988,68 @@ supply argument holds comfortably: 500 drawn from 25,862 eligible rows, using
 1.9% of the stratum, with no scarcity anywhere near.
 
 standing by
+
+--------------------------------------------------------------------------------
+69. EXECUTOR LOG  (2026-07-29 - SCREEN RUN 2 COMPLETE. 78 admitted from 343
+    screened. The replacement ruler pool exists; it is not yet a ruler.)
+--------------------------------------------------------------------------------
+Completed on the third launch, detached from the harness via Start-Process after
+two kills (section 68). Verified from the ARTIFACT, not the log, per section 68's
+own lesson:
+
+  screened            343
+  admitted             78   (22.7%)
+  duplicate tids        0
+  all ace_oss_*      True
+  admitted rate       min 0.20   median 0.55   max 0.80
+  all inside band    True
+
+  [screen] done. 78 admitted -> data/screen_results.jsonl
+
+WHY THE THIRD LAUNCH WORKED. Not a fix to the screen - a change of custody. The
+first two runs were harness background tasks and were killed at 57 minutes and
+1.7 minutes respectively, which rules out a lifetime limit; no git hooks exist,
+which rules out the commit-correlation theory. Cause still UNKNOWN. Rather than
+keep testing hypotheses against a 35-minute job, the run was detached with
+Start-Process the way overnight.ps1 already handles long jobs in this project.
+That pattern existed before today and should have been the first choice.
+
+THE COMPLETION BANNER IS ITSELF A CHECK ON SECTION 65. It printed:
+
+  [screen] detect 3.0pp: needs 78 tasks at k=10, or 156 at k=5 (3,889 gens/arm)
+  [screen] detect 5.0pp: needs 28 tasks at k=10, or 56 at k=5 (1,400 gens/arm)
+  [screen] all of the above assume run-to-run noise is pure sampling. The new
+           instrument's noise floor is UNMEASURED - measure it before trusting
+           any large-k row.
+
+That is computed from the single SIZING block, not retyped, and it carries its
+own caveat. The superseded "~30 admitted tasks / +3% at k=5" text that stood in
+three places this morning is gone from the running output.
+
+ADMIT RATE, final: 22.7% over 343 candidates. The pilot measured 20.0% at n=35
+with Wilson [10.0%, 35.9%]; the first 24 rows of this run suggested 29.2%. Both
+were inside the interval and both were worse estimates than this one. Section 62
+finding 8's supply argument holds with room to spare: 343 candidates drawn
+against 25,862 eligible oss rows, 1.3% of the stratum consumed.
+
+WHAT THIS IS AND IS NOT. It is a POOL of 78 tasks whose base-model pass rate was
+measured inside [0.2, 0.8] - every one can move in both directions, which is
+exactly what the old 10-task bank could not do (section 64: pass@20 == pass@3 ==
+0.9000, two live channels). It is NOT a ruler yet. Two things stand between:
+
+  1. The band membership is a stage-2 estimate at n=40, se ~= 0.077 at p=0.5. Some
+     of these 78 have a true rate outside the band and will regress out on
+     re-measurement. Freezing them into a ruler imports the selection error the
+     ruler exists to escape (section 62 leftover-risk 6).
+  2. The pool must be split so ruler tasks and future training prompts never
+     overlap, or the ruler is not held out.
+
+build_ruler.py does both. Nothing may be measured against these 78 until
+`confirm` has run, and the count after confirmation will be lower than 78 by
+construction.
+
+NOT CHECKED: whether the 78 overlap the pilot's admitted 30 (screen_tasks.py
+reserves forge.SEED_TASKS and eval.HELD_OUT tids by construction, but the pilot's
+admitted set is not in either list and I have not diffed it).
+
+standing by
