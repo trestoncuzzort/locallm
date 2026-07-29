@@ -113,6 +113,38 @@ def gguf_tensor_count(path: Path) -> int:
     return len(gguf.GGUFReader(str(path)).tensors)
 
 
+# Every entry in config.py's _REGISTRY is a -bnb-4bit repo, chosen so QLoRA fits
+# a 16 GB card. That is right for TRAINING and fatal for CONVERSION: the
+# converter reads the base CONFIG, and a quantized repo's config carries a
+# quantization_config key, which sends convert_lora_to_gguf into
+#   NotImplementedError: Quant method is not yet supported: 'bitsandbytes'
+# It does not need the base WEIGHTS - its own --base help says "only config is
+# needed, actual model weights are not required" - so the fix is to hand it the
+# unquantized twin's config, not to download 16 GB.
+#
+# This was invisible until an 8B run because the one export on record used
+# Qwen/Qwen2.5-0.5B-Instruct, which is already full precision and has no suffix
+# to strip. The acceptance evidence was real and aimed at a path production
+# never takes.
+_QUANT_SUFFIXES = ("-unsloth-bnb-4bit", "-bnb-4bit", "-bnb-8bit")
+
+
+def dequantized_twin(base_hf: str | None) -> str | None:
+    """Repo id of the unquantized twin, for config purposes only.
+
+    VERIFIED for unsloth/llama-3-8b-Instruct-bnb-4bit -> unsloth/llama-3-8b-Instruct
+    (ungated, quantization_config=None, LlamaForCausalLM). The same suffix rule is
+    ASSUMED for the other nine registry entries and has NOT been checked; if one
+    of them has no published twin, pass --base-config-id explicitly.
+    """
+    if not base_hf:
+        return None
+    for s in _QUANT_SUFFIXES:
+        if base_hf.endswith(s):
+            return base_hf[: -len(s)]
+    return base_hf
+
+
 def convert(adapter_dir: Path, out: Path, base_hf: str | None) -> subprocess.CompletedProcess:
     script = LLAMA_CPP / "convert_lora_to_gguf.py"
     if not script.exists():
@@ -169,6 +201,11 @@ def main() -> int:
     ap.add_argument("--name", required=True, help="name for the adapted model")
     ap.add_argument("--outdir", default=None, help="where to put gguf/Modelfiles")
     ap.add_argument("--verify", action="store_true", help="run the 4 acceptance checks")
+    ap.add_argument("--base-config-id", default=None,
+                    help="HF repo id (or local dir) whose CONFIG the converter reads. "
+                         "Defaults to the unquantized twin of the adapter's training "
+                         "base, since a -bnb-4bit config cannot be converted. Weights "
+                         "are never downloaded.")
     args = ap.parse_args()
 
     adapter = Path(args.adapter).resolve()
@@ -178,10 +215,16 @@ def main() -> int:
     outdir.mkdir(parents=True, exist_ok=True)
 
     cfg = json.loads((adapter / "adapter_config.json").read_text())
-    base_hf = cfg.get("base_model_name_or_path")
+    train_base = cfg.get("base_model_name_or_path")
+    base_hf = args.base_config_id or dequantized_twin(train_base)
+    if base_hf != train_base:
+        print(f"[base] trained against {train_base}\n"
+              f"[base] converting against {base_hf} (config only, no weights)")
     null_name = f"{args.name}-null"
     report: dict = {"adapter": str(adapter), "base_tag": args.base_tag,
-                    "base_hf": base_hf, "model": args.name, "null_model": null_name,
+                    "base_hf_train": train_base, "base_hf_config": base_hf,
+                    "base_config_overridden": bool(args.base_config_id),
+                    "model": args.name, "null_model": null_name,
                     "checks": {}}
 
     # ---- 1. convert -------------------------------------------------------
