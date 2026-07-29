@@ -13,13 +13,12 @@ a task cannot register a change. It also doubles as a contamination filter — a
 the base model memorised in pretraining scores ~1.0 and is rejected automatically,
 which is the weakness eval.py's own docstring concedes it cannot otherwise rule out.
 
-HOW MANY TASKS THIS NEEDS, computed from the 57 identical-config runs already on
-disk (per-task test-retest sd 0.0928 among movable tasks):
-
-    detect +3% at 80% power  ->  ~150 tasks at k=1 seed, ~50 at k=3, ~30 at k=5
-    detect +5% at 80% power  ->  ~11 at k=5
-
-So the target is ~30 admitted tasks, and this screens for that.
+HOW MANY TASKS THIS NEEDS: see the SIZING block below. The figures are deliberately
+NOT restated in this docstring. They were superseded once already - section 54
+re-derived the per-task sd from the admitted set rather than the old instrument and
+the required count moved 5.16x - and three copies of the old numbers survived in
+this file afterwards because each had to be found and edited by hand. One
+definition, referenced everywhere that needs it.
 
 SOURCE — AceCode-89K (TIGER-Lab), MIT licensed, bare `assert` test cases. Chosen over
 KodCode-V1 deliberately: KodCode is CC BY-NC 4.0, and non-commercial rows cannot ship
@@ -62,6 +61,42 @@ ACECODE_GLOB = str(Path.home() / ".cache/huggingface/hub/datasets--TIGER-Lab--Ac
 # One unique function called by every assert, or we cannot bind an entry point.
 CALL = re.compile(r"\bassert\s+(?:not\s+)?([A-Za-z_]\w*)\s*\(")
 BAND_LO, BAND_HI = 0.2, 0.8
+
+# --------------------------------------------------------------------------
+# SIZING - the single definition. Nothing else in this file restates a number.
+#
+# Derivation (section 54, re-derived from the 30 admitted pilot tasks, NOT from
+# the old saturated instrument): mean p(1-p) over admitted = 0.2230, so per-task
+# sd at N_SAMPLES=5 is 0.2108 against the old instrument's 0.0928 - a ratio of
+# 2.27, so the required count scales 5.16x.
+#
+#   G_per_arm = 2*(z_.025 + z_.20)^2 * mean(p(1-p)) / delta^2,  T*k*N_SAMPLES = G
+#
+# POWER DEPENDS ON TOTAL GENERATIONS PER ARM, NOT ON TASK COUNT (council section
+# 59, finding 2, verified). T=155/k=5, T=78/k=10 and T=39/k=20 have identical
+# power. Task count is therefore a GENERALISATION decision, not a power decision:
+# the formula estimates the change in mean pass rate ON THESE T TASKS. Claiming
+# "the model improved at code generation" needs an extra tau^2/T heterogeneity
+# term this omits. Pre-register which estimand is meant.
+#
+# CONDITIONAL, and the condition is unmet: every figure assumes run-to-run noise
+# is pure sampling. That ratio (0.98) was measured on the OLD ten-task
+# instrument. The new instrument's noise floor is UNMEASURED. If a systematic
+# term of even 0.005 exists, the large-k rows below are void.
+# --------------------------------------------------------------------------
+N_SAMPLES = 5           # generations per eval run; must match eval.py:37
+SIZING = {
+    # delta_pp: generations per arm needed at 80% power, alpha=.05 two-sided
+    3.0: 3889,
+    5.0: 1400,
+}
+DEFAULT_DELTA_PP = 3.0
+DEFAULT_K = 10          # eval runs per task; the cheaper shape from section 56
+
+
+def tasks_needed(delta_pp: float = DEFAULT_DELTA_PP, k: int = DEFAULT_K) -> int:
+    """Admitted tasks required to detect delta_pp at k eval runs of N_SAMPLES."""
+    return -(-SIZING[delta_pp] // (k * N_SAMPLES))          # ceiling division
 
 
 def wilson(c: int, n: int) -> tuple[float, float]:
@@ -150,13 +185,22 @@ def main() -> None:
     ap.add_argument("--stage2", type=int, default=40, help="precision on survivors")
     ap.add_argument("--temp", type=float, default=0.8)
     ap.add_argument("--seed", type=int, default=1337)
-    ap.add_argument("--target", type=int, default=30, help="stop once this many admitted")
+    ap.add_argument("--target", type=int, default=tasks_needed(),
+                    help=f"stop once this many admitted (default {tasks_needed()} "
+                         f"= detect {DEFAULT_DELTA_PP}pp at k={DEFAULT_K}; see SIZING)")
     ap.add_argument("--stratum", default=None,
-                    help="restrict to one AceCode source stratum. 'oss' is the only "
-                         "one with unbroken MIT provenance: bigcode_python_fns "
-                         "descends from a dataset whose own card states no licence, "
-                         "and evol is unverified. Rows outside the chosen stratum are "
-                         "never drawn, so nothing unpublishable can be admitted.")
+                    help="restrict to one AceCode source stratum. 'oss' is MIT and is "
+                         "the default choice on SUPPLY grounds - 25,862 eligible rows "
+                         "against a draw of a few hundred. bigcode_python_fns descends "
+                         "from a dataset whose own card states no licence and stays "
+                         "excluded. evol is NOT unverified: council section 59 walked "
+                         "it to Apache-2.0 (Magicoder-Evol-Instruct-110K <- "
+                         "evol-codealpaca-v1 <- CodeAlpaca-20k CC-BY-4.0) and it is "
+                         "publishable from an MIT repo with Apache section 4(b) "
+                         "changed-file notices. It is excluded for supply and "
+                         "single-licence simplicity, not provenance. Note both strata "
+                         "are OpenAI-model-generated; that caveat does not "
+                         "discriminate between them.")
     args = ap.parse_args()
 
     OUT.parent.mkdir(exist_ok=True)
@@ -214,8 +258,13 @@ def main() -> None:
 
     actor.release()
     print(f"\n[screen] done. {admitted} admitted -> {OUT}")
-    print(f"[screen] target was {args.target}; "
-          f"~30 supports detecting +3% at k=5 seeds, ~11 supports +5%.")
+    for d in sorted(SIZING):
+        print(f"[screen] detect {d}pp: needs {tasks_needed(d, DEFAULT_K)} tasks "
+              f"at k={DEFAULT_K}, or {tasks_needed(d, 5)} at k=5 "
+              f"({SIZING[d]:,} generations/arm either way)")
+    print("[screen] all of the above assume run-to-run noise is pure sampling. "
+          "The new instrument's noise floor is UNMEASURED - measure it before "
+          "trusting any large-k row.")
 
 
 if __name__ == "__main__":
