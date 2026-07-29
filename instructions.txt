@@ -7584,3 +7584,115 @@ only where noted above; A1's variance decomposition I confirmed by re-reading th
 held-out per_task arrays, C4's chi-square intervals I did not recompute.
 
 standing by
+
+--------------------------------------------------------------------------------
+64. EXECUTOR LOG  (2026-07-29 - R4 and R1 executed. The held-out bank is SPENT,
+    measured. The training seam is closed with a red witness. R3 is no longer a
+    judgement call.)
+--------------------------------------------------------------------------------
+R4 - THE HELD-OUT BANK IS SPENT. Measured, not inferred.
+
+Base model (llama3-forged-null, which section 61 confirmed is configurationally
+identical to the stock base) on all 10 held-out tasks, 20 samples each, same
+actor path / ACTOR_SYSTEM / verifier / temperature policy as eval.py:
+
+     k    pass@k        gcd            20/20     rotate     0/20
+     1    0.8700        is_prime       20/20     rle       18/20
+     3    0.8999        reverse_words  20/20     nth_fib   17/20
+     5    0.9000        flatten        20/20     kadane    19/20
+    10    0.9000        count_vowels   20/20
+    20    0.9000        dedup          20/20
+
+pass@20 == pass@5 == pass@3 == 0.9000 EXACTLY. Nine of ten tasks are solvable;
+rotate is solvable at no sampling budget up to 20; six tasks are at 20/20.
+
+THE CONSEQUENCE, stated as arithmetic. The ceiling on this bank is 0.90. The base
+already sits at 0.87 pass@1. So THE ENTIRE MEASURABLE RANGE IS 3 PERCENTAGE
+POINTS, against section 62's corrected MDE of ~2.6pp. One detectable step in the
+whole instrument. Section 61's held-out null (-0.8pp) was never evidence about
+training: this ruler could not have registered more than +3pp if run 1 had been
+perfect.
+
+This closes section 62 leftover-risk 5 and gives Yue et al. (arXiv:2504.13837) a
+concrete local number. Their claim is that verifier-grounded training re-ranks
+what the base already contains. Here the base contains solutions to 9/10 tasks
+within 20 samples, so training can only convert latent capability into pass@1,
+and there are three points of it to convert. Whether that generalises is their
+question, not mine; what is measured here is that MY bank is spent.
+
+R3 IS THEREFORE NOT A JUDGEMENT CALL, IT IS A PRECONDITION. Section 63 reversed
+section 58's screen shutdown on section 62's variance argument. R4 replaces the
+argument with a measurement. The ruler must be replaced before any run whose
+conclusion depends on a held-out number. rotate should not survive the
+replacement: 0/20 is not a hard task, it is a dead channel.
+
+R1 - THE TRAINING SEAM IS CLOSED. RED WITNESS, then GREEN, both kept.
+
+  RED, the same assertions run against the pre-fix implementations:
+    FAIL test_training_prompt_carries_the_system_turn (roles=['user'])
+    FAIL test_training_system_message_is_the_sampling_system_message
+         (no system turn at all)
+    FAIL test_target_is_fenced_not_bare_source
+         (target='def foo(x):\n    return'...)
+    3 failed against the old code
+
+  GREEN tests/test_training_seam.py -> 5 passed, 0 failed
+        tests/test_screen_sizing.py -> 0 failed, no regression
+
+I wrote the test AFTER the fix, so it started green and proved nothing. I then
+ran its assertions against the old implementations to confirm they actually
+bite. Stating that because a test written after a fix is decoration until it has
+been shown to fail.
+
+WHAT CHANGED, and why the fence half is additive rather than a replacement:
+  - train_native.build_training_prompt() now renders system=ACTOR_SYSTEM + user,
+    the same two turns forge.Actor.generate posts when sampling and eval.py
+    posts when scoring.
+  - forge.Result gains `raw`, defaulting to "" so every existing
+    Result(code=...) call site is unaffected. run_task threads the verbatim
+    completion into it.
+  - forge writes chosen_raw / rejected_raw ALONGSIDE chosen / rejected.
+    chosen/rejected MUST stay executable source because clean_dataset.py:26,
+    verify_dataset.py:82 and both dedup hashes run forge.verify on them.
+    Replacing them with fenced text would have broken all three gates. Additive
+    on purpose.
+  - train_native.training_target() prefers the verbatim completion and falls
+    back to re-fencing the stored source for the 918 legacy pairs. THE FALLBACK
+    IS A RECONSTRUCTION, NOT THE ORIGINAL BYTES - close, because ACTOR_SYSTEM
+    forbids prose, but not identical. Pairs generated after this change carry
+    the real thing.
+
+  SCOPE: the test pins the two mismatches actually found. A third divergence
+  introduced later is NOT caught automatically. Enumerated, not swept. The test
+  uses a recording stand-in for the tokenizer, so it runs on plain python with
+  no transformers, no download, no GPU.
+
+WHAT THIS DOES NOT DO. It does not re-run anything. Every number banked in
+sections 60, 61 and 63 was produced under the broken seam and none of them are
+retro-corrected by this commit - they remain the record of what that
+configuration did. The next run measures the fixed configuration, and R2 holds
+prompt count at 13 precisely so that the seam is the only thing that moved.
+
+REVISED ORDER OF WORK, changed by R4:
+  1. Replace the held-out ruler. Fresh draw from the 25,862-row oss pool,
+     selected for unsaturated tasks, NOT the admitted 30 (section 62
+     leftover-risk 6: reusing the admitted set re-imports selection-on-noise
+     into the ruler itself). This is now first because every downstream
+     conclusion depends on a held-out number and the current one cannot produce
+     one.
+  2. Regenerate pairs at 13 prompts from the bnb-4bit artifact, with the seam
+     closed and chosen_raw populated.
+  3. Re-run at 13 prompts. Compare against sections 60/61 to isolate the seam.
+  4. Only then rule on section 62's 200-prompt recommendation.
+
+STILL PENDING, unchanged: R5 (rpo_alpha=0 ablation - the objective is DPO+NLL
+and nothing separates the terms); the generator/trainer identity gap, whose
+headline number section 62 correctly deflated 3x and whose bnb-4bit side is
+still n=1; section 58 item 2's SFT/KTO/DPO question; the one-shot RLVR result.
+
+NOT CHECKED THIS ROUND: I did not re-verify section 62's citations. I did not
+measure whether the seam fix changes anything - that is step 3 and it has not
+run. I did not check the TRL 0.12.2 double-BOS question section 62 raised, which
+would compound the seam and is still open.
+
+standing by
