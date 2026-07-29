@@ -360,6 +360,12 @@ class Result:
     runtime: float = 0.0
     error: str = ""
     timed_out: bool = False  # distinct from "wrong": we do not know if it is wrong
+    # The completion exactly as the model emitted it, fences and all. `code` is
+    # extract_code(raw) and is what the verifier executes; `raw` is what the
+    # policy actually produced and is what a preference target must be, or the
+    # trainer optimises toward a string no model ever wrote. Defaults to "" so
+    # every existing Result(code=...) call site keeps working unchanged.
+    raw: str = ""
 
     @property
     def score(self) -> tuple:
@@ -500,7 +506,9 @@ def run_task(actor: Actor, task: Task) -> tuple[dict | None, dict | None, bool]:
         except requests.RequestException as e:
             print(f"  [gen error] {e}")
             continue
-        results.append(verify(extract_code(raw), task))
+        r = verify(extract_code(raw), task)
+        r.raw = raw          # keep the verbatim emission for the preference target
+        results.append(r)
 
     if not results:
         return None, {"tid": task.tid, "prompt": task.prompt,
@@ -538,8 +546,18 @@ def run_task(actor: Actor, task: Task) -> tuple[dict | None, dict | None, bool]:
 
     pair = {
         "prompt": task.prompt,
+        # chosen/rejected stay EXECUTABLE source: clean_dataset.py:26,
+        # verify_dataset.py:82 and both dedup hashes run forge.verify on them.
         "chosen": best.code,
         "rejected": worst.code,
+        # ...and the verbatim completions alongside, because those two facts are
+        # not the same string. extract_code strips the ```python fences that
+        # ACTOR_SYSTEM instructs the model to emit, so training on `chosen`
+        # optimises toward text no policy ever produced. Council section 62
+        # finding 2; red witness in section 63. Additive on purpose - every
+        # existing consumer keeps reading the fields it already reads.
+        "chosen_raw": best.raw,
+        "rejected_raw": worst.raw,
         "meta": {
             "tid": task.tid,
             "reason": reason,
