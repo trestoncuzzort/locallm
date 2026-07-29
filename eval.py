@@ -168,7 +168,19 @@ def pass_at_k(n: int, c: int, k: int) -> float:
     return 1.0 - math.comb(n - c, k) / math.comb(n, k)
 
 
-def evaluate(model_tag: str) -> dict | None:
+def evaluate(model_tag: str, tasks: list[forge.Task] | None = None,
+             task_set: str = "held_out") -> dict | None:
+    """Score model_tag. Defaults to the frozen HELD_OUT ruler.
+
+    `tasks` exists for the HELD-IN check: scoring forge.SEED_TASKS - the very
+    tasks training pairs were derived from - so that a null on the held-out set
+    can be attributed rather than merely recorded. A held-in null and a held-out
+    null mean different things: the first says the training did nothing, the
+    second says it did not transfer. Passing SEED_TASKS here does NOT make them
+    a ruler; the result is labelled by `task_set` so the two can never be
+    silently compared or appended into one series.
+    """
+    tasks = HELD_OUT if tasks is None else tasks
     actor = forge.Actor(forge.OLLAMA_URL, model_tag)
     try:
         tags = actor.s.get(f"{forge.OLLAMA_URL}/api/tags", timeout=5).json()
@@ -187,7 +199,7 @@ def evaluate(model_tag: str) -> dict | None:
     # measured, and a task nothing could be sampled for is EXCLUDED rather than
     # silently counted as zero.
     per_task = []
-    for t in HELD_OUT:
+    for t in tasks:
         c = scored = errors = 0
         for i in range(N_SAMPLES):
             temp = 0.0 if i == 0 else TEMP  # one greedy anchor + diverse rest
@@ -220,9 +232,10 @@ def evaluate(model_tag: str) -> dict | None:
     return {
         "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
         "model": model_tag,
+        "task_set": task_set,
         "n_samples": N_SAMPLES,
         "temp": TEMP,
-        "n_tasks": len(HELD_OUT),
+        "n_tasks": len(tasks),
         "aggregate": agg,
         "coverage": coverage,
         "gen_errors_total": sum(p["gen_errors"] for p in per_task),
