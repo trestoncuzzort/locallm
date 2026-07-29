@@ -5774,3 +5774,743 @@ STILL OPEN: implement item 3 (trace schema + derived views); re-derive which
 banked localllm runs item 1 bounds; identify the plugin; re-screen after item 3.
 
 standing by
+
+--------------------------------------------------------------------------------
+59. COUNCIL RESPONSE — THE PHD, SOLO SEAT  (2026-07-28 ~11:xx — activation #15
+    answered; spawned BEFORE §58 landed — read this note before the body)
+--------------------------------------------------------------------------------
+TIMING NOTE (council, not the PhD's words): this round was launched against the
+DIRECTIVE as it stood before §58 landed. Two things in §58 postdate the seat's
+research and are not reflected in its answer below:
+  (a) the oss screen it treats as "running right now" DIED at 10:29 (24/500
+      screened, 7 admitted) and the executor explicitly decided NOT to restart
+      it — so any line below that assumes the screen is in flight is STALE.
+  (b) §58 item 2 (sponsor card F-18/OC-16) reopened whether DPO is even the
+      right method against deterministic pass/fail labels, and §58's own "FLAG
+      FOR THE PHD" asked for the WIDER form of Q1 — expected effect size for
+      verifier-grounded SFT / KTO / DPO alike, not DPO only. The response below
+      is DPO-specific; it does not cover SFT or KTO. That comparison is still
+      OPEN and is carried into the recommended next prompt at the end.
+The seat's headline finding — training data is 13 distinct prompts, not ~900 —
+is METHOD-AGNOSTIC (it's a property of forge's SEED_TASKS, not of DPO) and
+stands regardless of which method §58 item 2 resolves toward. Its Q2 finding
+(evol license) is unaffected by §58 and stands as delivered.
+
+Per protocol this is banked VERBATIM, not summarized. Full text as reported by
+the seat follows.
+
+---
+
+VERDICT: Q1's answer is not a bigger or smaller ruler — it is that the ruler is
+no longer the binding constraint. The training set is 918 pairs over 13
+distinct prompts (verified: `data/dpo_pairs_capped.jsonl`, `meta.tid` takes 13
+values, 6 of them capped at exactly 120 pairs each), against published
+analogues that use 50k–114k pairs over tens of thousands of distinct prompts
+for +1.0 to +4.3 points; the literature does not report this configuration and
+the honest expected effect on a held-out 80-task instrument is 0 to +2 points,
+centred near +0.5, with a real probability of a negative sign — so do not halve
+the build to +5pp, do not rebuild it for +1pp, finish the 80-task screen and
+spend the next GPU-hours on prompt diversity instead. Q2: the `evol` chain is
+licensed and permissive at every layer (MIT ← Apache-2.0 ← Apache-2.0 ←
+CC-BY-4.0), it is compatible with MIT distribution with real NOTICE/changed-
+files obligations, and the one caveat that made you exclude it applies equally
+to the `oss` stratum you kept.
+
+EVIDENCE READ
+
+Repo (all read-only):
+- C:\Users\t\Projects\srlm-forge\instructions.txt — lines 1–200 (protocol + live
+  DIRECTIVE), 5311–5665 (§51–§57), plus a generated section-header index over
+  the whole 5,665-line file
+- C:\Users\t\Projects\srlm-forge\screen_tasks.py — full file, current worktree
+  (== commit c75bbd8)
+- git show bf797b9:screen_tasks.py and git diff bf797b9 -- screen_tasks.py —
+  full diff
+- C:\Users\t\Projects\srlm-forge\eval.py — lines matching N_SAMPLES/KS/HELD_OUT/
+  sampling loop (37, 39, 46, 183–237)
+- C:\Users\t\Projects\srlm-forge\forge.py — Task( occurrences only (lines
+  93–275, 13 of them), plus lines 27/556 for pair output path
+- C:\Users\t\Projects\srlm-forge\data\screen_results.pilot.jsonl — all 121
+  records, parsed
+- C:\Users\t\Projects\srlm-forge\data\screen_results.jsonl — all 24 records of
+  the live oss run, parsed
+- C:\Users\t\Projects\srlm-forge\data\dpo_pairs.jsonl (1,234),
+  dpo_pairs_capped.jsonl (918), repair_pairs.jsonl (38) — parsed for
+  prompt/tid distinctness
+- build_training_set.py, train_dpo.py, train_native.py, clean_dataset.py,
+  sync_public.py — grep for pair-file consumers only
+- git log --oneline -8, git status --porcelain
+
+Primary sources fetched and self-verified this round:
+- arXiv:2410.05605 (CodeDPO) abs + HTML v1 incl. Table 7 scaling ablation
+- arXiv:2411.13611 (DSTC) abs + HTML v2 incl. Tables 2–3
+- arXiv:2406.06887 (PLUM) abs (verbatim) + HTML v1
+- arXiv:2502.01718 (ACECODER) abs (verbatim) + HTML v3 seed-dataset and RL
+  sections
+- arXiv:2405.09673 (LoRA Learns Less and Forgets Less) abs
+- HF cards: TIGER-Lab/AceCode-89K, ise-uiuc/Magicoder-Evol-Instruct-110K,
+  ise-uiuc/Magicoder-OSS-Instruct-75K, theblackcat102/evol-codealpaca-v1,
+  HuggingFaceH4/CodeAlpaca_20K, sahil2801/CodeAlpaca-20k
+- apache.org LICENSE-2.0 §4 obligations (via search summary of the canonical
+  text)
+
+FINDINGS
+
+1. (EXECUTED — this is the answer to Q1, and it is not the answer the
+DIRECTIVE expected) The training set is 13 distinct prompts, not 900 pairs.
+That, not the instrument's resolution, is what decides whether this experiment
+can detect anything.
+
+Measured directly:
+
+  data/dpo_pairs.jsonl           pairs=1234   distinct tids=13   distinct prompts=13   max/tid=240
+  data/dpo_pairs_capped.jsonl    pairs=918    distinct tids=13   distinct prompts=13   max/tid=120
+  data/repair_pairs.jsonl        pairs=38     distinct tids=2    distinct prompts=2
+
+Per-task breakdown of the 918: lps 120, simplify_path 120, decode_ways 120,
+atoi 120, next_permutation 120, spiral 116, two_sum 64, balanced 43,
+multiply_strings 40, three_sum 29, merge_intervals 14, word_break 7, roman 5.
+Thirteen — the same count as the Task( constructors in forge.py (SEED_TASKS).
+train_dpo.py:30 reads dpo_pairs.jsonl + repair_pairs.jsonl; that union is still
+13 prompts.
+
+Now the comparison the DIRECTIVE asked for. Every published verifier-grounded
+preference-learning result I could verify at this method's shape has 3–4
+orders of magnitude more prompt diversity:
+
+  Work                        Data                                              Model / method                                         pass@1 delta
+  DSTC, arXiv:2411.13611      50k instructions (oss-instruct-sd2-50k), J=8       StarCoder2-15B-instr / DeepSeek-Coder-33B-instr, DPO   SC2-15B: HumanEval+ 62.2→66.5 (+4.3), MBPP+ 60.9→61.9
+                              samples each, self-generated tests and code        (β=0.2) via OpenRLHF, one epoch, full FT, 8×A100       (+1.0), BCB-hard 14.9→16.2 (+1.3). DSC-33B: HE+ 70.1→72.0
+                                                                                                                                          (+1.9), MBPP+ 69.0→70.4 (+1.4), BCB-hard 19.6→22.3 (+2.7)
+  CodeDPO, arXiv:2410.05605   114k pairs (93k correctness + 21k efficiency)      1.3B–7B, full FT                                       DSC-1.3B base 31.53 → 42.07 HumanEval; DSC-6.7B SFT
+                                                                                                                                          73.17 → 83.54
+  PLUM, arXiv:2406.06887      on-policy, test-case generated                     ~6.7–7B code LMs                                        abstract, verbatim: "increases pass rates by up to 4.8%
+                                                                                                                                          on average on standard benchmarks and 11.8% on
+                                                                                                                                          LiveCodeBench". MagiCoder-S-CL-7B HE 70.7→73.8, MBPP
+                                                                                                                                          68.4→71.4
+  ACECODER, arXiv:2502.01718, RL arm (not best-of-32)                            Qwen2.5-7B-Instr                                        HE 81.7→83.5 (+1.8), MBPP 79.4→83.1 (+3.7); Qwen2.5-
+                                                                                                                                          Coder-7B-Instruct went HE 91.5→89.0 (−2.5)
+
+The single most decisive number I found is CodeDPO's Table 7 data-scaling
+ablation (DeepSeekCoder-1.3B-base, HumanEval pass@1): 25% → 32.92, 50% → 36.59,
+75% → 41.46, 100% → 42.07. Its base model without DPO is 31.53. So the first
+25% of the data — roughly 28,500 pairs — bought +1.4 points. The curve is
+convex at the bottom, not concave: the paper's own "diminishing returns"
+framing describes the top of the curve, but read from zero it says the
+small-data end is where the method does least. srlm-forge's 918 pairs is
+~1/32 of that first quartile, and over 13 prompts rather than tens of
+thousands.
+
+Compounding factors, all pointing the same way:
+- LoRA r=16 vs the full fine-tuning used in every result above. Biderman et
+  al., arXiv:2405.09673, abstract verbatim: "In the standard low-rank
+  settings, LoRA substantially underperforms full finetuning" — measured on
+  programming and math specifically, and full FT learns perturbations of "a
+  rank that is 10-100X greater than typical LoRA configurations."
+- DPO specifically is the unstable variant. PLUM reports PLUM-DPO sometimes
+  underperforming PLUM-KTO and attributes it to DPO reducing the reward of
+  the chosen class. ACECODER's RL arm produced a −2.5 point regression on one
+  of three models. Negative outcomes are on the record for this family.
+- The eval is out-of-distribution transfer. The 80 admitted eval tasks are
+  AceCode oss problems; the 13 training prompts are hand-authored SEED_TASKS.
+  This is not "did the model get better at the thing it trained on," it is
+  "did training on 13 problems generalise to 80 unseen ones." §52 item 1
+  already worries about skill overlap contaminating the measurement; the
+  13-prompt count means the more likely failure is the opposite — no
+  transfer at all.
+
+Direct answer to Q1, stated plainly: the literature does not report pass@1
+deltas for 8B / ~900 pairs / one epoch / LoRA r=16 / verifier-grounded DPO.
+Nothing I could verify comes within two orders of magnitude of this data
+scale. The closest analogue is DSTC (same signal — self-generated tests,
+execution-verified pairs; same schedule — one epoch; same loss family), and it
+reports +1.0 to +4.3 points at 50k instructions with full fine-tuning on
+15B/33B models. Scaling that down by ~50× in prompt count and swapping full FT
+for LoRA r=16, my estimate for a held-out instrument is +0.5 points central,
+plausible range 0 to +2, with roughly 25–35% probability the true sign is
+negative or indistinguishable from zero. Confidence in the point estimate:
+low. Confidence in the ordering claim — that this is far below the 5–10
+points the DIRECTIVE floated as the optimistic branch — is high, because it
+rests on a measured scaling curve (CodeDPO Table 7) rather than on my
+extrapolation.
+
+One argument in the other direction, and I flag it as my reasoning, not
+literature: every published delta above is measured on a partly-saturated
+benchmark. The old srlm-forge instrument had 6 of 10 tasks pinned at 1.000, so
+it registered ~40% of any real per-task movement. The new instrument holds
+every task in [0.2, 0.8] where binomial variance and therefore sensitivity to
+a capability shift are maximal. A capability change that shows as +1.5 on
+HumanEval could plausibly show as +2–3 here. That is a factor I believe in
+directionally and cannot size, and it is the reason I am not telling you the
+experiment is unrunnable — only that it is being sized from the wrong end.
+
+2. (EXECUTED) Your power arithmetic is correct and I could not break it —
+including the subtle part. But it proves something different from what you
+are using it for.
+
+I re-derived §54 from the pilot file independently and it reproduces exactly:
+
+  mean p(1-p) over the 30 admitted   = 0.2230
+  per-task sd at 5 samples, computed as mean_i sqrt(p_i(1-p_i)/5) = 0.2108   (you: 0.2108)
+  ratio to old 0.0928 = 2.272   count scale = 5.16   (you: 2.27 / 5.16)
+
+The place this could have gone wrong is the definition of k, and I checked it
+before believing you. eval.py:37 sets N_SAMPLES = 5, so your measured per-task
+sd 0.0928 is already a 5-sample sd, not a single-draw sd. If k in your table
+meant samples-per-task, the 30-task anchor would be double-counting a factor
+of 5 and the real requirement would be ~775 tasks. It doesn't: k means eval
+runs of 5 samples each, which your own §56 confirms arithmetically ("77 tasks
+at k=10 … both ~3,850 generations" — 77 × 10 × 5 = 3,850). Under that reading
+the closed form is
+
+  G_per_arm = 2·(z_{.025}+z_{.20})²·mean(p(1-p)) / δ²   with T·k·N_SAMPLES = G
+  δ=3pp →  3,889 generations/arm.   155 × 5 × 5 = 3,875.  ✓
+
+Your 155 is right. §52's headline counts also reproduce exactly from the
+pilot file (121 screened / 30 admitted 24.8% / 39 floor 32.2% / 36 ceiling
+29.8% / 16 outside 13.2%, summing to 121 with zero unclassified).
+
+But notice what the formula actually says: power depends on total generations
+per arm, not on task count. Task count enters only through T·k·N. So the
+"cheaper shape" you found in §54 is real and you stopped one step short of
+its conclusion — 40 tasks at k=20 has identical power to 80 at k=10 and 155
+at k=5, and costs a quarter of the screening. Marginal cost, computed at your
+measured rates (21.4 s/candidate screening, 20.0% oss admit rate, 0.8
+s/generation, two arms):
+
+  buy power via +1 task  (at k=10): 107 s screening + 80 s eval = 187 s for 50 gens/arm = 3.74 s per unit
+  buy power via +1 eval run (at T=80):              640 s eval  for 400 gens/arm = 1.60 s per unit
+
+Buying resolution through k is 2.3× cheaper than through tasks. Task count is
+therefore not a power decision at all — it is a generalisation decision, and
+your model has no term for it. Your formula estimates "the change in mean
+pass rate on these T tasks," which is exactly how HumanEval is used in the
+field and is a perfectly defensible estimand — but then you must not later
+say "the model improved at code generation," because that claim carries an
+extra τ²/T term for task-level effect heterogeneity that dominates at any T
+you can afford. Pick the estimand and say which one in the pre-registration.
+
+The GPU cost of finer rulers, at your measured 0.8 s/generation, both arms:
+
+  detect +5.0pp:   1,400 gens/arm   T=80 → k= 3.5    0.6 h
+  detect +3.0pp:   3,889             T=80 → k= 9.7    1.7 h
+  detect +2.0pp:   8,751             T=80 → k=21.9    3.9 h
+  detect +1.5pp:  15,557             T=80 → k=38.9    6.9 h
+  detect +1.0pp:  35,003             T=80 → k=87.5   15.6 h
+
+3. (EXECUTED — READ THE BYTES) The DIRECTIVE pinned the wrong commit, and the
+pinned version cannot do what the round's asserted claim says it does.
+
+The DIRECTIVE names bf797b9 for screen_tasks.py. git show
+bf797b9:screen_tasks.py has no --stratum argument and no stratum filter —
+candidates() is def candidates(limit, seed) with no third parameter, and reads
+only ["id","question","test_cases"] (no source column). The stratum machinery
+lands in c75bbd8, one commit later. So the round's CLOSED-CLASS CLAIM and its
+GREEN witness ("stratum 'oss': 25,862 of 87,149 rows eligible") describe code
+that does not exist at the commit I was told to read. Had I obeyed the pin
+literally and stopped there, I would have reported the claim as unsupported
+by the source. The correct pin is c75bbd8. This is a live instance of the
+protocol's own rule at lines 31–38 — the file and the hash, and the council
+reads that version — failing in the direction the rule was written to
+prevent.
+
+I verified the claim against c75bbd8 instead, and it holds as far as the
+filter goes: screen_tasks.py:90-95 drops non-matching rows at draw time
+before the shuffle, and all 24 records written so far by the live run [NOTE:
+per §58, this run is now dead, 24/500, not restarted] have tid starting
+ace_oss_ (0 exceptions). Your stated weakness is the accurate one: --stratum
+defaults to None.
+
+4. (READ-ONLY) screen_tasks.py ships two stale defaults and a stale printed
+conclusion — same class as forge.py:389, in the file that is running right
+now.
+
+Lines 16–22 of the module docstring still assert "detect +3% at 80% power ->
+~150 tasks at k=1 seed, ~50 at k=3, ~30 at k=5" and "So the target is ~30
+admitted tasks." Line 153 still has --target default 30. Lines 217–218
+print, on completion of every run including the one in flight: "target was
+{N}; ~30 supports detecting +3% at k=5 seeds, ~11 supports +5%." §54
+superseded all of that four hours ago — the correct figures are 155 at k=5
+and 56 at k=5. Two stale defaults (stratum=None, target=30) plus a stale
+terminal claim, in one file. You already flagged the --stratum default as
+convention-not-construction; this is the same finding at N=2 in the same
+file, which by the channel's own §84-shaped rule means the class gets closed
+rather than the instance swatted. The class is "screen_tasks.py encodes
+superseded decisions as argparse defaults and docstring prose."
+
+5. (EXECUTED — Q2, verified independently against primary sources, not
+against my §50) The evol chain is licensed at every layer and the mapping is
+confirmed by exact row arithmetic.
+
+I did not cite my prior round. I re-walked it from the top, and the
+stratum→upstream mapping is now nailed by an arithmetic identity rather than
+by a card's prose. ACECODER, arXiv:2502.01718, HTML v3, dataset-construction
+section, seed counts before → after filtering:
+
+  Magicoder-Evol-Instruct    36,256 → 26,920      ← this is `evol`
+  Magicoder-OSS-Instruct     37,750 → 25,862      ← this is `oss`
+  StackPyFunction            50,000 → 34,367      ← this is `bigcode_python_fns`
+                                      -------
+                                       87,149     ✓ exact
+
+25,862 is the number your own draw printed for oss. 26,920 is the widening
+the DIRECTIVE was weighing. The three post-filter counts sum to 87,149
+exactly, which is AceCode-89K's row count. That closes the mapping without
+relying on any card's description.
+
+The chain, each layer read from its own card this round:
+
+  TIGER-Lab/AceCode-89K                     MIT           filtered AceCodeRM-87K
+  ise-uiuc/Magicoder-Evol-Instruct-110K     Apache-2.0    "A decontaminated version of evol-codealpaca-v1", StarCoder-style decontamination
+  theblackcat102/evol-codealpaca-v1         Apache-2.0    generated with gpt-4-0314 and gpt-4-0613, augmenting CodeAlpaca_20K via 10 evol strategies
+  HuggingFaceH4/CodeAlpaca_20K              cc            train/test split of sahil2801/CodeAlpaca-20k
+  sahil2801/CodeAlpaca-20k                  CC-BY-4.0     Self-Instruct-style generation
+
+Every layer states a license, and every stated license is permissive and
+commercially redistributable. That is the concrete difference from
+bigcode_python_fns, where the chain terminates in a card that states no
+license at all. Your recorded status "provenance unverified" is now
+superseded: it is verified, and it is Apache-2.0.
+
+6. (EXECUTED — Q2 part two) Apache-2.0 is compatible with shipping from an
+MIT repo, but it is not free — it carries four §4 obligations MIT does not,
+and one of them (§4(b), changed files) is triggered by exactly what you do to
+these rows.
+
+The compatibility reasoning, stated rather than asserted. Apache-2.0 §2
+grants perpetual, worldwide, royalty-free rights to reproduce, prepare
+derivative works of, and distribute the Work and Derivative Works "in Source
+or Object form." §4 permits distributing Derivative Works "under the terms
+and conditions of Your choice" — i.e. your repo's MIT license governs your
+repo, while the Apache-2.0-derived rows remain under their own grant. This is
+the ordinary "MIT project bundling Apache-2.0 third-party components"
+pattern, and it is one-directional: you may not relicense the evol-derived
+rows as MIT, only distribute them alongside your MIT work with their notices
+intact.
+
+The four §4 conditions, and which of them bite here:
+- §4(a) — give every recipient a copy of the Apache License. Bites: ship the
+  license text.
+- §4(b) — "cause any modified files to carry prominent notices stating that
+  You changed the files." Bites hardest. You do not redistribute AceCode rows
+  verbatim: screen_tasks.py:123-129 (as_task) rewrites the test cases into a
+  def run_tests(_f): wrapper with a local rebinding, and candidates()
+  reformats the row into a {tid, entry, prompt, tests} shape with a synthetic
+  ace_* id. Those are modifications and they need a stated "changed" notice.
+  MIT has no equivalent requirement, which is why this obligation is easy to
+  miss when the top-level repo is MIT.
+- §4(c) — retain all copyright, patent, trademark and attribution notices
+  from the source.
+- §4(d) — if the upstream Work includes a NOTICE file, reproduce its
+  attribution notices in your distribution. I did not check whether
+  Magicoder-Evol-Instruct-110K or evol-codealpaca-v1 ship a NOTICE file — see
+  NON-CLAIMS.
+
+Apache-2.0 additionally carries a §3 patent grant with a termination-on-
+litigation clause and a §6 trademark restriction; MIT has neither. Neither is
+a practical obstacle to publishing a dataset, but they are terms you are
+accepting.
+
+The root layer is CC-BY-4.0, which is a third obligation set: §3(a)(1)
+requires attribution to the creator, a copyright notice, a license notice, a
+disclaimer notice, a URI to the license, and — again — an indication if the
+material was modified. CC-BY-4.0 explicitly permits distributing adapted
+material under different terms, so it too is MIT-distributable, with
+attribution.
+
+Practical remedy, one file: a THIRD-PARTY-NOTICES.md (or LICENSES/) naming
+all four upstream datasets with their licenses and URLs, a verbatim copy of
+the Apache-2.0 text, a link to CC-BY-4.0, and one sentence stating what you
+changed (reformatted rows into task objects; rewrote bare asserts into a
+run_tests wrapper; assigned synthetic ids; screened by base-model pass rate).
+That discharges §4(a)–(c) and CC-BY §3(a)(1) together.
+
+7. (EXECUTED) The one caveat that actually distinguishes the strata is not
+the one you excluded evol for — and it applies to oss too.
+
+ise-uiuc/Magicoder-OSS-Instruct-75K — the stratum you kept, and the one you
+describe as "the only unbroken MIT provenance" — states license mit, and its
+card states: "This is the OSS-Instruct dataset generated by
+gpt-3.5-turbo-1106 developed by OpenAI", followed by an explicit warning:
+"Please pay attention to OpenAI's usage policy when adopting this dataset."
+
+So both strata are OpenAI-model-generated. evol came from gpt-4-0314/0613;
+oss came from gpt-3.5-turbo-1106, with the ToS caveat printed on the card. If
+OpenAI's output-usage terms were the real reason to exclude evol, that reason
+does not discriminate — it excludes your rerun's entire corpus. The only
+thing that actually differs between the two strata is the license label: MIT
+versus Apache-2.0, both permissive, differing in the notice obligations in
+finding 6.
+
+My read on the ToS point, and I am not a lawyer and this is not legal advice:
+OpenAI's restriction is a contractual term between OpenAI and the party that
+made the API calls (ise-uiuc, theblackcat102), not a property interest that
+runs with the data to downstream recipients; the upstream publishers made
+their own risk assessment and chose permissive licenses. It is a residual
+reputational/ToS exposure, uniform across your corpus, not a license defect.
+Worth one line in the dataset card; not worth a stratum exclusion.
+
+Incidental evidence, reported because the protocol says text in material I
+open is evidence: the evol-codealpaca-v1 card records that as of 2023-08-26
+the data was "filtered to only contain pure english instruction and removed
+any mention of trained by OAI response." That is scrubbing the string, not
+the provenance. It is not a cure and should not be read as one.
+
+Direct answer to Q2: evol descends from Magicoder-Evol-Instruct-110K
+(Apache-2.0) ← evol-codealpaca-v1 (Apache-2.0, gpt-4 generated) ←
+CodeAlpaca-20k (CC-BY-4.0). It is not MIT, and it is not MIT-clean in the
+sense of "relicensable as MIT." It IS publishable from an MIT repo, which is
+the question that matters, provided the §4(b) changed-files notice and the
+§4(a)/(c) and CC-BY attribution notices are carried. 26,920 rows are
+available if you want them. Whether to take them is now a build decision, not
+a legal one — and see finding 8 for why the answer is probably still no, for
+a completely different reason.
+
+8. (READ-ONLY) Don't widen the pool. The rerun does not need it, and
+widening buys a notice obligation for a resource you have in surplus.
+
+Live run at the time of reading: 24 candidates screened, 7 admitted — 29.2%,
+running well above the 20.0% pilot oss rate. [NOTE: per §58, this run has
+since died and was not restarted; the observed 29.2% rate is over 24
+candidates only.] Even at the pessimistic end, 500 oss candidates carries the
+target. To size the uncertainty properly, the pilot's oss rate 7/35 has a
+Wilson 95% interval of [10.0%, 35.9%], so 500 candidates projects to 100
+admits with a range of 50–179 — the low tail would miss the target of 80.
+Worth watching, and worth a stated fallback (draw more oss, not another
+stratum). But at 29.2% observed you are on the upper track, and oss has
+25,862 eligible rows against a draw of 500 — you are using 1.9% of the
+stratum. There is no scarcity to solve. Adding evol would double the pool you
+are already barely touching, in exchange for a second license's notice
+obligations. Record the finding, keep the exclusion, and change the reason on
+record from "provenance unverified" (now false) to "sufficient supply in
+oss; single-license simplifies distribution."
+
+CORRECTIONS TO THE ROUND
+
+- §56 / DIRECTIVE — wrong commit pinned. bf797b9 predates --stratum. The
+  claim's supporting code is in c75bbd8. Detail in finding 3. This is the
+  round's only protocol breach and it is the one the protocol was written
+  for.
+- §54's status of evol is now superseded. "provenance unverified" is false as
+  of this round; it is Apache-2.0, verified at the card. The exclusion should
+  survive on supply/simplicity grounds (finding 8), not on provenance.
+- §54's characterisation of oss as "the only unbroken MIT provenance" is true
+  at the license layer and misleading at the generation layer — oss is
+  gpt-3.5-turbo-generated with an OpenAI usage-policy warning on its own card
+  (finding 7). The phrase "unbroken provenance" reads as stronger than what
+  was checked.
+- §55's numbering audit is right on the headline and incomplete on the
+  enumeration. I reproduce zero duplicates across 1–57 (45 typed sections).
+  But §55's gap explanation lists 15, 21, 23, 24, 26, 29 and stops. It omits
+  §37 (COUNCIL ROSTER AMENDMENT) — so the 36→38 gap is unexplained in that
+  entry — and omits the 1–4 block entirely. §55 also states "44 numbered
+  sections" where I count 43 at that point in the file. The conclusion (no
+  duplicates) stands; the enumeration behind it is not the exhaustive list it
+  reads as, which is the exact "enumerated, not exhaustive" trap the protocol
+  names at line 67.
+- §51/§52/§54 arithmetic: no errors found. Pilot headline counts, the 0.2108
+  sd, the 2.27 ratio, the 5.16 scale factor, and the whole k=3/5/10 × 3pp/5pp
+  table all reproduce exactly from the artifacts. I went looking for a
+  double-counted k and there isn't one. Your correction of yourself was
+  accurate.
+
+NON-CLAIMS
+
+- I did not run any training, any eval, any generation, or anything touching
+  Ollama or the GPU. Zero writes to the repo. The "EXECUTED" label on my
+  findings means local read-only parsing and arithmetic over existing
+  artifacts, not that I ran the pipeline.
+- I did not check whether Magicoder-Evol-Instruct-110K or evol-codealpaca-v1
+  ship a NOTICE file. Apache-2.0 §4(d) only bites if one exists. Someone
+  should look before publishing evol-derived rows — but since finding 8
+  recommends not taking them, this may never matter.
+- I did not verify that bigcode_python_fns / StackPyFunction states no
+  upstream license. That was settled and I took it as settled per the brief.
+  I did not re-open The Stack's license agreement.
+- I could not load the OpenReview page for arXiv:2405.09673 (bot check). Its
+  TMLR 2024 venue is UNVERIFIED; the arXiv abstract and its findings are
+  verified.
+- PLUM's training configuration is only partially verified. I could not
+  extract from the HTML whether it used LoRA or full fine-tuning, the epoch
+  count, or the final post-filter preference-pair count. The abstract text
+  and the Table 2 numbers I quote are verified; the "1K instances / ~400
+  instances" figures that surfaced are ambiguous in context and I have not
+  used them in any argument.
+- CodeDPO has an internal inconsistency I could not resolve. Its abstract
+  says gains come "with just one epoch of training"; the setup section as I
+  extracted it says models were trained 10 epochs with best-validation-loss
+  checkpoint selection. I flag it and lean on neither — the Table 7 scaling
+  ablation I do lean on is internally consistent and is a within-paper
+  comparison, so the epoch question doesn't affect it.
+- I did not read forge.py other than the 13 Task( lines and two path lines,
+  did not read train_native.py / train_dpo.py beyond the grep hit, and did
+  not re-audit dataset_gate.py or verify_dataset.py this round. I have not
+  verified that the 918 pairs are what a training run would actually consume
+  — train_dpo.py:30 points at the uncapped dpo_pairs.jsonl + repair_pairs.jsonl
+  (1,272 pairs, still 13 prompts), while train_native.py:44 has a flag
+  choosing between capped and uncapped. Either way the prompt count is 13;
+  the pair count is 918 or 1,272 depending on entry point, and I did not
+  determine which is canonical.
+- I did not verify the ~0.8 s/generation figure — I took §51's measured rate
+  and used it for cost arithmetic. If it is wrong, every GPU-hour figure in
+  finding 2 scales with it.
+- I did not check the live screen's exit state or whether --target 80 was
+  actually passed on the command line; the default in the source is still 30
+  (finding 4). [Superseded by §58: the screen died at 10:29, 24/500, not
+  restarted.]
+- My effect-size estimate is an extrapolation, not a citation. No paper
+  reports this configuration. The uncertainty is wide and I have said so
+  rather than hidden it in a range.
+- The browser research seats are down — ports 9222, 9223 and 9224 all
+  returned nothing to /json/version. WebSearch/WebFetch only this round.
+
+LEFTOVER RISKS
+
+1. The noise floor of the new instrument is still unmeasured, and the entire
+   k argument rests on a ratio measured somewhere else. Your 0.98
+   observed/predicted ratio comes from 57 runs of the OLD ten-task
+   instrument, where sampling noise was large and would swamp a small
+   systematic component. At k=22 the sampling sd falls ~4.7× from k=1; a
+   systematic run-to-run term of even 0.005 — Ollama nondeterminism, KV-cache
+   effects, a scheduler artifact — would then dominate and no amount of k
+   removes it. Every "detect +2pp for 3.9 hours" figure in finding 2 is void
+   if that floor exists. §52 item 3 already has this on your list; it should
+   be the NEXT thing measured, before any decision about k.
+2. Selection-on-noise in the band. Admission uses the stage-2 estimate at
+   n=40 (se ≈ 0.077 at p=0.5). Tasks admitted at a measured 0.22 or 0.78
+   include some whose true rate is outside the band, and those will behave
+   as partial floor/ceiling tasks at eval time — mildly reducing variance
+   below your estimate but also reducing sensitivity. Direction of the net
+   bias on power is not obvious and I did not compute it.
+3. The estimand is unstated. Conditional-on-instrument (HumanEval-style, your
+   formula is correct) versus population-of-tasks (needs a τ²/T
+   heterogeneity term your formula omits, and that term does not shrink with
+   k at all). Pre-register which one, because the second one has a floor
+   around 120–150 tasks regardless of sampling budget, and the first one
+   permits going down to ~40 tasks at k=20.
+4. A null result will be ambiguous between three causes and the design
+   cannot currently separate them: the training genuinely does nothing at 13
+   prompts; the training works but LoRA r=16 cannot express it; the training
+   works in-distribution but does not transfer to AceCode-shaped tasks. A
+   held-in-distribution check — score the 13 SEED_TASKS before and after —
+   costs almost nothing and disambiguates cause 3 from causes 1–2.
+5. --stratum default None and --target default 30. Convention, not
+   construction, as you said, now at N=2 in the same file (finding 4).
+6. The DIRECTIVE's mis-pin (finding 3) means the channel's commit-pin
+   protocol has failed once and is unenforced by any mechanism. Nothing
+   checks that the named file at the named commit contains the feature the
+   claim describes.
+
+THE QUESTIONS THEMSELVES
+
+Q2 was a good question and is now closed — it had a checkable answer, it
+turned on a real decision, and the answer came out differently from both the
+recorded status ("unverified" → verified Apache-2.0) and the implied decision
+(widen the pool → don't, but for a new reason). It also surfaced finding 7,
+which was not asked for and which corrects a live characterisation of the
+stratum you kept. That is what a well-posed question does.
+
+Q1 was the right topic and the wrong question. It asked "how big must the
+instrument be to see the effect?" while holding the training set fixed and
+unexamined. The answer is that the instrument is not the constraint — 918
+pairs over 13 distinct prompts is — and the DIRECTIVE could not reach that
+answer because it framed the training configuration as a given ("~900
+verified preference pairs") rather than as a variable. The phrase "~900
+verified preference pairs" is doing the same work "provenance unverified" was
+doing in Q2: it sounds like a measurement and it hides the number that
+matters. Notably, this is the same shape as your own §50 licence finding — a
+count taken at the top layer without descending one level. There you counted
+rows and not their upstream licenses; here you counted pairs and not their
+distinct prompts. Second instance, so by §84 it is a class: before any count
+enters a sizing decision, check what it is a count OF.
+
+The question that should have been asked, and wasn't: "Given 13 distinct
+training prompts, is this a measurement problem or a training-data problem —
+and what is the cheapest experiment that tells us which?" That question is
+answerable in about two GPU-hours and would have redirected the build before
+~2.3 hours of screening was pointed at it. The corollary question, also
+unasked: "Should the training prompts come from the same AceCode oss stratum
+the eval tasks come from, on a disjoint split?" You now have a verified,
+licensed pool of 25,862 prompts with executable tests and a working screening
+harness. The pipeline that builds your ruler is the same pipeline that could
+build your training set — except that training wants the FULL difficulty
+range, especially the floor tasks the band throws away, which is exactly the
+"train on current failures" thesis in §1 that the band filter is currently
+discarding 39 of every 121 instances of.
+
+A third thing neither question touched: nobody has asked what happens if the
+answer is a clean, well-measured zero. That is a plausible outcome and it
+should have a pre-registered interpretation before the instrument is
+finished, not after.
+
+RECOMMENDED NEXT PROMPT (as delivered by the seat — see COUNCIL AMENDMENT
+below for how §58 changes this)
+
+Let the oss screen finish and keep the 80 tasks — the instrument is fine and
+it is not the bottleneck. The council found that data/dpo_pairs_capped.jsonl
+is 918 pairs over 13 distinct prompts (all of SEED_TASKS; dpo_pairs.jsonl is
+1,234 pairs over the same 13; repair_pairs.jsonl adds 2), against DSTC
+(arXiv:2411.13611) getting +1.0 to +4.3 pass@1 points from 50k instructions
+with full fine-tuning, and CodeDPO (arXiv:2410.05605, Table 7) getting only
++1.4 points from its first ~28,500 pairs. Before spending another GPU-hour on
+ruler resolution, run the cheap experiment that tells us whether this is a
+measurement problem or a training-data problem: (a) measure the noise floor
+of the new 80-task instrument at k=10 by scoring iteration-0 ten times and
+reporting the observed aggregate sd against the binomial prediction — if the
+ratio is not ~1.0, every k-scaling number in §54/§56 is void; and (b) score
+the current DPO checkpoint against baseline on the 13 SEED_TASKS themselves
+as a held-in check, so that a null on the 80-task held-out set can be
+attributed rather than just recorded. Report both with numbers, not
+summaries. Also fix three things found by reading the bytes: the DIRECTIVE
+pinned bf797b9, which has no --stratum at all (it lands in c75bbd8 — the
+claim's own witness was unreadable at the pinned commit); screen_tasks.py
+lines 16-22, 153 and 217-218 still assert the superseded "~30 tasks / +3% at
+k=5" sizing and default --target 30, alongside the --stratum default of None
+you already flagged — same class, N=2, close the class; and change evol's
+recorded status from "provenance unverified" to verified Apache-2.0
+(Magicoder-Evol-Instruct-110K ← evol-codealpaca-v1 ← CodeAlpaca-20k
+CC-BY-4.0; AceCoder's own seed table gives evol 36,256→26,920, oss
+37,750→25,862, StackPyFunction 50,000→34,367, summing to exactly 87,149),
+keeping it excluded on supply grounds — you are drawing 500 from 25,862 oss
+rows — and noting that the OpenAI-generation caveat you may have been
+excluding it for applies equally to oss, which the Magicoder-OSS-Instruct-75K
+card states was generated by gpt-3.5-turbo-1106 with a usage-policy warning
+attached.
+
+---
+
+COUNCIL AMENDMENT TO THE ABOVE (council, not the PhD): the seat's recommended
+prompt above assumes the dead screen is worth restarting to reach 80 admits.
+§58 already overtook that — the screen is being left down pending item 3
+(trace-as-primary-record), and the training-method question the seat was not
+asked (SFT/KTO vs DPO) is now live via §58 item 2. The part of the seat's
+prompt worth keeping is METHOD-INDEPENDENT: the 13-prompt finding, the
+noise-floor measurement, and the held-in SEED_TASKS check all apply no matter
+which of DPO/SFT/KTO §58 lands on. The part to drop is "let the oss screen
+finish" — the executor has already ruled that out for a different, adopted
+reason (§58's item-2/item-3 sequencing). Net: fold the seat's measurement
+recommendations (noise floor, held-in check, evol status correction,
+screen_tasks.py stale-default cleanup) into whatever prompt follows item 3's
+implementation; do not restart the screen on this response's authority alone.
+
+(Standing by. THE PHD's own flag in §58 — the wider SFT/KTO/DPO effect-size
+question — is still OPEN and was not answered this round; the response above
+is DPO-only. Re-activate with that as the explicit ask if it's still wanted.)
+
+--------------------------------------------------------------------------------
+60. EXECUTOR LOG  (2026-07-28 - RUN 1 EXECUTED. The result is a clean zero. The
+    FINDING is that the generator and the trainer are different models.)
+--------------------------------------------------------------------------------
+Section 59's four load-bearing claims were re-verified here before being acted
+on, per the protocol's "a verdict is a POINTER, never proof":
+  - 918 pairs / 13 distinct prompts: CONFIRMED by parsing all three pair files.
+    13 == the Task( count in forge.py. Per-task breakdown matches exactly.
+  - bf797b9 has no --stratum: CONFIRMED, git show returns nothing; it lands in
+    c75bbd8 at lines 78/90-95. The DIRECTIVE's own GREEN witness was unreadable
+    at the commit the council was told to read.
+  - three stale sizing sites: CONFIRMED, and a FOURTH found by reading -
+    --stratum help still said "evol is unverified", which 59 superseded. N=4 in
+    one file, so the class was closed structurally (commit 87d46e6): one SIZING
+    block with the derivation, tasks_needed() computed from it, docstring
+    pointing at it rather than restating it. RED 3 failed / GREEN 0 failed.
+  - evol Apache-2.0 and the 87,149 arithmetic: taken as delivered, NOT
+    re-verified against the HF cards. Labelled.
+
+WHAT 59 COULD NOT SEE, and it changes the conclusion.
+
+  (a) THERE WAS NO 8B CHECKPOINT. The only trained adapter in the repo was
+      smoke_adapter_qwen05b - a 0.5B smoke test on 64 pairs. The instrument was
+      being sized for a training run that had never been performed. 59's
+      recommended held-in check had nothing to compare against.
+
+  (b) THE 13 PROMPTS ARE MOSTLY ALREADY SOLVED. Measured before training:
+      base held-in pass@1 0.8308 via Ollama, 10 of 13 tasks pinned at 5/5.
+      That inverts section 1's thesis - "train on current failures" - and it
+      happened because build_training_set.py balanced PAIR COUNTS across tasks
+      without asking whether the model could still learn from them.
+
+  (c) THE GENERATOR AND THE TRAINER ARE DIFFERENT MODELS. This is the finding.
+      config.py's docstring states the design: "an OLLAMA TAG for
+      generation/eval/repair, an HF BASE for training via Unsloth." Those two
+      are assumed equivalent. Measured on the same 13 tasks, same prompts, same
+      verifier, 5 samples each:
+
+        llama3:8b-instruct-q4_K_M  via Ollama          pass@1 0.8308
+        unsloth/llama-3-8b-Instruct-bnb-4bit  direct   pass@1 0.6769
+        mean |per-task disagreement| 0.308 ; 7 of 13 tasks differ
+        spiral inverts completely 0.0 -> 1.0 ; next_permutation 0.8 -> 0.2
+
+      forge.py produces every pair through Ollama. train_native.py updates the
+      bnb-4bit weights. The preference pairs are OFF-POLICY with respect to the
+      model being trained. A pair asserts "this model passed here and failed
+      there"; if the model that produced it is not the model being updated, the
+      method's premise does not hold. This sits UPSTREAM of the 13-prompt
+      problem, upstream of instrument sizing, and upstream of section 58 item 2's
+      DPO/SFT/KTO question - none of which can be settled while it stands.
+
+RUN 1, as executed. train_native.py, capped 918 pairs, 1 epoch, 57 steps,
+lr 5e-6, beta 0.1, rpo_alpha 1.0, LoRA r=16/alpha=32, 852s on the RTX 4080.
+  gate: verified receipt OK, 0 violations, hashes match
+  grad_norm 33-37 throughout - the "requires_grad=True ... Gradients will be
+    None" warning was benign, and was checked rather than assumed
+  rewards/accuracies 0.987, margins 0.674
+  rewards/chosen +0.997, rewards/rejected +0.322 - both positive, margin
+    widening, so NOT likelihood displacement (the PLUM failure mode 59 flagged)
+  adapter: 448 tensors, 0 all-zero, 41.9M params, max|lora_B| 2.0e-4. lora_B is
+    zero-initialised by construction, so nonzero B is proof the weights moved.
+
+RESULT - held-in, within-process, same quantization, both arms in one process:
+  pass@1  0.6769 -> 0.6615   delta -0.0154   = 0.38 sd from zero
+  pass@3  0.8769 -> 0.8692   delta -0.0077
+  Net movement is ONE generation out of 65. A clean, well-measured zero.
+
+  CLAIM BOUNDARY. This licenses exactly: "one epoch of DPO on 918 pairs over 13
+  prompts did not measurably move this model on its own training distribution,
+  under bnb-4bit inference." It licenses NOTHING about held-out capability,
+  nothing about what Ollama would serve, and nothing about DPO as a method. It
+  is memorisation-inflated by construction - the adapter trained on these tasks.
+
+WHY BOTH ARMS RAN IN ONE PROCESS, and it nearly went wrong. The obvious
+comparison was the adapter's direct score against the 0.8308 Ollama baseline.
+That would have reported -0.169 and it would have been fiction: the engine delta
+is 0.154, TEN TIMES the training effect of 0.015. Any measurement of this
+pipeline that does not hold the inference engine fixed is measuring
+quantization. Recording this as a standing rule, not a one-off.
+
+EXPORT IS BLOCKED. TOP OPEN ITEM. convert_lora_to_gguf.py raises
+NotImplementedError: Quant method is not yet supported: 'bitsandbytes'. All TEN
+entries in config.py's _REGISTRY are -bnb-4bit repos - enumerated by reading the
+whole registry, not sampled - so GGUF export cannot work for any of them. The
+one export on record used Qwen/Qwen2.5-0.5B-Instruct at FULL PRECISION, 64
+pairs, 0.5B. data/export_acceptance_result.json is genuine evidence aimed to the
+side of the configuration it is cited for. A factory that can train but cannot
+ship the trained artifact has no loop to close.
+
+CORRECTIONS TO MY OWN CLAIMS IN THIS SESSION:
+- "69.9% of pairs sit on tasks with zero headroom" was computed against Ollama
+  rates. Against the engine training actually saw it is 35.6% (6/13 tasks). The
+  arithmetic was right; the argument I used it in was not.
+- I predicted movement would be confined to spiral and multiply_strings. WRONG.
+  spiral went DOWN 5->3, multiply_strings did not move at all, word_break and
+  next_permutation went UP. Same bad reference class as above.
+
+THE CLASS, now at N=5 and no longer arguable. Every one is a count or a check
+that was correct about the thing it measured and cited for something adjacent:
+  1. corpus.txt CLEAN by a scanner with 0% recall on the clone type present
+  2. 30 admitted rows counted without descending to upstream licences
+  3. 918 "pairs" counted without descending to 13 distinct prompts
+  4. rewards/accuracies 0.987 on a task set with no headroom
+  5. export acceptance PASS on a configuration production never runs
+  The rule, from 59: before any count enters a decision, check what it is a
+  count OF. Add: before any green check is cited, check what it was aimed AT.
+
+STILL OPEN, in priority order: unblock export (needs an unquantized base -
+NOT verified to exist); close the generator/trainer identity gap; then item 3
+(trace-as-primary); then re-screen. Section 58's wider SFT/KTO/DPO effect-size
+question remains unanswered and is now lower priority than (c).
+
+NOT CHECKED: whether an unquantized llama-3-8b twin is available; whether
+forge's sampling parameters match eval.py's; whether the off-policy gap explains
+the observed pair distribution; 59's HF-card licence chain.
+
+standing by
