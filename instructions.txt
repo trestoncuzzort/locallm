@@ -6514,3 +6514,97 @@ forge's sampling parameters match eval.py's; whether the off-policy gap explains
 the observed pair distribution; 59's HF-card licence chain.
 
 standing by
+
+--------------------------------------------------------------------------------
+61. EXECUTOR LOG  (2026-07-28 - ROUND ZERO COMPLETE. The training works and does
+    not transfer. Export unblocked. Noise floor measured. Six of my own claims
+    corrected, all with the same cause.)
+--------------------------------------------------------------------------------
+THE RESULT, both sides replicated 5x per arm on the SERVED artifact:
+
+  held-in  (the 13 SEED_TASKS it trained on)   +0.1646 pass@1   t= 8.37
+  held-out (10 frozen tasks, disjoint)         -0.0080 pass@1   t=-1.00
+
+  baseline pooled n=10 mean 0.7277 sd 0.0281 ; forged n=5 mean 0.8923 sd 0.0392
+  held-out null 0.8880 sd 0.0110 ; forged 0.8800 sd 0.0141 ; se 0.0080
+
+THE MEMORISATION SIGNATURE, and it is not a blind null. The held-out pass@1
+instrument resolves +/-1.6pp at t=2, so it COULD have seen a 2-point effect and
+did not. One epoch of verifier-grounded DPO on 918 pairs over 13 distinct
+prompts produced a large in-distribution gain and zero out-of-distribution
+transfer. Section 59's diagnosis is confirmed by measurement: the training set
+was the bottleneck, never the instrument. Its estimate (0 to +2 held-out,
+centred +0.5, from CodeDPO's Table 7 scaling curve) brackets the measured -0.8.
+
+CLAIM BOUNDARY. This licenses: "the pipeline trains end to end, and one epoch on
+13 prompts memorises them without generalising to 10 disjoint tasks." It does
+NOT license any claim about DPO as a method (section 58 item 2 stays open),
+about what a diverse training set would do, or about capability. Held-in gains
+on trained prompts are what training is supposed to do and prove nothing.
+
+WHAT WAS FIXED TO GET HERE.
+
+  EXPORT, unblocked for the whole registry (commit a216c58). export_adapter.py
+  passed the adapter's TRAINING base to the converter, which reads it as the
+  CONFIG to convert against. All ten _REGISTRY entries are -bnb-4bit, and a
+  quantized config trips NotImplementedError: Quant method is not yet supported:
+  'bitsandbytes'. The converter never needed weights - its own --base help says
+  "only config is needed". dequantized_twin() strips the suffix;
+  --base-config-id overrides. VERIFIED for llama3 only; ASSUMED for the other
+  nine. Four acceptance checks PASS, including lora_B x 50,000 producing
+  degenerate output, which proves the adapter is live in the SERVED artifact.
+  First 8B artifact this project has ever served.
+
+  eval.py MODEL GUARD. Exact string match against /api/tags reported "not
+  pulled" about llama3-forged, which existed as llama3-forged:latest. Now
+  matches Ollama's own bare-name convention and lists what IS available.
+
+  eval.py evaluate() takes an optional tasks list + task_set label, defaulting
+  to the frozen HELD_OUT unchanged. eval_heldin.py (Ollama) and
+  eval_heldin_direct.py (transformers+peft, both arms in one process) added.
+
+THE NOISE FLOOR, measured for the first time. Null arm sd 0.0129 over 5 runs of
+65 generations, against a binomial prediction of 0.0557 - observed is 4.3x
+SMALLER, not larger. Section 59's leftover risk 1 is CLOSED, in the favourable
+direction: the k-scaling in sections 54/56 is conservative, not void. Cause is
+structural - eval.py takes one greedy sample at temp 0 plus four at 0.8, and
+saturated tasks contribute no variance.
+
+BUT THE OLD RULER IS CONFIRMED DEAD for pass@3: 0.9000 in all 10 held-out runs,
+ZERO variance. That metric carries no information. The screen is still needed.
+
+CORRECTIONS TO MY OWN CLAIMS THIS SESSION - six, all one cause.
+  1. Baseline 0.8308 was ONE run. Pooled n=10 gives 0.7277 sd 0.0281; 0.8308
+     sits +3.66 sd out. An upper-tail draw.
+  2. "69.9% of pairs have no headroom" rested on that outlier. Wrong twice over
+     - also computed against the wrong engine. 35.6% by the right engine, and
+     the task-level picture is 4-5 movable, not 3.
+  3. Predicted movement confined to spiral/multiply_strings. Wrong on all counts.
+  4. "pass@3 is flat" - from one pair of runs that coincidentally matched.
+     Across 5 reps held-in pass@3 moves +0.0954, t=6.73.
+  5. Hypothesised the null Modelfile dropped TEMPLATE/PARAMETER. DISPROVEN by
+     ollama show: both derived models inherit template, stop tokens, num_keep,
+     and point at the same blob. The A/B is clean.
+  6. Predicted near-zero held-in on the served artifact. It was +16.5.
+
+  EVERY ONE had the same cause: a single measurement treated as a fact. Not one
+  was a reasoning error. Section 59's rule was "check what a count is a count
+  OF." Section 60 added "check what a green check was aimed AT." This adds the
+  cheapest of the three: CHECK HOW MANY TIMES YOU MEASURED IT. n=1 is a rumour.
+
+  Also corrected: eval_heldin_direct.py's -0.0154 was misleading. That path uses
+  generation code I wrote plus a bf16 LoRA over bnb-4bit weights. The SERVED
+  artifact is the measurement that counts and it says +0.1646. The within-process
+  comparison remains internally valid; it is not comparable across stacks.
+
+STILL OPEN, unchanged by today: the generator/trainer identity gap (section 60c)
+- forge.py still makes pairs through Ollama while train_native.py updates
+bnb-4bit weights, 7 of 13 tasks disagree. Item 3 (trace-as-primary). Re-screen.
+Section 58 item 2's SFT/KTO/DPO question. The wider effect-size ask.
+
+NOT CHECKED: whether the other nine registry twins exist; whether forge's
+sampling matches eval.py's; section 59's HF-card licence chain; whether a
+diverse training set changes the transfer result - that is the next experiment
+and the 25,862-row screened oss pool is the obvious source.
+
+standing by

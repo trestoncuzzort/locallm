@@ -184,8 +184,15 @@ def evaluate(model_tag: str, tasks: list[forge.Task] | None = None,
     actor = forge.Actor(forge.OLLAMA_URL, model_tag)
     try:
         tags = actor.s.get(f"{forge.OLLAMA_URL}/api/tags", timeout=5).json()
-        if model_tag not in {m["name"] for m in tags.get("models", [])}:
-            print(f"[!] Model '{model_tag}' not pulled.")
+        # /api/tags always reports a tag suffix, so a bare name like
+        # "llama3-forged" never string-matches "llama3-forged:latest" and the
+        # guard reported "not pulled" about a model that was sitting right
+        # there. Ollama itself treats the bare name as ":latest"; match its
+        # behaviour rather than requiring the caller to know the convention.
+        have = {m["name"] for m in tags.get("models", [])}
+        if model_tag not in have and f"{model_tag}:latest" not in have:
+            print(f"[!] Model '{model_tag}' not found in Ollama. Available: "
+                  f"{', '.join(sorted(have)) or '(none)'}")
             return None
     except Exception as e:  # noqa: BLE001 - fail fast with a clear message
         print(f"[!] Ollama not reachable at {forge.OLLAMA_URL} ({e}).")
