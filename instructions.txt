@@ -8053,3 +8053,91 @@ reserves forge.SEED_TASKS and eval.HELD_OUT tids by construction, but the pilot'
 admitted set is not in either list and I have not diffed it).
 
 standing by
+
+--------------------------------------------------------------------------------
+70. EXECUTOR LOG  (2026-07-29 - RULER CONFIRMED. 31 of 35 nominees survived
+    re-measurement. Selection-on-noise is now MEASURED, not assumed - and the
+    number it produced validates the mechanism that predicted it.)
+--------------------------------------------------------------------------------
+build_ruler.py confirm --n 60, run detached, 35 nominees re-measured against the
+same base model that screened them.
+
+  kept 31 / dropped 4   (11.4% regressed out of band)
+
+THE SELECTION-ON-NOISE NUMBER, which this channel has reasoned about since
+section 50 finding 5 and never measured:
+
+  movement, screen(n=40) -> confirm(n=60), all 35 nominees
+    mean |move|   0.0755      median 0.0667      max 0.2667
+  dropped-only mean |move|  0.1313
+
+AND IT IS CONSISTENT WITH PURE SAMPLING. Predicted se at n=40, p=0.5 is 0.0791;
+at n=60, 0.0645; the sd of a difference of two such independent estimates is
+0.1021. For a normal, E|X| = sd*sqrt(2/pi) = 0.0815. Observed mean |move| is
+0.0755. So the drift between the two measurements is what independent
+re-sampling predicts and nothing more - there is no systematic term hiding in
+the screen's stage-2 estimate. That is a real check on the screening
+instrument, not just on the tasks.
+
+ALL FOUR DROPS WENT UP AND OUT THE TOP:
+    ace_oss_20465   0.72 -> 0.85
+    ace_oss_23467   0.80 -> 0.87
+    ace_oss_37667   0.70 -> 0.88
+    ace_oss_5663    0.75 -> 0.90
+None regressed out the bottom. That is the expected SHAPE of selection on noise -
+a task whose true rate is above 0.8 only enters the band when its n=40 estimate
+lands low, and re-measurement moves it back toward truth - but the asymmetry
+(4 top, 0 bottom) is on four events and I am not reading anything into the
+direction. What matters is that the mechanism fired and was caught before these
+tasks became a ruler.
+
+VARIANCE ASSUMPTION HOLDS. mean p(1-p) over the 31 confirmed = 0.2190, against
+the 0.2230 the SIZING block derives its generation counts from (section 54, from
+the pilot's admitted set). The sizing model's central assumption survives contact
+with an independently screened, independently confirmed task set. That was not
+guaranteed.
+
+THE NEW RULER vs THE OLD BANK. Predicted, NOT measured - stated that way
+deliberately, because section 62 C4 caught me presenting an n=5 variance estimate
+as fact and this is worse, it is a theoretical projection under an independence
+assumption that section 62 A1b already showed is violated on the held-in bank:
+
+  NEW (predicted, T=31, mean p(1-p)=0.2190, N_SAMPLES=5, independence assumed)
+    per-task sd 0.2093 -> run-level sd 0.0376
+      k=5    se_diff 0.0238   MDE@80% ~6.7pp     775 gens/arm
+      k=10   se_diff 0.0168   MDE@80% ~4.7pp   1,550 gens/arm
+      k=20   se_diff 0.0119   MDE@80% ~3.3pp   3,100 gens/arm
+      k=25   se_diff 0.0106   MDE@80% ~3.0pp   3,875 gens/arm
+
+  OLD (measured, sections 61/64)
+      se_diff 0.0080, MDE ~2.6pp - and MAXIMUM POSSIBLE EFFECT 3.0pp, because
+      7 of 10 tasks sat at ceiling, 1 at floor, pass@20 == pass@3 == 0.9000.
+
+The old bank looks better on MDE and that comparison is a trap. Its precision was
+bought by freezing 80% of itself; a stuck needle reads steady. The new ruler is
+noisier per run and has 31 live channels instead of 2, so the effects it can
+register are not capped at three points. Section 62's own words: "a low noise
+floor bought by freezing 80% of the bank is not sensitivity - it is a stuck
+needle."
+
+THE HONEST COST: at k=5 the new ruler resolves ~6.7pp, which is WORSE than what
+the next run needs. Reaching 3pp needs k=25, i.e. 3,875 generations per arm,
+which matches the SIZING block's 3,889 for 3pp almost exactly - as it must, since
+both come from the same formula. So the instrument is buildable and the price is
+about an hour of generation per arm. That price was always there; the old bank
+hid it by being unable to move.
+
+STATUS: CONFIRMED BAND, NOT A FROZEN RULER. Freezing means pinning these 31 tids
+and never screening against them again. Not done yet, deliberately - freezing is
+irreversible in the sense that matters (a task that has been looked at cannot be
+un-looked-at) and it should happen in the same act as declaring the training
+split, so the disjointness is recorded once.
+
+NOT CHECKED: the predicted run-level sd assumes per-task independence within a
+run. Section 62 A1b measured that assumption failing on the held-in bank -
+observed sd was 2.9x BELOW the independence prediction because per-task
+deviations partly cancel. If the same holds here the real MDE is better than the
+table above; if it fails the other way it is worse. UNMEASURED. Measuring it
+costs 10 runs of the null arm and should happen before any k is chosen.
+
+standing by
