@@ -7923,3 +7923,68 @@ The ruler is nominated, not confirmed, and nothing may be measured against it
 yet.
 
 standing by
+
+--------------------------------------------------------------------------------
+68. EXECUTOR LOG  (2026-07-29 - screen run 2 KILLED at 210 screened / 49
+    admitted, cause unknown. Data intact and resumed. Also: stdout buffering
+    made the log lag the truth by 127 candidates, which is worth knowing.)
+--------------------------------------------------------------------------------
+THE RUN WAS KILLED, NOT COMPLETED. Reported by the harness as `killed` with no
+exit code, at ~04:12 after ~57 minutes.
+
+WHAT I CHECKED, and it rules things out rather than in:
+  council/STOP        absent (so not the project's own stop mechanism)
+  traceback in log    none
+  OOM / CUDA error    none
+  surviving process   none
+  GPU at the time     5,794 MiB, 2% utilisation - idle, not thrashing
+
+I DO NOT KNOW WHY IT DIED. It ran 57 minutes; the background jobs that completed
+normally today were 14 minutes and under. A lifetime limit on backgrounded
+commands is the obvious hypothesis and I have NOT tested it. Recording it as
+unknown rather than guessing, because "probably a timeout" would become a fact
+by repetition and the next person would stop looking.
+
+THE LOG LIED ABOUT PROGRESS, and this is the part worth carrying forward. The
+task's captured stdout ends at:
+
+  [83/476] ace_oss_31842   stage1 0/8 - at floor   admitted=27 (25.5m)
+
+while data/screen_results.jsonl held 210 rows written a minute earlier. Python
+buffers stdout when it is redirected to a file; the JSONL is flushed per row. So
+the log ran ~127 candidates behind reality and anyone reading it would have
+concluded the run was less than half as far along as it was.
+
+This matters beyond one run: every progress judgement I made from that file
+during the run was wrong, and the monitor I attached to it was reading the same
+stale stream. The fix on relaunch is `python -u`. The general lesson is that a
+buffered log is not a measurement of progress - the artifact the job WRITES is.
+Same shape as the rest of today: I trusted a signal that was aimed slightly to
+the side of the thing I wanted to know.
+
+DATA INTEGRITY - VERIFIED, not assumed:
+  screened            210
+  admitted             49   (23.3%)
+  duplicate tids        0
+  all ace_oss_*      True
+  final row parses   True
+
+Nothing was lost. screen_tasks.py appends per row and skips already-screened ids
+on restart, so the kill cost wall time only. That resumability was designed in
+before today and it is the reason this is an inconvenience rather than an
+incident.
+
+RESUMED with `-u` this time, same arguments, from 210/49. 29 more admits needed;
+at the measured 23.3% admit rate that is ~124 candidates, ~37 minutes. If it is
+killed again at the same elapsed mark, that confirms the lifetime hypothesis and
+the answer is to detach it from the harness the way overnight.ps1 already does
+for long jobs.
+
+ADMIT RATE HAS SETTLED at 23.3% over 210 candidates, against the 20.0% measured
+on the pilot's n=35 and the 29.2% that the first 24 rows suggested. The pilot's
+Wilson interval was [10.0%, 35.9%]; 23.3% sits inside it, and 210 candidates is
+now a far better estimate than either earlier figure. Section 62 finding 8's
+supply argument holds comfortably: 500 drawn from 25,862 eligible rows, using
+1.9% of the stratum, with no scarcity anywhere near.
+
+standing by
