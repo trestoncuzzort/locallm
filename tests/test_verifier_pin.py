@@ -68,11 +68,26 @@ def _run_under(exe):
     return json.loads(p.stdout.strip().splitlines()[-1])
 
 
+def test_a_second_interpreter_exists_to_pin_away_from():
+    """PRECONDITION, asserted rather than skipped.
+
+    Council activation #17 finding C6: three tests in this file used to `return`
+    early when .venv-train was missing, and the runner below counts a non-raising
+    test as PASS. So the suite reported "0 failed" in exactly the state where
+    verify_py() fell back to the launcher and the pin was unenforceable. A check
+    that cannot fail when the thing it guards is broken is decoration, not a test
+    (05-STAYING-OUT-OF-THE-MUD 1.6). An absent venv is now a FAILURE, because
+    verify_py() raises rather than falling back -- so it means the pipeline is
+    UNPINNED, not merely untested.
+    """
+    assert VENV_PY.exists(), (
+        f"{VENV_PY} is absent: no second interpreter exists to pin away from, so "
+        f"nothing in this file can witness the pin, and verify_py() will refuse "
+        f"to run at all. Create the venv or set SRLM_VERIFY_PY deliberately.")
+
+
 def test_verifier_is_not_the_launching_interpreter():
     """The structural check: the pin exists and points somewhere deliberate."""
-    if not VENV_PY.exists():
-        print("    (skipped: .venv-train absent, nothing to pin away from)")
-        return
     assert forge.VERIFY_PY == str(VENV_PY), \
         f"VERIFY_PY is {forge.VERIFY_PY!r}, expected the pinned {VENV_PY!r}"
     fp = forge.verifier_interpreter()
@@ -81,9 +96,6 @@ def test_verifier_is_not_the_launching_interpreter():
 
 def test_both_launchers_reach_the_same_verdict():
     """The class check. This is the assertion that would have caught the bug."""
-    if not VENV_PY.exists():
-        print("    (skipped: .venv-train absent)")
-        return
     a = _run_under(sys.executable)
     b = _run_under(VENV_PY)
     assert a["launcher"] != b["launcher"], \
@@ -99,9 +111,6 @@ def test_the_probe_can_actually_discriminate():
     """Control. If the probe passed on every Python it would prove nothing, so
     confirm the two interpreters really do disagree about the raw snippet when
     each evaluates it directly."""
-    if not VENV_PY.exists():
-        print("    (skipped: .venv-train absent)")
-        return
     snippet = PROBE_CODE + "print('DEFINED_OK')\n"
     outs = {}
     for exe in (sys.executable, VENV_PY):
@@ -124,6 +133,33 @@ def test_env_override_is_honoured():
     assert p.returncode == 0, p.stderr[-300:]
     assert p.stdout.strip() == r"C:\some\other\python.exe", \
         f"override ignored; got {p.stdout.strip()!r}"
+
+
+def test_verify_py_refuses_to_fall_back_to_the_launcher():
+    """Council #17 C6's red witness, made permanent.
+
+    With no venv and no explicit pin, verify_py() must RAISE. Returning
+    sys.executable silently restores the section 71 defect while every artifact
+    goes on recording a verifier fingerprint as though a pin were in force --
+    which is strictly worse than failing, because it is quiet.
+    """
+    child = (
+        "import sys, pathlib\n"
+        "sys.path.insert(0, r'{root}')\n"
+        "import dataset_gate as dg\n"
+        "dg._VENV_PY = pathlib.Path(r'C:\\nonexistent\\python.exe')\n"
+        "try:\n"
+        "    print('RETURNED:' + dg.verify_py())\n"
+        "except SystemExit:\n"
+        "    print('RAISED')\n"
+    ).format(root=ROOT)
+    env = {k: v for k, v in os.environ.items() if k != "SRLM_VERIFY_PY"}
+    p = subprocess.run([sys.executable, "-c", child], capture_output=True,
+                       text=True, timeout=60, env=env, cwd=str(ROOT))
+    out = p.stdout.strip().splitlines()[-1] if p.stdout.strip() else "(no output)"
+    assert out == "RAISED", (
+        f"verify_py() did not refuse: {out!r}. If it returned the launcher, the "
+        f"pre-pin defect is silently back and every fingerprint is a lie.")
 
 
 def test_eval_records_the_verifier():

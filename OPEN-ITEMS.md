@@ -23,24 +23,40 @@ Parked is not done. Prune entries when they close.
   10 null replicates under the pinned verifier.
   *Where:* `data/ruler_frozen.json`, `screen_tasks.NOISE_FLOOR`, §71/§72.
 
-- **Only the NULL arm's noise was measured.** At 40 replicates the run-level sd is
-  **0.0381**, CI [0.0312, 0.0489] — i.e. **1.01×** the 0.0376 independence
-  prediction, so independence holds and §70's sizing table is correct as published
-  (3pp = k=25 = 3,875 gens/arm). §72's 0.0283 / 0.75× / "k=20 suffices" was an n=10
-  artifact and is WITHDRAWN (§73); its residual covariance sign flipped too
-  (−0.0072 → +0.0102). What remains open is the arm assumption: `se_diff =
-  sqrt(2)*run_sd` assumes BOTH arms share a run-level sd and only the null arm has
-  one. A trained arm could be noisier and nothing bounds it, so **the first efficacy
-  run must report its own arm sd rather than borrowing this one.** This is now the
-  largest unmeasured quantity in the sizing.
-  *Where:* `council/ruler_noise_analysis_n40.txt`, `screen_tasks.NOISE_FLOOR`, §73.
+- **`se_diff = sqrt(2)*run_sd` has no slot for TRAINING-SEED variance**, and that is
+  bigger than the homoscedasticity question it was raised as. The null arm is one
+  checkpoint, so it has **zero** training variance by construction; the trained arm's
+  seed / data-order / init variance has nowhere to live in the formula. One
+  checkpoint cannot support a claim about DPO at any k (council #17, citing Dodge
+  et al. 2020, Bouthillier et al. 2021). **Fix costs zero extra generations:** spend
+  the same trained budget across 2–3 seeds, never pool (Welch from each arm's own
+  sd), pair by task, and re-estimate variance mid-run rather than pre-sizing — but
+  re-size on the variance, never stop on the effect.
+  *Where:* §76 (council), `council/ruler_noise_analysis_n40.txt`.
 
-- **`data/ruler_frozen.json` records n=10 eval-instrument rates, superseded by
-  n=40.** The frozen tid set and set-sha are unaffected (composition unchanged), but
-  the per-task `eval_instrument_rate` and the `eval_instrument_out_of_band` list
-  (3 tasks at n=10, 4 at n=40 — `ace_oss_2454` joins) came from the smaller sample.
-  Re-issuing needs `freeze --force`, deliberately, because freezing twice silently
-  is what that guard exists to prevent. *Where:* §73 open item 3.
+- **The measured sd was compared against the wrong null, and the "independence
+  holds" reading is WITHDRAWN.** Observed 0.0381 vs the 0.0376 the sizing rows
+  assume is 1.01×, but that null lets all 5 draws vary and the greedy draw is
+  constant on 31/31 tasks. Against the correct null (0.0326) the observed sd is
+  **1.17× — excess variance, not agreement**; the 1.01× was the constant greedy draw
+  (0.894×) cancelling excess between-task covariance. The ratio's CI contains 1.0, so
+  the excess is a direction, not a fact. **§70's sizing rows are unaffected and stand
+  as published** — the generation counts were derived from 0.0376 and that is what
+  was observed. Corrected in §77.
+  *Where:* `screen_tasks.NOISE_FLOOR` (both nulls recorded), §75 F1, §76 C2/C4, §77.
+
+- ~~**`data/ruler_frozen.json` records n=10 eval-instrument rates.**~~ CLOSED
+  2026-07-30 (§77). Sample-dependent figures are no longer frozen at all — a frozen
+  file should hold only what is frozen. `eval_instrument_rate` and
+  `eval_instrument_out_of_band` are stripped; measured rates live in
+  `council/ruler_noise_analysis_*.txt`, dated and re-derivable. Set sha256 unchanged
+  at `74560a4c…` because it never covered the rates.
+
+- ~~**The freeze has no gate.**~~ CLOSED 2026-07-30 (§77, council #17 F2).
+  `freeze` wrote `ruler_set_sha256` and nothing read it, so the freeze was a comment.
+  `build_ruler.verify_frozen()` now re-hashes every task from its stored screen
+  payload and `ruler_noise` obtains the ruler only through it. Red witness both ways:
+  a corrupted task hash and a corrupted set hash are each refused; clean passes.
 
 - **Four frozen ruler tasks sit outside [0.2, 0.8] under the eval instrument.** At
   n=40: `ace_oss_16070` (0.880), `ace_oss_19459` (0.855), `ace_oss_2454` (0.180),
@@ -54,13 +70,30 @@ Parked is not done. Prune entries when they close.
 - **The greedy anchor is 20% of every eval score and it is a deterministic
   constant.** `eval.py` samples 1 draw at temp 0.0 + 4 at 0.8, and the resulting
   rate is exactly `0.2*greedy + 0.8*temp0.8` (verified to 0.000000 over 31 tasks).
-  Greedy was constant on 31/31 tasks across **40** runs, so it buys a 0.894×
-  variance reduction while POLARIZING the rate distribution. It is now the **sole**
-  mechanism putting tasks outside the band on this ruler — all four out-of-band
-  tasks have greedy pinned at 1.00 or 0.00. Whether the ruler should sample all 5 at
-  temp 0.8 is a real design question; changing it re-baselines every
-  `eval_history.jsonl` row, so it is named, not done.
-  *Where:* §73 open item 4, `ruler_noise.py` CAUSE 1.
+  Greedy was constant on 31/31 tasks across **40** runs. **CORRECTED (§77):** it is
+  NOT the reason tasks fall out of band — it accounts for **1 of 4**
+  (`ace_oss_2454`); the other three are outside on their temp-0.8 rates alone. My
+  earlier "all four" was an inference from "each has greedy pinned at 1.00 or 0.00"
+  and does not follow. The real case against it is **estimator validity**: Chen et
+  al.'s unbiased pass@k assumes n i.i.d. draws and this is a 20/80 policy blend, so
+  0.894× is bias at a changed estimand, not variance reduction. Two decisions are
+  open and both go to the proprietor: adopt greedy-free pass@1 as the metric
+  (**already measured at zero cost** — mean 0.4905, sd 0.0476, MDE 2.98pp at 40
+  replicates/arm, since `sampled` is recorded separately), and **drop 3 from `KS`** —
+  a [0.2,0.8] pass@1 band maps to [0.488,0.992] at k=3, so 20/31 tasks are outside
+  the band at k=3 by construction. Level shift is 2.45pp, which is why it is a
+  decision and not a cleanup. Re-baselining cost is **zero**: all 68 existing
+  `eval_history` rows already lack the verifier key and the greedy/sampled split.
+  *Where:* §76 Q1, §77, `ruler_noise.py` CAUSE 1.
+
+- **The pin created a training confound nobody has checked.** Under the pinned 3.11,
+  omitting `from typing import List` FAILS — and the AceCode `oss` prompts carry
+  annotated signatures that invite exactly that omission. Pairs drawn from the 43-tid
+  training pool may therefore have `rejected` rejected for a missing import, so DPO
+  would learn import hygiene and the ruler would reward it: **true positive on the
+  instrument, false positive on the thesis.** Cheap pre-check, NOT yet run: count
+  `rejected` completions failing with a `NameError` naming a typing generic.
+  *Where:* §76 Q3, §77.
 
 - ~~**`export_adapter.py` does not exist.**~~ CLOSED 2026-07-28. Built and verified
   end to end on the smoke adapter: conversion exit 0 with tensor count 336 = 336,

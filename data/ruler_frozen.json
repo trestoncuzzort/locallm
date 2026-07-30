@@ -1,5 +1,5 @@
 {
-  "frozen_at": "2026-07-29T20:23:32",
+  "frozen_at": "2026-07-30T04:18:58",
   "model": "llama3:8b-instruct-q4_K_M",
   "band": [
     0.2,
@@ -18,8 +18,7 @@
       "wilson95": [
         0.3157,
         0.559
-      ],
-      "eval_instrument_rate": 0.26
+      ]
     },
     "ace_oss_11739": {
       "entry": "eliminate_empty_rows",
@@ -31,8 +30,7 @@
       "wilson95": [
         0.441,
         0.6843
-      ],
-      "eval_instrument_rate": 0.4
+      ]
     },
     "ace_oss_14121": {
       "entry": "count_letters",
@@ -44,8 +42,7 @@
       "wilson95": [
         0.4089,
         0.6537
-      ],
-      "eval_instrument_rate": 0.74
+      ]
     },
     "ace_oss_15186": {
       "entry": "merge_lists",
@@ -57,8 +54,7 @@
       "wilson95": [
         0.5749,
         0.801
-      ],
-      "eval_instrument_rate": 0.7
+      ]
     },
     "ace_oss_15273": {
       "entry": "exit_confirmation",
@@ -70,8 +66,7 @@
       "wilson95": [
         0.3309,
         0.5751
-      ],
-      "eval_instrument_rate": 0.6
+      ]
     },
     "ace_oss_16070": {
       "entry": "invalidate_document",
@@ -83,8 +78,7 @@
       "wilson95": [
         0.6638,
         0.8688
-      ],
-      "eval_instrument_rate": 0.96
+      ]
     },
     "ace_oss_17851": {
       "entry": "parse_packet",
@@ -96,8 +90,7 @@
       "wilson95": [
         0.2562,
         0.4932
-      ],
-      "eval_instrument_rate": 0.34
+      ]
     },
     "ace_oss_17880": {
       "entry": "trading_window",
@@ -109,8 +102,7 @@
       "wilson95": [
         0.5749,
         0.801
-      ],
-      "eval_instrument_rate": 0.74
+      ]
     },
     "ace_oss_19459": {
       "entry": "process_and_log",
@@ -122,8 +114,7 @@
       "wilson95": [
         0.6638,
         0.8688
-      ],
-      "eval_instrument_rate": 0.82
+      ]
     },
     "ace_oss_19944": {
       "entry": "rock_paper_scissors",
@@ -135,8 +126,7 @@
       "wilson95": [
         0.2562,
         0.4932
-      ],
-      "eval_instrument_rate": 0.34
+      ]
     },
     "ace_oss_21695": {
       "entry": "extract_revision_id",
@@ -148,8 +138,7 @@
       "wilson95": [
         0.2709,
         0.5098
-      ],
-      "eval_instrument_rate": 0.58
+      ]
     },
     "ace_oss_23069": {
       "entry": "normalize_pixels",
@@ -161,8 +150,7 @@
       "wilson95": [
         0.2273,
         0.4594
-      ],
-      "eval_instrument_rate": 0.28
+      ]
     },
     "ace_oss_23132": {
       "entry": "calculate_backup_size",
@@ -174,8 +162,7 @@
       "wilson95": [
         0.6099,
         0.8287
-      ],
-      "eval_instrument_rate": 0.76
+      ]
     },
     "ace_oss_23388": {
       "entry": "translate",
@@ -187,8 +174,7 @@
       "wilson95": [
         0.2131,
         0.4423
-      ],
-      "eval_instrument_rate": 0.28
+      ]
     },
     "ace_oss_2454": {
       "entry": "extract_properties",
@@ -200,8 +186,7 @@
       "wilson95": [
         0.1312,
         0.3362
-      ],
-      "eval_instrument_rate": 0.24
+      ]
     },
     "ace_oss_24748": {
       "entry": "parse_box_distribution",
@@ -213,8 +198,7 @@
       "wilson95": [
         0.1851,
         0.4077
-      ],
-      "eval_instrument_rate": 0.12
+      ]
     },
     "ace_oss_27102": {
       "entry": "extract_image_contents",
@@ -226,8 +210,7 @@
       "wilson95": [
         0.1312,
         0.3362
-      ],
-      "eval_instrument_rate": 0.4
+      ]
     },
     "ace_oss_28031": {
       "entry": "parse_json",
@@ -239,8 +222,7 @@
       "wilson95": [
         0.441,
         0.6843
-      ],
-      "eval_instrument_rate": 0.56
+      ]
     },
     "ace_oss_28113": {
       "entry": "snake_to_camel",
@@ -252,8 +234,7 @@
       "wilson95": [
         0.1851,
         0.4077
-      ],
-      "eval_instrument_rate": 0.24
+      ]
     },
     "ace_oss_31420": {
       "entry": "validate_color",
@@ -265,8 +246,7 @@
       "wilson95": [
         0.5068,
         0.7438
-      ],
-      "eval_instrument_rate": 0.78
+      ]
     },
     "ace_oss_31439": {
       "entry": "iterate_metadata",
@@ -278,8 +258,7 @@
       "wilson95": [
         0.3773,
         0.6227
-      ],
-      "eval_instrument_rate": 0.8
+      ]
     },
     "ace_oss_3243": {
       "entry": "file_type_distribution",
@@ -291,8 +270,7 @@
       "wilson95": [
         0.2273,
         0.4594
-      ],
-      "eval_instrument_rate": 0.54
+      ]
     },
     "ace_oss_32606": {
       "entry": "perform_crs_conversion",
@@ -304,8 +282,7 @@
       "wilson95": [
         0.3157,
         0.559
-      ],
-      "eval_instrument_rate": 0.36
+      ]
     },
     "ace_oss_33450": {
       "entry": "extract_view_names",
@@ -317,8 +294,7 @@
       "wilson95": [
         0.1851,
         0.4077
-      ],
-      "eval_instrument_rate": 0.32
+      ]
     },
     "ace_oss_34760": {
       "entry": "simulate_game",
@@ -330,8 +306,7 @@
       "wilson95": [
         0.3157,
         0.559
-      ],
-      "eval_instrument_rate": 0.44
+      ]
     },
     "ace_oss_35622": {
       "entry": "handle_packets",
@@ -343,8 +318,7 @@
       "wilson95": [
         0.6456,
         0.8556
-      ],
-      "eval_instrument_rate": 0.78
+      ]
     },
     "ace_oss_36489": {
       "entry": "parse_test_case",
@@ -356,8 +330,7 @@
       "wilson95": [
         0.3773,
         0.6227
-      ],
-      "eval_instrument_rate": 0.54
+      ]
     },
     "ace_oss_4327": {
       "entry": "filter_text",
@@ -369,8 +342,7 @@
       "wilson95": [
         0.441,
         0.6843
-      ],
-      "eval_instrument_rate": 0.4
+      ]
     },
     "ace_oss_4862": {
       "entry": "validate_activation_function",
@@ -382,8 +354,7 @@
       "wilson95": [
         0.5749,
         0.801
-      ],
-      "eval_instrument_rate": 0.68
+      ]
     },
     "ace_oss_633": {
       "entry": "is_palindrome",
@@ -395,8 +366,7 @@
       "wilson95": [
         0.5749,
         0.801
-      ],
-      "eval_instrument_rate": 0.6
+      ]
     },
     "ace_oss_869": {
       "entry": "time_difference",
@@ -408,8 +378,7 @@
       "wilson95": [
         0.2273,
         0.4594
-      ],
-      "eval_instrument_rate": 0.42
+      ]
     }
   },
   "training_pool": [
@@ -491,9 +460,5 @@
     "every training tid hashes to the train side",
     "no tid collides with forge.SEED_TASKS or eval.HELD_OUT"
   ],
-  "eval_instrument_out_of_band": [
-    "ace_oss_16070",
-    "ace_oss_19459",
-    "ace_oss_24748"
-  ]
+  "measured_rates_live_where": "council/ruler_noise_analysis_*.txt - sample-dependent figures are deliberately NOT frozen here (council #17): an eval-instrument rate averaged over whatever replicates existed at freeze time goes stale the moment another is banked."
 }

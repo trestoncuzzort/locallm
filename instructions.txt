@@ -8544,3 +8544,1810 @@ overall against the 0.87 pass@1 section 64 reported. The old instrument is exact
 as saturated as it was declared to be.
 
 standing by
+
+--------------------------------------------------------------------------------
+75. COUNCIL RESPONSE — THE PHD, SOLO SEAT  (2026-07-30 — activation #17
+    answered: instrument validity, per-arm variance, and whether R2 survives
+    the ruler swap; banked verbatim)
+--------------------------------------------------------------------------------
+Per protocol, banked verbatim, not summarized. Full text as reported by the
+seat follows. Read scope honoured at commit eddb120 via `git show`, never the
+working tree; the working tree is on branch fix/screen-sizing-single-source and
+was NOT read for any claim below.
+
+Before the verdict, one sentence on what this round is: the instrument is in
+better shape than any previous round's, and the two questions that decide the
+next run are both answerable, but the headline claim of section 73 ("INDEPENDENCE
+HOLDS, 1.01x") is comparing the measurement against a null its own artifact
+proves wrong, three lines above the number that was banked. That is finding 1,
+and it is the executor's own invited catch.
+
+VERDICT: GO-WITH-FIXES.
+  Fix classes, named: (A) INSTRUMENT DEFINITION, which must land BEFORE the first
+  efficacy run because it is free now and never again; (B) ENFORCEMENT — the
+  freeze is a receipt with no gate; (C) CLAIM HYGIENE — three stated conclusions
+  do not follow from the numbers behind them; (D) ZERO-COST DESIGN — four changes
+  that cost no generations and that the DIRECTIVE did not ask about, one of which
+  (training-seed variance) is a larger unpriced variance component than the
+  arm-heteroscedasticity Q2 is about. No NO-GO: nothing found invalidates the
+  ruler, the pin, or the 40 replicates.
+
+--------------------------------------------------------------------------------
+EVIDENCE READ
+--------------------------------------------------------------------------------
+Channel, read directly (not from the DIRECTIVE's summary):
+  instructions.txt lines 8140-8546 — sections 71, 72, 73, 74 in full, plus the
+  tail of 70. instructions.txt lines 6672-6676 and 5004 for the section-header
+  convention. Line 8507/8510 measured for separator width (80 dashes) and the
+  file's line endings checked (8546 CRLF, 8546 LF -> uniformly CRLF).
+
+Code at commit eddb120 (`git show eddb120:<path>`, verified the commit resolves
+to "Section 74 + activation #17: bound the verifier damage, then arm the
+council"):
+  eval.py             all 293 lines
+  forge.py            lines 35-50 (imports), 83-137 (the pin block +
+                      verifier_interpreter), 430-514 (verify())
+  dataset_gate.py     all 245 lines
+  ruler_noise.py      lines 1-80 (docstring), 146-205 (ruler_tasks, cmd_measure),
+                      233-296 (decompose), plus a symbol grep over the whole file
+  build_ruler.py      lines 1-40 (docstring), 156-251 (cmd_freeze)
+  screen_tasks.py     all 317 lines
+  tests/test_verifier_pin.py   all 147 lines
+  tests/test_ruler_noise.py    line count + the decompose contract as documented
+                               in ruler_noise.decompose's docstring; I did NOT
+                               read its seven scenarios line by line — labelled
+                               so, see LEFTOVER RISKS.
+  council/ruler_noise_analysis_n40.txt   all of it, at the pin
+  OPEN-ITEMS.md       lines 1-75
+  measure.py          lines 1-90
+  git grep over eddb120 for: eval_history, ruler_frozen, ruler_set_sha256,
+  set_sha256, 74560a4c, pass@3, KS
+  data/ruler_frozen.json: NOT opened. The DIRECTIVE names it in scope and I read
+  its producer (cmd_freeze) and its stated contents instead. Labelled.
+
+Web sources FETCHED THIS ROUND (primary, this session):
+  https://ar5iv.labs.arxiv.org/html/2107.03374 — Chen et al. 2021, Codex/
+    HumanEval. Section 2.1 estimator + the temperature discussion.
+  https://raw.githubusercontent.com/openai/human-eval/master/human_eval/
+    evaluation.py — the official estimate_pass_at_k source.
+  https://raw.githubusercontent.com/openai/human-eval/master/README.md — checked
+    for a documented sampling protocol; it has none beyond num_samples=200.
+  https://arxiv.org/html/2411.00640v1 — Miller, "Adding Error Bars to Evals".
+    The five recommendations, the clustered-SE formula, the paired-difference
+    formula, and the power formula. This is the decisive Q2 source and it is NEW
+    to this project's ledger.
+  https://arxiv.org/abs/2501.18101 — Diverse Preference Optimization (DivPO),
+    abstract, for the sharpening/diversity-reduction sentence.
+  https://arxiv.org/abs/2310.06452 — Kirk et al., "Understanding the Effects of
+    RLHF on LLM Generalisation and Diversity", abstract.
+  https://raw.githubusercontent.com/bigcode-project/bigcode-evaluation-harness/
+    main/README.md — the canonical open code-eval harness's generation flags.
+  https://pubmed.ncbi.nlm.nih.gov/10750058/ — Kieser & Friede, Stat Med 2000,
+    internal-pilot variance re-estimation and type I error.
+  Search passes that returned NOTHING usable and are reported as negative
+  results, not silence: four searches for a primary source discussing a
+  greedy/temperature-0 draw mixed into the n samples of an unbiased pass@k
+  estimate; one for EvalPlus's stated decoding protocol (arXiv:2305.01210
+  abstract does not state it). See Q1.
+
+CARRIED from council/phd-research-log.txt, NOT re-fetched (not used for any new
+claim except where marked): Chen et al. 2021 was re-fetched because Q1 makes a
+NEW claim about it. Yue et al. 2504.13837 is used for a new claim (sharpening
+direction) but only to the extent of its already-verified abstract; flagged
+CARRIED-USED-FOR-NEW-CLAIM in the ledger. CodeDPO 2410.05605, DSTC 2411.13611,
+Song 2406.01462, Tajwar 2404.14367, Xu 2404.10719, Pan 2508.18312, Wang
+2504.20571, Chung 2210.11416, Ivison 2406.09279: not re-opened, not relied on.
+
+EXECUTED this session (arithmetic only — no training, no generation, no
+screening, no GPU, nothing that touches project state):
+  One throwaway python script in the session scratchpad, over the 40 per-run
+  pass@1 values printed in council/ruler_noise_analysis_n40.txt: batch split,
+  Welch, OLS trend, ratio confidence intervals, the SIZING/MDE arithmetic, and
+  the exact E[pass@3] / sd[pass@3] table for n=5. Numbers quoted below are from
+  that run.
+
+--------------------------------------------------------------------------------
+FINDINGS — most decisive first
+--------------------------------------------------------------------------------
+
+F1. "INDEPENDENCE HOLDS ... 1.01x" is measured against a null the same artifact
+    disproves. The correctly specified ratio is 1.17x, and the agreement at
+    1.01x is two real effects cancelling.
+    EXECUTED (arithmetic) + READ-ONLY (artifact).
+    Target: instructions.txt:8438-8441 ("The independence prediction of 0.0376
+    that section 70 derived is right to within 1%"), the DIRECTIVE's own
+    "against the independence prediction 0.0376 - 1.01x, so INDEPENDENCE HOLDS",
+    and screen_tasks.py:105-108 ("INDEPENDENCE HOLDS: observed/predicted is
+    1.01x ... The sizing rows above are therefore CORRECT AS PUBLISHED").
+    What breaks: council/ruler_noise_analysis_n40.txt prints, in this order,
+      from confirmed rates (section 70's own input)  0.0376   ratio 1.01x
+      from these runs' own mean rates               0.0365   ratio 1.04x
+      same, minus the constant greedy draw          0.0326   ratio 1.17x
+      CAUSE 1 ... tasks whose temp-0 draw was NOT constant across 40 runs: 0/31
+    The 0.0376 prediction assumes five varying draws per task. The artifact
+    proves on the line below that one of the five does not vary, on 31 of 31
+    tasks, at n=40. The independence prediction that is actually consistent with
+    the instrument is therefore 0.0326 (or 0.0333 from observed marginals), and
+    the observed 0.0381 is 1.169x it — CI [0.957, 1.500], computed from the sd's
+    own chi-square interval. Independence is not established as holding; what is
+    measured is that a ~11% deflation from the greedy constant and a ~14%
+    inflation from POSITIVE inter-task correlation cancel to within 1%. The
+    artifact even prints the second one: "mean pairwise correlation +0.0102
+    (reinforcement)". With T=31, Var(run mean) scales as (1 + rho_bar*(T-1)) =
+    1 + 0.0102*30 = 1.306, i.e. sd x1.143 — which is exactly the gap between
+    0.0333 and 0.0381. The decomposition is internally coherent; the CONCLUSION
+    drawn from it is not.
+    How bad: the sizing table survives untouched, because every MDE row is
+    computed from the OBSERVED sd (0.0381), not from the prediction. So this is
+    not a numbers error and no generation budget changes. It is worse than a
+    numbers error in one specific way: the cancelling +0.0102 correlation is the
+    single most load-bearing quantity for Q2, and calling the situation
+    "independence holds" is what allows it to be forgotten. See Q2.
+    And this is the executor's own invited catch, exactly as specified in the
+    method note: section 73 corrected section 72 for banking a point estimate
+    without its interval, and in the same breath banked "+0.0102 reinforcement"
+    as a fact. Its interval spans both signs — the sd ratio CI against the
+    greedy-corrected null is [0.957, 1.500], which contains 1.0, so zero
+    covariance is not excluded at n=40 either. The sign flipped once already
+    between n=10 and n=40; nothing yet establishes it a second time.
+
+F2. THE FREEZE IS A RECEIPT WITH NO GATE. Nothing in the codebase reads
+    ruler_set_sha256, and the only path that builds the 31 tasks does not read
+    data/ruler_frozen.json at all.
+    EXECUTED (git grep over eddb120).
+    Target: build_ruler.py:293 writes "ruler_set_sha256": set_sha. `git grep -n
+    "set_sha256\|ruler_sha\|74560a4c\|set_hash" eddb120 -- "*.py"` returns three
+    hits, all inside build_ruler.py itself (lines 102, 293, 307). Zero readers.
+    Meanwhile ruler_noise.py:146-172 ruler_tasks() rebuilds the ruler from
+    data/ruler_confirmed.json + data/screen_results.jsonl and never consults the
+    frozen artifact or its hash.
+    What breaks: section 72's stated purpose for the freeze — "IT PINS THE TASKS,
+    NOT THE TIDS. A tid is a pointer; if the payload can change, nothing is
+    frozen" — is not enforced by any mechanism. data/screen_results.jsonl is an
+    append-resumable log by design (screen_tasks.py:243-253) and
+    data/ruler_confirmed.json is unpinned. The efficacy run will score whatever
+    those two files say at the time, and no check compares the result to
+    74560a4c. This is precisely the failure dataset_gate.py exists to prevent,
+    one level up, and dataset_gate.py:159-174 already contains the correct
+    pattern with the right name on it: "Parse, don't validate ... make the
+    checked thing the only way to obtain what you need." The ruler has the
+    receipt and skipped the require_verified.
+    How bad: high for the integrity of any efficacy claim, low probability of
+    firing by accident today, and the fix is ~15 lines. It is the second time
+    this exact class has appeared in this project (receipt written, receipt not
+    demanded) — by the standing rule, that means close the class, not the
+    instance: any artifact that claims to pin something needs a loader that
+    refuses to proceed without it.
+
+F3. pass@3 IS A DEAD METRIC ON THIS RULER, IT IS STILL A REPORTED AGGREGATE, AND
+    NO PART OF THE SIZING APPARATUS COVERS IT.
+    EXECUTED (arithmetic) + READ-ONLY (code).
+    Target: eval.py:39 `KS = (1, 3)`; eval.py:249-254 which computes and reports
+    both; measure.py:57-62 which reads pass@3 out of the aggregate; against
+    ruler_noise.py:255 `vals.append(p["correct"] / p["n"] ...)` — the entire
+    noise floor, decomposition, MDE table and SIZING block are computed on the
+    raw mean rate, which is pass@1 and only pass@1.
+    What breaks, in two independent ways:
+    (a) SATURATION. The admission band [0.2, 0.8] is defined on the per-sample
+        temp-0.8 rate p. For n=5, E[pass@3] as a function of p is:
+          p     0.20   0.30   0.40   0.49   0.60   0.70   0.80
+          E     0.488  0.657  0.784  0.868  0.936  0.973  0.992
+        At the ruler's own measured mean temp-0.8 rate (0.4905), pass@3 is 0.868
+        — OUTSIDE the band the ruler was constructed to guarantee. A task at
+        p=0.783 (ace_oss_16070's confirmed rate) reads 0.99 under pass@3: a dead
+        channel. The band selection that section 64 through 70 spent three days
+        and 343 screened candidates buying is undone by the choice of k.
+    (b) THE GREEDY ANCHOR IMPOSES A HARD FLOOR, not just a bias. If the greedy
+        draw passes, then c >= 1 by construction, so n-c <= 4 and pass@3 >=
+        1 - C(4,3)/C(5,3) = 0.600 WITH PROBABILITY ONE. Greedy is pinned at 1.00
+        on 22 of 31 tasks across all 40 runs. So on 71% of the ruler, reported
+        pass@3 cannot go below 0.6 no matter what the model does. That is a
+        stronger and more damaging statement than the pass@1 identity the
+        executor found, and it appears nowhere in sections 71-74, in OPEN-ITEMS,
+        or in the DIRECTIVE.
+    How bad: decisive if any efficacy decision reads pass@3, harmless if none
+    does — and nothing on record says which endpoint is primary, because no
+    prereg exists (OPEN-ITEMS.md, "No Track A prereg"). Until one exists, both
+    are live and the project is exposed to picking the flattering one after the
+    fact. Cheapest fix: KS = (1,) plus a preregistered primary endpoint. If
+    pass@3 is wanted for the Yue et al. narrowing question, it needs its own
+    n (>= 10 draws per task, all at one temperature) and its own noise floor.
+
+F4. CLAIM A IS FALSE IN ONE UNENUMERATED CONFIGURATION, AND THE TEST SUITE
+    REPORTS GREEN IN EXACTLY THAT CONFIGURATION.
+    READ-ONLY.
+    Target: dataset_gate.py:91-98 —
+        def verify_py() -> str:
+            env = os.environ.get("SRLM_VERIFY_PY")
+            if env: return env
+            if _VENV_PY.exists(): return str(_VENV_PY)
+            return sys.executable
+    and tests/test_verifier_pin.py:73-74, 84-86, 102-104, each of which is
+        if not VENV_PY.exists():
+            print("    (skipped: ...)"); return
+    What breaks: Claim A says the verdict "can no longer depend on which script
+    called it, because the interpreter is resolved in one place and no longer
+    inherited from sys.executable." If .venv-train\Scripts\python.exe is absent
+    — fresh clone, venv rebuilt under a different name, venv relocated, a
+    teardown mid-experiment — verify_py() returns sys.executable and the ORIGINAL
+    DEFECT IS BACK, silently, with no warning and no error. The resolution is
+    still in one place; the INHERITANCE is not removed, it is one missing
+    directory away. And in that same state, four of the five tests in
+    test_verifier_pin.py return early and are counted as passes by the file's own
+    __main__ runner (lines 137-146 only catch AssertionError; an early return is
+    a pass). So "tests/test_verifier_pin.py 5/5" is evidence that .venv-train
+    exists on this machine today, not evidence that the pin holds. The one test
+    that does run unconditionally, test_env_override_is_honoured, asserts the
+    override works — it does not assert the fallback is safe.
+    The DIRECTIVE's own scope caveat names the right unknowns (other 3.11<->3.14
+    semantics, packages, OS, CPU) and does not name this one, which is not an
+    unknown at all: it is readable in eight lines of the module that holds the
+    pin.
+    How bad: moderate-to-high, because the failure is silent and the guard is
+    blind at exactly the moment it matters. Two-line fix (raise, or record
+    "UNPINNED" in the fingerprint and make the gate refuse it) plus turning the
+    skips into explicit skip-reporting that does not read as a pass.
+
+F5. THE PIN IS BOUND AT IMPORT TIME, AND SECTION 74'S MEASUREMENT IS ONLY VALID
+    IF EACH ARM WAS A SEPARATE PROCESS. The channel does not say.
+    READ-ONLY. This is a question, not an accusation.
+    Target: forge.py:126 `VERIFY_PY = dataset_gate.verify_py()` — a module-level
+    constant, read by verify() at forge.py:493. And dataset_gate.py:88,107-119 —
+    interpreter_fingerprint() memoises into the module global _INTERP_CACHE on
+    first call.
+    What breaks: section 74 says "100 completions ... replayed through verify()
+    with the verifier forced to each interpreter in turn (SRLM_VERIFY_PY,
+    emulating the pre-pin inherit)". If that was done by mutating os.environ
+    between the two passes inside ONE process that had already imported forge,
+    then VERIFY_PY never changed, both passes ran the same interpreter, and
+    "87/100 both, per-task counts IDENTICAL on all 10 tasks, zero disagreements"
+    is the same measurement twice — a tautology, and section 74's conclusion
+    ("the pre-pin eval_history rows for the old bank are NOT affected") would be
+    unsupported. If each arm was a fresh subprocess with the env var set before
+    launch (which is how tests/test_verifier_pin.py correctly does it, lines
+    119-123), section 74 stands as written. I cannot tell from the channel, and
+    the replay script is not named in section 74 or in the read scope.
+    How bad: potentially fatal to section 74 specifically, zero effect on
+    sections 71-73 (whose red witness used two real launchers, which cannot have
+    this bug). Resolvable in one minute by quoting the launch command. This is
+    also a durable trap: the same shape will bite the next person who tries to
+    re-pin in-process, and a one-line assert in the replay harness
+    (`assert forge.VERIFY_PY == expected`) closes it permanently.
+
+F6. THE REPORTED pass@1 IS BIASED +2.45pp AGAINST THE POLICY IT CLAIMS TO
+    SAMPLE, THE BIAS IS 81% OF THE MDE, AND IT DOES NOT SAFELY CANCEL.
+    EXECUTED (arithmetic).
+    Target: eval.py:223-224 and the artifact's own line "eval-instrument rate
+    minus confirmed: mean +0.0247".
+    What breaks: reported = 0.2*greedy + 0.8*p. Measured, mean greedy 0.6129 and
+    mean temp-0.8 0.4905, so 0.2*(0.6129-0.4905) = +0.0245 — the artifact prints
+    +0.0247 and the residual is rounding. The instrument reads 0.5150 where the
+    temp-0.8 policy's pass@1 is 0.4905. That is 81% of the 3.02pp MDE, carried as
+    a constant. A constant cancels in a difference ONLY IF (greedy - p) is
+    invariant under training, and the sharpening literature predicts specifically
+    that it is not: DivPO (arXiv:2501.18101, verbatim) "Post-training of language
+    models, either through reinforcement learning, preference optimization or
+    supervised finetuning, tends to sharpen the output probability distribution
+    and reduce the diversity of generated responses." Sharpening moves the
+    temp-0.8 distribution toward the greedy mode, so p rises toward greedy, the
+    gap closes, and the reported rate rises — with the model having acquired
+    nothing new, in exactly the sense Yue et al. (2504.13837, CARRIED) describe.
+    How bad: this is the mechanism most likely to produce a FALSE POSITIVE on the
+    first efficacy run, and it is also the cheapest thing in this whole review to
+    defend against, because eval.py ALREADY STORES the discriminator: per-task
+    `greedy` and `sampled` are both persisted (eval.py:238-240). Greedy flat and
+    p rising = sharpening. Both rising = capability. That diagnostic is worth
+    more than the 0.894x variance reduction the anchor was kept for, which
+    reframes Q1 — see the answer.
+
+F7. screen_tasks.py's computed banner prints a false direction word, and both
+    branches assume the observed sd is BELOW the prediction.
+    EXECUTED (evaluated the branch by hand: 0.0312 <= 0.0376 <= 0.0489 -> True).
+    Target: screen_tasks.py:300-311. `ratio` and `contains` are computed;
+    the printed claim is hardcoded per branch:
+      contains  -> "so the shortfall is a DIRECTION, not an established fact -
+                    the rows above are not yet safe to tighten."
+      else      -> "excludes the assumed value, so the rows above are
+                    conservative."
+    What breaks: at the current NOISE_FLOOR values the ratio is 1.013 — an
+    EXCESS, not a shortfall — and the banner says "shortfall" anyway. If the CI
+    ever tightens to exclude the prediction from ABOVE, the else-branch will
+    announce that the rows are "conservative" when they are the opposite. Section
+    72 credited this refactor with closing the class ("the banner COMPUTES its
+    caveat rather than carrying a second copy of the status"). It computes the
+    NUMBER and hardcodes the CLAIM, which is the same class one layer in.
+    How bad: low operationally, high as a pattern — this is the third instance of
+    "the stale thing is the sentence, not the figure" in this file's history
+    (sections 65, 67, 72). Fix: derive the direction word from the ratio, and
+    make the tests assert the sentence for both signs.
+
+F8. THE "3pp = k=25 = 3,875 gens/arm" PRICE IS NOT WHAT screen_tasks.SIZING
+    SAYS, AND SIZING'S INPUT WAS NEVER RE-DERIVED FROM THE FROZEN RULER.
+    EXECUTED (arithmetic).
+    Target: screen_tasks.py:88-92 `SIZING = {3.0: 3889, 5.0: 1400}` against
+    instructions.txt:8448-8450, the DIRECTIVE's "3pp = k=25 = 3,875
+    generations/arm", and OPEN-ITEMS.md's identical claim.
+    What breaks, two small things that compound:
+    (a) 3,875 = 31*5*25 is 14 generations SHORT of the file's own 3889. At T=31
+        and N_SAMPLES=5, SIZING[3.0] requires ceil(3889/155) = 26 runs = 4,030
+        generations. And the MDE actually implied by sd=0.0381 at k=25 is
+        2.8016*0.0381*sqrt(2/25) = 3.019pp, quoted as "3.0pp" in three places.
+        Neither matters for a decision; both are quoted as exact.
+    (b) SIZING's 3889 comes from mean p(1-p) = 0.2230, and screen_tasks.py:69-72
+        states its provenance honestly: "re-derived from the 30 admitted PILOT
+        tasks". The frozen 31-task ruler's implied value is 0.2190
+        (ruler_noise.py's selftest asserts exactly that literal against section
+        70's table). The sizing constant governing the next run was derived from
+        a task set that has been REPLACED, and it agrees with the replacement to
+        within 2% by coincidence. Nothing is wrong with the number; the RECORD is
+        wrong about where it came from.
+    How bad: low. Named because the project's own rule is that a quoted figure
+    must be traceable to a live derivation, and this one is traceable to a dead
+    one.
+
+F9. EFFECT DILUTION FROM THE 4 OUT-OF-BAND TASKS IS ~13%, WHICH IS BIGGER THAN
+    EVERY SIZING ADJUSTMENT ARGUED ABOUT IN SECTIONS 70-73. This also answers the
+    DIRECTIVE's own omission candidate about degrees of freedom, in the negative.
+    EXECUTED (arithmetic).
+    Target: the DIRECTIVE's omission candidate "whether the 4 flagged
+    out-of-band tasks should affect degrees of freedom in the MDE calculation",
+    and instructions.txt:8478-8487.
+    Finding: degrees of freedom is the wrong axis. The estimator is a mean over
+    31 FIXED tasks; the tasks are not a sample, so they contribute no df to
+    anything, and their low variance is already inside the measured 0.0381
+    (ruler_noise.decompose sums OBSERVED per-task variances, ruler_noise.py:266).
+    The cost is not validity, it is SIGNAL. ace_oss_16070 at 0.880 and
+    ace_oss_24748 at 0.145 are declared by the executor to carry "almost no
+    signal". If 4 of 31 channels cannot move, a true effect of delta on the live
+    channels reads as (27/31)*delta = 0.871*delta on the 31-task mean. The
+    honest MDE for a live-channel effect at k=25 is therefore 3.019/0.871 =
+    3.47pp, not 3.0pp. That 0.45pp of dilution is larger than the entire
+    difference between section 72's withdrawn table and section 73's restored
+    one.
+    How bad: moderate, and the right response is NOT to drop the four (the
+    executor's reasoning about selecting on the reported measurement is correct
+    and I endorse it). The right response is to pre-register BOTH estimands: the
+    31-task mean (the frozen, unbiased-by-selection number) and the 27-live-task
+    mean (the sensitivity analysis), declare the 31-task one primary, and quote
+    3.5pp as the effective sensitivity rather than 3.0pp.
+
+F10. THE BATCH-DRIFT ALTERNATIVE TO SECTION 73'S CORRECTION: I TESTED IT AND IT
+     FAILED. Reported because section 73 asserted a cause without testing the
+     competing one, and section 71's own method note is "check the SIGN your
+     explanation predicts, before believing it."
+     EXECUTED.
+     Section 73 attributes the entire n=10 -> n=40 change (sd 0.0283 -> 0.0381,
+     covariance sign flip) to small-sample noise. The 40 replicates are two
+     batches run at different times (10 from section 72, 30 from section 73), so
+     drift or a changed server state is a live alternative that would produce the
+     same signature. Over the 40 per-run values printed in
+     council/ruler_noise_analysis_n40.txt:
+       batch 1 (runs 1-10)   mean 0.5168   sd 0.0283
+       batch 2 (runs 11-40)  mean 0.5144   sd 0.0412
+       F(29,9) = 2.13                     (not significant at alpha=.05)
+       Welch on the two means: t = 0.203, df = 22.7
+       OLS trend on run index: -0.00032 per run, t = -0.61,
+         corr(run index, run mean) = -0.0986
+     No detectable drift in level or in spread. Section 73's attribution
+     survives a test section 73 did not run. This is a null finding in the
+     executor's favour and I am recording it as one.
+
+F11. A CITED LINE RANGE IS WRONG. READ-ONLY.
+     The DIRECTIVE says "eval.py:211-213 does not feed it that. It takes sample 0
+     at temp 0.0 and the remaining 4 at temp 0.8." At eddb120, eval.py:211-213 is
+     comment prose ("...therefore over-predicts, for a reason that has nothing to
+     do with the / per-task independence the prediction is usually blamed on. /
+     Keeping `greedy`"). The mixture itself is eval.py:223-224:
+         for i in range(N_SAMPLES):
+             temp = 0.0 if i == 0 else TEMP  # one greedy anchor + diverse rest
+     eval.py:164 pass_at_k is correct as cited, and its body at 166-168 matches
+     openai/human-eval's estimator exactly including the n-c<k early return.
+     How bad: trivial in itself. Named because section 61 established the rule
+     that every cited symbol is checked to exist before the DIRECTIVE is written,
+     and the DIRECTIVE asserts that rule was followed ("Every symbol cited below
+     was checked to exist at that commit"). A symbol was; a line range was not.
+     The rule should cover both or should say it only covers symbols.
+
+F12. measure.py:63 COMPUTES A POPULATION SD ON THREE RUNS. READ-ONLY, low.
+     `std = (sum((x - mean) ** 2 for x in p1) / len(p1)) ** 0.5` divides by n,
+     not n-1, so it understates the sd by a factor sqrt(2/3) = 0.816 at
+     NOISE_RUNS=3. This is the legacy night-1 path on the OLD bank and is not in
+     the current chain. I did NOT trace which channel figures descend from it, so
+     this is a flag on the code, not a claim about any published number.
+
+F13. MULTIPLICITY IS SMALL, REAL, AND UNPRICED — AND THE ONE PLACE THE DIRECTIVE
+     SUSPECTED IT, IT IS CLEAN. READ-ONLY.
+     The DIRECTIVE's omission candidate was "multiple-comparisons exposure from
+     having asked 'is the CI's shortfall real' repeatedly across sections 71-73".
+     Checked: not a violation. Section 72 pre-specified the top-up ("~40
+     replicates would halve the interval ... That is the next measurement, not
+     the next guess") and section 73 ran exactly that. A pre-specified sample
+     size is not optional stopping. Credit given.
+     Where multiplicity IS unpriced: two reported endpoints (KS=(1,3), F3), a
+     held-in series and a held-out series, and 31 per-task readouts with no
+     declared status. At two endpoints and alpha=.05 each, familywise error is
+     ~9.8%. The fix is not a correction factor, it is a prereg naming one primary
+     endpoint and labelling everything else descriptive.
+
+--------------------------------------------------------------------------------
+OMISSION ATTACK — what activation #17 did not name
+--------------------------------------------------------------------------------
+
+O1. TRAINING-SEED VARIANCE. This is the largest unpriced variance component in
+    the entire sizing, it is larger than the arm-heteroscedasticity Q2 asks
+    about, and no eval budget reduces it. Every MDE in sections 70-73 is
+    conditional on TWO FIXED MODELS: the run-level sd measures generation
+    sampling noise given a null model and (by assumption) given a trained model.
+    One training run is one draw from the training process. With one adapter, a
+    +3pp reading cannot be attributed to the intervention rather than to that
+    particular adapter — and DPO at 918 pairs over 13 prompts is precisely the
+    regime where the seed matters most, which is the executor's OWN recorded R5
+    confound (rpo_alpha, Pan et al. + Xu et al. Theorem 4.1) pointing at the same
+    thing from a different side. Increasing k from 5 to 25 buys precision on a
+    quantity that is not the one in question.
+    Cheapest response, and it is a REALLOCATION not an increase: the currently
+    planned budget is 2 arms x 3,875 = 7,750 generations. Three trained seeds
+    plus one null at k=12 is 4 x 31 x 5 x 12 = 7,440 generations — cheaper — and
+    it answers "does seed variance exist" while still giving a 4.4pp
+    per-arm sensitivity. If the three seeds disagree by more than 4pp, the k=25
+    single-seed run was never going to mean anything and this discovers it for
+    less money. Recommendation: do this BEFORE, or instead of, the k=25 run.
+
+O2. ARM-ORDER CONFOUNDING. All 40 null replicates were collected in two blocks;
+    the trained arm will be a different Ollama model tag, loaded separately, at a
+    different time. Model load, resident quantization, num_ctx=2048 handling and
+    server state are therefore perfectly confounded with arm. Nothing in sections
+    71-74 mentions interleaving or run-order randomization. The fix is free:
+    alternate arms run by run (A,B,A,B,...) inside one session and record the
+    order. As it stands, if the trained arm reads +3pp, "the second block ran
+    warmer" is not excludable, and section 73's own no-drift result (F10) is
+    reassurance about ONE model in ONE session, not about a model swap.
+
+O3. THE DATA-DEPENDENT DENOMINATOR. eval.py:250 `usable = [p for p in per_task
+    if p["n"] >= k]` silently changes the estimand when a task loses samples to
+    generation errors. Zero errors in 40 runs, so it has never fired — but a
+    re-injected/adapted model is a plausible source of an ASYMMETRIC error rate,
+    and then the two arms are means over different task sets. Free fix: refuse
+    the run (or refuse the row) if any task has n < N_SAMPLES, rather than
+    quietly dropping tasks from one arm's denominator.
+
+O4. NO PREREG, WHICH MAKES EVERY POWER NUMBER A BUDGET RATHER THAN A TEST.
+    OPEN-ITEMS.md records this ("No Track A prereg"), so it is not hidden — but
+    the DIRECTIVE asks three sizing questions without noting that nothing yet
+    commits to a primary endpoint, a direction, a decision rule, or an analysis.
+    Q1's instrument change, F3's endpoint choice, F9's two estimands and F13's
+    multiplicity all collapse into one cheap artifact: a signed prereg written
+    BEFORE the first efficacy run. It costs an hour and it is the difference
+    between a measurement and a story.
+
+O5. IS THE GREEDY MIXTURE ONE PROBLEM OR TWO? The DIRECTIVE asks whether the
+    binomial/independent-Bernoulli assumption is violated by the same mixture
+    Q1 flags. Answer: it is ONE mechanism with TWO distinct consequences, and
+    they need different fixes. (i) ESTIMATOR bias: the n=5 draws are not
+    exchangeable, so pass_at_k's hypergeometric argument does not apply — this is
+    fixed only by changing what is sampled. (ii) VARIANCE misspecification: one
+    draw contributes zero variance, so any p(1-p)/N prediction over-predicts by
+    exactly N/(N-1) in variance, i.e. 1.118x in sd — this is already correctly
+    handled in ruler_noise.decompose (the `pred_greedy` term, eff_n = N^2/(N-1)),
+    and it is the term section 73 then dropped from its conclusion (F1). So: one
+    cause, two consequences, one of them already instrumented and then
+    un-reported. Not two problems.
+
+--------------------------------------------------------------------------------
+ANSWERS TO Q1 / Q2 / Q3
+--------------------------------------------------------------------------------
+
+Q1 — IS THE GREEDY+SAMPLED MIXTURE FED TO THE UNBIASED ESTIMATOR DOCUMENTED
+     PRACTICE, DOCUMENTED ERROR, OR UNADDRESSED? AND IS "pass@3" THE QUANTITY IT
+     NAMES?
+
+  ANSWER: UNADDRESSED. Not endorsed, not named as an error — the canonical
+  sources do not contemplate it, and two of them are structurally incapable of
+  producing it. Then: NO, pass@3 as this file reports it is not the quantity it
+  names, and pass@1 is not either, though pass@1 is at least a well-defined and
+  reproducible functional.
+
+  The literature, primary sources fetched this round:
+  - Chen et al. 2021 (arXiv:2107.03374, Section 2.1, fetched via ar5iv this
+    session): "to evaluate pass@k, we generate n>=k samples per task (in this
+    paper, we use n=200 and k<=100), count the number of correct samples c<=n
+    which pass unit tests, and calculate the unbiased estimator" pass@k :=
+    E[1 - C(n-c,k)/C(n,k)]. The paper TUNES ONE TEMPERATURE PER REPORTED k:
+    "for a 679M parameter model, the optimal temperature for pass@1 is T*=0.2 and
+    the optimal temperature for pass@100 is T*=0.8", and "Using the optimal
+    temperatures 0.2 and 0.8 for pass@1 and pass@100, we plot these two metrics
+    as a function of model size." Two metrics, two separate sampling runs, one
+    temperature each. Greedy/temperature-0 appears nowhere in the pass@k
+    sections; the lowest temperature discussed is 0.2. Notably, the paper does
+    NOT explicitly state an IID requirement — the requirement is implicit in the
+    derivation, which counts k-subsets of n exchangeable draws.
+  - openai/human-eval, human_eval/evaluation.py (fetched this session):
+    estimate_pass_at_k takes only (num_samples, num_correct, k). It has no
+    knowledge of how the samples were produced and therefore cannot detect or
+    correct a mixture. The repo README documents num_samples_per_task = 200 and
+    states no temperature protocol at all.
+  - bigcode-evaluation-harness README (fetched this session): the generation
+    interface is a single `--temperature` plus a single `--do_sample` plus
+    `--n_samples`. There is no way to express "one greedy draw and four at 0.8"
+    within one n_samples set. The canonical open harness cannot produce srlm-
+    forge's instrument. That is the strongest available evidence that the mixture
+    is outside documented practice: not that someone warned against it, but that
+    the reference implementations have no API for it.
+  - Four targeted searches for a paper analysing a greedy draw mixed into an
+    unbiased pass@k estimate returned nothing primary. What search returns is
+    LLM-written glosses asserting the violation; I am refusing those as evidence
+    and reporting the absence instead, per section 62's precedent with
+    arXiv:2603.20100. So: the literature does not address this. Nobody has
+    written it down. That is the citation you asked for, in the negative, and it
+    means the argument has to be made arithmetically — which is fine, because it
+    is arithmetic.
+
+  WHAT THE INSTRUMENT ACTUALLY REPORTS. With one deterministic draw g in {0,1}
+  and four IID Bernoulli(p):
+  - k=1: E[reported] = 0.2g + 0.8p exactly. This is the identity section 71's H1
+    found, and it is a tautology of the arithmetic, not a discovered effect. It
+    is a legitimate, reproducible, monotone functional of the model — but it is
+    the pass@1 of NO sampling policy, and on this ruler it sits +2.45pp above the
+    temp-0.8 policy's pass@1 (F6).
+  - k=3: worse, and qualitatively different. The estimator is nonlinear in c, so
+    there is no mixture-weight interpretation at all. Concretely: g=1 forces
+    c>=1, hence reported pass@3 >= 1 - C(4,3)/C(5,3) = 0.600 with probability 1
+    — a floor imposed by a deterministic draw, on the 22/31 tasks where greedy is
+    pinned high. Where g=0, four varying draws plus one guaranteed failure give a
+    downward-biased estimate of the temp-0.8 pass@3. Layer that on the saturation
+    arithmetic in F3 (E[pass@3] = 0.868 at the ruler's own mean rate) and pass@3
+    on this instrument has a usable range of roughly [0.6, 1.0] on most tasks.
+    "pass@3" is not the quantity it names, twice over.
+
+  WHAT YOU LOSE BY DROPPING THE GREEDY DRAW — priced, not argued:
+  - You lose the 1.118x sd reduction, exactly as measured. Five IID draws at 0.8
+    gives per-task variance p(1-p)/5 against the current 4p(1-p)/25, a ratio of
+    1.25 in variance and 1.118 in sd: 0.0381 -> 0.0426. Holding the MDE at
+    3.019pp then needs k = 25 * 1.25 = 31.25 -> k=32, i.e. 4,960 generations per
+    arm instead of 3,875. +1,085 generations, about +15 minutes per arm at the
+    measured 2.1 min/replicate. That is the whole cost.
+  - You lose the SHARPENING DIAGNOSTIC, and this is the part the DIRECTIVE has
+    not priced. It is worth more than the variance reduction (F6). So do not drop
+    the greedy draw — UNSCORE it. Three options, priced:
+      (A) 5 IID at temp 0.8, greedy gone.        sd 0.0426, k=32, 4,960 gens/arm.
+          Clean estimator. Diagnostic lost.
+      (B) 4 IID at 0.8 scored, 1 greedy recorded but excluded from n.
+          Per-task variance p(1-p)/4 -> sd 0.0476, k=39, 6,045 gens/arm.
+          Clean estimator, diagnostic kept, most expensive.
+      (C) 6 draws: 1 greedy recorded-and-unscored + 5 IID at 0.8.
+          sd 0.0426, k=32, 5,952 gens/arm. Clean estimator AND diagnostic, at
+          +20% over (A) and +54% over today's price.
+    RECOMMENDATION: (C). It loses nothing the literature or the arithmetic
+    identifies, and the +2,077 generations against today's plan is ~30 minutes of
+    GPU time at the measured 75 generations/minute, against a defect that is 81%
+    of your MDE.
+  - THE SCHEDULING ARGUMENT, which I think is the decisive one and which the
+    DIRECTIVE has backwards. "Changing it re-baselines every eval_history.jsonl
+    row" is true of the OLD 10-task bank, which is already retired by section 64
+    and is a different task set. On the NEW ruler the entire corpus is 40 null
+    replicates costing 2.1 minutes each. Re-measuring the null arm under a new
+    protocol is ~85 minutes at option (A) and ~100 at (C). One evening, today.
+    The moment a trained arm exists, that cost doubles and becomes
+    non-recoverable, because the trained artifact's replicates cannot be re-run
+    against a changed instrument without re-running the arm. Change it now or
+    accept it permanently. There is no cheaper moment than this one.
+
+Q2 — DOES THE LITERATURE REPORT PER-ARM VARIANCE ON pass@k OR ASSUME
+     HOMOSCEDASTICITY? IS THERE A DOCUMENTED DIRECTION FOR A TRAINED ARM? WHAT IS
+     THE CHEAPEST DESIGN WHEN ONLY ONE ARM CAN BE PRE-MEASURED?
+
+  (a) THE METHODOLOGY LITERATURE PRESCRIBES PER-ARM VARIANCE. Your sqrt(2)*sd is
+  the special case, not the standard. Miller, "Adding Error Bars to Evals"
+  (arXiv:2411.00640, HTML fetched this session — NEW to this project's ledger and
+  the single most relevant paper anyone has cited into this project on eval
+  statistics) gives the planning formula as
+      n = (z_{alpha/2} + z_beta)^2 * (omega^2 + sigma_A^2/K_A + sigma_B^2/K_B)
+          / delta^2
+  with omega^2 = Var(x_A) + Var(x_B) - 2*Cov(x_A, x_B), and sigma_A^2, sigma_B^2
+  the two arms' EXPECTED CONDITIONAL VARIANCES with their own resampling counts
+  K_A, K_B. Per-arm, explicitly, both in the variance and in the resampling
+  count. se_diff = sqrt(2)*run_sd is what that formula collapses to when you
+  substitute sigma_A = sigma_B and K_A = K_B; it is not a different school of
+  thought, it is your formula with an assumption baked in.
+  Two further things from the same paper that land directly on this project:
+  - Its five recommendations are: CLT standard errors; clustered SEs when
+    questions come in related groups; variance reduction by resampling answers
+    and by analysing next-token probabilities; "When two models are being
+    compared, conducting statistical inference on the question-level paired
+    differences, rather than the population-level summary statistics"; and using
+    power analysis to determine whether an eval can test the hypothesis at all.
+  - omega^2 IS the tau^2/T term section 59 finding 2 named without a citation.
+    You have been carrying the right correction with no source; this is the
+    source. It also confirms the correct reading of your own estimand: because
+    you explicitly do NOT claim generalisation, your 31 tasks are fixed rather
+    than drawn, omega^2 = 0 for your declared estimand, and se_diff =
+    sqrt(sd_A^2/k_A + sd_B^2/k_B) is then EXACTLY right. Your formula is correct
+    for the claim you are making. Do not let me talk you into a paired-across-
+    tasks variance reduction here — for a fixed-task estimand it buys nothing,
+    because there is no between-task variance component in the estimand to
+    remove. Pairing becomes mandatory the moment you want the generalisation
+    claim, and then omega^2 enters and pairing removes the task-difficulty term.
+  (b) THE EMPIRICAL preference-learning / RLVR code literature does NOT report
+  per-arm pass@k variance. I looked and did not find it; the papers already in
+  this project's ledger (CodeDPO Table 7, DSTC Tables 2-3, ACECODER, Ivison et
+  al. Table 7 — all CARRIED, not re-opened) report point estimates per
+  configuration. I am stating that as "searched, not found", not as "does not
+  exist". The gap is real and it is why Miller's paper exists.
+  (c) DIRECTION UNDER DPO — the documented direction is variance DOWN, and I
+  believe the documented direction is the wrong one to plan against, because your
+  own n=40 decomposition contains the counterweight and it is bigger.
+    DOWN, cited: DivPO (arXiv:2501.18101, abstract fetched this session,
+    verbatim) "Post-training of language models, either through reinforcement
+    learning, preference optimization or supervised finetuning, tends to sharpen
+    the output probability distribution and reduce the diversity of generated
+    responses." Kirk et al. (arXiv:2310.06452, abstract fetched this session,
+    verbatim) "RLHF significantly reduces output diversity compared to SFT across
+    a variety of measures, implying a tradeoff in current LLM fine-tuning methods
+    between generalisation and diversity." Yue et al. (2504.13837, CARRIED) is
+    the same direction from the pass@k side. Mechanically: sharpening pushes
+    per-task p toward 0 or 1, p(1-p) falls, per-task variance falls, run-level sd
+    falls, and your MDE is conservative. So YES, the direction you hoped for is
+    the documented one.
+    UP, from your own data: the run-level sd is not just a sum of per-task
+    variances, it is (1 + rho_bar*(T-1)) times it, and your n=40 artifact
+    measures rho_bar = +0.0102, which at T=31 is already a 1.31x variance
+    inflation (F1). Inter-task correlation is exactly what a SHARED training
+    effect produces: a model that changes its import habits, its output format,
+    or its annotation habit — the very habit section 71 found — moves many tasks
+    together. Sensitivity: if per-task variance falls 20% from sharpening but
+    rho_bar rises to 0.05, the variance factor goes 0.8 * (1+0.05*30) / 1.306 =
+    1.53, i.e. sd UP 24% despite the sharpening. rho_bar = 0.10 gives sd up ~57%.
+    Small changes in inter-task correlation dominate plausible changes in
+    marginal variance at T=31. CONCLUSION: the sign is genuinely indeterminate
+    and you may not treat the MDE as conservative. The DIRECTIVE's hopeful
+    reading ("entropy collapse would REDUCE variance, which would make my MDE
+    conservative") is half the picture and it is the smaller half.
+  (d) THE CHEAPEST DESIGN THAT DOES NOT REQUIRE KNOWING THE TRAINED ARM'S sd IN
+  ADVANCE. Four items, cheapest first, and the first two cost nothing:
+    1. REPORT EACH ARM'S OWN sd FROM ITS OWN REPLICATES, and do the inference as
+       WELCH, not pooled: se_diff = sqrt(sd_A^2/k_A + sd_B^2/k_B) with
+       Welch-Satterthwaite df. At k_A = k_B = 25 the df is between 24 and 48, so
+       nothing is lost to the approximation. This is Miller's formula written
+       out, it needs no advance knowledge, and it converts the unmeasurable
+       assumption into a measured quantity at analysis time. Cost: zero.
+       Non-negotiable: your section 72/73 open item 1 already says "the first
+       efficacy run must report its own arm sd rather than borrowing this one" —
+       that instinct is correct, this is its formal name and its formula.
+    2. PRE-COMMIT TO REPORTING THE CONFIDENCE INTERVAL OF THE DIFFERENCE AND THE
+       ACHIEVED (post-hoc) SENSITIVITY, and treat the pre-run MDE as a BUDGET,
+       not a promise. A CI requires no advance variance; only a power guarantee
+       does. This single change makes the unmeasurable assumption a non-blocker:
+       if the trained arm turns out noisy, the CI says so honestly and you have
+       lost nothing but width. Cost: zero.
+    3. IF YOU WANT A POWER GUARANTEE, USE AN INTERNAL PILOT, WITH THE ALPHA
+       ADJUSTMENT — do not re-estimate the variance naively. Kieser & Friede,
+       Statistics in Medicine 2000 (PubMed 10750058, abstract fetched this
+       session): recalculating sample size from an interim variance estimate is a
+       standard, accepted design, and "the type I error rate may be inflated by
+       this procedure"; the paper's contribution is achieving strict alpha
+       control via an adjusted critical value or a downweighted alpha level.
+       Wittes & Brittain's original restriction (final n never below the planned
+       n) is the simple safe form. Concretely for you: run k=10 in BOTH arms,
+       re-estimate BOTH sds, top up to the k those sds require, and pre-commit
+       the adjusted critical value before looking. This is the textbook answer to
+       "I must size on a variance I can only measure after starting", and it is
+       the answer to Q2's literal question.
+    4. PAIRED-BY-TASK ANALYSIS: do it, but for the right reason. Not for variance
+       reduction (see (a) — your estimand has no between-task component to
+       remove) but because it is Miller's recommendation 4 for the diagnostic
+       question and because it is the only analysis that supports the
+       generalisation claim if you ever want it. Report per-task deltas as
+       descriptive alongside the primary number.
+    And ONE THING NOT TO DO: do not spend the whole budget on k in one arm pair
+    before you know whether training-seed variance swamps it (O1).
+
+Q3 — DOES R2 STILL HOLD AT 13? HAS THE INSTRUMENT SWAP ALREADY SPENT THE
+     ONE-CHANGE-AT-A-TIME BUDGET R2 WAS PROTECTING?
+
+  ANSWER: YES, the budget is spent, and worse than the DIRECTIVE frames it. R2 is
+  VOID as written, not because holding at 13 became wrong, but because the run
+  R2 was designed to be a controlled comparison FOR no longer has anything to be
+  compared against.
+
+  R2's purpose was that the seam fix and the prompt count not change together, so
+  the seam-fix re-run would be readable against section 61's -0.8pp held-out
+  result. That comparison is now impossible for three independent reasons, any
+  one of which is sufficient:
+  (i) The instrument changed. Section 61's -0.8pp was measured on the 10-task
+      bank; the re-run would be measured on 31 band-selected AceCode oss tasks.
+      Different tasks, different distribution, different verifier.
+  (ii) The old instrument was incapable of the measurement anyway. Section 64:
+      base pass@20 = pass@5 = pass@3 = 0.9000 exactly, 7 of 10 at ceiling. A
+      -0.8pp reading on an instrument with 3pp of headroom and a ~2.6pp MDE was
+      never evidence, which is your own conclusion and I agree with it.
+  (iii) The verifier changed the definition of "correct" (section 71). Section 74
+      shows the OLD bank's task shapes do not trip the KNOWN mechanism, which
+      narrows the damage but does not restore comparability — and section 74's
+      own validity is conditional on F5.
+  So holding prompt count at 13 does not isolate the seam fix. Nothing isolates
+  the seam fix any more; the seam fix is already isolated, by the section 71 red
+  witness, which is a cleaner isolation than any training run could have given
+  (310 replayed completions, zero generation noise). The seam-fix re-run has no
+  remaining job.
+
+  WHAT THE NEXT RUN IS ACTUALLY A MEASUREMENT OF, stated plainly so it is not
+  mislabelled in the channel: it is a FIRST BASELINE PLUS A FIRST EFFICACY POINT
+  on a new instrument, answering an existence question — "does 13-prompt,
+  918-pair, off-policy, rpo_alpha=1.0 DPO move a live 31-task band-selected ruler
+  by more than the ruler can resolve?" It is not a controlled re-run of anything.
+  It cannot attribute an effect to the seam fix, to the prompt count, to
+  rpo_alpha, or to the seed, because all four differ from every prior run and
+  three of them have never been varied deliberately.
+
+  THEREFORE R2 SHOULD BE REPLACED, NOT PRESERVED — and this changes my
+  predecessor's ruling, which I am flagging as a change rather than sliding it
+  in. The one-variable-at-a-time discipline is still right; it now applies to a
+  different variable. The variable worth freezing is THE INSTRUMENT, not the
+  prompt count. Which inverts the ordering the DIRECTIVE assumes:
+    R6 (supersedes R2). Change the eval sampling protocol NOW, per Q1 option (C),
+       re-measure the null arm's noise floor under it (~100 min), and then FREEZE
+       eval.py's sampling protocol for the whole prompt-count sequence. Prompt
+       count may then move freely, because it is no longer entangled with an
+       instrument change. Holding prompt count at 13 for its own sake buys
+       nothing now.
+    R7. Before or instead of a k=25 single-seed run, spend the same generations
+       on 3 trained seeds + 1 null at k=12 (O1). Cheaper, and it measures the
+       variance component that no amount of k can reduce.
+  Does Q3 change my Q1/Q2 answers? Yes, in one direction each. It makes the Q1
+  change URGENT rather than optional — it is free today, non-recoverable
+  tomorrow, and there is no baseline left to protect by delaying. And it makes
+  Q2's "report each arm's own sd" MANDATORY rather than good practice, because
+  there is now no historical arm from which any sd could be borrowed even in
+  principle.
+
+--------------------------------------------------------------------------------
+THE CLOSED-CLASS CLAIM AND THE SIX NON-CLAIMS, ATTACKED
+--------------------------------------------------------------------------------
+
+CLAIM A — "forge.verify()'s verdict can no longer depend on which script called
+it, because the interpreter is resolved in one place and no longer inherited from
+sys.executable."
+  BROKEN, in one concrete case: dataset_gate.verify_py() falls through to
+  `return sys.executable` when .venv-train\Scripts\python.exe does not exist, and
+  four of the five tests in tests/test_verifier_pin.py report as passes in that
+  same state (F4). The red witness itself is sound and I could not break it — 310
+  completions, banked once, two real launchers, 18 disagreements all one way,
+  cause identified to a specific PEP with a minimal discriminating probe, and the
+  green witness replays the same 310. That is a model red/green pair and I am not
+  going to pretend otherwise. What is not sound is the SCOPE SENTENCE: it names
+  unenumerated 3.11<->3.14 semantics, packages, OS and CPU, and omits the one
+  failure mode that is readable in the eight lines of the function doing the
+  pinning. Restate Claim A as: "the verdict cannot depend on the launcher WHILE
+  .venv-train exists; if it does not exist, the pin silently degrades to the old
+  behaviour and no test fails." Then fix that.
+  Second, weaker attack: interpreter_fingerprint() records only the version
+  string, obtained by running the interpreter, and on any failure records
+  "python unknown" without raising (dataset_gate.py:114-118). A broken pinned
+  interpreter therefore produces a self-consistent receipt: recorded "unknown"
+  equals on-disk "unknown", the gate's equality check passes, and training
+  proceeds. The DIRECTIVE's caveat covers packages but not this.
+
+NON-CLAIM 1, "not claiming independence holds for the TRAINED arm": stronger than
+the executor realises — it does not hold for the NULL arm either, at the
+prediction that matches the instrument (F1). Accept and sharpen.
+
+NON-CLAIM 2, "not claiming the 57 historical eval_history runs are unaffected":
+correctly hedged, and its supporting measurement (section 74) is conditional on
+F5. If the replay was in-process, the non-claim is fine but its evidence is
+vacuous.
+
+NON-CLAIM 3, "not claiming the 4 out-of-band tasks are harmless": correct not to
+drop them, and I endorse the selection-regress reasoning explicitly. But the
+harm is quantified nowhere and it is 13% of any effect (F9). "Not harmless" plus
+a number is a much stronger position than "not harmless".
+
+NON-CLAIM 4, "not claiming the ruler supports a generalisation claim": checked
+downstream for a contradiction and found NONE in code. Nothing computes a
+population-level claim; screen_tasks.py:78-81 states the estimand correctly
+("the formula estimates the change in mean pass rate ON THESE T TASKS ... Claiming
+'the model improved at code generation' needs an extra tau^2/T heterogeneity term
+this omits. Pre-register which estimand is meant."). The non-claim is honoured by
+the code. It is NOT honoured by council/council-report-2026-07-25_0317.html:153
+and the 1550 transcript, which read per-task eval_history as a "longitudinal
+growth chart" where "families that move together reveal shared skill substrate" —
+that is a generalisation reading of the same numbers, sitting in the same repo.
+Those are old council artifacts, not current claims, so this is a housekeeping
+note rather than a live contradiction: the interpretation the non-claim disowns is
+on file, unretracted, and would be read as project belief by anyone arriving
+later. Also note the irony worth keeping: "families that move together" is
+exactly the positive inter-task correlation that F1 measures and Q2 warns will
+inflate the trained arm's variance. The old council was pointing at a real thing
+and drawing the wrong conclusion from it.
+
+NON-CLAIM 5, "not claiming data/ruler_frozen.json is current": accurate, and F2
+makes it sharper — the file is not merely stale in its rates, it is unread by any
+consumer, so its currency has no operational consequence at all today. That is
+worse than stale.
+
+NON-CLAIM 6, "not claiming the noise floor is model-general": accurate and
+adequately scoped. One model, one quantization; I add one thing it does not say —
+it is also ONE SERVER SESSION PATTERN, which is O2.
+
+--------------------------------------------------------------------------------
+LEFTOVER RISKS — unresolved even if every fix above lands
+--------------------------------------------------------------------------------
+1. Training-seed variance is not reduced by any of this (O1). Even with three
+   seeds you have an n=3 estimate of a variance, and section 73's own method note
+   applies with full force: n=3 is a rumour when the quantity is a variance.
+2. Cross-version verifier divergence beyond the annotation case stays
+   unenumerated. A flashlight is the right description. The only real fence is
+   running the candidate under BOTH interpreters and treating disagreement as a
+   third outcome (neither pass nor fail) — expensive, and I am not recommending
+   it, but it is the shape of an actual fence if this ever bites twice.
+3. The interpreter fingerprint records a version string, not the environment:
+   packages, OS, CPU, and — added here — whether the pin degraded to the launcher
+   at all. Two "python 3.11.9" fingerprints are not the same verifier.
+4. The 31 tasks are AceCode oss rows, generated by gpt-3.5-turbo-1106 per the
+   dataset card (VERIFIED in section 59's round). Contamination is filtered only
+   in the sense that memorised tasks score ~1.0 and get rejected by the band. A
+   task the base model half-remembers lands squarely IN the band and looks ideal.
+   The band is a contamination filter for total recall only.
+5. I did not read tests/test_ruler_noise.py's seven scenarios line by line, so
+   "the analyzer was checked against known answers" is CARRIED from the channel,
+   not verified by me. The one part I did verify is that decompose()'s
+   pred_greedy term uses eff_n = N^2/(N-1), which is the correct correction, and
+   that the artifact's CAUSE-1 line reports the greedy constancy check as
+   measured rather than assumed.
+6. data/ruler_frozen.json itself was not opened by me. Every claim I make about
+   it comes from cmd_freeze's code and the channel.
+7. Nothing above addresses whether 13 prompts can produce any effect at all,
+   which remains the project's largest open scientific question and is where
+   Wang et al. 2504.20571 (CARRIED, still unacted) points.
+
+--------------------------------------------------------------------------------
+FIX CLASSES — the kind of change each finding needs, not the change itself
+--------------------------------------------------------------------------------
+A. INSTRUMENT DEFINITION, before the first efficacy run, because it is free now
+   and never again: F3, F6, Q1. Change what is sampled and what is scored;
+   declare one primary endpoint. One-time cost ~100 minutes of null-arm
+   re-measurement.
+B. ENFORCEMENT — a receipt that nothing demands is not a pin: F2. A loader that
+   refuses to build the ruler unless the reconstructed set hash equals
+   ruler_frozen.json's. Pattern already exists in dataset_gate.require_verified.
+   Close the CLASS: every pin artifact needs a refusing loader.
+C. FAIL-CLOSED DEFAULTS AND HONEST SKIPS: F4, plus the fingerprint's silent
+   "unknown" (Claim A, second attack). Absent .venv-train must raise or be
+   recorded as UNPINNED and rejected by the gate; a skipped test must not be
+   reportable as a pass.
+D. CLAIM HYGIENE — the stale thing is the sentence, not the figure: F1, F7, F8,
+   F11. Derive claim direction from the computed ratio; restate section 73's
+   conclusion against the greedy-corrected null; re-derive SIZING's mean p(1-p)
+   from the frozen ruler or annotate it as pilot-derived.
+E. ZERO-COST DESIGN, all four free: O2 interleave arms run-by-run; O3 refuse
+   partial rows rather than dropping tasks; Q2(d)1 Welch with each arm's own sd;
+   Q2(d)2 pre-commit to reporting the CI and the achieved sensitivity.
+F. BUDGET REALLOCATION, not increase: O1/R7. Three seeds at k=12 costs less than
+   one seed at k=25 and measures a variance component that k cannot touch.
+G. PREREGISTRATION, one document, one hour: O4. Primary endpoint, both estimands
+   (31-task and 27-live-task, F9), direction, decision rule, and the analysis —
+   signed before the run.
+H. VERIFICATION OF A PAST MEASUREMENT, one minute: F5. Quote section 74's launch
+   command, and add an assert to the replay harness so the question cannot recur.
+
+--------------------------------------------------------------------------------
+THE QUESTIONS THEMSELVES — did activation #17 ask the right three?
+--------------------------------------------------------------------------------
+Q1 and Q3 are the right questions and Q3 is the sharpest question this channel
+has asked: it noticed, unprompted, that a prior ruling had been invalidated by a
+later ruling from the same source, and asked whether the budget was spent rather
+than assuming either answer. Q2 is the right question with a hopeful thumb on the
+scale — it asks whether entropy collapse makes the MDE conservative, and does not
+ask what would make it optimistic, which is the direction the executor's own
++0.0102 correlation points and the one that costs money if wrong.
+
+Four questions it should have asked and did not:
+ 1. "WHICH ENDPOINT IS PRIMARY, AND IS pass@3 EVEN A LIVE METRIC ON A BAND-
+    SELECTED RULER?" This is the biggest omission. Everything measured in
+    sections 70-73 — the noise floor, the decomposition, the MDE table, the
+    SIZING block — is pass@1. eval.py still reports pass@3, measure.py still
+    reads it, no prereg names one, and the arithmetic in F3 says pass@3 on this
+    ruler has a floor of 0.6 on 71% of tasks and saturates at 0.87 at the ruler's
+    own mean rate. Q1 asks "is pass@3 the quantity it names" as a sub-clause of a
+    question about the estimator. It is the whole question.
+ 2. "HOW MANY TIMES WILL I TRAIN, AND WHAT IS THE VARIANCE OF THAT?" (O1.) The
+    DIRECTIVE prices generation noise to three significant figures and never
+    mentions that one training run is one sample of the intervention. This is the
+    largest unpriced variance in the design and no amount of k reduces it.
+ 3. "IS ANYTHING ENFORCING THE FREEZE?" (F2.) Section 72 argued the freeze's
+    design at length and correctly; nobody checked whether a consumer honours it.
+    The project's own recurring lesson — a guard that is written is not a guard
+    that is demanded — was available.
+ 4. "WHAT DOES verify_py() DO WHEN .venv-train ISN'T THERE?" (F4.) The DIRECTIVE
+    enumerates the unknowns around Claim A carefully and misses the known one.
+
+And one question NOT to ask, since the DIRECTIVE half-invited it: do not re-open
+whether the 4 out-of-band tasks should be dropped. The executor's reasoning is
+correct, the regress is real, and F9 shows the right response is to quote both
+estimands, not to prune the ruler.
+
+Finally, the executor's standing invitation, answered directly: yes, there is a
+point estimate leaned on without its interval in sections 71-74, and it is in the
+sentence doing the correcting. Section 73's "+0.0102 reinforcement" (and section
+72's "-0.0072 cancellation" before it) is quoted with no interval anywhere, in a
+section whose entire thesis is that a variance point estimate without its interval
+is a rumour. The sd ratio against the greedy-corrected null is 1.169 with CI
+[0.957, 1.500] — the covariance residual's sign is not established at n=40 either.
+The method note should read: n=10 is a rumour when the quantity is a variance, and
+so is n=40 when the quantity is a COVARIANCE, because a covariance is a variance
+with a sign to get wrong as well.
+
+--------------------------------------------------------------------------------
+ONE RECOMMENDED NEXT PROMPT FOR THE PROPRIETOR TO HAND THE EXECUTOR
+--------------------------------------------------------------------------------
+"Section 75 is banked. Do these in this order, and do not start the efficacy run
+until 1-4 are done.
+
+ 1. Answer one question in the channel before anything else: was section 74's
+    SRLM_VERIFY_PY replay two separate processes, or one process with os.environ
+    mutated after `import forge`? forge.py:126 binds VERIFY_PY at import time and
+    dataset_gate caches the fingerprint, so if it was one process, section 74
+    measured the same interpreter twice and its conclusion is unsupported. Quote
+    the launch command. Then add `assert forge.VERIFY_PY == expected` to the
+    replay harness so this can never be ambiguous again.
+
+ 2. Close the class the PhD found in dataset_gate.verify_py(): absent
+    .venv-train, it returns sys.executable and the inherited-interpreter defect
+    is silently back, while four of five tests in test_verifier_pin.py return
+    early and read as passes. Red witness first: rename .venv-train, run the
+    test file, and show it reporting green with the pin degraded. Then make it
+    fail closed and make skips report as skips.
+
+ 3. Change the eval instrument now, while it is free, per section 75 Q1 option
+    (C): 6 draws per task — 1 greedy RECORDED BUT NOT SCORED, 5 IID at temp 0.8
+    — set KS = (1,), and re-measure the null arm's noise floor at 40 replicates
+    under the new protocol (~100 minutes). Report the new sd with its CI, the
+    ratio against BOTH the naive and the greedy-corrected independence
+    predictions, and the new k for a 3pp MDE. State in the channel that section
+    73's 'independence holds, 1.01x' was measured against the naive null and that
+    the greedy-corrected ratio was 1.17x, CI [0.957, 1.500].
+
+ 4. Make the freeze enforceable: a loader that rebuilds the 31 tasks, recomputes
+    the set sha256, compares it to data/ruler_frozen.json, and refuses to
+    proceed on mismatch — same shape as dataset_gate.require_verified. Then
+    freeze --force to re-issue the n=40 rates. And fix the banner in
+    screen_tasks.py so the direction word is derived from the ratio instead of
+    hardcoded per branch.
+
+ 5. Write the prereg before the first efficacy run. One page: primary endpoint
+    (the redefined pass@1), both estimands (31-task mean primary, 27-live-task
+    mean as sensitivity, effective MDE 3.5pp not 3.0pp), Welch with each arm's
+    own sd from its own replicates, arms INTERLEAVED run-by-run not blocked, and
+    a pre-committed decision rule stated as a confidence interval rather than a
+    power promise.
+
+ 6. Then, instead of one arm pair at k=25, run 3 trained seeds + 1 null at k=12
+    for fewer total generations, and report the between-seed spread. If three
+    seeds disagree by more than 4pp, the single-seed k=25 run was never going to
+    mean anything and you will have found that out for less money."
+
+--------------------------------------------------------------------------------
+76. COUNCIL RESPONSE — THE PHD, SOLO SEAT  (2026-07-30 03:55 — activation #17;
+    scope: this file's OPERATING PROTOCOL + DIRECTIVE + sections 71-74, code at
+    eddb120, and 9 papers fetched. 11 EXECUTED read-only checks.)
+--------------------------------------------------------------------------------
+NUMBERING NOTE, and it is a finding about the channel rather than the ask. This
+block was written as section 75. When I began this pass the file ended at section
+74 (8,546 lines) and 75 was free; I verified that before writing, as instructed.
+By the time I appended, ANOTHER SEAT had banked its own section 75 answering this
+same activation #17, concurrently. I have NOT touched that block — the protocol
+says appended, never rewritten — so mine is renumbered 76 and the collision is
+recorded instead of hidden. TWO INDEPENDENT ANSWERS TO ACTIVATION #17 NOW EXIST
+IN THIS FILE. They were written without sight of each other, which per the
+SEALED-FIRST rule makes them usable as independent passes rather than a
+duplicate; where they disagree, go to the artifact. Structural fix for the
+executor: the channel has no write lock, and "the next number is N" is a
+read-then-write race whenever two seats are armed at once. Number sections from
+the append itself, or take a lock.
+
+NOTE ON THE PIN: the DIRECTIVE pins code at eddb120. HEAD is 563dd66; the only
+diff between them is one line of instructions.txt (`git diff --stat eddb120
+563dd66`). No .py, tests/ or data/ file differs, and the working tree is clean
+for those paths. Reading the tree WAS reading the pin. EXECUTED.
+
+================================================================================
+CORRECTIONS TO THE ROUND  (audit duty; separate from the research findings)
+================================================================================
+
+C1. THE STATED REASON FOR THE INSTRUMENT CHANGE IS MEASURABLY WRONG. EXECUTED.
+    The DIRECTIVE says the greedy anchor "is the SOLE mechanism putting tasks
+    outside the [0.2,0.8] band". The observation it rests on is true (all four
+    out-of-band tasks have greedy pinned). The causal inference is false, and the
+    counterfactual is FREE because eval.py already stores `greedy` and `sampled`
+    apart. Re-scoring the banked 40 replicates from the `sampled` field only:
+
+      instrument                     mean     run sd   outside [0.2,0.8]
+      1 greedy + 4 @0.8  (current)   0.5150   0.0381   4/31
+      4 @0.8, greedy dropped         0.4905   0.0476   3/31
+
+    Only ace_oss_2454 returns to band (0.180 -> 0.229). ace_oss_16070 (0.850),
+    ace_oss_19459 (0.819) and ace_oss_24748 (0.181) are out of band on the
+    temp-0.8 draws ALONE. The greedy anchor accounts for ONE of four, not four of
+    four. Drop it for the estimand reason (Q1 below), not for the band reason.
+
+C2. THE INVITED ATTACK, DELIVERED — section 73's residual-covariance SIGN. EXECUTED.
+    Section 73 reports "mean pairwise correlation +0.0102 (reinforcement)" and builds a
+    claim on its SIGN: "the opposite of what section 62 A1b measured and what
+    section 72 half-believed." No interval is given. Bootstrap over the 40
+    replicates (2000 resamples, stdlib random, seed 7):
+
+      mean pairwise correlation  +0.0075   95% CI [-0.0080, +0.0280]
+
+    THE INTERVAL CONTAINS ZERO. Section 73 corrected section 72 for banking a point
+    estimate and then asserted a sign on a point estimate. My point value
+    (+0.0075, average of pairwise correlations) also differs from the reported
+    +0.0102 (implied from Var(run mean)); two definitions, both unlabelled. The
+    honest statement is STRONGER than the one made: at n=40 the residual
+    covariance is INDISTINGUISHABLE FROM ZERO, which supports independence better
+    than a claimed positive sign does.
+
+C3. "NOTHING ELSE SYSTEMATIC REMAINS IN THE SEAM" OVER-REACHES. EXECUTED.
+    Section 73's +0.0002 (temp-0.8 half minus confirmed) is a point estimate. Paired
+    over the 31 tasks: sd 0.0625, 95% CI [-0.0227, +0.0231]. Residual seam bias
+    is bounded at +/-2.3pp — which is 77% of the 3.0pp MDE being bought. The
+    supportable claim is "any residual seam bias is under 2.3pp", not "nothing
+    systematic remains". The +0.0710 -> +0.0002 collapse remains excellent
+    evidence for the interpreter diagnosis; it is not an absence proof.
+
+C4. SECTION 71's H2 WAS NOT REJECTED, IT WAS UNTESTED FOR POWER. EXECUTED.
+    "TESTED AND REJECTED ... measured corr(confirmed-0.5, shift) = -0.1341" has
+    no interval. I could not reproduce -0.1341 from any banked artifact — it
+    appears only in channel prose; ruler_noise_analysis_prepin.txt carries only
+    the -0.0147 mean pairwise correlation. My reproduction with the natural
+    definition (pre-pin rows, eval-instrument rate minus confirmed) gives
+    r = -0.0687, Fisher 95% CI [-0.413, +0.293]. At n=31 that interval admits
+    substantial POSITIVE correlation. H2 is NOT SUPPORTED; it was not rejected.
+    (This matters little now — the verifier turned out to be the cause — but the
+    same sentence shape will be reused, so the shape is what is being flagged.)
+
+C5. SECTION 74's "ZERO DISAGREEMENTS" NEEDS ITS UPPER BOUND. EXECUTED.
+    0/100 gives a 95% one-sided upper bound of 2.95% on the disagreement rate
+    (rule of three, 1 - 0.05^(1/100)). At 10 tasks x 5 samples that is up to 1.48
+    completions per eval run, i.e. a pass@1 shift of up to 2.95pp on the old bank
+    cannot be excluded. Section 64's maximum possible effect on that bank was 3.0pp. So
+    the measurement does NOT license "the pre-pin eval_history rows remain
+    comparable" for any effect under ~3pp — it licenses "the old bank is not
+    GROSSLY interpreter-sensitive". Same finding, honest size.
+
+C6. CLAIM A IS CONDITIONAL ON A DIRECTORY EXISTING, AND THE TEST SUITE CANNOT
+    WITNESS THE CONDITION FAILING. EXECUTED, with a red witness.
+    dataset_gate.verify_py() (dataset_gate.py:91-98) falls through to
+    `return sys.executable` when .venv-train\Scripts\python.exe is absent.
+    Probe (dataset_gate imported, _VENV_PY repointed at a nonexistent path):
+
+      live verify_py()                -> ...\.venv-train\Scripts\python.exe
+      with .venv-train absent         -> C:\Python314\python.exe
+      sys.executable                  -> C:\Python314\python.exe
+      IDENTICAL TO LAUNCHER: True     <-- the pre-pin defect, restored silently
+
+    And three of the five tests in tests/test_verifier_pin.py `return` early on
+    `if not VENV_PY.exists()`, which the file's own runner counts as PASS:
+
+      (skipped: .venv-train absent)
+      PASS test_both_launchers_reach_the_same_verdict
+      PASS test_env_override_is_honoured
+      PASS test_eval_records_the_verifier
+      (skipped: .venv-train absent)
+      PASS test_the_probe_can_actually_discriminate
+      (skipped: .venv-train absent, nothing to pin away from)
+      PASS test_verifier_is_not_the_launching_interpreter
+      0 failed  <-- suite green with the pin unenforceable
+
+    All 5 also PASS on the live tree (EXECUTED, as do tests/test_ruler_noise.py
+    7/7 and tests/test_screen_sizing.py 4/4). So the green suite is real but is
+    not evidence the pin holds. Claim A as written — "can no longer depend on
+    which script called it" — is true only while that path exists. The precise
+    claim is: "cannot depend on the launcher WHEN .venv-train is present, and
+    reverts to launcher-dependence, silently, when it is not."
+    This is a fence with a gate in it, and the gate is what the flashlight
+    metaphor was already conceding about the other axis.
+
+C7. eval_history.jsonl HAS 68 ROWS, NOT 57. EXECUTED. Of those 68: 0 carry the
+    `verifier` key and 0 carry the greedy/sampled split; 67 are n_tasks=10, 1 has
+    no n_tasks; 58 have task_set=None (pre-dating the field). Consistent with
+    section 71's flagging rule, and it means NO historical row can be re-analysed
+    greedy-free. The count in the record is low by 11.
+
+C8. k=25 GIVES 3.02pp, NOT 3.0pp. The honest k for MDE <= 3.0pp at sd 0.0381 is
+    26 (4,030 gens/arm). Trivial in size; quoted as "3pp at k=25" in section 70,
+    section 73 and the DIRECTIVE, so it is now three copies of a rounded number.
+
+C9. PRIOR ART — the hand-rolled incomplete gamma was NOT gratuitous, and the
+    bootstrap replaces it anyway. EXECUTED. scipy is absent from BOTH
+    interpreters (.venv-train 3.11.9 has numpy, not scipy; system 3.14.6 has
+    numpy + requests, not scipy), so there was no chi2.ppf to import and
+    ruler_noise._gammap/chi2_ppf was a real gap being filled. Its output agrees
+    with my independent implementation to 4 dp on this dataset (sd 0.038067,
+    CI [0.0312, 0.0489] — reproduced exactly, along with the whole k-table).
+    BUT: a nonparametric bootstrap over the 40 replicates is stdlib-only, ~15
+    lines, needs no special functions, and supplies intervals for the THREE
+    quantities that are currently bare point estimates (C2, C3, and the obs/pred
+    ratio). Recommendation: adopt the bootstrap, delete _gammap/chi2_ppf and most
+    of decompose's bookkeeping. That is a net deletion that also closes C2/C3.
+
+C10. THE STALE n=10 IN ruler_frozen.json — UNTIDY WITH ONE REAL EDGE, AND IT IS
+    THE THIRD INSTANCE OF ONE CLASS. EXECUTED (grep over *.py).
+    `eval_instrument_rate` is written by build_ruler.cmd_freeze:281 and read by
+    NOTHING — untidy only. But `eval_instrument_out_of_band` (line 315) lists 3
+    tids when the truth at n=40 is 4, and that field is exactly the flag a future
+    reader uses to decide which tasks carry signal. A reader trusting the frozen
+    artifact treats ace_oss_2454 as healthy. Small, real.
+    THE CLASS: section 67 closed "sizing figures in two places"; section 72 closed
+    "noise-floor status in two places"; this is the same shape a third time — a
+    MEASURED value stored in a place that is never re-derived. Per this file's own
+    second-time rule, close the class rather than re-freezing: an immutable
+    artifact should carry only immutable things (payload hashes, the set sha256,
+    the split). Measured rates belong in the analysis file, which is regenerated
+    every run. `freeze --force` re-issues the same defect with fresher numbers.
+
+================================================================================
+Q1 — INSTRUMENT VALIDITY
+================================================================================
+
+THE CITATION, AND IT IS DECISIVE. Chen et al. 2021, "Evaluating Large Language
+Models Trained on Code" (arXiv:2107.03374) — full text read via ar5iv, not the
+abstract. Verbatim: "we generate n>=k samples per task (in this paper, we use
+n=200 and k<=100)". On temperature: "the optimal temperature for pass@1 is
+T*=0.2 and the optimal temperature for pass@100 is T*=0.8"; "higher temperatures
+are optimal for larger k, because the resulting set of samples has higher
+diversity"; for Codex-S, "We use T*=0 for computing pass@1 and T*=1 for
+computing pass@100"; "top p=0.95 for all sampling evaluation in this work".
+
+So THREE things, and they answer the ask separately:
+
+  (a) TEMPERATURE IS TUNED PER k, AND HELD CONSTANT WITHIN A GIVEN n. Chen et al.
+      do use greedy (T=0) for pass@1 — but then ALL n draws are greedy, so n
+      collapses to 1 and the combinatorial estimator is not in play. They never
+      mix temperatures inside one n. Mixing is therefore NOT documented practice.
+
+  (b) IT IS NOT DOCUMENTED AS AN ERROR EITHER. I searched for work analysing a
+      greedy+sampled mixture fed to the unbiased estimator and found none. The
+      nearest on-point paper is Hariri et al. 2025, "Don't Pass@k: A Bayesian
+      Framework for Large Language Model Evaluation" (arXiv:2510.04265), which
+      attacks pass@k for instability at small n and proposes Dirichlet posteriors
+      instead — and reports that "under a uniform prior, the Bayesian posterior
+      mean is order-equivalent to average accuracy (Pass@1)". It does not address
+      the mixture. PLAIN STATEMENT, as requested: NOBODY ADDRESSES THE MIXTURE.
+      Label this an absence-of-search-evidence, not a proven absence.
+
+  (c) THE TEMPERATURE THIS PROJECT USES FOR pass@1 IS THE ONE Chen et al. FOUND
+      OPTIMAL FOR pass@100. eval.py:37 TEMP=0.8 with KS=(1,3). Not a defect for a
+      RELATIVE ruler, and do not "fix" it: T=0.2 would collapse rates toward the
+      argmax and re-create the dead-channel problem the band selection exists to
+      avoid. The point worth recording is that the [0.2,0.8] BAND AND THE
+      TEMPERATURE ARE COUPLED — the band is a property of the instrument at
+      T=0.8, not of the tasks, and no convention pins both.
+
+IS "pass@3" AS THIS FILE REPORTS IT THE QUANTITY IT NAMES? NO. And the failure is
+at k=3 only; separate the two k's, which the DIRECTIVE does not:
+
+  - AT k=1 THERE IS NO ESTIMATOR PROBLEM. pass_at_k(n,c,1) = 1 - (n-c)/n = c/n
+    identically, so run-level pass@1 IS mean accuracy. The DIRECTIVE's "identity
+    to 0.000000" is likewise algebraic, not empirical: with n=5, one greedy and
+    four sampled and zero gen errors, c/5 == 0.2*greedy + 0.8*mean(sampled) by
+    construction. EXECUTED: 0 violations over 1,240 task-runs, and `n` is 5 on
+    every one. So the k=1 issue is purely WHICH ESTIMAND — a fixed 20/80 blend of
+    two different decoding policies — not a broken estimator.
+
+  - AT k=3 THE ESTIMATOR GENUINELY MISATTRIBUTES. It estimates pass@3 of a pool
+    containing one deterministic item and four random ones. P(a random 3-subset
+    of 5 includes the greedy slot) = C(4,2)/C(5,3) = 0.6, so a task whose greedy
+    draw passes has reported pass@3 >= 0.6 REGARDLESS of its sampled behaviour.
+    Reported pass@3 is a 0.6/0.4 blend of "pass@2 of the sampled policy, floored
+    by the greedy indicator" and "pass@3 of the sampled policy". No single
+    sampling distribution has that as its pass@3.
+
+  - AND pass@3 IS SATURATED ANYWAY, WHICH IS THE BIGGER FINDING. EXECUTED over
+    the 40 replicates: mean reported pass@3 = 0.834, and 20 of 31 tasks fall
+    outside [0.2,0.8] at k=3 versus 4 of 31 at k=1. That is mostly NOT the
+    greedy anchor's fault — it is intrinsic: a pass@1 band of [0.2,0.8] maps to
+    [1-0.8^3, 1-0.2^3] = [0.488, 0.992] at k=3. A ruler band-selected at pass@1
+    cannot also be in band at pass@3. RECOMMENDATION: drop 3 from KS, or keep it
+    explicitly labelled a diagnostic. pass@1 is the only metric on this ruler
+    with resolution, and it is already the one every sizing figure uses. Hariri
+    et al.'s order-equivalence result above is independent support for making
+    mean accuracy the headline.
+
+WHAT IS LOST BY DROPPING THE GREEDY DRAW: NOTHING THE LITERATURE CREDITS.
+The 0.894x is not a variance-reduction technique's benefit. sqrt(4/5)=0.894 is
+the arithmetic of replacing one of five random draws with a constant. Adding a
+constant to an estimator always lowers its variance and always moves its
+estimand; that is bias, not Monte Carlo variance reduction (a control variate
+lowers variance AT FIXED ESTIMAND — this does the opposite). There is no citation
+to lose because there is no technique being used.
+
+Worse, the "reduction" evaporates in the comparison it is for. Under the NULL arm
+the greedy draw is a constant (EXECUTED: 0 of 31 tasks had a non-constant greedy
+draw across 40 runs), so it contributes ~zero variance. Between ARMS it is not
+constant — training changes the argmax path. Each greedy flip moves the reported
+rate by 0.2/31 = 0.65pp with ZERO associated sampling noise, so five greedy flips
+manufacture a 3.2pp "effect" — the full MDE — with no change in the sampled
+distribution at all. The null-measured sd cannot see that term.
+
+THE CHEAPEST VALID INSTRUMENT, AND IT COSTS FEWER GENERATIONS THAN THE CURRENT
+PLAN. EXECUTED, all from banked data:
+
+  option                                 new gens needed for MDE 3.0pp
+  (A) keep as-is                          null done; trained 31*5*26 = 4,030
+      -- but the estimand is a 20/80 policy blend and pass@3 is saturated
+  (B) re-generate all 5 at T=0.8          null 4,960 + trained 4,960 = 9,920
+      -- requires re-measuring the null arm from scratch
+  (C) CHANGE THE REPORTED METRIC, NOT THE GENERATION. Score pass@1 from the
+      four `sampled` draws only; report the greedy draw as a separate labelled
+      diagnostic line.                    null 0 + trained 31*5*40 = 6,200
+
+  (C) wins by 37% over (B) because THE GREEDY-FREE NULL BASELINE IS ALREADY
+  MEASURED. The same 40 replicates give it for free: mean 0.4905, run-level sd
+  0.0476, and with both arms at 40 replicates
+  se_diff = 0.0476*sqrt(2/40) = 0.01064, MDE@80% = 2.98pp. Nothing needs
+  re-generating on the null side, ever.
+  Note the level shift: 0.5150 -> 0.4905, a 2.45pp re-baseline. That is why this
+  must be decided BEFORE the trained arm runs, not after — which is exactly why
+  the DIRECTIVE was right to ask rather than decide.
+  And C7 means the feared "re-baselines every eval_history row" cost is zero:
+  all 68 rows are already unusable (no verifier key, no greedy/sampled split,
+  spent 10-task bank).
+
+  (B) is the tidier long-run instrument (5 real samples, n=5, sd ~0.0426
+  EXTRAPOLATED by binomial scaling from the measured n=4 value, k=32,
+  4,960/arm). It is the right end state. It is not worth 4,960 wasted null-arm
+  generations to reach today.
+
+================================================================================
+Q2 — SIZING, PER-ARM VARIANCE, AND THE TERM THE FORMULA OMITS
+================================================================================
+
+DOES THE LITERATURE REPORT PER-ARM VARIANCE ON pass@k? I looked and did not find
+a paper that reports run-level pass@k variance separately for a base and a tuned
+model as a designed measurement. The field's problem is one level cruder: pass@k
+is conventionally reported with NO interval at all — which is why Miller 2024,
+"Adding Error Bars to Evals: A Statistical Approach to Language Model
+Evaluations" (arXiv:2411.00640) had to be written. So homoscedasticity is not
+ASSUMED in this literature; it is never CONFRONTED. Label: absence of search
+evidence over ~6 targeted queries, not a survey.
+
+IS THERE A DOCUMENTED DIRECTION? YES, AND IT FAVOURS YOU — ON ONE TERM ONLY.
+  - Kirk et al., "Understanding the Effects of RLHF on LLM Generalisation and
+    Diversity" (arXiv:2310.06452, ICLR 2024): "RLHF significantly reduces output
+    diversity compared to SFT across a variety of measures."
+  - Yue et al. 2025, "Does Reinforcement Learning Really Incentivize Reasoning
+    Capacity in LLMs Beyond the Base Model?" (arXiv:2504.13837): pass@1 rises
+    after RLVR but "the base models achieve a higher pass@k score when k is
+    large", with "coverage and perplexity analyses" attributing this to a
+    narrowed sampling distribution. This is the closest thing to your exact
+    setting (execution-verifiable reward) in print.
+  - Omura et al. 2024, "Entropy Controllable Direct Preference Optimization"
+    (arXiv:2411.07595): DPO's reverse-KL term "encourages mode-seeking fitting to
+    the reference policy"; H-DPO adds entropy control and shows "superior results
+    in pass@k evaluations". Confirms the mechanism is recognised for DPO
+    specifically, not just RLHF.
+  So per-sample entropy after DPO is expected to FALL, per-task rates move toward
+  0/1, and the trained arm's GENERATION-noise sd is more likely below 0.0476 than
+  above it. On that term, sqrt(2)*run_sd is conservative. Yue et al. also carries
+  a warning for the ruler: if you keep any pass@k with k>1, DPO can move it DOWN
+  while pass@1 goes up.
+
+BUT THE HOMOSCEDASTICITY ASSUMPTION IS NOT THE LARGEST UNMEASURED TERM, AND Q2
+ASKS ABOUT THE WRONG ONE. se_diff = sqrt(2)*run_sd contains generation noise and
+nothing else. The null arm is the SAME CHECKPOINT re-sampled, so it has zero
+training variance by construction. The trained arm has a second component the
+formula has no slot for: the training run itself — LoRA init, data order, seed.
+  - Dodge et al. 2020, "Fine-Tuning Pretrained Language Models: Weight
+    Initializations, Data Orders, and Early Stopping" (arXiv:2002.06305): "even
+    with the same hyperparameter values, distinct random seeds can lead to
+    substantially different results", with init and data order contributing
+    "comparably to the variance of out-of-sample performance."
+  - Bouthillier et al. 2021, "Accounting for Variance in Machine Learning
+    Benchmarks" (MLSys 2021, arXiv:2103.03098): identifies data sampling,
+    augmentation, init and hyperparameters as variance sources and finds that
+    "adding more sources of variation to an imperfect estimator approaches better
+    the ideal estimator at a 51 times reduction in compute cost."
+  With ONE trained checkpoint, a clean 3pp detection supports "this checkpoint
+  differs from the base on these 31 tasks" and NOT "DPO on verifier-grounded
+  pairs helps". No amount of k fixes that. Spending 6,200 generations to sharpen
+  the generation term while the training term is unestimated is sharpening the
+  wrong term, and Bouthillier is the citation that says so in cost language.
+
+THE CHEAPEST DESIGN THAT NEVER NEEDS THE TRAINED ARM'S sd IN ADVANCE. Three
+pieces, and the third is the one that answers the question as asked:
+
+  1. NEVER POOL. Compute se_diff = sqrt(s_null^2/k_null + s_trained^2/k_trained)
+     from each arm's OWN replicates and use Welch's df. This is free and removes
+     the assumption entirely at analysis time. Nothing needs to be known in
+     advance to compute it AFTERWARDS.
+  2. PAIR BY TASK. Miller 2024's recommendation 4, verbatim from the paper:
+     "When two models are being compared, conducting statistical inference on the
+     question-level paired differences, rather than the population-level summary
+     statistics", because "paired differences represent a 'free' reduction in
+     estimator variance when comparing two models". His recommendation 3 —
+     "Reducing variance by resampling answers" — is what your k replicates
+     already are. Be precise about which of two SEs you report: the per-task
+     paired-difference SE over 31 tasks answers "would this hold on a fresh draw
+     of tasks" (it carries the tau^2/T term your own screen_tasks docstring flags
+     and section 59 finding 2 named); the replicate-based Welch SE answers "did
+     the mean rate on THESE 31 tasks change". Different questions. Report both,
+     label both, prereg which one the claim is about.
+  3. DO NOT PRE-SIZE — USE AN INTERNAL PILOT WITH VARIANCE-ONLY RE-ESTIMATION.
+     The design literature for "the variance is unknown at the moment sample size
+     must be chosen" is internal pilot / blinded sample size re-estimation
+     (Wittes & Brittain 1990 originated it; Gould & Shih 1992 blinded it; Kieser
+     & Friede developed procedures that do not inflate the type I error rate;
+     Friede & Kieser 2006 is the review). Applied here: run the trained arm in
+     blocks of 10 replicates, and after each block re-estimate ONLY the observed
+     within-arm sds and recompute the k needed. Because the variance re-estimate
+     is a function of within-arm spread and NOT of the between-arm difference,
+     the look is effectively blinded to the effect and the type-I cost is
+     negligible. THE TRAP, stated because it is easy to fall into: this licenses
+     re-sizing on the VARIANCE, not stopping on the EFFECT. If you peek at the
+     difference and stop when its CI excludes zero, you have run an unadjusted
+     group-sequential trial and inflated alpha. Re-size freely; do not peek.
+     STATUS: this thread is VERIFIED-SECONDARY only — I confirmed the papers and
+     the result via a Medical College of Wisconsin annotated bibliography and
+     Wiley listings, and did NOT fetch the primary texts. Treat the method as
+     sound and the exact inflation figures as unread.
+
+  Cheapest concrete instance: the null arm is ALREADY at k=40 greedy-free. Run
+  the trained arm to 40 replicates in four blocks of 10, computing Welch se_diff
+  from both arms' own sds after each block. Zero prior knowledge required, zero
+  homoscedasticity assumption, and the null side costs nothing.
+
+AND SPEND THE TRAINED ARM'S BUDGET ACROSS SEEDS, NOT ACROSS MORE REPLICATES OF
+ONE SEED. 2 seeds x 20 replicates, or 3 x 13, is the SAME 6,200 generations as
+1 x 40 — and the trained arm's replicate sd then includes training-seed variance,
+so the Welch se_diff automatically prices the term the current formula omits.
+This is Bouthillier et al.'s finding applied literally: randomise over more
+variance sources at fixed budget rather than more draws from one. With 2 seeds
+the seed component has df=1 and is a direction, not a fact (your own section 73
+method note applies: n=2 is a rumour when the quantity is a variance) — but a
+rumour about a term currently valued at zero is a strict improvement.
+
+================================================================================
+Q3 — DOES R2 STILL HOLD AT 13?
+================================================================================
+
+NO — AND NOT FOR THE REASON THE DIRECTIVE PROPOSES. The DIRECTIVE asks whether
+the instrument swap "already spent the one-change-at-a-time budget R2 was
+protecting." It did not spend it. It VOIDED THE ESTIMAND.
+
+R2's isolation argument required a comparison of two numbers produced by the same
+instrument: (old ruler, 13 prompts, buggy seam) vs (old ruler, 13 prompts, fixed
+seam). Both terms are now unavailable, for two independent reasons:
+  - the first term's instrument is spent (section 64: 7 of 10 at ceiling; section
+    74 confirmed it again by accident at 87/100 with 7 tasks at 10/10); and
+  - a buggy-seam baseline on the FROZEN 31-task ruler does not exist and cannot
+    be created, because section 71 makes every pre-pin number on that set void.
+One-change-at-a-time is a rule about holding the MEASURING DEVICE constant across
+two measurements. With no valid "before", holding the prompt count at 13 holds it
+constant against nothing. R2 is not violated; it is inapplicable.
+
+WHAT THE RE-RUN WOULD ACTUALLY BE A MEASUREMENT OF: the first null-vs-trained
+efficacy baseline of the whole pipeline on the new instrument — "does QLoRA DPO
+on N verifier-grounded pairs move greedy-free pass@1 on the frozen 31-task ruler,
+against the null arm measured at 40 replicates under the pinned verifier." The
+seam fix and the verifier pin are now part of the PIPELINE DEFINITION, not
+variables under test. Label the run a BASELINE, not an attributed experiment.
+Subsequent runs can then be one-change-at-a-time against it, which is the first
+time that rule will actually be purchasable.
+
+AND 13 IS NOW THE WRONG SOURCE, ON AN ARGUMENT THAT IS NOT ABOUT COUNT. I am not
+re-arguing the deferred 200. This is a different axis:
+  Section 71 established that the 13 SEED_TASKS are bare functions (gcd, is_prime,
+  two_sum) and the ruler is 31 AceCode `oss` tasks whose prompts CONTAIN
+  annotated signatures — and that the two families differ in exactly the property
+  that broke the verifier. Training on 13 bare-function prompts and measuring on
+  31 annotated-signature tasks is a train/eval distribution shift that this
+  project has already MEASURED to be behaviourally significant. The 43-tid
+  training pool is drawn from the same distribution as the ruler and is disjoint
+  by construction (build_ruler.split_side hashes the tid, RULER_SHARE 0.5, and
+  cmd_freeze's five fatal checks were witnessed passing in section 72).
+  So: draw the training prompts from the 43-tid pool, not from SEED_TASKS. That
+  is a SOURCE change, not a COUNT change, and it does not re-open the deferred
+  question. If you want to honour R2's spirit while you are at it, draw exactly
+  13 from the 43 — count unchanged, distribution matched, and the deferred
+  prompt-count question stays deferred and cleanly separable.
+
+A CONFOUND IN THAT POOL THAT NOBODY HAS LOOKED AT, and it is created by your own
+fix. Under the pinned 3.11 verifier, a completion that omits `from typing import
+List` FAILS. The oss prompts invite exactly that omission. So pairs mined from the
+43-tid pool may have `rejected` rejected for a MISSING IMPORT rather than a wrong
+algorithm — in which case DPO learns import hygiene, and the ruler (same task
+family, same verifier) will duly reward it with a real pass@1 rise that has
+nothing to do with code repair. That would be a true positive on the instrument
+and a false positive on the thesis. CHEAP CHECK, before training: on the mined
+pairs, count how many `rejected` completions fail with a NameError naming a typing
+generic. If that fraction is large, either fix it in the prompt (state the imports
+are required) or report the effect split by failure class.
+
+================================================================================
+RANKED CRITIQUE  (most decisive first)
+================================================================================
+1. se_diff = sqrt(2)*run_sd HAS NO SLOT FOR TRAINING-SEED VARIANCE, and that is a
+   bigger hole than the homoscedasticity assumption Q2 asks about. One trained
+   checkpoint cannot support a claim about DPO, at any k. Fix costs zero extra
+   generations: split the trained arm's 40 replicates across 2-3 seeds
+   (Bouthillier et al. 2021; Dodge et al. 2020).
+2. THE STATED REASON FOR CHANGING THE INSTRUMENT IS FALSE (C1). Greedy accounts
+   for 1 of 4 out-of-band tasks, not 4 of 4 — measurable for free from data you
+   already have. Change the instrument for the estimand reason.
+3. THE FREE PATH IS BETTER THAN BOTH OPTIONS ON THE TABLE (Q1 option C). Score
+   pass@1 from `sampled` only. 6,200 new generations vs 9,920, because the
+   greedy-free null baseline is already banked at n=40 (mean 0.4905, sd 0.0476).
+   And drop 3 from KS: pass@3 is saturated at 20/31 out of band, intrinsically.
+4. CLAIM A IS CONDITIONAL AND THE SUITE CANNOT SEE THE CONDITION FAIL (C6). Red
+   witness supplied: verify_py() returns sys.executable when .venv-train is
+   absent, and 3 of 5 tests skip-as-PASS in exactly that state.
+5. TWO "NOTHING REMAINS" CLAIMS HAVE INTERVALS COMPARABLE TO THE EFFECT BEING
+   BOUGHT (C3: seam bounded +/-2.3pp against a 3.0pp MDE; C5: old-bank
+   interpreter sensitivity bounded 2.95pp against a 3.0pp maximum effect).
+6. THE INVITED ATTACK LANDS TWICE (C2 sign of the residual covariance, CI
+   contains 0; C4 H2 "rejected" on r=-0.13 at n=31, CI [-0.41,+0.29] and the
+   -0.1341 not reproducible from any artifact).
+7. R2 IS INAPPLICABLE, NOT SPENT (Q3), and the training SOURCE — not its count —
+   is the change that matters, plus an unexamined import-hygiene confound.
+8. CLOSE THE CLASS RATHER THAN RE-FREEZING (C10, third instance) and REPLACE THE
+   HAND-ROLLED chi-square WITH A BOOTSTRAP (C9) — a net deletion that also
+   supplies the three missing intervals.
+
+================================================================================
+ONE CONCRETE RECOMMENDED NEXT PROMPT
+================================================================================
+"Do not generate anything yet. Three analysis-only steps, then one run.
+
+ (1) FREE RE-ANALYSIS. Add a greedy-free reading to ruler_noise analyze: score
+     run-level pass@1 from the `sampled` field only (n=4) over the 40 pinned
+     replicates. Confirm mean 0.4905 and run-level sd 0.0476, and report the
+     bootstrap 95% CI for that sd, for the mean pairwise correlation, and for
+     the temp-0.8-minus-confirmed seam — replacing chi2_ppf with a stdlib
+     bootstrap over replicates. Expect the correlation CI to contain 0 and the
+     seam CI to be about [-0.023,+0.023]; if it does, fold sections 71/73's sign
+     and 'nothing systematic remains' claims into a RECORD CORRECTION.
+ (2) DECIDE THE INSTRUMENT IN THE CHANNEL, THEN CHANGE IT ONCE. Make greedy-free
+     pass@1 THE ruler metric, keep the greedy draw as a separately labelled
+     diagnostic, and drop 3 from eval.KS (pass@3 is 20/31 out of band and cannot
+     be in band on a pass@1-banded set). Nothing needs re-baselining: all 68
+     eval_history rows already lack the verifier key and the greedy/sampled
+     split.
+ (3) CLOSE TWO CLASSES BEFORE THE RUN. (a) Make dataset_gate.verify_py() FAIL
+     LOUDLY instead of returning sys.executable when .venv-train is missing, and
+     make tests/test_verifier_pin.py FAIL rather than return early when
+     VENV_PY.exists() is false — red witness first: watch the current suite
+     report 0 failed with _VENV_PY repointed at a nonexistent path. (b) Strip the
+     n-dependent eval_instrument_* fields out of ruler_frozen.json rather than
+     re-freezing with --force; nothing reads them and they are the third instance
+     of a measured value stored somewhere never re-derived.
+ THEN, and only then, the run: mine pairs from the 43-tid TRAINING POOL (13 of
+ them, so the deferred prompt-count question stays deferred), first counting how
+ many `rejected` completions fail with a NameError naming a typing generic and
+ reporting that fraction. Train 2 SEEDS. Evaluate each trained seed at 20
+ greedy-free replicates (2 x 20 = 6,200 generations, ~83 min total at your
+ measured 2.08 min/replicate), against the ALREADY-BANKED 40-replicate
+ greedy-free null. Report Welch se_diff from each arm's own sd — never pooled,
+ never sqrt(2)*null_sd — plus the per-task paired-difference SE, and say which of
+ the two the claim is about. Label the result a BASELINE, not a seam-fix
+ measurement: no buggy-seam number on this ruler exists or can be created."
+
+================================================================================
+EVIDENCE READ
+================================================================================
+REPO (working tree == eddb120 for all paths below; verified by git diff):
+  instructions.txt :1-97 (OPERATING PROTOCOL), :98-245 (DIRECTIVE #17),
+    :8153-8546 (sections 71, 72, 73, 74). Section 62 NOT re-read this pass —
+    R2/R3/R4 taken from the DIRECTIVE's own summary of it and from 63/64.
+  forge.py :80-140 (the VERIFY_PY pin block + verifier_interpreter),
+    :436-520 (verify(), the strict-type guard, the [VERIFY_PY,"-I",path] call)
+  dataset_gate.py :60-140 (VERIFIER_FILES, _VENV_PY, verify_py(),
+    interpreter_fingerprint(), verifier_fingerprint())
+  eval.py :1-60 (docstring, N_SAMPLES=5 / TEMP=0.8 / KS=(1,3)),
+    :164-292 (pass_at_k, evaluate(), the greedy/sampled split, the result dict)
+  ruler_noise.py :82-145 (_gammap, chi2_ppf, sd_ci), function map for
+    measure/analyze/decompose/selftest, :299-445 grepped for the seam/corr prints
+  build_ruler.py :55-80 (RULER_SHARE, split_side), :156-200 (cmd_freeze +
+    the --force guard), :281-315 (eval_instrument_rate / _out_of_band writes)
+  screen_tasks.py :80-145 (SIZING, NOISE_FLOOR, tasks_needed, wilson)
+  tests/test_verifier_pin.py (whole file), tests/test_ruler_noise.py and
+    tests/test_screen_sizing.py (executed, not read line-by-line)
+  data/ruler_frozen.json (all top-level keys + one ruler entry's fields),
+  data/ruler_noise.jsonl (50 rows; 40 pinned + 10 pre-pin),
+  data/eval_history.jsonl (68 rows, schema census only),
+  council/ruler_noise_analysis_n40.txt (whole file),
+  council/ruler_noise_analysis_prepin.txt (grepped for corr),
+  council/phd-research-log.txt (tail 60 — prior citations NOT re-fetched)
+
+PAPERS FETCHED AND CONFIRMED THIS PASS (primary source opened):
+  arXiv:2107.03374 — Chen et al. 2021, "Evaluating Large Language Models Trained
+    on Code". FULL TEXT via ar5iv (the abs page was insufficient). n=200, k<=100;
+    T*=0.2 for pass@1, T*=0.8 for pass@100; Codex-S T*=0 for pass@1, T*=1 for
+    pass@100; top-p 0.95; no mixing of temperatures within one n. VERIFIED.
+  arXiv:2504.13837 — Yue et al. 2025, RLVR does not exceed the base model;
+    "the base models achieve a higher pass@k score when k is large". VERIFIED.
+  arXiv:2310.06452 — Kirk et al., ICLR 2024; "RLHF significantly reduces output
+    diversity compared to SFT across a variety of measures". VERIFIED.
+  arXiv:2411.00640 — Miller 2024, "Adding Error Bars to Evals". Five
+    recommendations read verbatim from the HTML full text (CLT SEs, clustered
+    SEs, variance reduction by resampling, question-level paired differences,
+    power analysis). VERIFIED.
+  arXiv:2103.03098 — Bouthillier et al., MLSys 2021, "Accounting for Variance in
+    Machine Learning Benchmarks"; the 51x compute-cost finding. VERIFIED (abs).
+  arXiv:2002.06305 — Dodge et al. 2020, seed variance in fine-tuning. VERIFIED.
+  arXiv:2411.07595 — Omura et al. 2024, "Entropy Controllable DPO"; reverse-KL
+    mode-seeking, pass@k. VERIFIED (abs; the entropy-reduction claim is my
+    reading of "mode-seeking", and the abstract does NOT state "reduces entropy"
+    in those words — flagged rather than overstated).
+  arXiv:2406.10229 — Madaan et al. 2024, "Quantifying Variance in Evaluation
+    Benchmarks"; seed variance, not code-specific. VERIFIED (abs).
+  arXiv:2510.04265 — Hariri et al. 2025, "Don't Pass@k"; Bayesian alternative,
+    pass@1 order-equivalence. VERIFIED (abs).
+VERIFIED-SECONDARY, primary text NOT fetched — do not quote as read:
+  Wittes & Brittain 1990 (internal pilot); Gould & Shih 1992 (blinding);
+  Kieser & Friede 2003; Friede & Kieser 2006 review. Confirmed to exist and to
+  say what I attribute, via an MCW annotated bibliography and Wiley listings.
+BROWSER SEATS: NOT USED and NOT TESTED this round. Step 1 of the cost ladder
+  worked for every question, so seats A/B were never opened. I am not claiming
+  they are up, and no finding here came from a logged-in model.
+
+EXECUTED CHECKS (11; all read-only, no generation, no training, no GPU):
+  E1  git diff --stat eddb120 563dd66 -> instructions.txt only, 1 line.
+  E2  Independent recomputation of the noise floor from data/ruler_noise.jsonl:
+      mean 0.515000, sd 0.038067; chi-square CI via my own incomplete-gamma
+      bisection -> [0.0312, 0.0489]; the full k-table reproduced to the
+      published digit (6.7 / 4.8 / 3.4 / 3.0 pp at k=5/10/20/25). MATCHES 73.
+  E3  Verifier-version census of ruler_noise.jsonl: 40 rows '3.11.9', 10 pre-pin.
+  E4  n==5 on all 1,240 task-runs; the 0.2*greedy+0.8*temp0.8 identity has 0
+      violations and is algebraic, not empirical.
+  E5  Greedy constant on 0 of 31 tasks varying across 40 runs. Confirms 73.
+  E6  Bootstrap (2000 resamples) on mean pairwise correlation: +0.0075,
+      95% CI [-0.0080, +0.0280] — CONTAINS ZERO. -> C2.
+  E7  Paired seam CI over 31 tasks: +0.0002, sd 0.0625, CI [-0.0227,+0.0231].
+      Eval-instrument-minus-confirmed: +0.0247, CI [-0.0161,+0.0655]. -> C3.
+  E8  H2 reproduction: r=-0.0687, Fisher CI [-0.413,+0.293]; -0.1341 not
+      reproducible from any banked artifact. -> C4.
+  E9  Greedy-free instrument measured from banked data: mean 0.4905, sd 0.0476,
+      3/31 out of band (only ace_oss_2454 returns); pass@3 mean 0.834 with
+      20/31 out of band and a 0.6 floor for greedy-passing tasks. -> C1, Q1.
+  E10 Claim A's fallback: dataset_gate.verify_py() with _VENV_PY repointed
+      returns C:\Python314\python.exe == sys.executable; and
+      tests/test_verifier_pin.py reports "0 failed" in that state with 3 of 5
+      tests skipping-as-PASS. All three test files also run clean on the live
+      tree (5/5, 7/7, 4/4). -> C6.
+  E11 scipy absent from both interpreters (.venv-train: numpy yes, scipy no;
+      system 3.14.6: numpy+requests yes, scipy no) -> C9. Plus grep over *.py
+      showing nothing READS ruler_frozen.json's eval_instrument_rate -> C10.
+      Plus eval_history census (68 rows, 0 with verifier, 0 with greedy) -> C7.
+      Plus rule of three on 0/100 -> 2.95% -> C5.
+
+================================================================================
+LEFTOVER RISKS  (unresolved even if everything above lands)
+================================================================================
+- TRAINING-SEED VARIANCE STAYS A RUMOUR. 2-3 seeds gives df=1 or 2. By your own
+  section 73 rule that is not a measurement of a variance. It is a direction, and
+  the design that prices it at zero is worse.
+- tau^2/T IS STILL UNPRICED AND NO PREREG EXISTS. T=31 estimates the change on
+  THESE 31 tasks. Nothing here supports "the model got better at code
+  generation," and section 59 finding 2 has now survived four activations
+  unaddressed.
+- EFFECTIVE T IS BELOW 31. ace_oss_16070 sits at 0.880 (0.850 greedy-free) and
+  carries almost no signal; 19459 and 24748 are weak. Every MDE divides by 31.
+  Effective T is nearer 28. Do not drop them — dropping selects on the reported
+  measurement, exactly as section 72 argued — but do not price them as full
+  channels.
+- CROSS-VERSION DIVERGENCE BEYOND ANNOTATIONS IS STILL UNENUMERATED, and after
+  C6 the flashlight also fails to fire if the venv moves. Nothing bounds the
+  class; the honest bound is "one mechanism found, one probed."
+- OLLAMA-SIDE NONDETERMINISM IS IN NO VARIANCE TERM. Whether the server seeds its
+  sampler per request, and whether kv-cache reuse or batch composition perturbs
+  logits, is unmeasured. The greedy draw being constant on 31/31 across 40 runs is
+  good evidence this is small AT T=0; it says nothing about T=0.8.
+- THE IMPORT-HYGIENE CONFOUND IN THE TRAINING POOL (Q3). Unexamined, and it is
+  the failure mode where the instrument and the thesis disagree while both
+  numbers look right.
+- THE VERIFIER FINGERPRINT RECORDS A VERSION, NOT AN ENVIRONMENT. Your own scope
+  note says so. Add that interpreter_fingerprint() silently records
+  "python unknown" if the probe fails, and the gate's equality check would then
+  compare "unknown" to "unknown" and pass.
+- 68 HISTORICAL RUNS ARE PERMANENTLY UNRECOVERABLE. Not fixable, correctly
+  recorded, and worth restating so nobody tries.
+
+================================================================================
+THE QUESTIONS THEMSELVES
+================================================================================
+Q1 WAS THE RIGHT ASK, and asking rather than deciding was correct — a 2.45pp
+level shift on a 3.0pp MDE is not a judgement call to make alone. It was posed
+one notch too narrowly: it framed the greedy anchor as an estimator problem when
+at k=1 it is purely an estimand problem, and it did not ask about pass@3 at all,
+which is where the estimator actually breaks and where saturation (20/31 out of
+band) makes the reported column unusable.
+
+Q3 WAS THE RIGHT ASK and was framed with unusual honesty ("a variable ALREADY
+changed, by your own ruling"). The available answer was better than the offered
+options: the budget was not spent, the estimand was voided.
+
+Q2 WAS THE WRONG SHAPE. It asked about heteroscedasticity BETWEEN ARMS when the
+term the formula omits entirely — training-seed variance — is larger, is not a
+heteroscedasticity problem, and cannot be fixed by any choice of k. Asking whether
+the trained arm is noisier presupposes that generation noise is the whole of the
+trained arm's variance, which is the assumption that needed challenging.
+
+THE QUESTION THE DIRECTIVE SHOULD HAVE POSED AND DIDN'T:
+  "With ONE training run, what am I entitled to conclude from ANY result on this
+   ruler, and what is the cheapest way to get a second training seed into the
+   variance estimate?"
+  Answer, so it is not a rhetorical device: you are entitled to "this checkpoint
+  differs from the base on these 31 tasks"; the cheapest way is to spend the
+  trained arm's existing generation budget across 2-3 seeds instead of 1, which
+  costs zero additional generations.
+
+A SECOND ONE, smaller but sharper because your own fix created it:
+  "Does the pinned 3.11 verifier make my training pool teach import hygiene
+   instead of code repair?" — the cheap check is in Q3 above.
+
+================================================================================
+NON-CLAIMS  (what this pass did NOT check)
+================================================================================
+- I ran NO generation, NO training, NO eval, and touched no GPU. Every number of
+  mine is recomputed from artifacts already on disk.
+- I did NOT verify the 310-completion replay (section 71) or the 100-completion
+  replay (section 74). Those banked completions are not something I located in the
+  repo, and I did not search for them exhaustively. Both red witnesses are taken
+  on the executor's word — which by this file's own rule makes them POINTERS to
+  me, not proof. The one thing I did verify is the MECHANISM, via the tests' own
+  probe.
+- I did NOT audit ruler_noise._gammap / chi2_ppf line by line. I checked their
+  OUTPUT against an independent implementation and they agree to 4 dp ON THIS
+  DATASET. That is not a proof of the function over its domain.
+- I did NOT read ruler_noise.cmd_measure, cmd_selftest, or decompose() as source;
+  I read the function map, the printed output, and ran the tests. The seven
+  self-test scenarios pass; I did not check that they are the right seven.
+- I did NOT check screen_tasks.py's screening/admission logic, the AceCode
+  ingestion path, venv_guard.py, train_dpo.py, or any training code.
+- I did NOT read section 62 again this pass. R2/R3/R4 are taken from the
+  DIRECTIVE and sections 63/64.
+- I did NOT verify EvalPlus's (arXiv:2305.01210) decoding setup — the abs page
+  did not carry it and I did not fetch the full text. So "no code-eval harness
+  mixes greedy with sampled draws inside one n" rests on Chen et al. plus the
+  absence of search evidence over ~6 queries. It is NOT a survey and would miss
+  any harness whose practice is only in its source code.
+- I did NOT fetch the primary internal-pilot papers. VERIFIED-SECONDARY only.
+- The greedy-free sd at n=5 (~0.0426) is an EXTRAPOLATION by binomial scaling
+  from the MEASURED n=4 value (0.0476). The n=4 number is measured; the n=5 one
+  is not, and the covariance component does not scale that way.
+- I did NOT check whether Ollama seeds its sampler per request, nor price the GPU
+  cost of extra training seeds. I priced generation minutes only, at the
+  executor's own measured 2.08 min/replicate.
+- "3 of 5 tests skip-as-PASS" is the ENUMERATED result of running that one file
+  in that one emulated state. I did not sweep the other test files for the same
+  skip-as-pass pattern; tests/test_ruler_noise.py and test_screen_sizing.py were
+  run, not audited for it.
+- No claim here is "all", "every", "swept" or "exhaustive". Where I say I looked
+  and did not find, that is search evidence with the query count stated.
+- The citation ledger for this round is in
+  council/council-transcript-2026-07-30_0355.md. I did NOT append to
+  council/phd-research-log.txt — it is outside the three writes this activation
+  authorised. Fold it in if you want that file maintained.
+
+standing by for next DIRECTIVE
+
+--------------------------------------------------------------------------------
+77. EXECUTOR LOG  (2026-07-30 - activation #17 folded, part 1: THREE RECORD
+    CORRECTIONS. The council was right on all three and I verified each against
+    the bytes rather than taking the verdict. Also: two answers to #17 exist.)
+--------------------------------------------------------------------------------
+THE CHANNEL HAS TWO ANSWERS TO ACTIVATION #17, sections 75 and 76, both labelled
+THE PHD SOLO SEAT, with reports council-report-2026-07-30_0357.md and _0355.md.
+I dispatched ONE seat. I cannot account for the second and I am not going to
+invent an explanation - recorded as UNEXPLAINED. What I can say: §76 states it
+verified 75 was free before writing and appended rather than rewriting, and no
+section number is duplicated (checked mechanically: `grep -oE "^[0-9]+\. (EXECUTOR
+|COUNCIL)" | sort | uniq -d` is empty). Both blocks are intact. The channel has no
+write lock, so "the next number is N" is a read-then-write race whenever two seats
+are armed; §76's recommendation - number from the append, or lock - is adopted for
+future rounds. Both blocks are treated as EVIDENCE and every technical claim below
+was re-derived from the artifacts before being accepted.
+
+CORRECTION 1 (§75 F1, §76 C2/C4). SECTION 73'S HEADLINE WAS MEASURED AGAINST THE
+WRONG NULL, and my own analyze output printed the right one three lines below the
+one I banked.
+
+  observed run-level sd (5-draw blend)                    0.0381
+  null assuming all 5 draws vary  (what §73 banked)       0.0376  -> 1.01x
+  null with the greedy draw CONSTANT (the actual scheme)  0.0326  -> 1.17x
+
+The greedy draw is constant on 31/31 tasks, so a null that lets all five draws
+vary is not this instrument's null. "INDEPENDENCE HOLDS EXACTLY" is WITHDRAWN. The
+1.01x was two real effects cancelling: the constant greedy draw pulling variance
+DOWN by 0.894x, and something pulling it UP by ~1.17x. Against the correct null the
+observed sd is 17% HIGH, consistent in sign with the +0.0102 mean pairwise
+correlation §73 already reported and then talked past. §75 gives the ratio's CI as
+[0.957, 1.500], which contains 1.0 - so "excess variance" is a DIRECTION, not an
+established fact, exactly as the shortfall was. The practical consequence for
+§70's table is nil, because the table was built on 0.0376 and 0.0381 is what was
+observed; the consequence for the EXPLANATION is total.
+
+CORRECTION 2 (§76 C1). "ALL FOUR OUT-OF-BAND TASKS ARE PUSHED OUT BY THE GREEDY
+ANCHOR" IS FALSE. It is one of four. Re-derived from the 40 pinned replicates,
+comparing each task's eval rate against its greedy-free rate:
+
+  ace_oss_16070   eval 0.880  greedy-free 0.850   still OUT without greedy
+  ace_oss_19459   eval 0.855  greedy-free 0.819   still OUT without greedy
+  ace_oss_24748   eval 0.145  greedy-free 0.181   still OUT without greedy
+  ace_oss_2454    eval 0.180  greedy-free 0.225   IN band without greedy  <- 1 of 4
+
+I reasoned from "each has greedy pinned at 1.00 or 0.00" to "greedy put them
+there". The premise is true and the inference does not follow: three of them are
+outside the band on their temp-0.8 rates alone. This mattered because it was the
+stated justification for changing the instrument, so the strongest argument I gave
+for the change was measurably wrong. The case for dropping greedy has to rest on
+estimator validity (§76 Q1), not on band membership.
+
+CORRECTION 3 (§76 C6). MY OWN PIN COULD SILENTLY UN-PIN ITSELF, AND MY OWN TEST
+SUITE COULD NOT SEE IT. verify_py() ended `return sys.executable`. With
+.venv-train absent the verifier becomes the launching interpreter again - the
+section 71 defect, restored - while every artifact goes on recording a
+fingerprint as if a pin were in force. RED WITNESS, _VENV_PY patched in-memory to
+a nonexistent path:
+
+  verify_py() -> C:\Python314\python.exe   == sys.executable   DEFECT BACK
+
+Worse, three of the five tests in tests/test_verifier_pin.py began
+`if not VENV_PY.exists(): print("skipped"); return`, and the runner counts a
+non-raising test as PASS. So in exactly the state where the pin is unenforceable
+the suite reports `0 failed`. That is a test that cannot fail when the thing it
+guards is broken - 05-STAYING-OUT-OF-THE-MUD 1.6 - written by me while fixing a
+defect of the same family, one round earlier. FIXED: verify_py() now RAISES with
+the expected path and the SRLM_VERIFY_PY escape hatch; the skips are gone; an
+absent venv is now a FAILURE because it means unpinned, not untested; and
+test_verify_py_refuses_to_fall_back_to_the_launcher makes the red witness
+permanent. GREEN: 7 checks, 0 failed, 0 remaining skip-as-pass sites.
+
+ALSO CLOSED THIS PASS (§75 F2): THE FREEZE HAD NO GATE. `freeze` wrote
+ruler_set_sha256 and nothing read it, so the freeze was a comment.
+build_ruler.verify_frozen() now re-hashes every task from its stored screen
+payload, compares the set hash, and ruler_noise obtains the ruler ONLY through it
+- the parse-don't-validate shape dataset_gate.load_verified already used for
+training data. RED WITNESS, both tamper modes:
+  corrupt one task hash -> "the ruler on disk is not the ruler that was frozen.
+                            ace_oss_11023: task bytes changed since freezing"
+  corrupt the set hash  -> "set hash mismatch. recorded ffff... recomputed
+                            74560a4c..."
+  clean                 -> "gate PASS, 31 tasks, 74560a4c5145"
+
+AND THE FROZEN ARTIFACT NO LONGER CARRIES SAMPLE-DEPENDENT FIGURES. It recorded a
+per-task eval_instrument_rate averaged over whatever replicates existed at freeze
+time, which is why it said 3 tasks were out of band at n=10 and the truth at n=40
+is 4. A frozen file should contain only what is frozen. Those fields are stripped;
+measured rates live in council/ruler_noise_analysis_*.txt, which are dated and
+re-derivable. The set sha256 is UNCHANGED at 74560a4c... because it never covered
+the rates - composition was not touched, so this is not a re-freeze of a different
+ruler. Re-issued with --force and the reason is this line.
+
+TWO MORE COUNCIL FINDINGS VERIFIED AND ACCEPTED, not yet acted on:
+  - pass@3 IS SATURATED BY CONSTRUCTION on this ruler. A [0.2,0.8] pass@1 band
+    maps to [0.488, 0.992] at k=3, so 20 of 31 tasks sit outside [0.2,0.8] at
+    k=3 regardless of the greedy draw (re-derived: exactly 20/31). KS=(1,3) is
+    reporting a metric this instrument cannot move. Dropping 3 from KS is a
+    one-line change and it is NOT made in this section, because changing the
+    metric is the instrument decision itself and it goes to the proprietor.
+  - THE GREEDY-FREE INSTRUMENT IS ALREADY MEASURED, at zero generation cost,
+    because eval.py records `sampled` separately (section 71's additive field,
+    added for a different reason and now paying for itself):
+        greedy-free pass@1 over the same 40 replicates: mean 0.4905  sd 0.0476
+        40 replicates/arm -> se_diff 0.01064  MDE@80% 2.98pp  (4,960 gens/arm)
+        out-of-band under greedy-free pass@1: 3/31
+    Council figures reproduced to 4 decimals. So a valid ~3pp instrument exists
+    without regenerating anything, and the level shifts 2.45pp - which is why the
+    metric change is a decision and not a cleanup.
+
+NOT DONE, deliberately, and it is the whole reason this section stops here: the
+INSTRUMENT DECISION (greedy-free pass@1 as the metric; drop 3 from KS) and the
+NEXT TRAINING RUN both go to the proprietor. §76's run sheet also raises a
+confound my own pin created - under 3.11 a missing `from typing import List`
+FAILS, and the oss prompts invite that omission, so pairs drawn from the 43-tid
+pool may have `rejected` rejected for import hygiene, which DPO would then learn
+and the ruler would reward. True positive on the instrument, false positive on the
+thesis. A cheap pre-check exists (count `rejected` completions failing with a
+NameError naming a typing generic) and has NOT been run.
+
+standing by

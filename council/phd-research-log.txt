@@ -35,6 +35,18 @@ SUMMARY — decisions this project made because of these papers
     question, NOT acted on                                                  (Wang et al. 2504.20571)
   - Quantization-mismatch fix folded INTO the seam fix rather than
     treated as its own urgent rebuild                                       (Gu et al. / Zhong et al. — ruled second-order for offline DPO)
+  - Ruling R6 (SUPERSEDES R2): change the eval sampling protocol NOW and then
+    freeze the instrument; holding prompt count at 13 buys nothing once the
+    ruler has been swapped                                                  (Chen et al. temperature-per-k + bigcode harness API + logic)
+  - Ruling R7: 3 trained seeds at k=12 instead of 1 seed at k=25 — cheaper,
+    and it measures the variance no k reduces                               (Miller 2411.00640 rec 5; PhD's own arithmetic)
+  - "pass@3 is a dead metric on a band-selected ruler; declare pass@1 primary"  (Chen et al. estimator + PhD arithmetic on n=5)
+  - "Report EACH ARM's own sd, Welch not pooled; internal pilot if a power
+    guarantee is wanted"                                                    (Miller 2411.00640 power formula; Kieser & Friede 2000)
+  - "MDE cannot be assumed conservative under DPO" — sharpening lowers
+    marginal variance but inter-task correlation raises run-level sd, and at
+    T=31 the second dominates                                               (DivPO 2501.18101 + Kirk 2310.06452 vs the project's own rho_bar=+0.0102)
+  - "§59 finding 2's tau^2/T term now has a citation": Miller's omega^2      (Miller 2411.00640)
 
 --------------------------------------------------------------------------------
 ROUND: activation #15 (banked as §59) — effect size + evol license
@@ -299,6 +311,144 @@ first opening them):
   arXiv:2602.17616 — variance-controlled off-policy RL
   arXiv:2512.01374 — (uncategorized pointer, not opened)
   APPLIED: none — context only, no ruling cites them.
+
+--------------------------------------------------------------------------------
+ROUND: activation #17 (banked as §75) — instrument validity, per-arm variance,
+and whether ruling R2 survived the ruler swap
+--------------------------------------------------------------------------------
+
+arXiv:2107.03374 — Chen et al. 2021, "Evaluating Large Language Models Trained on
+  Code" (Codex / HumanEval)
+  Cited for: the unbiased pass@k estimator itself, and — the NEW claim this round
+  — its SAMPLING PROTOCOL. Section 2.1 verbatim: "to evaluate pass@k, we generate
+  n>=k samples per task (in this paper, we use n=200 and k<=100), count the number
+  of correct samples c<=n which pass unit tests, and calculate the unbiased
+  estimator". Temperature is TUNED PER REPORTED k, one temperature per metric:
+  "for a 679M parameter model, the optimal temperature for pass@1 is T*=0.2 and
+  the optimal temperature for pass@100 is T*=0.8", and "Using the optimal
+  temperatures 0.2 and 0.8 for pass@1 and pass@100, we plot these two metrics as
+  a function of model size." Greedy / temperature 0 appears NOWHERE in the pass@k
+  sections; the lowest temperature discussed is 0.2. The paper does NOT explicitly
+  state an IID requirement — it is implicit in the k-subsets-of-n derivation.
+  Status: RE-VERIFIED this round (abs + ar5iv HTML), because it was CARRIED for a
+  different claim in earlier rounds and is used here for a new one.
+  APPLIED, directly: the primary evidence for the Q1 answer — the greedy+sampled
+  mixture is UNADDRESSED rather than endorsed or condemned. Drives ruling R6.
+
+openai/human-eval — human_eval/evaluation.py + README.md (official implementation)
+  Cited for: estimate_pass_at_k takes only (num_samples, num_correct, k) and has
+  no knowledge of how samples were produced, so it cannot detect or correct a
+  mixture. README documents num_samples_per_task = 200 and states NO temperature
+  protocol at all.
+  Status: VERIFIED (raw source + raw README fetched directly)
+  APPLIED: second leg of the Q1 answer.
+
+bigcode-project/bigcode-evaluation-harness — README.md
+  Cited for: the canonical open code-eval harness exposes a single --temperature
+  plus a single --do_sample plus --n_samples. There is no way to express "one
+  greedy draw and four at 0.8" within one n_samples set; the reference harness is
+  STRUCTURALLY INCAPABLE of producing srlm-forge's instrument.
+  Status: VERIFIED (raw README fetched)
+  APPLIED: the strongest available evidence that the mixture is outside documented
+  practice — not a warning against it, but an absence of any API for it. Third leg
+  of the Q1 answer and part of the case for R6.
+
+arXiv:2411.00640 — Evan Miller, "Adding Error Bars to Evals"
+  THE most relevant eval-statistics source anyone has cited into this project.
+  Cited for: (1) the five recommendations — CLT standard errors; clustered SEs for
+  grouped questions; variance reduction by resampling answers and by analysing
+  next-token probabilities; "When two models are being compared, conducting
+  statistical inference on the question-level paired differences, rather than the
+  population-level summary statistics"; and using power analysis to determine
+  whether an eval can test the hypothesis at all. (2) The planning formula
+      n = (z_{alpha/2} + z_beta)^2 * (omega^2 + sigma_A^2/K_A + sigma_B^2/K_B)
+          / delta^2,   omega^2 = Var(x_A) + Var(x_B) - 2*Cov(x_A, x_B)
+  which carries PER-ARM conditional variances and per-arm resampling counts.
+  (3) The paired-difference SE and the variance reduction
+  Var(paired) = Var(unpaired) - 2*Cov(x_A, x_B)/n.
+  Status: VERIFIED (HTML v1 fetched and read; the PDF is unreadable binary through
+  the fetch tool, so the HTML is the source of record)
+  APPLIED, directly and decisively — this is the whole Q2 answer:
+    (a) The literature does NOT assume homoscedasticity. se_diff = sqrt(2)*run_sd
+        is Miller's formula with sigma_A = sigma_B and K_A = K_B substituted in.
+    (b) omega^2 IS the tau^2/T heterogeneity term §59 finding 2 named without a
+        citation. Now cited. It also CONFIRMS that the project's own formula is
+        correct for the estimand it declares: with 31 FIXED tasks and no
+        generalisation claim, omega^2 = 0 and se_diff = sqrt(sd_A^2/k_A +
+        sd_B^2/k_B) is exactly right — so pairing across tasks buys NO variance
+        reduction here and the PhD explicitly declined to recommend it as one.
+    (c) Drives the Q2(d) recommendation: each arm reports its own sd, Welch
+        rather than pooled. Drives R7's reallocation.
+
+arXiv:2501.18101 — "Diverse Preference Optimization" (DivPO)
+  Cited for, verbatim: "Post-training of language models, either through
+  reinforcement learning, preference optimization or supervised finetuning, tends
+  to sharpen the output probability distribution and reduce the diversity of
+  generated responses."
+  Status: VERIFIED (abstract fetched, quote verbatim)
+  APPLIED: the documented DIRECTION for Q2 — sharpening lowers per-task p(1-p),
+  which would make the MDE conservative. Also the mechanism behind finding F6: a
+  sharpening model moves temp-0.8 output toward the greedy mode, closing the
+  +2.45pp greedy/sampled gap and raising the reported rate with no new capability.
+  This is the false-positive mechanism the greedy/sampled split is now recommended
+  as the diagnostic for.
+
+arXiv:2310.06452 — Kirk et al. — "Understanding the Effects of RLHF on LLM
+  Generalisation and Diversity"
+  Cited for, verbatim: "RLHF significantly reduces output diversity compared to
+  SFT across a variety of measures, implying a tradeoff in current LLM fine-tuning
+  methods between generalisation and diversity."
+  Status: VERIFIED (abstract). The per-input vs across-input breakdown and the
+  numeric magnitudes are UNVERIFIED — not extractable from the abstract, so do
+  NOT use this for a magnitude comparison.
+  APPLIED: co-supporting evidence with DivPO for the variance-DOWN direction in
+  Q2(c). Not used for any number.
+
+PubMed 10750058 — Kieser & Friede, "Re-calculating the sample size in internal
+  pilot study designs with control of the type I error rate", Statistics in
+  Medicine, 2000
+  Cited for: the internal-pilot design (re-estimate the variance at an interim
+  look, then re-size) is a standard accepted answer to "I must size on a variance
+  I can only measure after starting"; AND that naive re-estimation inflates alpha
+  — "it also turned out that the type I error rate may be inflated by this
+  procedure" — with strict control recovered via an adjusted critical value or a
+  downweighted alpha. Wittes and Brittain's original restriction (final n never
+  below planned n) is the simple safe form.
+  Status: VERIFIED (PubMed abstract fetched). The Wittes and Brittain 1990
+  original is a POINTER — named, not opened.
+  APPLIED: the literal answer to Q2's "what is the right design when only one arm
+  can be pre-measured" — ranked THIRD behind two zero-cost options (each arm's own
+  sd + Welch; pre-commit to a CI rather than a power promise), and offered only if
+  a power guarantee is actually wanted.
+
+arXiv:2504.13837 — Yue et al.
+  Status: CARRIED (verified in the §62 round), USED FOR A NEW CLAIM this round —
+  the narrowing/sharpening direction in Q2(c) and the "sharpening, not capability"
+  reading in F6. Used only to the extent of its already-verified abstract; not
+  re-fetched.
+  APPLIED: supporting, not load-bearing. DivPO and Kirk carry that claim.
+
+arXiv:2305.01210 — EvalPlus. FETCHED AND FOUND NOT TO ANSWER: the abstract does
+  not state the decoding protocol (greedy vs temperature) at all.
+  Status: VERIFIED-AS-UNUSABLE for this question.
+  APPLIED: a negative result — checked and ruled out as a source on standard
+  greedy-vs-sampled practice.
+
+NEGATIVE SEARCH RESULT, recorded as evidence: four targeted searches for a primary
+  source analysing a greedy / temperature-0 draw MIXED INTO the n samples of an
+  unbiased pass@k estimate returned nothing primary. What search returns is
+  LLM-written glosses asserting the violation; those were REFUSED as evidence, on
+  the §62 precedent set by arXiv:2603.20100. The Q1 answer is therefore "the
+  literature does not address this", stated as a searched absence rather than a
+  silence, and the argument was made arithmetically instead.
+  APPLIED: this is what makes R6 a judgement call backed by arithmetic rather than
+  a citation, and it is labelled that way in §75.
+
+Pointers only (named, NOT opened — do not cite as evidence without opening):
+  Wittes and Brittain 1990, Stat Med — the original internal-pilot paper
+  arXiv:2505.22617 — entropy mechanism of RL for reasoning LMs
+  arXiv:2411.04712 — SEE-DPO (self-entropy regularised DPO)
+  APPLIED: none. Context only.
 
 --------------------------------------------------------------------------------
 CARRIED FORWARD, NOT RE-VERIFIED IN ROUND 2 (still resting on Round 1's read)
