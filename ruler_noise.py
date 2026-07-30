@@ -183,7 +183,7 @@ def cmd_measure(args: argparse.Namespace) -> None:
     # accepts unimported typing annotations, 3.11 does not) and 5 ruler tasks were
     # dead channels under it. Counting those toward `--runs` would silently pool
     # two instruments, which is the exact failure the fingerprint exists to stop.
-    fp = forge.verifier_fingerprint()
+    fp = forge.verifier_interpreter()
     done, foreign = 0, 0
     if OUT.exists():
         for line in OUT.open(encoding="utf-8"):
@@ -311,7 +311,7 @@ def cmd_analyze(args: argparse.Namespace) -> None:
     vers = {(r.get("verifier") or {}).get("version", "pre-pin/unrecorded")
             for r in runs}
     if len(vers) > 1:
-        want = args.verifier or forge.verifier_fingerprint()["version"]
+        want = args.verifier or forge.verifier_interpreter()["version"]
         kept = [r for r in runs
                 if (r.get("verifier") or {}).get("version",
                                                  "pre-pin/unrecorded") == want]

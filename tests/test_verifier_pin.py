@@ -57,7 +57,7 @@ CHILD = (
     "t = forge.Task('probe', 'p', 'solve', %r)\n"
     "r = forge.verify(%r, t)\n"
     "print(json.dumps({'ok': bool(r.ok), 'launcher': sys.version.split()[0],\n"
-    "                  'fp': forge.verifier_fingerprint()}))\n"
+    "                  'fp': forge.verifier_interpreter()}))\n"
 ) % (ROOT, PROBE_TESTS, PROBE_CODE)
 
 
@@ -75,7 +75,7 @@ def test_verifier_is_not_the_launching_interpreter():
         return
     assert forge.VERIFY_PY == str(VENV_PY), \
         f"VERIFY_PY is {forge.VERIFY_PY!r}, expected the pinned {VENV_PY!r}"
-    fp = forge.verifier_fingerprint()
+    fp = forge.verifier_interpreter()
     assert fp["version"] != "unknown", "the verifier interpreter did not answer"
 
 
@@ -130,7 +130,7 @@ def test_eval_records_the_verifier():
     """A number is only comparable if the artifact says what decided it."""
     import eval as ev
     src = pathlib.Path(ev.__file__).read_text(encoding="utf-8")
-    assert '"verifier": forge.verifier_fingerprint()' in src, \
+    assert '"verifier": forge.verifier_interpreter()' in src, \
         "eval.evaluate must record the verifier fingerprint in its result"
 
 
