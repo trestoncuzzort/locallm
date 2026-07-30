@@ -153,6 +153,65 @@ def cmd_confirm(args: argparse.Namespace) -> None:
           "pinning these tids and never screening against them again.")
 
 
+def verify_frozen() -> dict:
+    """THE FREEZE GATE. Returns the frozen spec only if the tasks on disk still
+    hash to it; raises otherwise.
+
+    Council activation #17 finding F2: `freeze` wrote ruler_set_sha256 and NOTHING
+    read it. A hash nobody checks is a comment. This is the same "parse, don't
+    validate" shape dataset_gate.load_verified already uses for training data --
+    make the checked thing the only way to obtain what you need, so the check
+    cannot be skipped by forgetting a line.
+
+    It recomputes each task's hash from the stored screen payload, so a silently
+    edited prompt or test body fails here rather than quietly changing what the
+    ruler measures.
+    """
+    if not FROZEN.exists():
+        raise SystemExit(
+            f"{FROZEN.name} missing - the ruler is not frozen. Run: "
+            f"python build_ruler.py freeze")
+    spec = json.loads(FROZEN.read_text(encoding="utf-8"))
+
+    payloads = {}
+    for line in SCREEN.open(encoding="utf-8"):
+        r = json.loads(line)
+        if r.get("admitted") and r.get("task"):
+            payloads[r["tid"]] = r["task"]
+
+    def sha(*parts: str) -> str:
+        h = hashlib.sha256()
+        for p in parts:
+            h.update(p.encode("utf-8"))
+            h.update(b"\x00")
+        return h.hexdigest()
+
+    problems = []
+    for tid, rec in spec["ruler"].items():
+        c = payloads.get(tid)
+        if c is None:
+            problems.append(f"{tid}: no stored payload")
+            continue
+        body = "\n".join(str(x) for x in c["tests"])
+        if sha(c["prompt"], c["entry"], body) != rec["task_sha256"]:
+            problems.append(f"{tid}: task bytes changed since freezing")
+    if problems:
+        raise SystemExit(
+            "FROZEN RULER GATE: the ruler on disk is not the ruler that was "
+            "frozen.\n  " + "\n  ".join(problems[:8]) +
+            "\n  Measuring against it would compare to a different instrument.")
+
+    recomputed = sha(*[f"{t}:{spec['ruler'][t]['task_sha256']}"
+                       for t in sorted(spec["ruler"])])
+    if recomputed != spec["ruler_set_sha256"]:
+        raise SystemExit(
+            f"FROZEN RULER GATE: set hash mismatch.\n"
+            f"  recorded   {spec['ruler_set_sha256']}\n"
+            f"  recomputed {recomputed}\n"
+            f"  The task list itself was edited after freezing.")
+    return spec
+
+
 def cmd_freeze(args: argparse.Namespace) -> None:
     """Pin the ruler and declare the training split in ONE act.
 
@@ -224,35 +283,15 @@ def cmd_freeze(args: argparse.Namespace) -> None:
     # confirm measured pure temp 0.8; eval.py scores 1 greedy + 4 at 0.8. The
     # band has to hold under the instrument that will actually be used, so the
     # measured rate is recorded next to the confirmed one where available.
-    # ONLY rows scored by the CURRENTLY PINNED verifier. The artifact also holds
-    # 10 replicates taken before the interpreter was pinned (section 71), under
-    # which 5 of these tasks were dead channels at 1.000. Averaging the two
-    # together would bake the permissive verifier's damage into the frozen rates
-    # -- exactly the silent pooling the fingerprint was added to prevent.
-    eval_rate: dict[str, float] = {}
-    want = forge.verifier_interpreter()["version"]
-    if NOISE.exists():
-        agg: dict[str, list[float]] = {}
-        n_runs = skipped = 0
-        for line in NOISE.open(encoding="utf-8"):
-            r = json.loads(line)
-            if (r.get("verifier") or {}).get("version") != want:
-                skipped += 1
-                continue
-            n_runs += 1
-            for p in r["per_task"]:
-                if p["n"]:
-                    agg.setdefault(p["tid"], []).append(p["correct"] / p["n"])
-        eval_rate = {t: sum(v) / len(v) for t, v in agg.items()}
-        print(f"eval-instrument rates from {n_runs} replicate(s) in {NOISE.name} "
-              f"scored by the pinned verifier ({want})")
-        if skipped:
-            print(f"  skipped {skipped} replicate(s) scored by another verifier - "
-                  f"not poolable")
-        if not n_runs:
-            eval_rate = {}
-            print("  [!] none match the pinned verifier; freezing without "
-                  "eval-instrument rates")
+    # NO SAMPLE-DEPENDENT MEASUREMENTS GO IN HERE. An earlier version recorded a
+    # per-task eval_instrument_rate averaged over whatever replicates existed at
+    # freeze time, which meant the FROZEN artifact went stale the moment another
+    # replicate was banked -- it said 3 tasks were out of band at n=10 and 4 at
+    # n=40. Council activation #17 named the fix: a frozen file should contain
+    # only what is actually frozen. Measured rates live in the analysis artifacts
+    # (council/ruler_noise_analysis_*.txt), which are dated and re-derivable.
+    # confirmed_rate stays because it is ADMISSION PROVENANCE - the number that
+    # decided membership - not a live measurement of the instrument.
     else:
         print(f"[!] {NOISE.name} absent - freezing without eval-instrument rates. "
               f"The band is then confirmed only under the SCREEN's sampler.")
@@ -277,14 +316,7 @@ def cmd_freeze(args: argparse.Namespace) -> None:
             "confirmed_n": kept[t]["n"],
             "wilson95": kept[t]["wilson95"],
         }
-        if t in eval_rate:
-            tasks[t]["eval_instrument_rate"] = round(eval_rate[t], 4)
-
     set_sha = sha(*[f"{t}:{tasks[t]['task_sha256']}" for t in sorted(tasks)])
-    out_of_band = sorted(t for t in tasks
-                         if "eval_instrument_rate" in tasks[t]
-                         and not (screen_tasks.BAND_LO <= tasks[t]["eval_instrument_rate"]
-                                  <= screen_tasks.BAND_HI))
 
     FROZEN.write_text(json.dumps({
         "frozen_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
@@ -312,7 +344,11 @@ def cmd_freeze(args: argparse.Namespace) -> None:
             "every training tid hashes to the train side",
             "no tid collides with forge.SEED_TASKS or eval.HELD_OUT",
         ],
-        "eval_instrument_out_of_band": out_of_band,
+        "measured_rates_live_where":
+            "council/ruler_noise_analysis_*.txt - sample-dependent figures are "
+            "deliberately NOT frozen here (council #17): an eval-instrument rate "
+            "averaged over whatever replicates existed at freeze time goes stale "
+            "the moment another is banked.",
     }, indent=2), encoding="utf-8")
 
     print(f"\nFROZEN {len(tasks)} ruler tasks -> {FROZEN}")
@@ -321,17 +357,11 @@ def cmd_freeze(args: argparse.Namespace) -> None:
     print(f"  excluded from both    {len(dropped)} dropped nominees")
     for p in json.loads(FROZEN.read_text(encoding="utf-8"))["checks_passed"]:
         print(f"  [ok] {p}")
-    if out_of_band:
-        print(f"\n[!] {len(out_of_band)} frozen task(s) sit OUTSIDE "
-              f"[{screen_tasks.BAND_LO},{screen_tasks.BAND_HI}] under the EVAL "
-              f"instrument even though they passed confirmation under the "
-              f"screen's: {out_of_band}")
-        print("    They are frozen anyway and flagged in the artifact. They "
-              "carry less signal than the band promises; that is a stated "
-              "property of this ruler, not a hidden one.")
-    print("\nThis ruler is now pinned. Nothing may screen against these tids "
-          "again, and the training pool above is the only side new prompts may "
-          "be drawn from.")
+    print("\nThis ruler is now pinned, and the pin is ENFORCED: "
+          "build_ruler.verify_frozen() re-hashes every task from its stored "
+          "payload and runs before anything measures against it. Nothing may "
+          "screen against these tids again, and the training pool above is the "
+          "only side new prompts may be drawn from.")
 
 
 def main() -> None:

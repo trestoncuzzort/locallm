@@ -89,13 +89,32 @@ _INTERP_CACHE: dict[str, str] | None = None
 
 
 def verify_py() -> str:
-    """The interpreter that decides 'correct'. SRLM_VERIFY_PY overrides."""
+    """The interpreter that decides 'correct'. SRLM_VERIFY_PY overrides.
+
+    IT FAILS LOUDLY RATHER THAN FALLING BACK, and that is the whole point. The
+    first version of this function ended `return sys.executable`, which meant
+    that on any machine without .venv-train the verifier silently became the
+    launching interpreter again -- i.e. the exact section 71 defect, restored,
+    with every artifact still recording a fingerprint as if a pin were in force.
+    Council activation #17 (C6) caught it. Red witness, with _VENV_PY patched to
+    a nonexistent path in-memory:
+        verify_py() -> C:\\Python314\\python.exe   == sys.executable   DEFECT BACK
+    A fallback that reintroduces the bug is worse than no fallback, because it is
+    quiet. Anyone genuinely wanting the launcher must now say so with
+    SRLM_VERIFY_PY and it will be recorded as a deliberate pin.
+    """
     env = os.environ.get("SRLM_VERIFY_PY")
     if env:
         return env
     if _VENV_PY.exists():
         return str(_VENV_PY)
-    return sys.executable
+    raise SystemExit(
+        "VERIFIER NOT PINNED. Ground truth would fall back to the launching\n"
+        f"  interpreter ({sys.executable}), which is the defect section 71 fixed:\n"
+        "  guarded and unguarded callers then score against different Pythons.\n"
+        f"  expected: {_VENV_PY}\n"
+        "  fix: create .venv-train, or pin deliberately with\n"
+        "       SRLM_VERIFY_PY=<path-to-python>  (it is recorded in the receipt)")
 
 
 def interpreter_fingerprint() -> dict[str, str]:

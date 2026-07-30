@@ -102,10 +102,22 @@ SIZING = {
 # under the unpinned verifier is kept in the artifact but is NOT poolable -- the
 # permissive reading made 5 tasks dead channels.
 #
-# INDEPENDENCE HOLDS: observed/predicted is 1.01x (both values below; the ratio
-# is computed, not retyped -- test_screen_sizing caught exactly that when this
-# comment first restated the figure). The sizing rows above are therefore CORRECT
-# AS PUBLISHED and must not be tightened.
+# WHICH NULL. Council activation #17 corrected this and section 77 folded it:
+# comparing the observed sd against `independence_prediction` (which lets all 5
+# draws vary) is comparing against the WRONG null, because the greedy draw is
+# constant on 31/31 tasks. Against `greedy_corrected_prediction` -- the null for
+# the sampling scheme this instrument actually runs -- the observed sd is ~17%
+# HIGH, not equal. The earlier "independence holds exactly, 1.01x" was two real
+# effects cancelling: the constant greedy draw pulling variance down by 0.894x and
+# excess between-task covariance pushing it up. Both ratios are computed below,
+# never retyped (test_screen_sizing caught exactly that when this comment first
+# restated a figure).
+#
+# The sizing rows above are unaffected and CORRECT AS PUBLISHED: they were derived
+# from independence_prediction and the observed sd came in at essentially that
+# value, so the generation counts stand. It is the EXPLANATION that was wrong, and
+# the excess-variance ratio's own CI contains 1.0, so it is a direction and not an
+# established fact.
 #
 # THIS SUPERSEDES A NUMBER THIS PROJECT ALMOST BANKED. At 10 replicates the same
 # instrument read 0.0283 (0.75x), and the residual covariance came out NEGATIVE
@@ -121,9 +133,13 @@ NOISE_FLOOR = {
     "run_level_sd": 0.0381,
     "ci95": (0.0312, 0.0489),
     "replicates": 40,
+    # The null the SIZING rows were derived from: all N_SAMPLES draws vary.
     "independence_prediction": 0.0376,
+    # The null for the scheme actually run: 1 constant greedy draw + N-1 varying.
+    # This is the honest comparator for the observed sd.
+    "greedy_corrected_prediction": 0.0326,
     "verifier": "python 3.11.9",
-    "source": "section 73; data/ruler_noise.jsonl; ruler_noise.py analyze",
+    "source": "sections 73/77; data/ruler_noise.jsonl; ruler_noise.py analyze",
 }
 DEFAULT_DELTA_PP = 3.0
 DEFAULT_K = 10          # eval runs per task; the cheaper shape from section 56
@@ -299,14 +315,19 @@ def main() -> None:
               f"({SIZING[d]:,} generations/arm either way)")
     nf = NOISE_FLOOR
     ratio = nf["run_level_sd"] / nf["independence_prediction"]
+    ratio_g = nf["run_level_sd"] / nf["greedy_corrected_prediction"]
     contains = nf["ci95"][0] <= nf["independence_prediction"] <= nf["ci95"][1]
     print(f"[screen] all of the above assume run-to-run noise is pure sampling. "
           f"MEASURED ({nf['source']}): run-level sd {nf['run_level_sd']:.4f} over "
           f"{nf['replicates']} null replicates under {nf['verifier']}, against the "
           f"{nf['independence_prediction']:.4f} these rows assume - {ratio:.2f}x.")
+    print(f"[screen] but the null for the scheme actually run (greedy draw "
+          f"constant) is {nf['greedy_corrected_prediction']:.4f}, against which "
+          f"the observed sd is {ratio_g:.2f}x - EXCESS variance, not agreement. "
+          f"The {ratio:.2f}x is two effects cancelling; see section 77.")
     print(f"[screen] 95% CI [{nf['ci95'][0]:.4f}, {nf['ci95'][1]:.4f}] "
-          + ("CONTAINS the assumed value, so the shortfall is a DIRECTION, not an "
-             "established fact - the rows above are not yet safe to tighten."
+          + ("CONTAINS the value these rows assume, so neither the excess nor any "
+             "shortfall is established - the rows above are not safe to tighten."
              if contains else
              "excludes the assumed value, so the rows above are conservative."))
 

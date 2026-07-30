@@ -153,8 +153,16 @@ def ruler_tasks() -> tuple[list[forge.Task], dict[str, float], str]:
     payload has no such coupling: the bytes that were screened are the bytes
     re-used here.
     """
-    spec = json.loads(RULER.read_text(encoding="utf-8"))
-    kept = {k["tid"]: k["confirmed_rate"] for k in spec["kept"]}
+    # THROUGH THE FREEZE GATE, not around it. Council activation #17 finding F2:
+    # freeze wrote ruler_set_sha256 and nothing read it, so the freeze was a
+    # comment. verify_frozen() re-hashes every task from its stored payload and
+    # raises if the ruler on disk is not the ruler that was frozen; obtaining the
+    # tasks through it is what makes the check unskippable.
+    import build_ruler
+    frozen = build_ruler.verify_frozen()
+    kept = {t: rec["confirmed_rate"] for t, rec in frozen["ruler"].items()}
+    print(f"[noise] frozen ruler verified: {len(kept)} tasks, "
+          f"set sha256 {frozen['ruler_set_sha256'][:12]}...")
 
     payloads: dict[str, dict] = {}
     for line in SCREEN.open(encoding="utf-8"):
@@ -169,7 +177,7 @@ def ruler_tasks() -> tuple[list[forge.Task], dict[str, float], str]:
             f"{SCREEN.name}: {missing[:5]}. Refusing to measure a partial ruler.")
 
     tasks = [screen_tasks.as_task(payloads[t]) for t in sorted(kept)]
-    return tasks, kept, spec["model"]
+    return tasks, kept, frozen["model"]
 
 
 # ---------------------------------------------------------------------------
