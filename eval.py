@@ -263,7 +263,7 @@ def evaluate(model_tag: str, tasks: list[forge.Task] | None = None,
         # inherited from the launching script, so rows written by guarded and
         # unguarded callers were scored against different ground truth (section
         # 71). A row without this key predates the pin and is not comparable.
-        "verifier": forge.verifier_fingerprint(),
+        "verifier": forge.verifier_interpreter(),
         "n_tasks": len(tasks),
         "aggregate": agg,
         "coverage": coverage,

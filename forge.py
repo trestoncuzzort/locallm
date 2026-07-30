@@ -36,7 +36,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 import re
 import subprocess
 import sys
@@ -48,6 +47,7 @@ from pathlib import Path
 import requests
 
 import config
+import dataset_gate
 
 # ---------------------------------------------------------------------------
 # Config
@@ -60,6 +60,25 @@ NUM_CANDIDATES = 4          # samples per task; more = better pairs, more time
 GEN_TEMP     = 0.8          # diversity matters for preference pairs
 KEEP_ALIVE   = "5m"         # keep model warm between tasks; released on exit
 CAND_TIMEOUT = 8            # seconds per candidate execution
+
+EMIT_CONCISENESS = False    # length-preference is a reward-hack;
+                            # off until a robustness signal (mutation tests) exists
+OUT_DIR      = Path(__file__).with_name("data")
+
+ACTOR_SYSTEM = (
+    "You are a precise Python engineer. Given a task, respond with a single "
+    "self-contained Python solution inside one ```python fenced code block. "
+    "Define exactly the requested function. No prose, no tests, no prints."
+)
+
+# Cheap defense-in-depth for executing model output. NOT a real sandbox.
+# For untrusted / scaled runs, execute inside a container or throwaway VM.
+BANNED = re.compile(
+    r"\b(import\s+(os|sys|subprocess|socket|shutil|ctypes|requests|urllib|http)"
+    r"|__import__|open\s*\(|eval\s*\(|exec\s*\()",
+    re.IGNORECASE,
+)
+
 
 # ---------------------------------------------------------------------------
 # THE VERIFIER'S INTERPRETER IS PINNED, NOT INHERITED.
@@ -100,58 +119,21 @@ CAND_TIMEOUT = 8            # seconds per candidate execution
 # cross-interpreter comparison is detectable instead of silent. Override with
 # SRLM_VERIFY_PY to re-pin deliberately.
 # ---------------------------------------------------------------------------
-_VENV_PY = Path(__file__).resolve().parent / ".venv-train" / "Scripts" / "python.exe"
+# The resolution itself lives in dataset_gate, which is stdlib-only and already
+# imported by BOTH interpreters (verify side and training side). One definition,
+# imported -- not a copy per caller, which is the failure venv_guard.py was
+# written to end. dataset_gate imports nothing from forge, so there is no cycle.
+VERIFY_PY = dataset_gate.verify_py()
 
 
-def _resolve_verify_py() -> str:
-    env = os.environ.get("SRLM_VERIFY_PY")
-    if env:
-        return env
-    if _VENV_PY.exists():
-        return str(_VENV_PY)
-    return sys.executable
-
-
-VERIFY_PY = _resolve_verify_py()
-_FINGERPRINT: dict | None = None
-
-
-def verifier_fingerprint() -> dict:
+def verifier_interpreter() -> dict:
     """What the verifier ACTUALLY is, asked of the interpreter rather than
     assumed. Recorded into result artifacts so two numbers produced under
     different ground truth can never be silently compared."""
-    global _FINGERPRINT
-    if _FINGERPRINT is None:
-        ver, pinned = "unknown", VERIFY_PY != sys.executable
-        try:
-            p = subprocess.run([VERIFY_PY, "-I", "-c",
-                                "import sys; print(sys.version.split()[0])"],
-                               capture_output=True, text=True, timeout=30)
-            if p.returncode == 0:
-                ver = p.stdout.strip()
-        except (OSError, subprocess.SubprocessError):
-            pass
-        _FINGERPRINT = {"executable": VERIFY_PY, "version": ver,
-                        "pinned_away_from_launcher": pinned,
-                        "launcher_version": sys.version.split()[0]}
-    return _FINGERPRINT
-EMIT_CONCISENESS = False    # length-preference is a reward-hack;
-                            # off until a robustness signal (mutation tests) exists
-OUT_DIR      = Path(__file__).with_name("data")
-
-ACTOR_SYSTEM = (
-    "You are a precise Python engineer. Given a task, respond with a single "
-    "self-contained Python solution inside one ```python fenced code block. "
-    "Define exactly the requested function. No prose, no tests, no prints."
-)
-
-# Cheap defense-in-depth for executing model output. NOT a real sandbox.
-# For untrusted / scaled runs, execute inside a container or throwaway VM.
-BANNED = re.compile(
-    r"\b(import\s+(os|sys|subprocess|socket|shutil|ctypes|requests|urllib|http)"
-    r"|__import__|open\s*\(|eval\s*\(|exec\s*\()",
-    re.IGNORECASE,
-)
+    ver = dataset_gate.interpreter_fingerprint()["interpreter"].split()[-1]
+    return {"executable": VERIFY_PY, "version": ver,
+            "pinned_away_from_launcher": VERIFY_PY != sys.executable,
+            "launcher_version": sys.version.split()[0]}
 
 
 # ---------------------------------------------------------------------------
