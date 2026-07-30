@@ -10351,3 +10351,115 @@ thesis. A cheap pre-check exists (count `rejected` completions failing with a
 NameError naming a typing generic) and has NOT been run.
 
 standing by
+
+--------------------------------------------------------------------------------
+78. EXECUTOR LOG  (2026-07-30 - TRACK B BUG, reported by the proprietor: "when I
+    sample the AI it won't talk back to me after training." Reproduced, diagnosed,
+    fixed. The model was never broken; the GUI could not reach it.)
+--------------------------------------------------------------------------------
+FIRST, WHAT IT WAS NOT. The trained model is fine. Sampling the checkpoint the
+GUI wrote at 15:33 today, from the CLI, outside the GUI:
+
+  $ python generate.py --out out_gui --prompt "def solve(" --tokens 200
+  def solve(a, tok):
+      assert gcd(18, 1) == 1
+      assert gcd(7, 8) == 1
+      ...
+
+Coherent, and heavily memorised - train_loss 0.088 against val_loss 2.774 on that
+run - but it talks. So the defect was between the trained weights and the user,
+not in the weights.
+
+THE DEFECT, in studio.py. `self.model` was assigned in exactly ONE place, line
+577, handling the "done" message a training run emits when it finishes. The
+Sample button was created `state="disabled"` (line 413) and re-enabled only from
+that same handler. And nothing anywhere loaded `<out>/ckpt.pt`. Three facts that
+are individually reasonable and together mean: THE GUI CAN ONLY SAMPLE A MODEL IT
+TRAINED IN THE CURRENT SESSION. Close the window, reopen it, and the model sitting
+in out_gui/ is unreachable - button greyed, nothing to click.
+
+And when it was reachable-but-unset, `_generate` opened with:
+
+    def _generate(self):
+        if self.model is None:
+            return
+
+A bare return. No dialog, no status line, no log entry. The button does nothing
+and says nothing about why. That is the reported symptom exactly: it won't talk
+back.
+
+RED WITNESS, source-level, because tkinter needs an interactive window station
+this shell does not have (recorded 2026-07-20; Win32 GUI calls fail silently
+here):
+
+  $ git show HEAD:localllm/studio.py | grep -A3 "def _generate"
+        def _generate(self):
+            if self.model is None:
+                return
+  $ git show HEAD:localllm/studio.py | grep -c "load_checkpoint\|_load_saved"
+  0
+
+Zero load paths. The green half is executable and is the capability that did not
+exist: load a model trained in an earlier session and get text out of it.
+
+THE FIX, and the shape of it matters more than the lines. generate.py already
+knew how to load a checkpoint - four lines buried inside its `main()`, where no
+other caller could reach them. The tempting fix was to copy those four lines into
+studio.py. That is precisely the mistake venv_guard.py exists in this repo to end
+(section 65/67: a helper copied into a second file was correct in the first and
+wrong the moment it was reused, because it had a caller baked in). So:
+
+  localllm/checkpoint.py   NEW. load_checkpoint() and sample(), one
+                           implementation. generate.py and studio.py both import
+                           it; neither has its own copy of the load or the
+                           sampling loop any more.
+  studio.py                _load_saved() brings a model back off disk; called on
+                           startup so the Sample button is live if a checkpoint
+                           exists, and called again from _generate as a last
+                           resort. The bare `return` is replaced by a dialog
+                           naming the directory it looked in and what to do.
+  generate.py              now four lines shorter and routed through the same
+                           helper, so the CLI and the GUI cannot drift apart.
+
+TWO CHECKS ADDED AT LOAD, because both were cheap and both are miserable to debug
+from the symptom:
+  - a checkpoint is ckpt.pt AND tokenizer.json. Half a checkpoint cannot decode
+    what it generates, so `checkpoint_exists` requires both.
+  - if len(tokenizer.chars) != config.vocab_size, the tokenizer and the weights
+    came from different runs. That produces index errors or silent garbage; it
+    now raises at load naming both numbers.
+
+GREEN - localllm/test_checkpoint.py, 9 checks, 0 failed, run under .venv-train:
+  test_checkpoint_exists_needs_both_files          test_cli_still_works
+  test_empty_prompt_still_produces_text            test_load_and_sample_round_trips
+  test_missing_checkpoint_names_the_directory
+  test_prompt_of_unknown_characters_does_not_crash
+  test_studio_and_cli_share_one_sampler
+  test_studio_can_load_from_disk
+  test_studio_has_no_silent_return_on_missing_model
+Two of those are regression guards rather than tests of the fix:
+test_cli_still_works actually runs generate.py end to end (the refactor could
+have broken the documented CLI), and test_studio_and_cli_share_one_sampler fails
+if either file grows its own copy of the sampling loop again.
+
+The unknown-character test is worth naming: the tokenizer is char-level over the
+~97 characters in the corpus, so a prompt typed into the GUI containing an emoji
+or CJK encodes to NOTHING, and generating from an empty tensor is an error rather
+than an empty answer. Both callers previously handled that with their own
+`or [0]`; now one does, and it is tested rather than assumed.
+
+WHAT I COULD NOT TEST, stated because it is the weak part. I cannot drive the Tk
+GUI from this shell, so no test clicks the Sample button. What is covered is the
+logic the button delegates to, plus source-level assertions that the silent
+return is gone and the loader is wired into __init__. `python -c "import studio"`
+runs clean and Studio._load_saved exists, which catches import-time and wiring
+errors but not layout. I also did NOT add a separate "Load model" button, on
+purpose: I cannot verify a layout change I cannot render, and auto-load on
+startup plus auto-load on Sample already covers the reported case.
+
+NOT INVESTIGATED: whether the 15:33 run's val_loss of 2.774 against a train_loss
+of 0.088 is worth acting on. That is a 16-layer model on a 549k-character corpus
+and the gap is what you would expect; it is a separate question from "it won't
+talk back" and the proprietor did not ask it.
+
+standing by
