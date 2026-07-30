@@ -8406,3 +8406,93 @@ STILL OPEN, and the first two are load-bearing for any efficacy claim:
      inherited. It is a flashlight, not a fence.
 
 standing by
+
+--------------------------------------------------------------------------------
+73. EXECUTOR LOG  (2026-07-29 - RECORD CORRECTION. Section 72's noise floor was
+    wrong in the OPTIMISTIC direction. At 40 replicates independence holds
+    exactly: 1.01x. Section 70's sizing table was right as published.)
+--------------------------------------------------------------------------------
+Section 72 closed by saying the sd's interval was too wide to spend 3,100
+generations against and that narrowing it was the next measurement, not the next
+guess. Ran it: 30 more null-arm replicates under the pinned verifier, 40 total,
+62.5 min, 0 generation errors. Evidence: data/ruler_noise.jsonl,
+council/ruler_noise_analysis_n40.txt.
+
+THE CORRECTION, stated before anything else:
+
+                          n=10 (section 72)      n=40 (this section)
+  run-level sd            0.0283                 0.0381
+  95% CI                  [0.0195, 0.0516]       [0.0312, 0.0489]
+  ratio to prediction     0.75x                  1.01x
+  residual covariance     -0.0072 cancellation   +0.0102 reinforcement
+
+BOTH the shortfall and the SIGN of its residual were small-sample noise. Section
+72 reported a 25% precision bonus and a cancellation effect; neither exists. The
+independence prediction of 0.0376 that section 70 derived is right to within 1%,
+and the mean pairwise correlation is very slightly POSITIVE, which is the opposite
+of what section 62 A1b measured on the old bank and what section 72 half-believed.
+
+WHAT THIS DOES TO THE DECISION - it restores section 70's table exactly:
+
+     k    se_diff   MDE@80%   gens/arm     section 70 published
+     5     0.0241     6.7pp        775          6.7pp
+    10     0.0170     4.8pp      1,550          4.7pp
+    20     0.0120     3.4pp      3,100          3.3pp
+    25     0.0108     3.0pp      3,875          3.0pp
+
+Section 70 priced 3pp at k=25 / 3,875 generations per arm and that price stands.
+Section 72's "3pp needs k=20 (3,100)" is WITHDRAWN. The instrument is not cheaper
+than it was costed; it is exactly as expensive, and the SIZING rows in
+screen_tasks.py are correct as published and must not be tightened.
+
+WHY THIS WAS CAUGHT RATHER THAN BANKED. Section 72 refused to bank 0.75x, on the
+single ground that the 95% CI still CONTAINED 0.0376, and said so in those words
+both in the channel and in the completion banner. That refusal is the only reason
+this is a correction to an unspent number instead of a wasted training run costed
+off a 25% error. Section 70's method note was "check how many times you measured
+it - n=1 is a rumour". The addition: n=10 is a rumour too when the quantity is a
+VARIANCE. Ten replicates give 9 degrees of freedom and a CI spanning a factor of
+2.6; a variance estimate needs an order more samples than a mean does for the same
+confidence, and the interval is the thing to read, never the point estimate.
+
+THE PIN IS FURTHER CONFIRMED, and this is the strongest form of it yet. The
+temp-0.8 half of the eval instrument and build_ruler.confirm measure the same
+quantity by the same code path, so with the verifier pinned they must agree:
+
+  temp-0.8 half minus confirmed    n=10: +0.0024     n=40: +0.0002
+  max |per-task deviation|         n=10:  0.2500     n=40:  0.2063
+  pre-pin, for contrast                   +0.0710
+
++0.0002 over 31 tasks at 160 draws each. The interpreter was the whole of that
++0.0710, and nothing else systematic remains in the seam.
+
+RULER STATE, unchanged in composition, better characterised:
+  dead channels (pinned 0 or 1) across 40 runs   0/31
+  tasks outside [0.2, 0.8] under the eval        4/31
+    ace_oss_16070   confirmed 0.783 -> eval 0.880  (greedy 1.00, temp0.8 0.85)
+    ace_oss_19459   confirmed 0.783 -> eval 0.855  (greedy 1.00, temp0.8 0.82)
+    ace_oss_24748   confirmed 0.283 -> eval 0.145  (greedy 0.00, temp0.8 0.18)
+    ace_oss_2454    confirmed 0.217 -> eval 0.180  (greedy 0.00, temp0.8 0.23)
+ace_oss_2454 is new to this list at 40 replicates; section 72's list of 3 was
+itself an n=10 artifact and is superseded by this one. Every one of the four is
+pushed out by the greedy anchor (all four have greedy pinned at 1.00 or 0.00),
+which makes the open question about dropping the greedy draw more pointed, not
+less: it is the sole mechanism putting tasks outside the band on this ruler.
+The frozen artifact records the n=10 rates and should be re-issued from n=40 -
+NOT DONE, and it needs --force because freezing twice silently is exactly what
+the guard exists to prevent. Named, not done.
+
+STILL OPEN, revised:
+  1. se_diff = sqrt(2)*run_sd still assumes BOTH arms share a run-level sd, and
+     still only the NULL arm is measured. Unchanged by this section and now the
+     single largest unmeasured quantity in the sizing.
+  2. The CI is [0.0312, 0.0489], a factor of 1.57 rather than 2.6. Tighter, and
+     it still contains the prediction. It no longer blocks a k choice: at the
+     pessimistic end k=25 gives 3.9pp, so 3pp is not guaranteed at any listed k
+     and k=25 remains the honest floor of the range section 70 named.
+  3. data/ruler_frozen.json carries n=10 eval-instrument rates (above).
+  4. The greedy anchor is now the only mechanism pushing tasks out of band.
+  5. Cross-version verifier divergence beyond the annotation case: still a
+     flashlight, not a fence.
+
+standing by
