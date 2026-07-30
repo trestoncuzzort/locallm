@@ -259,6 +259,11 @@ def evaluate(model_tag: str, tasks: list[forge.Task] | None = None,
         "task_set": task_set,
         "n_samples": N_SAMPLES,
         "temp": TEMP,
+        # WHICH PYTHON DECIDED "correct". Recorded because it used to be
+        # inherited from the launching script, so rows written by guarded and
+        # unguarded callers were scored against different ground truth (section
+        # 71). A row without this key predates the pin and is not comparable.
+        "verifier": forge.verifier_fingerprint(),
         "n_tasks": len(tasks),
         "aggregate": agg,
         "coverage": coverage,

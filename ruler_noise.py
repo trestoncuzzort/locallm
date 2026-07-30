@@ -177,15 +177,30 @@ def cmd_measure(args: argparse.Namespace) -> None:
     tasks, rates, model = ruler_tasks()
     model = args.model or model
 
-    done = 0
+    # REPLICATES ARE ONLY INTERCHANGEABLE IF THE SAME PYTHON DECIDED "correct".
+    # Section 71 found forge.verify inheriting its interpreter from the caller, so
+    # rows banked before the pin were scored by a more permissive verifier (3.14
+    # accepts unimported typing annotations, 3.11 does not) and 5 ruler tasks were
+    # dead channels under it. Counting those toward `--runs` would silently pool
+    # two instruments, which is the exact failure the fingerprint exists to stop.
+    fp = forge.verifier_fingerprint()
+    done, foreign = 0, 0
     if OUT.exists():
         for line in OUT.open(encoding="utf-8"):
             try:
                 r = json.loads(line)
-                if r.get("model") == model and r.get("task_set") == TASK_SET:
-                    done += 1
             except json.JSONDecodeError:
-                pass
+                continue
+            if r.get("model") != model or r.get("task_set") != TASK_SET:
+                continue
+            if (r.get("verifier") or {}).get("version") == fp["version"]:
+                done += 1
+            else:
+                foreign += 1
+    print(f"[noise] verifier {fp['version']} @ {fp['executable']}")
+    if foreign:
+        print(f"[noise] ignoring {foreign} replicate(s) banked under a different "
+              f"verifier - they are kept in the file as evidence, not pooled")
     todo = max(0, args.runs - done)
     print(f"[noise] ruler {len(tasks)} tasks | model {model}")
     print(f"[noise] {done} replicate(s) already banked, {todo} to go "
@@ -291,6 +306,20 @@ def cmd_analyze(args: argparse.Namespace) -> None:
     models = sorted({r["model"] for r in runs})
     if len(models) > 1:
         raise SystemExit(f"replicates span {models}; pass --model to pick one")
+
+    # Same rule as `measure`: never pool across verifiers (section 71).
+    vers = {(r.get("verifier") or {}).get("version", "pre-pin/unrecorded")
+            for r in runs}
+    if len(vers) > 1:
+        want = args.verifier or forge.verifier_fingerprint()["version"]
+        kept = [r for r in runs
+                if (r.get("verifier") or {}).get("version",
+                                                 "pre-pin/unrecorded") == want]
+        print(f"[!] replicates span {len(vers)} verifiers {sorted(vers)}.")
+        print(f"[!] analyzing only the {len(kept)} row(s) scored by {want!r}. "
+              f"Pass --verifier to choose another; they are NOT poolable "
+              f"(section 71: the permissive reading made 5 tasks dead channels).")
+        runs = kept
     R = len(runs)
     if R < 3:
         raise SystemExit(f"{R} replicate(s) is not a variance estimate")
@@ -477,6 +506,9 @@ def main() -> None:
                    help="default: the model recorded in ruler_confirmed.json")
     a = sub.add_parser("analyze")
     a.add_argument("--model", default=None)
+    a.add_argument("--verifier", default=None,
+                   help="verifier version to analyze when the file spans several; "
+                        "default is the currently pinned one")
     sub.add_parser("selftest")
     args = ap.parse_args()
     {"measure": cmd_measure, "analyze": cmd_analyze,

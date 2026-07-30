@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
@@ -59,6 +60,81 @@ NUM_CANDIDATES = 4          # samples per task; more = better pairs, more time
 GEN_TEMP     = 0.8          # diversity matters for preference pairs
 KEEP_ALIVE   = "5m"         # keep model warm between tasks; released on exit
 CAND_TIMEOUT = 8            # seconds per candidate execution
+
+# ---------------------------------------------------------------------------
+# THE VERIFIER'S INTERPRETER IS PINNED, NOT INHERITED.
+#
+# verify() used to launch [sys.executable, "-I", path], so ground truth -- the
+# one objective signal this whole project rests on -- depended on which script
+# happened to call it. That is not hypothetical: screen_tasks.py and
+# build_ruler.py go through venv_guard, and system Python has no pyarrow, so
+# they ALWAYS re-exec under .venv-train (3.11). eval.py, ruler_noise.py and
+# forge.py have no guard and run under system Python (3.14). The screen that
+# admitted the ruler and the eval that scores it were verifying against
+# different Pythons.
+#
+# RED WITNESS (section 71): 310 completions banked once, then replayed through
+# verify() under both interpreters -- identical code bytes, identical tasks.
+#   3.14: 172/310 = 0.5548     3.11: 154/310 = 0.4968
+# 18 disagreements, ALL ONE WAY (3.14 passes, 3.11 fails), on 6 of 31 tasks.
+# Cause is PEP 649/749 deferred annotation evaluation: `def f(x: List[int])`
+# with no `from typing import List` raises NameError at def time on 3.11 and is
+# harmless on 3.14. Minimal probe:
+#     def f(x: List[int]) -> Tuple[int, int]: return (1, 2)
+#   3.11 -> NameError: name 'List' is not defined      3.14 -> DEFINED_OK
+# Consequence measured: 5 ruler tasks that sit at 0.60-0.80 under 3.11 become
+# DEAD CHANNELS at 1.000 under 3.14, and tasks outside the [0.2,0.8] band go
+# from 2/31 to 7/31. The permissive reading destroys the instrument.
+#
+# WHY .venv-train IS THE DEFAULT rather than system Python. Not because it
+# preserves the ruler -- that would be reasoning that conveniently saves work.
+# Because (a) unimported typing annotations genuinely do not run on any Python
+# before 3.14, so accepting them rewards code that is broken nearly everywhere,
+# and (b) .venv-train is the interpreter the training stack itself runs on, so
+# it is what the model is being trained to write for. It is version-pinned and
+# lives in the repo, which is what makes it a pin rather than a coincidence.
+#
+# THIS RE-DEFINES GROUND TRUTH for artifacts verified under 3.14 -- data/
+# dpo_pairs*.jsonl and data/eval_history.jsonl were built by unguarded scripts.
+# Nothing here re-runs or overwrites them; the fingerprint below exists so a
+# cross-interpreter comparison is detectable instead of silent. Override with
+# SRLM_VERIFY_PY to re-pin deliberately.
+# ---------------------------------------------------------------------------
+_VENV_PY = Path(__file__).resolve().parent / ".venv-train" / "Scripts" / "python.exe"
+
+
+def _resolve_verify_py() -> str:
+    env = os.environ.get("SRLM_VERIFY_PY")
+    if env:
+        return env
+    if _VENV_PY.exists():
+        return str(_VENV_PY)
+    return sys.executable
+
+
+VERIFY_PY = _resolve_verify_py()
+_FINGERPRINT: dict | None = None
+
+
+def verifier_fingerprint() -> dict:
+    """What the verifier ACTUALLY is, asked of the interpreter rather than
+    assumed. Recorded into result artifacts so two numbers produced under
+    different ground truth can never be silently compared."""
+    global _FINGERPRINT
+    if _FINGERPRINT is None:
+        ver, pinned = "unknown", VERIFY_PY != sys.executable
+        try:
+            p = subprocess.run([VERIFY_PY, "-I", "-c",
+                                "import sys; print(sys.version.split()[0])"],
+                               capture_output=True, text=True, timeout=30)
+            if p.returncode == 0:
+                ver = p.stdout.strip()
+        except (OSError, subprocess.SubprocessError):
+            pass
+        _FINGERPRINT = {"executable": VERIFY_PY, "version": ver,
+                        "pinned_away_from_launcher": pinned,
+                        "launcher_version": sys.version.split()[0]}
+    return _FINGERPRINT
 EMIT_CONCISENESS = False    # length-preference is a reward-hack;
                             # off until a robustness signal (mutation tests) exists
 OUT_DIR      = Path(__file__).with_name("data")
@@ -432,7 +508,9 @@ def verify(code: str, task: Task) -> Result:
     t0 = time.perf_counter()
     try:
         proc = subprocess.run(
-            [sys.executable, "-I", path],   # -I: isolated, ignore env/site
+            [VERIFY_PY, "-I", path],        # -I: isolated, ignore env/site
+                                            # VERIFY_PY, not sys.executable: see
+                                            # the pin block above and section 71
             capture_output=True, text=True, timeout=CAND_TIMEOUT,
         )
         res.runtime = time.perf_counter() - t0
