@@ -80,16 +80,41 @@ BAND_LO, BAND_HI = 0.2, 0.8
 # "the model improved at code generation" needs an extra tau^2/T heterogeneity
 # term this omits. Pre-register which estimand is meant.
 #
-# CONDITIONAL, and the condition is unmet: every figure assumes run-to-run noise
-# is pure sampling. That ratio (0.98) was measured on the OLD ten-task
-# instrument. The new instrument's noise floor is UNMEASURED. If a systematic
-# term of even 0.005 exists, the large-k rows below are void.
+# CONDITIONAL: every figure below assumes run-to-run noise is pure sampling. The
+# status of that condition is stated ONCE, in NOISE_FLOOR, and is not restated
+# here -- the same reason the sizing figures are not restated in the docstring.
 # --------------------------------------------------------------------------
 N_SAMPLES = 5           # generations per eval run; must match eval.py:37
 SIZING = {
     # delta_pp: generations per arm needed at 80% power, alpha=.05 two-sided
     3.0: 3889,
     5.0: 1400,
+}
+
+# --------------------------------------------------------------------------
+# NOISE FLOOR - the single definition. It was UNMEASURED through section 70 and
+# is measured now; the completion banner COMPUTES its caveat from these values
+# rather than carrying a second copy of the status, which is how the previous
+# status ended up stale in two places at once.
+#
+# Section 71: 10 null-arm replicates of the 31-task confirmed band, scored by
+# eval.evaluate under the PINNED verifier (python 3.11.9). An earlier set of 10
+# under the unpinned verifier is kept in the artifact but is NOT poolable -- the
+# permissive reading made 5 tasks dead channels.
+#
+# READ THE CI BEFORE SPENDING ANYTHING ON IT. The point estimate is 0.75x the
+# independence prediction, i.e. the favourable direction, but the 95% interval
+# still CONTAINS the prediction. Ten replicates buy 9 degrees of freedom, which
+# is enough to site the number and not enough to establish the ratio. Treat the
+# shortfall as a direction, not a fact.
+# --------------------------------------------------------------------------
+NOISE_FLOOR = {
+    "run_level_sd": 0.0283,
+    "ci95": (0.0195, 0.0516),
+    "replicates": 10,
+    "independence_prediction": 0.0376,
+    "verifier": "python 3.11.9",
+    "source": "section 71; data/ruler_noise.jsonl; ruler_noise.py analyze",
 }
 DEFAULT_DELTA_PP = 3.0
 DEFAULT_K = 10          # eval runs per task; the cheaper shape from section 56
@@ -263,9 +288,18 @@ def main() -> None:
         print(f"[screen] detect {d}pp: needs {tasks_needed(d, DEFAULT_K)} tasks "
               f"at k={DEFAULT_K}, or {tasks_needed(d, 5)} at k=5 "
               f"({SIZING[d]:,} generations/arm either way)")
-    print("[screen] all of the above assume run-to-run noise is pure sampling. "
-          "The new instrument's noise floor is UNMEASURED - measure it before "
-          "trusting any large-k row.")
+    nf = NOISE_FLOOR
+    ratio = nf["run_level_sd"] / nf["independence_prediction"]
+    contains = nf["ci95"][0] <= nf["independence_prediction"] <= nf["ci95"][1]
+    print(f"[screen] all of the above assume run-to-run noise is pure sampling. "
+          f"MEASURED ({nf['source']}): run-level sd {nf['run_level_sd']:.4f} over "
+          f"{nf['replicates']} null replicates under {nf['verifier']}, against the "
+          f"{nf['independence_prediction']:.4f} these rows assume - {ratio:.2f}x.")
+    print(f"[screen] 95% CI [{nf['ci95'][0]:.4f}, {nf['ci95'][1]:.4f}] "
+          + ("CONTAINS the assumed value, so the shortfall is a DIRECTION, not an "
+             "established fact - the rows above are not yet safe to tighten."
+             if contains else
+             "excludes the assumed value, so the rows above are conservative."))
 
 
 if __name__ == "__main__":
