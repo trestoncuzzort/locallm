@@ -1,0 +1,59 @@
+[!] replicates span 2 verifiers ['3.11.9', 'pre-pin/unrecorded'].
+[!] analyzing only the 10 row(s) scored by 'pre-pin/unrecorded'. Pass --verifier to choose another; they are NOT poolable (section 71: the permissive reading made 5 tasks dead channels).
+REPLICATES 10 | model llama3:8b-instruct-q4_K_M | tasks 31 | N_SAMPLES 5
+integrity: correct == greedy+sum(sampled) on all rows? YES
+generation errors across all replicates: 0
+
+OBSERVED run-level pass@1
+  mean 0.5910   per-run: 0.5484, 0.5806, 0.5806, 0.5871, 0.6258, 0.6194, 0.5806, 0.6065, 0.5935, 0.5871
+  sd   0.0222   95% CI [0.0153, 0.0405]  (chi-square, df=9)
+
+PREDICTED run-level sd, independence assumed
+  from confirmed rates (section 70's own input)  0.0376   ratio obs/pred 0.59x
+  from these runs' own mean rates               0.0339   ratio obs/pred 0.65x
+  same, minus the constant greedy draw          0.0304   ratio obs/pred 0.73x
+
+CAUSE 1 - greedy anchor determinism
+  tasks whose temp-0 draw was NOT constant across 10 runs: 0/31
+  -> the greedy draw is a constant; treating it as one explains a 1.118x reduction at most
+
+CAUSE 2 - marginal (per-task) variance, observed vs binomial
+  sum of OBSERVED per-task variances  0.8462
+  sum of binomial predictions p(1-p)/N 1.1075   ratio 0.76x
+  run-level sd implied by observed marginals alone, if independent: 0.0297
+
+CAUSE 3 - covariance between tasks within a run (the residual)
+  observed Var(run mean) 0.000492 vs sum_i Var_i / T^2 0.000881
+  implied sum of off-diagonal covariances -0.3733  -> mean pairwise cov -0.00040
+  mean pairwise correlation -0.0147   (cancellation)
+
+THE INSTRUMENT SEAM - confirm measured pure temp 0.8; eval scores 1 greedy + 4 at 0.8
+  mean greedy pass rate over tasks        0.7097
+  mean temp-0.8 pass rate over tasks      0.5613
+  mean confirmed rate (n=60, temp 0.8)    0.4903
+  eval-instrument rate minus confirmed:   mean +0.1007   max |dev| 0.6667
+  temp-0.8 half minus confirmed (same     mean +0.0710   max |dev| 0.6667
+    quantity, independent draw)
+  tasks OUTSIDE [0.2,0.8] under the EVAL instrument: 9/31
+    ace_oss_11023      confirmed 0.433 -> eval-instrument 1.000 (greedy 1.00, temp0.8 1.00)
+    ace_oss_23069      confirmed 0.333 -> eval-instrument 1.000 (greedy 1.00, temp0.8 1.00)
+    ace_oss_4327       confirmed 0.567 -> eval-instrument 1.000 (greedy 1.00, temp0.8 1.00)
+    ace_oss_28031      confirmed 0.567 -> eval-instrument 0.920 (greedy 1.00, temp0.8 0.90)
+    ace_oss_23132      confirmed 0.733 -> eval-instrument 0.900 (greedy 1.00, temp0.8 0.88)
+    ace_oss_35622      confirmed 0.767 -> eval-instrument 0.860 (greedy 1.00, temp0.8 0.82)
+    ace_oss_24748      confirmed 0.283 -> eval-instrument 0.160 (greedy 0.00, temp0.8 0.20)
+    ace_oss_28113      confirmed 0.283 -> eval-instrument 0.160 (greedy 0.00, temp0.8 0.20)
+    ace_oss_16070      confirmed 0.783 -> eval-instrument 0.820 (greedy 1.00, temp0.8 0.78)
+  tasks pinned at 0.000 or 1.000 across all 10 runs (zero variance, dead channel): 3 -> ['ace_oss_11023', 'ace_oss_23069', 'ace_oss_4327']
+
+WHAT THIS DOES TO THE SECTION 70 TABLE
+     k   se_diff   MDE@80%   gens/arm   (sd=0.0222 measured, vs 0.0376 assumed)
+     5    0.0140      3.9pp        775
+    10    0.0099      2.8pp      1,550
+    20    0.0070      2.0pp      3,100
+    25    0.0063      1.8pp      3,875
+  for reference, the same table at the CI's pessimistic end (sd=0.0405):
+     5    0.0256      7.2pp        775
+    10    0.0181      5.1pp      1,550
+    20    0.0128      3.6pp      3,100
+    25    0.0115      3.2pp      3,875

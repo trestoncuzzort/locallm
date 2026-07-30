@@ -8141,3 +8141,268 @@ table above; if it fails the other way it is worse. UNMEASURED. Measuring it
 costs 10 runs of the null arm and should happen before any k is chosen.
 
 standing by
+
+--------------------------------------------------------------------------------
+71. EXECUTOR LOG  (2026-07-29 - noise floor measured, and the measurement found a
+    defect bigger than the question it was asked. forge.verify() inherited its
+    interpreter from the caller, so GROUND TRUTH depended on which script ran.)
+--------------------------------------------------------------------------------
+Section 70's instruction was "measure it before any k is chosen", 10 null-arm
+replicates. Ran, detached via Start-Process per section 69, `python -u` per
+section 68. 31 tasks x 5 samples x 10 runs = 1,550 generations, 18.5 min, 0
+generation errors. Evidence: data/ruler_noise.jsonl,
+council/ruler_noise_analysis_prepin.txt.
+
+THE ANSWER TO THE ASK, first, because it is the smaller half of this section:
+
+  observed run-level sd   0.0222   95% CI [0.0153, 0.0405]  (chi-square, df=9)
+  section 70's prediction 0.0376   ratio 0.59x
+
+AND THE CI CONTAINS 0.0376. Ten replicates site the number and do NOT establish
+the ratio. The shortfall is a DIRECTION, not a fact, and it is labelled that way
+rather than banking 0.59x. Section 70 prescribed 10 runs; 10 runs buys 9 degrees
+of freedom, which was enough to answer "roughly where" and not enough to answer
+"is it really under". That is a limit of the plan, discovered by executing it.
+
+Decomposition, which is why this was built rather than reporting one ratio:
+  0.0376 assumed -> 0.0339 using these runs' own marginals
+                 -> 0.0304 minus the greedy draw, CONSTANT on 31/31 tasks; the
+                    predicted size of that step was sqrt(4/5)=0.894x and the
+                    measured step was 1/1.118=0.894x
+                 -> 0.0320 using observed per-task variances
+                 -> 0.0222 observed; residual is negative covariance, mean
+                    pairwise correlation -0.0147
+The greedy step landing on its prediction matters: tests/test_ruler_noise.py
+asserts that same 0.894x on synthetic data with a frozen greedy draw, so the
+analyzer was checked against known answers before being pointed at an unknown
+one. Seven scenarios pass. One FAILED first, and it was my error not the code's:
+a balanced +/- latent gives genuine negative covariance and NO shortfall, because
+it inflates the marginals by exactly what the covariance removes. Negative
+covariance alone does not imply an observed sd below the binomial prediction;
+only negative covariance at UNINFLATED marginals does. That was backwards for one
+round and both cases now ship as tests.
+
+NOW THE PART THAT MATTERS. The same run reported 9 of 31 tasks OUTSIDE [0.2,0.8]
+under the eval instrument and 3 DEAD CHANNELS pinned at 1.000 across all 10 runs.
+That is the disease the new ruler exists to escape (section 64: 7 of 10 at
+ceiling), reappearing in a set confirmed in band six hours earlier.
+
+Chased in this order, and two of three hypotheses were WRONG:
+
+  H1 the eval instrument polarizes rates. CONFIRMED, and it is an arithmetic
+     identity rather than an effect: eval rate == 0.2*greedy + 0.8*temp0.8 to
+     0.000000 across all 31 tasks. Greedy is deterministic, pinned at 1.0 on
+     22/31 and 0.0 on 9/31, so 20% of every task's score is a constant that
+     pushes 22 tasks up and 9 down. Real, and NOT sufficient - it cannot move a
+     task confirmed at 0.433 to 1.000.
+  H2 selection-on-noise at the CONFIRM stage - the same class section 70 found
+     one level down, kept tasks being those whose n=60 estimate landed in band.
+     TESTED AND REJECTED. It predicts the shift correlates POSITIVELY with the
+     confirmed rate; measured corr(confirmed-0.5, shift) = -0.1341, the sign of
+     ordinary regression to the mean. A tidy story the data declined.
+  H3 confirm measured different task objects. build_ruler.confirm rebuilds tasks
+     from candidates(--draw 500 --seed 1337) while ruler_noise reads the payload
+     screen_tasks stored per admitted row. REJECTED by direct comparison: 0 of
+     31 payloads differ, 0 missing from the draw.
+
+What remained was the temp-0.8 half disagreeing with confirm about the SAME
+quantity: +0.0710 mean paired shift, t=+2.08, max |dev| 0.6667, same code path,
+same options. So the code path got read instead of theorised about, and
+forge.Actor.generate is stateless - identical POST, identical {"temperature",
+"num_ctx": 2048}. Which left the verifier.
+
+    forge.verify() ran  [sys.executable, "-I", path]
+
+GROUND TRUTH WAS INHERITED FROM WHOEVER CALLED IT. screen_tasks.py and
+build_ruler.py call venv_guard.ensure(__file__, "pyarrow"); system Python has no
+pyarrow (checked: find_spec -> None), so they ALWAYS re-exec under .venv-train,
+Python 3.11.9. eval.py, ruler_noise.py and forge.py have no guard and run under
+system Python 3.14.6. The screen that admitted this ruler and the eval that
+scores it were verifying against different Pythons, and no artifact said so.
+
+RED WITNESS. 310 completions banked ONCE and replayed through verify() under both
+launchers - identical code bytes, identical task objects, generation noise removed
+entirely:
+
+  before the pin   launcher 3.14 -> 172/310 = 0.5548
+                   launcher 3.11 -> 154/310 = 0.4968     18 disagreements
+  after the pin    launcher 3.14 -> 154/310
+                   launcher 3.11 -> 154/310               0 disagreements
+
+All 18 ran ONE WAY (3.14 passes, 3.11 fails), on 6 of 31 tasks. Cause is PEP
+649/749 deferred annotation evaluation. Minimal probe:
+
+  def f(x: List[int]) -> Tuple[int, int]: return (1, 2)
+  3.11 -> NameError: name 'List' is not defined      3.14 -> DEFINED_OK
+
+The AceCode oss prompts carry annotated signatures, so the model echoes
+List/Tuple/Dict/Union without importing them. The 13 SEED_TASKS are bare
+functions (gcd, is_prime, two_sum) and never trip it, which is exactly why this
+stayed invisible until the ruler was built from imported tasks. It has been
+latent for as long as both interpreters have been in use here.
+
+MEASURED CONSEQUENCE: 5 tasks sitting at 0.60-0.80 under 3.11 become dead
+channels at 1.000 under 3.14; tasks outside the band go 2/31 -> 7/31. So the
+"9 of 31 out of band" first read as a property of the ruler was mostly a property
+of the verifier.
+
+FIXED structurally, and the choice is stated rather than defaulted. VERIFY_PY is
+resolved in ONE place - dataset_gate.py, the only module both interpreters already
+import, stdlib-only by its own docstring - and forge.py imports it rather than
+re-deriving it, because a second copy of "which python verifies" is the same shape
+as the copied venv guard that broke build_ruler within an hour (section 65/67).
+Default is .venv-train NOT because it saves the ruler (that is the
+reasoning-that-saves-work tell) but because unimported annotations do not run on
+any Python before 3.14, so accepting them rewards code broken nearly everywhere,
+and because .venv-train is what the training stack runs on. SRLM_VERIFY_PY
+re-pins it deliberately.
+
+SWEPT THE CONSUMER. dataset_gate's own comment already named this failure -
+"every data hash still matches while the *meaning* of 'verified' silently
+changes" - so the receipt's `verifier` entry now carries the interpreter beside
+the forge.py hash, SCHEMA 3 -> 4, and the gate's existing equality check covers it
+for free. Witnessed: the gate refused the stale receipt with "GATE: receipt schema
+is 3, this code needs 4."
+
+CHECKED, NOT ASSUMED - the pin does not invalidate the training data:
+  "PASS: 1269/1269 pairs valid", 0 violations across dpo_pairs.jsonl (1234 rows),
+  dpo_pairs_capped.jsonl (918), repair_pairs.jsonl (38), 24.9s.
+The stricter reading costs nothing on the dataset side, measured under the pin
+rather than inherited from the pre-pin run.
+
+THE 10 REPLICATES ABOVE ARE VOID as a description of the pinned instrument. They
+were scored by the permissive verifier, on a set it had turned into 3 dead
+channels. They stay in the artifact as evidence and are NOT poolable: ruler_noise
+measure/analyze refuse to mix rows across verifier versions, and eval.evaluate now
+records the fingerprint so a row without it is identifiable as pre-pin.
+Re-measured in section 72.
+
+WHAT WENT WRONG HERE, recorded because section 70's method note asked for exactly
+this: this section opened with a tidy selection-bias story (H2) that fit the first
+four numbers and was false. What killed it was one correlation computable before
+the story was written. Section 70 said "check how many times you measured it";
+the addition is "check the SIGN your explanation predicts, before believing it."
+
+standing by
+
+--------------------------------------------------------------------------------
+72. EXECUTOR LOG  (2026-07-29 - re-measured under the pinned verifier. The
+    diagnosis is confirmed by the thing that should confirm it: the epoch
+    discrepancy collapsed from +0.0710 to +0.0024. Ruler FROZEN.)
+--------------------------------------------------------------------------------
+Same command, same 31 tasks, same detached launch, verifier now pinned to
+python 3.11.9. 1,550 generations, 20.7 min, 0 generation errors. Evidence:
+data/ruler_noise.jsonl (rows 11-20), council/ruler_noise_analysis_pinned.txt.
+
+THE PIN IS CONFIRMED BY A PREDICTION, not by the number improving. The temp-0.8
+half of the eval instrument and build_ruler.confirm measure the SAME quantity by
+the same code path, so with the verifier fixed they must agree. They do:
+
+                                   pre-pin        pinned
+  temp-0.8 half minus confirmed    +0.0710        +0.0024
+  max |per-task deviation|          0.6667         0.2500
+  dead channels (pinned 0 or 1)      3              0
+  tasks outside [0.2,0.8]            9/31           3/31
+
+A +0.0710 systematic gap became +0.0024. That is the cleanest evidence available
+that the interpreter was the cause and not a co-symptom: nothing else changed
+between the two runs.
+
+THE NOISE FLOOR, for real this time:
+
+  observed run-level sd   0.0283   95% CI [0.0195, 0.0516]  (chi-square, df=9)
+  section 70's prediction 0.0376   ratio 0.75x
+  per-run pass@1: 0.5419 0.4710 0.4903 0.4839 0.5548 0.5355 0.5226 0.5226
+                  0.5032 0.5419
+
+THE CI STILL CONTAINS 0.0376, so the same caveat stands and is not softened: the
+independence prediction is not established as too pessimistic. Direction
+favourable, ratio unproven. Decomposition:
+  0.0376 -> 0.0363 own marginals -> 0.0324 greedy constant (31/31 again)
+         -> 0.0320 observed marginals -> 0.0283 observed
+  residual negative covariance, mean pairwise correlation -0.0072 (was -0.0147)
+
+WHAT IT DOES TO SECTION 70'S TABLE, at the point estimate and at the CI's
+pessimistic end, because quoting only the first would be picking the number that
+flatters the instrument:
+
+     k    se_diff   MDE@80%   gens/arm    MDE at sd=0.0516
+     5     0.0179     5.0pp        775          9.1pp
+    10     0.0126     3.5pp      1,550          6.5pp
+    20     0.0089     2.5pp      3,100          4.6pp
+    25     0.0080     2.2pp      3,875          4.1pp
+
+So 3pp needs k=20 (3,100 gens/arm, ~40 min/arm) on the point estimate, and is NOT
+reachable at any listed k if the true sd sits at the top of the interval. Section
+70 priced 3pp at k=25/3,875; the pinned measurement makes that slightly cheaper
+and leaves the uncertainty on the sd, not on the formula. NO k IS CHOSEN HERE -
+the sd's own interval is too wide to spend 3,100 generations against, and
+narrowing it is cheap (2.1 min per extra replicate; ~40 replicates would halve the
+interval). That is the next measurement, not the next guess.
+
+RULER FROZEN - and this is the act section 70 deferred, done as section 70
+specified: pinning and declaring the training split in ONE operation so
+disjointness is recorded once. `build_ruler.py freeze` ->
+data/ruler_frozen.json.
+
+  ruler                31 tasks
+  ruler set sha256     74560a4c514587c1ab9094a15cbce960d0838759bc4b481aae2b01f637e8413d
+  training pool        43 tids (the split_side complement)
+  excluded from both    4 dropped nominees
+  [ok] every ruler tid has a stored task payload
+  [ok] ruler and training pool are disjoint
+  [ok] every ruler tid hashes to the ruler side
+  [ok] every training tid hashes to the train side
+  [ok] no tid collides with forge.SEED_TASKS or eval.HELD_OUT
+
+IT PINS THE TASKS, NOT THE TIDS. A tid is a pointer; if the payload can change,
+nothing is frozen. Every prompt, entry point and test body is hashed individually
+plus a set-level hash. Section 71's whole finding was that "verified" can change
+meaning while every name stays the same, so the frozen artifact also records the
+eval-instrument rate per task beside the confirmed rate.
+
+THE FOUR DROPPED NOMINEES GO NOWHERE, deliberately. They sit on the ruler side of
+split_side() but failed confirmation. Moving them to training is the obvious
+tidy-up and it would break the one property the sha256 split exists for - that a
+later training draw takes the complement with NO coordination and no exception
+list. An exception list is a second source of truth about sides.
+
+THREE FROZEN TASKS SIT OUTSIDE THE BAND under the eval instrument and are frozen
+anyway, flagged in the artifact rather than quietly dropped:
+  ace_oss_16070   confirmed 0.783 -> eval 0.960   (greedy 1.00, temp0.8 0.95)
+  ace_oss_19459   confirmed 0.783 -> eval 0.820   (greedy 1.00, temp0.8 0.78)
+  ace_oss_24748   confirmed 0.283 -> eval 0.120   (greedy 0.00, temp0.8 0.15)
+Dropping them would select on the very measurement being reported, which is the
+regress section 71 H2 was testing for; each drop-and-remeasure round biases the
+next. So the ruler is 28 clearly-live channels plus 3 weak ones, stated, rather
+than 31 clean ones claimed. ace_oss_16070 at 0.960 is nearly a dead channel and
+should be treated as carrying almost no signal.
+
+ALSO CLOSED: the noise-floor status was carried in TWO places in screen_tasks.py
+(the SIZING comment and the completion banner) - one superseded claim, two chances
+to go stale, the same class section 67 closed for the sizing figures. It is now
+defined once in NOISE_FLOOR and the banner COMPUTES its caveat, including whether
+the CI still contains the assumed value. tests/test_screen_sizing.py gained both
+retired strings and a check that the measured sd literal appears exactly once.
+
+STILL OPEN, and the first two are load-bearing for any efficacy claim:
+  1. se_diff = sqrt(2)*run_sd assumes BOTH ARMS have the same run-level sd. Only
+     the NULL arm was measured. A trained arm could be noisier; nothing here
+     bounds that. Measuring it needs a trained artifact, so it cannot precede
+     training - which means the first efficacy run must report its own arm sd
+     rather than borrowing this one.
+  2. The sd's 95% CI spans [0.0195, 0.0516], a factor of 2.6. Every MDE above
+     inherits that. ~40 replicates would halve it, at 2.1 min each.
+  3. Whether the 78 admitted overlap the pilot's admitted 30 - still not diffed
+     (carried from section 69).
+  4. The greedy anchor costs 20% of every score as a deterministic constant and
+     polarizes the rate distribution. It buys a 0.894x variance reduction and it
+     is what pushes 16070 to 0.960. Whether eval.py should sample all 5 at
+     temp 0.8 is a real design question this section does not settle; changing it
+     would re-baseline every eval_history row, so it is named, not done.
+  5. Cross-version verifier divergence beyond the annotation case is
+     UNENUMERATED. tests/test_verifier_pin.py is a fixed probe for the one
+     mechanism found plus a structural check that the interpreter is no longer
+     inherited. It is a flashlight, not a fence.
+
+standing by

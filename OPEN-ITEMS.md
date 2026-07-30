@@ -14,16 +14,41 @@ Parked is not done. Prune entries when they close.
   test is not a result.
   *Where:* `data/smoke_rpo_alpha_result.json`, README "Track A" status paragraph.
 
-- **The ruler is saturated, and its noise floor was understated.** Measured over 57
-  logged runs of the identical config: pass@1 sd **0.0199** (not the ~0.009 a 3-run
-  sample gave), honest 95% single-run bar **±0.055**, total headroom 0.1221. 6 of 10
-  held-out tasks scored 1.000 in every run and pass@3 was 0.90 in 55 of 57 — most of
-  the instrument carries no information. `rotate` is pinned at the floor (0.004),
-  traced to `k % len(lst)` raising on the empty list. The shared noise-floor
-  utility (§18 finding 4: dedicated `torch.Generator`, k≥5 seeds, test-retest
-  sigma separated from between-config sigma) is still unbuilt — until it is, an
-  efficacy run cannot report a trustworthy effect size.
-  *Where:* `instructions.txt` §18 finding 4, README "Track A" status paragraph.
+- ~~**The ruler is saturated, and its noise floor was understated.**~~ REPLACED
+  2026-07-29 (§69–§72). The old 10-task bank is spent (§64: pass@20 == pass@3 ==
+  0.9000, 7 at ceiling / 1 at floor). A 31-task replacement was screened from
+  AceCode `oss`, confirmed at n=60, and FROZEN — `data/ruler_frozen.json`, set
+  sha256 `74560a4c…`, with a disjoint 43-tid training pool declared in the same act.
+  Its noise floor is now MEASURED, not assumed: run-level pass@1 sd **0.0283** over
+  10 null replicates under the pinned verifier.
+  *Where:* `data/ruler_frozen.json`, `screen_tasks.NOISE_FLOOR`, §71/§72.
+
+- **The measured noise floor has a wide interval, and only the NULL arm was
+  measured.** sd 0.0283 with 95% CI **[0.0195, 0.0516]** — a factor of 2.6, and the
+  interval still CONTAINS the 0.0376 independence prediction, so "the prediction is
+  too pessimistic" is a direction and not an established fact. Every MDE inherits
+  that: 3pp needs k=20 at the point estimate and is unreachable at any k≤25 at the
+  interval's top. Worse, `se_diff = sqrt(2)*run_sd` assumes BOTH arms share a
+  run-level sd and only the null arm has one; a trained arm could be noisier and
+  nothing bounds it. Consequence: the first efficacy run must report its own arm sd
+  rather than borrowing this one. ~40 replicates (2.1 min each) would halve the CI.
+  *Where:* `council/ruler_noise_analysis_pinned.txt`, §72 open items 1–2.
+
+- **Three frozen ruler tasks sit outside [0.2, 0.8] under the eval instrument.**
+  `ace_oss_16070` (0.960), `ace_oss_19459` (0.820), `ace_oss_24748` (0.120). Frozen
+  and flagged rather than dropped, because dropping them selects on the very
+  measurement being reported and each drop-and-remeasure round biases the next. So
+  the ruler is 28 clearly-live channels plus 3 weak ones; 16070 carries almost no
+  signal. *Where:* `data/ruler_frozen.json` → `eval_instrument_out_of_band`.
+
+- **The greedy anchor is 20% of every eval score and it is a deterministic
+  constant.** `eval.py` samples 1 draw at temp 0.0 + 4 at 0.8, and the resulting
+  rate is exactly `0.2*greedy + 0.8*temp0.8` (verified to 0.000000 over 31 tasks).
+  Greedy was constant on 31/31 tasks across 10 runs, so it buys a 0.894x variance
+  reduction while POLARIZING the rate distribution — it is what pushes 16070 to
+  0.960. Whether the ruler should sample all 5 at temp 0.8 is a real design
+  question; changing it re-baselines every `eval_history.jsonl` row, so it is named,
+  not done. *Where:* §72 open item 4, `ruler_noise.py` CAUSE 1.
 
 - ~~**`export_adapter.py` does not exist.**~~ CLOSED 2026-07-28. Built and verified
   end to end on the smoke adapter: conversion exit 0 with tensor count 336 = 336,
@@ -56,6 +81,20 @@ Parked is not done. Prune entries when they close.
   *Where:* `verify_dataset.py` (`signature()` dedup), README Track A section.
 
 ## Guard scope
+
+- **Cross-version verifier divergence beyond the annotation case is unenumerated.**
+  §71 found `forge.verify()` launching `[sys.executable, …]`, so ground truth was
+  inherited from the caller: guarded scripts (`screen_tasks.py`, `build_ruler.py`)
+  re-exec under `.venv-train`/3.11, unguarded ones (`eval.py`, `forge.py`) ran under
+  3.14. Red witness: 310 identical completions scored **172/310 on 3.14 vs 154/310
+  on 3.11**, all 18 disagreements one way, cause PEP 649 deferred annotations. Now
+  pinned in one place (`dataset_gate.verify_py`) and recorded in the receipt
+  (schema 4). `tests/test_verifier_pin.py` is a fixed probe for that one mechanism
+  plus a structural check that the interpreter is no longer inherited — **a
+  flashlight, not a fence.** Other 3.11↔3.14 semantic differences are not swept, and
+  the fingerprint covers the interpreter version but not its installed packages, the
+  OS, or CPU-dependent behaviour.
+  *Where:* `forge.py` pin block, `dataset_gate.py` VERIFIER_FILES block, §71.
 
 - **The dataset receipt is unsigned.** It defends against drift and accident, not
   against someone editing the receipt itself. Stated deliberately rather than implied.
