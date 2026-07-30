@@ -23,3 +23,4 @@ _locallm_publish/
 data/kodcode*
 data/acecode*
 data/imported_*
+localllm/out_gui/

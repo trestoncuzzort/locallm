@@ -1,0 +1,307 @@
+PHD RESEARCH LOG — srlm-forge council
+=====================================
+All papers/sources The PhD has fetched and self-verified (or explicitly
+flagged as unverified) across council rounds. One entry per source: arXiv ID,
+what it was cited for, its verification status, and APPLIED — the concrete
+decision or executor action it actually drove (or "NOT YET ACTED ON" /
+"NOT APPLIED" if it was just context). Update this file after each new PhD
+round — ask the council session to refresh it.
+
+Status key:
+  VERIFIED   — primary source (abstract/HTML) actually fetched and read this round
+  CARRIED    — verified in an earlier round, reused without re-fetching
+  UNVERIFIED — surfaced by search but NOT confirmed against the primary source;
+               do not treat as evidence
+  POINTER    — named as part of a literature wave but never individually fetched
+
+--------------------------------------------------------------------------------
+SUMMARY — decisions this project made because of these papers
+--------------------------------------------------------------------------------
+  - evol stratum: "provenance unverified" -> "verified Apache-2.0"           (HF cards + ACECODER seed table)
+  - evol stayed EXCLUDED anyway, on supply grounds not license grounds       (HF cards)
+  - Q1 effect-size estimate (0 to +2pp, centred +0.5) that §61 measured
+    -0.8pp against                                                          (CodeDPO Table 7, DSTC, LoRA-Learns-Less)
+  - Ruling R1 (fix the training-input seam before any other run)            (Song et al. coverage argument + Tajwar et al.)
+  - Ruling R2 (hold prompt count at 13 for the seam-fix re-run, don't
+    also change prompt count)                                               (same two, "second-order" ranking)
+  - Ruling R5 (rpo_alpha=1.0 recorded as a live DPO-vs-SFT confound,
+    ablation still pending)                                                 (Pan et al. + Xu et al. Theorem 4.1)
+  - Interpretation of §64's measurement (pass@20=pass@3=0.90 exactly ->
+    held-out bank is SPENT, not a training failure)                         (Yue et al.)
+  - Ruling R3/R4 (restart the screen, replace the held-out ruler from a
+    fresh draw)                                                             (Yue et al., applied via §64 measurement)
+  - "Target 200 prompts" recommendation — NOT YET ADOPTED, deferred          (Chung et al. / Flan, off-domain interpolation)
+  - "One-shot RLVR" result — flagged as the project's most important open
+    question, NOT acted on                                                  (Wang et al. 2504.20571)
+  - Quantization-mismatch fix folded INTO the seam fix rather than
+    treated as its own urgent rebuild                                       (Gu et al. / Zhong et al. — ruled second-order for offline DPO)
+
+--------------------------------------------------------------------------------
+ROUND: activation #15 (banked as §59) — effect size + evol license
+--------------------------------------------------------------------------------
+
+arXiv:2410.05605 — CodeDPO
+  Cited for: data-scaling ablation (Table 7, DeepSeekCoder-1.3B). First 25% of
+  data (~28,500 pairs) buys +1.4pp HumanEval pass@1; 114k pairs total.
+  Status: VERIFIED (abs + HTML v1, Table 7 read directly)
+  APPLIED: the single most decisive number behind the executor's Q1 effect-
+  size target. Directly produced the "0 to +2pp, centred +0.5" prediction
+  that §61's measured -0.8pp held-out result was checked against ("brackets
+  the measured -0.8"). Re-cited in §62/§63 as the basis for ruling out a
+  200-prompt sweep as premature until the seam is fixed.
+
+arXiv:2411.13611 — DSTC
+  Cited for: 50k self-generated-test instructions, DPO one epoch, full FT,
+  StarCoder2-15B / DeepSeek-Coder-33B. +1.0 to +4.3pp across HumanEval+/MBPP+/
+  BigCodeBench-hard.
+  Status: VERIFIED (abs + HTML v2, Tables 2-3)
+  APPLIED: paired with CodeDPO to frame Q2's "threshold between 13 and 28,500"
+  question and to size the 200-prompt recommendation in §62 (deferred, not
+  adopted — see NOT ADOPTED in §63).
+
+arXiv:2406.06887 — PLUM
+  Cited for: "+up to 4.8% average, +11.8% LiveCodeBench" (abstract verbatim).
+  PLUM-DPO sometimes underperforms PLUM-KTO (DPO reducing chosen-class reward).
+  Status: VERIFIED (abstract only; training config — LoRA vs full FT, epoch
+  count — NOT extractable from HTML, flagged as partially unverified)
+  APPLIED: NOT directly actioned this round. Its DPO-vs-KTO instability
+  finding sits behind the still-open §58 item 2 (DPO/SFT/KTO admissibility)
+  and Ruling R5's rpo_alpha ablation, but no executor decision cites it by
+  name yet.
+
+arXiv:2502.01718 — ACECODER
+  Cited for: RL arm (Reinforce++, test-case reward) results, +1.8/+3.7pp on
+  Qwen2.5-7B-Instruct; -2.5pp regression on Qwen2.5-Coder-7B-Instruct. Also the
+  source of the AceCode-89K dataset construction / stratum seed counts (evol
+  36,256→26,920, oss 37,750→25,862, StackPyFunction 50,000→34,367 = 87,149).
+  Status: VERIFIED (abs + HTML v3, dataset-construction + RL sections)
+  APPLIED, twice, directly:
+    (1) Its seed-count table is the exact arithmetic identity (sums to
+        87,149) that resolved the evol-stratum-mapping question — this is
+        what let the executor change evol's recorded status from
+        "provenance unverified" to "verified Apache-2.0."
+    (2) Its earlier (pre-council) citation by the executor as an optimistic
+        effect-size comparable was corrected by the PhD — ACECODER's +10/+5pp
+        numbers come from best-of-32 + a trained reward model, NOT this
+        project's plain-DPO setup — removing it as false comfort for Q1's
+        sizing.
+
+arXiv:2405.09673 — LoRA Learns Less and Forgets Less (Biderman et al.)
+  Cited for: "LoRA substantially underperforms full finetuning" in standard
+  low-rank settings, measured on programming/math specifically.
+  Status: VERIFIED (abstract). OpenReview / TMLR 2024 venue — UNVERIFIED
+  (bot-blocked page)
+  APPLIED: one of three compounding factors (with LoRA r=16 vs full FT, and
+  DPO's instability) that pushed the Q1 effect-size estimate down from the
+  literature's full-FT range to the "0 to +2pp" band actually used.
+
+HF dataset cards (all fetched directly, not summarized):
+  TIGER-Lab/AceCode-89K              — MIT
+  ise-uiuc/Magicoder-Evol-Instruct-110K — Apache-2.0, "decontaminated
+    evol-codealpaca-v1"
+  ise-uiuc/Magicoder-OSS-Instruct-75K — MIT, generated by gpt-3.5-turbo-1106,
+    card carries an OpenAI usage-policy warning
+  theblackcat102/evol-codealpaca-v1  — Apache-2.0, generated with gpt-4-0314/
+    gpt-4-0613
+  HuggingFaceH4/CodeAlpaca_20K       — "cc" (train/test split of the below)
+  sahil2801/CodeAlpaca-20k           — CC-BY-4.0
+  Status: VERIFIED (all six cards read directly)
+  APPLIED, directly and concretely: this is the evidence base for the Q2
+  ruling. Executor's recorded status for evol changed from "provenance
+  unverified" to "verified Apache-2.0" in §54/§58 discussion. The stratum
+  was KEPT EXCLUDED from the rerun anyway, but the reason on record changed
+  from "unverified license" (now known false) to "sufficient supply in oss;
+  single-license simplifies distribution" (finding 8) — also surfaced that
+  the KEPT `oss` stratum carries its own OpenAI-generation caveat, which the
+  executor had not previously flagged as symmetric.
+
+Apache-2.0 license text (apache.org/licenses/LICENSE-2.0), §2-§6
+  Cited for: distribution/derivative-work rights, §4(a)-(d) notice
+  obligations (changed-files notice is the one that bites), §3 patent grant,
+  §6 trademark restriction.
+  Status: VERIFIED (canonical text obligations summarized from source)
+  APPLIED: NOT YET — the recommended remedy (a THIRD-PARTY-NOTICES.md file)
+  has not been built. Moot for now since evol rows are not being shipped
+  (see above), but would need doing before any evol-derived row publication.
+
+--------------------------------------------------------------------------------
+ROUND: activation #16 (banked as §62 + addendum) — off-policy DPO + prompt-count
+--------------------------------------------------------------------------------
+
+arXiv:2406.01462 — Song, Swamy, Singh, Bagnell, Sun — "The Importance of
+  Online Data: Understanding Preference Fine-tuning via Coverage"
+  Cited for: offline DPO needs GLOBAL coverage of the preference dataset
+  (necessary+sufficient); online RL only needs weaker partial coverage. The
+  key citation making off-policy-ness a coverage/prompt-diversity problem.
+  Status: VERIFIED (abs + rev.)
+  APPLIED, directly: this is the citation that answered the DIRECTIVE's Q1
+  ranking question — off-policy-ness is real but SECOND-ORDER behind prompt
+  count/coverage. That ranking is the stated justification behind Ruling R2
+  in §63 (hold prompt count at 13, don't move two variables at once) and
+  behind treating the format-seam fix (R1) as higher priority than a
+  quantization-driven pipeline rebuild.
+
+arXiv:2404.14367 — Tajwar, Singh, Sharma, Rafailov, Schneider, Xie, Ermon,
+  Finn, Kumar — "Preference Fine-Tuning of LLMs Should Leverage Suboptimal,
+  On-Policy Data" (ICML 2024)
+  Cited for: on-policy sampling OR a negative gradient (DPO has the latter)
+  outperforms offline/MLE objectives — argues off-policy gap is real but
+  second-order for DPO specifically.
+  Status: VERIFIED (abstract, verbatim quote used)
+  APPLIED: co-supporting evidence for the same R1/R2 prioritization above —
+  DPO already has the "negative gradient" property the paper says matters
+  most, so the on-policy gap was ranked as the smaller of the two problems.
+
+arXiv:2404.10719 — Xu, Fu, Gao, Ye, Liu, Mei, Wang, Yu, Wu — "Is DPO Superior
+  to PPO for LLM Alignment? A Comprehensive Study" (ICML 2024)
+  Cited for: Theorem 4.1 — DPO's solution set is strictly larger than PPO's
+  and can exploit OOD data (worked example: DPO hands 0.9 probability to an
+  unseen third action; empirical OOD probability rise 0.11→0.23).
+  Status: VERIFIED (abs + HTML v3, Theorem 4.1 + example read directly)
+  APPLIED, directly: cited as the theoretical reason 918 pairs over 13
+  prompts is "close to their degenerate illustration" — this is the specific
+  argument behind Ruling R5 (rpo_alpha=1.0 recorded as a live confound
+  needing an ablation arm at rpo_alpha=0, still pending as of §64).
+
+arXiv:2508.18312 — Pan, Cai, Chen, Zhong, Wang — "What Matters in Data for
+  DPO?"
+  Cited for: chosen-response quality dominates the DPO objective; online DPO
+  "effectively reduces to supervised fine-tuning on the chosen responses" —
+  predicts the srlm-forge held-in/held-out split mechanically.
+  Status: VERIFIED (abstract, verbatim quote used)
+  APPLIED, directly: measured against data/dpo_pairs_capped.jsonl (407
+  distinct chosen strings over 13 prompts) to argue Round Zero was
+  "approximately SFT on 407 specific strings." This is the direct evidentiary
+  basis for Ruling R5 — the executor recorded it as meaning "13 prompts of
+  DPO does not transfer" may actually be "13 prompts of SFT-with-a-margin-
+  term does not transfer," unresolved until the rpo_alpha=0 ablation runs.
+
+arXiv:2604.07853 — Gu et al. — "QaRL: Rollout-Aligned Quantization-Aware RL
+  for Fast and Stable Training under Training-Inference Mismatch"
+  Cited for: quantized-rollout / full-precision-update mismatch destabilises
+  ONLINE RL optimization (garbled-token failure mode); +5.5 on Qwen3-30B-A3B
+  math fixing it. Argued NOT to transfer to offline DPO (no importance ratio).
+  Status: VERIFIED (abstract)
+  APPLIED: used to answer DIRECTIVE Q1 part B in the negative — this
+  mechanism doesn't apply to srlm-forge's offline DPO (π_ref and π_θ are the
+  same bnb-4bit artifact, no importance ratio in the loss). This is why the
+  executor folded "regenerate pairs from the trained artifact" into the
+  single R1 seam fix instead of treating quantization as its own urgent,
+  separate rebuild.
+
+arXiv:2605.14220 — Zhong et al. — "Diagnosing Training Inference Mismatch in
+  LLM Reinforcement Learning"
+  Cited for: Training-Inference Mismatch (TIM) framework (VeXact); small
+  token-level disagreements can independently cause training collapse, in RL.
+  Status: VERIFIED (abstract)
+  APPLIED: same role as Gu et al. above — confirms the mechanism is real but
+  RL-specific, reinforcing the decision not to treat quantization mismatch
+  as the priority fix.
+
+arXiv:2407.09141 — Dutta, Krishnan, Kwatra, Ramjee — "Accuracy is Not All You
+  Need" (NeurIPS 2024)
+  Cited for: "flips" phenomenon — per-task correct/incorrect flips between
+  baseline and compressed models at matched aggregate accuracy. Names the
+  6-of-13 per-task engine disagreement observed in srlm-forge.
+  Status: PARTIALLY VERIFIED — existence/definition of "flips" confirmed from
+  abstract; numeric flip-rate magnitudes UNVERIFIED (HTML v3 404s, PDF
+  unreadable binary) — do not use for magnitude comparison
+  APPLIED: framing only, no numeric action — gave the executor's observed
+  6-of-13 disagreement a name and a citation, but explicitly could NOT be
+  used to judge whether that rate is high or normal, so it did not change any
+  ruling by itself.
+
+arXiv:2504.20571 — Wang, Yang, Zeng, Ren et al. — "Reinforcement Learning for
+  Reasoning in Large Language Models with One Training Example"
+  Cited for: ONE training example via on-policy RLVR (GRPO/PPO) moves
+  Qwen2.5-Math-1.5B 36.0%→73.6% MATH500 and 17.6%→35.7% averaged across six
+  OOD reasoning benchmarks. The single most destabilizing citation this
+  round — suggests method (on-policy + verifiable reward), not prompt count,
+  is the real variable.
+  Status: VERIFIED (abstract)
+  APPLIED: NOT YET ACTED ON, deliberately. §63 records it verbatim as "the
+  most destabilising citation in the round" and "the most important open
+  question in the project" but explicitly declines to fold it into a plan
+  this round, pending the seam fix and ruler replacement being resolved
+  first.
+
+arXiv:2504.13837 — Yue et al. — "Does Reinforcement Learning Really
+  Incentivize Reasoning Capacity in LLMs Beyond the Base Model?"
+  Cited for: counter-argument — RLVR raises pass@1 while lowering pass@k at
+  large k; capability is "bounded by the base model," not fundamentally new.
+  Used to explain the srlm-forge held-out bank being saturated (base pass@20
+  = pass@3 = 0.90, per §64).
+  Status: VERIFIED (abstract, v5)
+  APPLIED, directly and concretely: this is the interpretive frame the
+  executor used in §64 for the base-model pass@k measurement (pass@20 =
+  pass@5 = pass@3 = 0.9000 exactly on the held-out bank). It reframed §61's
+  held-out null from "evidence training didn't work" to "the ruler had only
+  3 points of headroom to show it in" — directly motivating Ruling R3/R4
+  (restart the screen, replace the ruler from a fresh oss draw rather than
+  reusing the saturated admitted-30 set).
+
+arXiv:2210.11416 — Chung et al. — "Scaling Instruction-Finetuned Language
+  Models" (Flan)
+  Cited for: the only real published task-count learning curve (PaLM 540B,
+  Table 3): 9 tasks→+3.5, 89→+7.9 (84% of max gain), 282→+8.4, 1836→+9.4.
+  Heavily caveated: a Flan "task" is a whole dataset (thousands of prompts
+  each) — srlm-forge's 13 prompts sits ~3 orders of magnitude below Flan's
+  smallest measured point. Shape-only evidence, not a transferable number.
+  Status: VERIFIED (HTML via ar5iv, Table 3 read directly)
+  APPLIED: sole basis for the numeric "target 200 distinct prompts"
+  recommendation in §62 (low-moderate confidence, explicitly called an
+  off-domain interpolation, not a measurement). Executor's §63 ruling: NOT
+  ADOPTED yet — deferred, not rejected, pending the seam fix (R1) and ruler
+  replacement (R3/R4) landing first, specifically to avoid ratifying DPO "by
+  accident" per the sponsor's sheet-ordering rule.
+
+arXiv:2508.13755 — "Depth-Breadth Synergy in RLVR"
+  Cited for: defines "breadth" as instance count, reports full-batch updates
+  boost pass@1 — but publishes NO prompt-count learning curve, so doesn't
+  answer Q2 despite being on-topic.
+  Status: VERIFIED (fetched, found not to contain the needed ablation)
+  APPLIED: a negative result — ruled OUT as a source for Q2's numeric
+  target, which is why the PhD fell back to Flan (off-domain) instead.
+
+arXiv:2406.09279 — Ivison et al. — "Unpacking DPO and PPO"
+  Cited for: Table 7 varies UltraFeedback prompt SOURCE (56.7-58.9 avg) but
+  explicitly does not ablate prompt QUANTITY (everything subsampled to
+  60,908).
+  Status: VERIFIED (fetched, Table 7 read)
+  APPLIED: same as above — checked and ruled OUT as a source for the Q2
+  number.
+
+arXiv:2603.20100 — unnamed/unclear paper
+  Cited for: a search-engine gloss claimed this contained a "V1/V2/V3
+  prompt-diversity ablation" (325 pairs / 65 prompts → instability) relevant
+  to code-generation transfer. FETCHED AND CHECKED: actual abstract is
+  GPT-2-scale, on paraphrase detection and sonnet continuation, and does NOT
+  mention any V1/V2/V3 ablation.
+  Status: UNVERIFIED — DO NOT CITE. Flagged explicitly as a probable search
+  hallucination.
+  APPLIED: precautionary only — explicitly withheld from every
+  recommendation despite the tempting fit to srlm-forge's own numbers ("the
+  shape of the claim matches ... uncomfortably well, which is precisely why
+  I am refusing to hand it to you as evidence").
+
+arXiv:2305.18290 — Rafailov et al. — the original DPO paper
+  Referenced for: whether DPO's derivation assumes preference data sampled
+  from π_ref. NOT chased past the abstract page.
+  Status: UNVERIFIED — this specific claim was never made in the response;
+  listed here only so it isn't re-fetched under the impression it's new.
+  APPLIED: none — explicitly not used to support any claim.
+
+Pointers only (surfaced in search, part of the "training-inference mismatch"
+literature wave, NOT individually fetched — do not cite as evidence without
+first opening them):
+  arXiv:2603.19470 — layerwise off-policy corrections
+  arXiv:2605.17570 — how off-policy can GRPO be
+  arXiv:2602.17616 — variance-controlled off-policy RL
+  arXiv:2512.01374 — (uncategorized pointer, not opened)
+  APPLIED: none — context only, no ruling cites them.
+
+--------------------------------------------------------------------------------
+CARRIED FORWARD, NOT RE-VERIFIED IN ROUND 2 (still resting on Round 1's read)
+--------------------------------------------------------------------------------
+CodeDPO (2410.05605) and DSTC (2411.13611) — both re-cited in §62 as CARRIED,
+not re-opened. Their Round-1 VERIFIED status and APPLIED notes above stand.
