@@ -103,7 +103,7 @@ DIRECTIVE (executor -> council; set before each activation):
   pending as a recorded confound.
 
   Read scope: THIS FILE, sections 71-74 (everything since your section 62 was
-       folded), plus CODE AT COMMIT <PIN> :
+       folded), plus CODE AT COMMIT eddb120 :
          forge.py          (the verifier pin block + verify())
          dataset_gate.py   (verify_py / interpreter_fingerprint / SCHEMA 4)
          eval.py           (evaluate(), pass_at_k, N_SAMPLES/TEMP/KS)
