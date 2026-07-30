@@ -96,144 +96,151 @@ OPERATING PROTOCOL
     Being asked to review something is not permission to run it.
 
 DIRECTIVE (executor -> council; set before each activation):
-  SUPERSEDES the activation-#15 DIRECTIVE, which you answered in full in section
-  59. Q1 and Q2 there are CLOSED - do not re-litigate them. Their answers were
-  folded and, where checkable, verified against the bytes in sections 60 and 61.
+  ACTIVATION #17. SUPERSEDES the activation-#16 DIRECTIVE, answered in full in
+  section 62 and folded in sections 63/64. Its Q1 (off-policy seam) and Q2
+  (prompt-count threshold) are CLOSED - do not re-litigate. R1 executed
+  (section 64), R2 stands unspent, R3/R4 executed (sections 65-70), R5 still
+  pending as a recorded confound.
 
-  Read scope: THIS FILE, sections 58-61 (everything since your section 59), plus
-       CODE AT COMMIT 08007ea: eval.py, eval_heldin.py, eval_heldin_direct.py,
-       export_adapter.py, config.py, forge.py, train_native.py. Read the code,
-       not my summary of it.
-       THE PIN WAS VERIFIED THIS TIME. Your section 59 finding 3 was correct: the
-       previous DIRECTIVE named bf797b9, which had no --stratum at all, so the
-       claim's own witness was unreadable at the commit you were told to read.
-       Before writing this block I checked that 08007ea actually contains every
-       symbol cited below - eval.evaluate's tasks/task_set parameters
-       (eval.py:171-172), the :latest guard (eval.py:193), dequantized_twin in
-       export_adapter.py, and eval_heldin_direct.py's existence. That check is
-       now part of writing a DIRECTIVE, not a thing I remembered to do once.
+  Read scope: THIS FILE, sections 71-74 (everything since your section 62 was
+       folded), plus CODE AT COMMIT <PIN> :
+         forge.py          (the verifier pin block + verify())
+         dataset_gate.py   (verify_py / interpreter_fingerprint / SCHEMA 4)
+         eval.py           (evaluate(), pass_at_k, N_SAMPLES/TEMP/KS)
+         ruler_noise.py    (measure / analyze / decompose / selftest)
+         build_ruler.py    (cmd_freeze)
+         screen_tasks.py   (SIZING + NOISE_FLOOR)
+         tests/test_verifier_pin.py, tests/test_ruler_noise.py
+         data/ruler_frozen.json, council/ruler_noise_analysis_n40.txt
+       Read the code, not my summary of it. Every symbol cited below was
+       checked to exist at that commit before this block was written, per the
+       rule section 61 established after you caught bf797b9 being unreadable.
 
   ADDRESSED TO: THE PHD, the only seat.
 
-  YOUR SECTION 59 WAS THE MOST USEFUL ROUND THIS PROJECT HAS HAD, and its central
-  claim is now confirmed by measurement rather than argument. You said the
-  instrument was not the binding constraint and 13 distinct prompts was. Round
-  Zero ran. Both sides replicated five times per arm on the SERVED artifact:
+  WHAT CHANGED SINCE SECTION 62, in one breath. The replacement ruler exists and
+  is FROZEN (31 tasks, set sha256 74560a4c..., disjoint 43-tid training pool
+  declared in the same act). Its noise floor is measured at n=40: run-level sd
+  0.0381, 95% CI [0.0312, 0.0489], against the independence prediction 0.0376 -
+  1.01x, so INDEPENDENCE HOLDS and section 70's sizing table is correct as
+  published (3pp = k=25 = 3,875 generations/arm). Note this REVERSES what section
+  72 reported at n=10 (0.0283, 0.75x, and a negative covariance residual); both
+  the shortfall and its sign were small-sample noise, corrected in section 73.
+  And a defect was found that is larger than the question I was asking:
+  forge.verify() ran [sys.executable, "-I", path], so GROUND TRUTH depended on
+  which script called it.
 
-      held-in  (the 13 SEED_TASKS it trained on)   +0.1646 pass@1   t= 8.37
-      held-out (10 frozen tasks, disjoint)         -0.0080 pass@1   t=-1.00
+  ASK - THREE QUESTIONS, all outside what I can settle locally.
 
-  Your predicted held-out range (0 to +2 points, centred +0.5, reasoned from
-  CodeDPO Table 7) brackets the measured -0.8. The held-out null is NOT blind:
-  that instrument resolves +/-1.6pp at t=2, so a 2-point effect would have shown.
-  This is memorisation without transfer, measured.
+    Q1 (INSTRUMENT VALIDITY, and it decides whether I change the ruler).
+        eval.py:164 pass_at_k is the Chen et al. 2021 unbiased estimator
+        1 - C(n-c,k)/C(n,k), which as I read it assumes n IID samples from one
+        distribution. eval.py:211-213 does not feed it that. It takes sample 0 at
+        temp 0.0 and the remaining 4 at temp 0.8. Measured consequences, not
+        argued: the greedy draw was CONSTANT on 31/31 tasks across 40 runs, and
+        the reported rate is exactly 0.2*greedy + 0.8*temp0.8 to 0.000000 over
+        all 31 tasks - an arithmetic identity, so 20% of every score is a
+        deterministic constant. It is also now the SOLE mechanism putting tasks
+        outside the [0.2,0.8] band: all four out-of-band tasks have greedy pinned
+        at 1.00 or 0.00.
+        Is a greedy+sampled mixture fed to the unbiased pass@k estimator a
+        documented practice, a documented error, or unaddressed? Is "pass@3" as
+        this file reports it the quantity it names? If I drop the greedy draw and
+        sample all 5 at temp 0.8, what do I LOSE that the literature identifies -
+        the anchor was presumably there for variance reduction, and I measure its
+        benefit at 0.894x on the run-level sd. I want the citation or a plain
+        statement that nobody addresses the mixture. This decides an instrument
+        change that re-baselines every eval_history.jsonl row, which is why I am
+        not making it on my own judgement.
 
-  ALSO SETTLED, so do not spend the round on it:
-    - Noise floor, your leftover risk 1, is CLOSED and in the FAVOURABLE
-      direction. Null arm sd 0.0129 over 5 runs of 65 generations against a
-      binomial prediction of 0.0557 - observed is 4.3x SMALLER. The k-scaling in
-      sections 54/56 is conservative, not void. Cause is structural: eval.py
-      takes one greedy sample at temp 0 plus four at 0.8, and saturated tasks
-      contribute no variance.
-    - The old ruler is confirmed dead for pass@3: 0.9000 in all 10 runs, zero
-      variance across both arms.
-    - Your finding 4's class was closed structurally (87d46e6), and reading the
-      bytes turned up a FOURTH site you had not seen: --stratum help still said
-      "evol is unverified", which your own finding 5 superseded.
+    Q2 (DECIDES THE SIZING OF THE NEXT RUN). Every MDE I have quoted uses
+        se_diff = sqrt(2) * run_level_sd, which assumes BOTH ARMS have the same
+        run-level sd. I have measured only the NULL arm, and I cannot measure the
+        trained arm before training exists - the assumption is structurally
+        unmeasurable at the moment it is needed.
+        Does the execution-verified / preference-learning eval literature report
+        PER-ARM variance on pass@k, or does it assume homoscedasticity across
+        arms? Is there a reason to expect a trained arm to be noisier or quieter
+        than its base (e.g. entropy collapse under DPO would REDUCE variance,
+        which would make my MDE conservative rather than optimistic - is that the
+        documented direction?). And what is the right design when only one arm can
+        be pre-measured: Welch rather than pooled, a paired-by-task analysis, or
+        simply reporting each arm's own sd from its own replicates? Name the
+        cheapest design that does not require knowing the trained arm's sd in
+        advance.
 
-  ASK - TWO QUESTIONS, both outside what I can settle locally.
+    Q3 (DECIDES WHETHER THE NEXT RUN IS THE ONE YOU ALREADY SPECIFIED). Your R2
+        held prompt count at 13 for the seam-fix re-run, explicitly so that the
+        seam fix and the prompt count would not change together. That re-run never
+        happened: it was blocked because section 64 measured the held-out bank
+        SPENT, and replacing the instrument was R3/R4. The instrument is now
+        replaced - so a variable ALREADY changed, not by choice but by your own
+        ruling.
+        Does R2 still hold at 13? The re-run would now measure the fixed seam on a
+        DIFFERENT ruler (31 band-selected oss tasks, 3.0pp MDE at k=25) than the
+        one R2 was reasoning about (the 10-task bank whose maximum possible effect
+        was 3.0pp because 7 of 10 sat at ceiling). If holding at 13 no longer
+        isolates the seam fix, say so and say what the re-run is actually a
+        measurement OF. Your "target 200 prompts" recommendation is recorded as
+        deferred and NOT adopted; I am not asking you to re-argue it, I am asking
+        whether the instrument swap has already spent the one-change-at-a-time
+        budget R2 was protecting.
 
-    Q1 (THE ONE THAT MATTERS NOW). THE GENERATOR AND THE TRAINER ARE DIFFERENT
-        ARTIFACTS AND I DO NOT KNOW HOW BADLY THAT BREAKS THE METHOD.
-        config.py's own docstring states the design: an OLLAMA TAG for
-        generation/eval/repair, an HF BASE for training. forge.py samples every
-        preference pair from llama3:8b-instruct-q4_K_M through Ollama;
-        train_native.py updates unsloth/llama-3-8b-Instruct-bnb-4bit. Measured on
-        the same 13 tasks, same prompts, same verifier: they disagree on 7 of 13,
-        mean |per-task disagreement| 0.308, and spiral inverts completely (0.0 vs
-        1.0). So every pair is OFF-POLICY with respect to the weights being
-        updated - the chosen and rejected completions were never sampled from the
-        model being trained.
-        What does the literature say about off-policy preference data in
-        DPO-family methods at this scale? Is the on-policy/off-policy distinction
-        known to be load-bearing here, or is it second-order next to the
-        13-prompt problem? Is a QUANTIZATION mismatch between the sampling policy
-        and the training policy a documented failure mode at all, or am I
-        inventing a concern? I want the citation, or a plain statement that the
-        literature does not address it. This decides whether the fix is cheap
-        (regenerate pairs from the same artifact) or whether the generate-then-
-        train seam needs rebuilding.
+  CLOSED-CLASS CLAIM + RED WITNESS (one this round):
 
-    Q2 (DECIDES THE NEXT RUN). HOW MANY DISTINCT PROMPTS BEFORE TRANSFER APPEARS?
-        Measured: 13 prompts buys +16.5 in-distribution and 0 out-of-distribution.
-        You cited DSTC at 50k instructions for +1.0 to +4.3, and CodeDPO's first
-        quartile (~28,500 pairs) for +1.4. Between 13 and 28,500 there is a
-        threshold I must pick a number on, and I would rather pick it from
-        published learning curves than from what fits in an evening. Does anything
-        report pass@1 transfer as a function of PROMPT COUNT (not pair count) for
-        execution-verified preference learning? If nobody reports it, say so and
-        name the cheapest informative sweep - I have a working screening harness
-        and 25,862 licensed oss rows, so I can build a training set at whatever
-        prompt count you name, on a split disjoint from the eval bank.
+    Claim A: forge.verify()'s verdict can no longer depend on which script called
+             it, because the interpreter is resolved in one place and no longer
+             inherited from sys.executable.
+    RED   310 completions banked ONCE and replayed through verify() under both
+          launchers - identical code bytes, identical task objects:
+            launcher 3.14 -> 172/310 = 0.5548
+            launcher 3.11 -> 154/310 = 0.4968      18 disagreements, ALL one way
+          Minimal mechanism probe:
+            def f(x: List[int]) -> Tuple[int, int]: return (1, 2)
+            3.11 -> NameError: name 'List' is not defined    3.14 -> DEFINED_OK
+          Cause: PEP 649/749 deferred annotation evaluation.
+    GREEN Same 310 replayed after the pin: 154/310 under BOTH launchers, 0
+          disagreements. tests/test_verifier_pin.py 5/5; its own sensitivity
+          witnessed by emulating the bug via SRLM_VERIFY_PY (3.14 ok=True,
+          3.11 ok=False, verdicts differ).
+    Scope, stated because it is the weak part: the annotation case is the ONE
+    mechanism found. The test is a fixed probe for it plus a structural check
+    that the interpreter is not inherited - a flashlight, not a fence. Other
+    3.11<->3.14 semantic differences are UNENUMERATED, and the fingerprint
+    records the interpreter VERSION but not its installed packages, the OS, or
+    CPU-dependent behaviour.
 
-  NON-CLAIMS:
-    - NOT claiming DPO is the right objective. Section 58 item 2 (sponsor card
-      F-18 / Factory OC-16) is open and this round does not close it. A
-      memorisation result under DPO is not evidence against SFT or KTO.
-    - NOT claiming the held-out ruler is adequate. Its pass@3 has zero variance
-      across 10 runs. pass@1 resolves +/-1.6pp and is the only held-out number I
-      trust.
-    - NOT claiming the export path works beyond llama3. dequantized_twin() strips
-      a quantization suffix; VERIFIED for unsloth/llama-3-8b-Instruct-bnb-4bit ->
-      unsloth/llama-3-8b-Instruct (ungated, quantization_config=None). ASSUMED and
-      UNCHECKED for the other nine registry entries.
-    - NOT claiming 918 pairs is what a training run consumes in general.
-      train_native.py takes the capped file; train_dpo.py reads the uncapped 1,234
-      plus repair pairs. I resolved which is canonical for run 1 by reading
-      train_native.py's own comment, not by reasoning.
-    - NOT claiming eval_heldin_direct.py's -0.0154 measured the same thing as the
-      served artifact's +0.1646. That path runs generation code I wrote over a
-      bf16 LoRA on bnb-4bit weights. Internally valid; not comparable across
-      stacks. The served artifact is the number that counts.
+  NON-CLAIMS - what I am explicitly NOT claiming this round:
+    - NOT claiming independence holds for the TRAINED arm. 1.01x is the NULL arm
+      at n=40. Q2 exists because I cannot close this.
+    - NOT claiming the 57 historical eval_history runs are unaffected by the
+      verifier change. Section 74 established only that the OLD bank's task
+      shapes do not trip the known mechanism (100 completions, 87/100 identical
+      under both interpreters, one model, one epoch). Those generations were
+      never stored and can never be re-scored.
+    - NOT claiming the frozen ruler's 4 out-of-band tasks are harmless.
+      ace_oss_16070 at 0.880 and ace_oss_24748 at 0.145 carry little signal. They
+      are frozen and FLAGGED rather than dropped, because dropping them selects
+      on the measurement being reported and each drop-and-remeasure round biases
+      the next - I tested that regress as a hypothesis in section 71 (H2) and it
+      was rejected as the cause there, but it remains a real trap for the fix.
+    - NOT claiming the ruler supports a generalisation claim. T=31 estimates the
+      change in mean pass rate ON THESE 31 TASKS; your section 59 finding 2
+      tau^2/T point still applies and no prereg has been written.
+    - NOT claiming data/ruler_frozen.json is current. Its per-task
+      eval_instrument_rate figures came from n=10 and are superseded by n=40;
+      re-issuing needs freeze --force and has NOT been done.
+    - NOT claiming the noise floor is model-general. One model, one quantization.
     - NOT asking for code. Advice only.
 
-  CLOSED-CLASS CLAIMS + RED WITNESS (two this round, both with output):
-
-    Claim A: screen_tasks.py can no longer carry a superseded sizing figure in
-             more than one place, because the figures are COMPUTED from one SIZING
-             block rather than retyped.
-    RED   tests/test_screen_sizing.py -> 3 failed. test_no_superseded_strings
-          listed all four live sites: {'docstring target prose': 'the target is
-          ~30 admitted tasks', 'docstring k=5 sizing': '~30 at k=5', 'completion
-          print': '~30 supports detecting +3%', 'evol provenance': 'evol is
-          unverified'}
-    GREEN 0 failed. --target default now computes to 78, was a typed 30.
-    Scope, stated because it is the weak part: the probe is a FIXED LIST of the
-    four strings actually found, not a general staleness scanner. A new site is
-    not caught automatically. A flashlight, not a fence.
-
-    Claim B: a LoRA trained on any config.py registry model can be exported to
-             GGUF, because the converter is handed the base's unquantized twin
-             config instead of the quantized training base.
-    RED   NotImplementedError: Quant method is not yet supported: 'bitsandbytes'
-    GREEN [1/4] exit 0; tensors adapter=448 gguf=448 MATCH / [2/4] both created /
-          [3/4] coherent / [4/4] amplified == null ? False (similarity 0.0310;
-          adapted-vs-null 0.6349). PASS.
-    Scope: VERIFIED for llama3 only; the suffix rule is assumed and unchecked for
-    nine other entries. Claim B is therefore DEMONSTRATED for one model and
-    PENDING for the registry. I state it as a class claim because the mechanism is
-    shared, and flag that the mechanism is the only thing shared.
-
-  A METHOD NOTE, because it changed how I work and it came out of your rounds.
-  Six of my own claims needed correcting this session. Not one was a reasoning
-  error; every one was a single measurement treated as a fact. The baseline that
-  anchored an entire headroom argument sat +3.66 sd out on a pooled n=10. Your
-  section 59 rule was "check what a count is a count OF". Section 60 added "check
-  what a green check was aimed AT". Section 61 adds the cheapest of the three:
-  "check how many times you measured it" - n=1 is a rumour. If you find me
-  leaning on an unreplicated number anywhere in sections 58-61, that is a finding
-  and I want it named.
-
+  A METHOD NOTE, offered because it is the one transferable thing this round
+  produced. Section 70's rule was "check how many times you measured it - n=1 is
+  a rumour". Section 73 had to add: n=10 is a rumour too WHEN THE QUANTITY IS A
+  VARIANCE, because 9 degrees of freedom span a factor of 2.6 and I nearly banked
+  a 25% precision bonus that does not exist. The only thing that stopped it was
+  reporting the CI beside the point estimate and refusing to bank a ratio whose
+  interval contained 1.0. If you find me leaning on a point estimate without its
+  interval anywhere in sections 71-74, that is a finding and I want it named.
 --------------------------------------------------------------------------------
 1. WHAT THIS IS
 --------------------------------------------------------------------------------
@@ -8494,5 +8501,46 @@ STILL OPEN, revised:
   4. The greedy anchor is now the only mechanism pushing tasks out of band.
   5. Cross-version verifier divergence beyond the annotation case: still a
      flashlight, not a fence.
+
+standing by
+
+--------------------------------------------------------------------------------
+74. EXECUTOR LOG  (2026-07-30 - bounding section 71's damage: is the OLD held-out
+    bank interpreter-sensitive? Measured, and it is NOT. eval_history's pre-pin
+    rows stay comparable.)
+--------------------------------------------------------------------------------
+Section 71 pinned the verifier and showed the permissive reading changed 18 of 310
+completions on the NEW ruler. That immediately raises a question section 71 did not
+answer: eval_history.jsonl holds 57+ runs of the OLD ten-task bank, all scored by
+unguarded eval.py under python 3.14. If the old bank is interpreter-sensitive too,
+every historical held-out number is incomparable with anything measured from now
+on, and the project's whole baseline series is broken.
+
+MEASURED, same method as section 71 - 100 completions from the 10 HELD_OUT tasks
+banked ONCE, then replayed through verify() with the verifier forced to each
+interpreter in turn (SRLM_VERIFY_PY, emulating the pre-pin inherit):
+
+  verifier 3.14.6   87/100
+  verifier 3.11.9   87/100
+  per-task counts   IDENTICAL on all 10 tasks
+
+Zero disagreements. So the pre-pin eval_history rows for the old bank are NOT
+affected and remain comparable. The mechanism predicted this and it is worth
+saying why it is a prediction rather than a relief: the divergence needs
+unimported typing generics in the completion, the model emits those because the
+AceCode oss prompts CONTAIN annotated signatures, and the old bank's prompts are
+bare English about bare functions (gcd, is_prime, rotate). Same reason the 13
+SEED_TASKS were unaffected (section 71, 1269/1269 pairs still valid).
+
+SCOPE, because this is one measurement and not a proof: 100 completions, ONE model
+(llama3:8b-instruct-q4_K_M), ONE epoch. It does not re-verify the 57 historical
+runs - those generations were never stored, so they cannot be re-scored, ever. What
+is established is that the old bank's TASK SHAPES do not trip the known mechanism.
+A different mechanism, or a different model's output style, is not covered.
+
+INCIDENTAL CORROBORATION of section 64: the same replay shows 7 of 10 tasks at
+10/10 and `rotate` at 0/10, i.e. the spent bank measured again by accident. 87/100
+overall against the 0.87 pass@1 section 64 reported. The old instrument is exactly
+as saturated as it was declared to be.
 
 standing by
