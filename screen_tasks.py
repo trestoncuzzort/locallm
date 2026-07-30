@@ -97,24 +97,33 @@ SIZING = {
 # rather than carrying a second copy of the status, which is how the previous
 # status ended up stale in two places at once.
 #
-# Section 71: 10 null-arm replicates of the 31-task confirmed band, scored by
+# Section 73: 40 null-arm replicates of the 31-task confirmed band, scored by
 # eval.evaluate under the PINNED verifier (python 3.11.9). An earlier set of 10
 # under the unpinned verifier is kept in the artifact but is NOT poolable -- the
 # permissive reading made 5 tasks dead channels.
 #
-# READ THE CI BEFORE SPENDING ANYTHING ON IT. The point estimate is 0.75x the
-# independence prediction, i.e. the favourable direction, but the 95% interval
-# still CONTAINS the prediction. Ten replicates buy 9 degrees of freedom, which
-# is enough to site the number and not enough to establish the ratio. Treat the
-# shortfall as a direction, not a fact.
+# INDEPENDENCE HOLDS: observed/predicted is 1.01x (both values below; the ratio
+# is computed, not retyped -- test_screen_sizing caught exactly that when this
+# comment first restated the figure). The sizing rows above are therefore CORRECT
+# AS PUBLISHED and must not be tightened.
+#
+# THIS SUPERSEDES A NUMBER THIS PROJECT ALMOST BANKED. At 10 replicates the same
+# instrument read 0.0283 (0.75x), and the residual covariance came out NEGATIVE
+# (mean pairwise -0.0072, "cancellation"). At 40 it reads 1.01x and the
+# covariance is POSITIVE (+0.0102). Both the shortfall and its sign were small-
+# sample noise. The n=10 CI was [0.0195, 0.0516] and it did contain 0.0376, which
+# is the only reason the 0.75x was never banked as fact -- section 70's method
+# note ("check how many times you measured it; n=1 is a rumour") applies at
+# n=10 too, and the CI is what carried the warning. Read the interval, not the
+# point estimate.
 # --------------------------------------------------------------------------
 NOISE_FLOOR = {
-    "run_level_sd": 0.0283,
-    "ci95": (0.0195, 0.0516),
-    "replicates": 10,
+    "run_level_sd": 0.0381,
+    "ci95": (0.0312, 0.0489),
+    "replicates": 40,
     "independence_prediction": 0.0376,
     "verifier": "python 3.11.9",
-    "source": "section 71; data/ruler_noise.jsonl; ruler_noise.py analyze",
+    "source": "section 73; data/ruler_noise.jsonl; ruler_noise.py analyze",
 }
 DEFAULT_DELTA_PP = 3.0
 DEFAULT_K = 10          # eval runs per task; the cheaper shape from section 56

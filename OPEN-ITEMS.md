@@ -23,32 +23,44 @@ Parked is not done. Prune entries when they close.
   10 null replicates under the pinned verifier.
   *Where:* `data/ruler_frozen.json`, `screen_tasks.NOISE_FLOOR`, §71/§72.
 
-- **The measured noise floor has a wide interval, and only the NULL arm was
-  measured.** sd 0.0283 with 95% CI **[0.0195, 0.0516]** — a factor of 2.6, and the
-  interval still CONTAINS the 0.0376 independence prediction, so "the prediction is
-  too pessimistic" is a direction and not an established fact. Every MDE inherits
-  that: 3pp needs k=20 at the point estimate and is unreachable at any k≤25 at the
-  interval's top. Worse, `se_diff = sqrt(2)*run_sd` assumes BOTH arms share a
-  run-level sd and only the null arm has one; a trained arm could be noisier and
-  nothing bounds it. Consequence: the first efficacy run must report its own arm sd
-  rather than borrowing this one. ~40 replicates (2.1 min each) would halve the CI.
-  *Where:* `council/ruler_noise_analysis_pinned.txt`, §72 open items 1–2.
+- **Only the NULL arm's noise was measured.** At 40 replicates the run-level sd is
+  **0.0381**, CI [0.0312, 0.0489] — i.e. **1.01×** the 0.0376 independence
+  prediction, so independence holds and §70's sizing table is correct as published
+  (3pp = k=25 = 3,875 gens/arm). §72's 0.0283 / 0.75× / "k=20 suffices" was an n=10
+  artifact and is WITHDRAWN (§73); its residual covariance sign flipped too
+  (−0.0072 → +0.0102). What remains open is the arm assumption: `se_diff =
+  sqrt(2)*run_sd` assumes BOTH arms share a run-level sd and only the null arm has
+  one. A trained arm could be noisier and nothing bounds it, so **the first efficacy
+  run must report its own arm sd rather than borrowing this one.** This is now the
+  largest unmeasured quantity in the sizing.
+  *Where:* `council/ruler_noise_analysis_n40.txt`, `screen_tasks.NOISE_FLOOR`, §73.
 
-- **Three frozen ruler tasks sit outside [0.2, 0.8] under the eval instrument.**
-  `ace_oss_16070` (0.960), `ace_oss_19459` (0.820), `ace_oss_24748` (0.120). Frozen
-  and flagged rather than dropped, because dropping them selects on the very
-  measurement being reported and each drop-and-remeasure round biases the next. So
-  the ruler is 28 clearly-live channels plus 3 weak ones; 16070 carries almost no
-  signal. *Where:* `data/ruler_frozen.json` → `eval_instrument_out_of_band`.
+- **`data/ruler_frozen.json` records n=10 eval-instrument rates, superseded by
+  n=40.** The frozen tid set and set-sha are unaffected (composition unchanged), but
+  the per-task `eval_instrument_rate` and the `eval_instrument_out_of_band` list
+  (3 tasks at n=10, 4 at n=40 — `ace_oss_2454` joins) came from the smaller sample.
+  Re-issuing needs `freeze --force`, deliberately, because freezing twice silently
+  is what that guard exists to prevent. *Where:* §73 open item 3.
+
+- **Four frozen ruler tasks sit outside [0.2, 0.8] under the eval instrument.** At
+  n=40: `ace_oss_16070` (0.880), `ace_oss_19459` (0.855), `ace_oss_2454` (0.180),
+  `ace_oss_24748` (0.145). Frozen and flagged rather than dropped, because dropping
+  them selects on the very measurement being reported and each drop-and-remeasure
+  round biases the next. So the ruler is **27 clearly-live channels plus 4 weak
+  ones**, and 0 dead channels across 40 runs. All four are pushed out by the greedy
+  anchor (each has greedy pinned at 1.00 or 0.00).
+  *Where:* `data/ruler_frozen.json` → `eval_instrument_out_of_band`, §73.
 
 - **The greedy anchor is 20% of every eval score and it is a deterministic
   constant.** `eval.py` samples 1 draw at temp 0.0 + 4 at 0.8, and the resulting
   rate is exactly `0.2*greedy + 0.8*temp0.8` (verified to 0.000000 over 31 tasks).
-  Greedy was constant on 31/31 tasks across 10 runs, so it buys a 0.894x variance
-  reduction while POLARIZING the rate distribution — it is what pushes 16070 to
-  0.960. Whether the ruler should sample all 5 at temp 0.8 is a real design
-  question; changing it re-baselines every `eval_history.jsonl` row, so it is named,
-  not done. *Where:* §72 open item 4, `ruler_noise.py` CAUSE 1.
+  Greedy was constant on 31/31 tasks across **40** runs, so it buys a 0.894×
+  variance reduction while POLARIZING the rate distribution. It is now the **sole**
+  mechanism putting tasks outside the band on this ruler — all four out-of-band
+  tasks have greedy pinned at 1.00 or 0.00. Whether the ruler should sample all 5 at
+  temp 0.8 is a real design question; changing it re-baselines every
+  `eval_history.jsonl` row, so it is named, not done.
+  *Where:* §73 open item 4, `ruler_noise.py` CAUSE 1.
 
 - ~~**`export_adapter.py` does not exist.**~~ CLOSED 2026-07-28. Built and verified
   end to end on the smoke adapter: conversion exit 0 with tensor count 336 = 336,
