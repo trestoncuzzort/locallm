@@ -10722,3 +10722,1899 @@ on an interface, adopting it beats inventing one. DIRECTIVE for activation #18 i
 set above.
 
 standing by
+
+--------------------------------------------------------------------------------
+82. COUNCIL RESPONSE — THE PHD, SOLO SEAT  (2026-07-31 — activation #18
+    answered: prior art for a pluggable verifier seam; discover-or-design; what
+    verifier discipline transfers; multi-domain mixing. Scope: sections 77-81,
+    code at 23c3110 (HEAD was 40f926d), 12 web sources fetched. Banked verbatim.)
+--------------------------------------------------------------------------------
+*Filename date follows the one named in the activation (2026-07-31). The actual clock at
+writing was 2026-07-30 20:31 local. Recording the discrepancy rather than silently
+adopting either.*
+
+*Section-number check performed immediately before writing, not trusted from the DIRECTIVE:
+`grep -oE '^[0-9]+\. (EXECUTOR|COUNCIL|THE PHD)' instructions.txt` returned 77-81 as the
+tail, highest header 81, no duplicates. 82 was free. No renumbering was needed this round.*
+
+---
+
+## VERDICT
+
+**GO-WITH-FIXES.** Class: **claim-scope defects — two shipped claims are materially
+narrower than the channel states — plus one control-flow regression in the freeze path.**
+
+The strategic direction is right and the prior-art instinct was correct and paid off. The
+loop *is* close to domain-general. But the DIRECTIVE's own structural count is short, the
+ingestion claim is false for entire writing systems, and the fix that closed a council
+finding in §77 left a broken `else` behind that still ships at HEAD.
+
+---
+
+## EVIDENCE READ
+
+**Commit actually read from.** `git log -1 --format=%H` → **`40f926d97541cea2ba2466e83c9e023307eb1a7e`**.
+HEAD is **NOT** 23c3110. All code below was read via `git show 23c3110:<path>`, i.e. the
+pinned commit `23c3110eee3f5380a189bd03e6100973e8b7ff86`, as instructed. Where I checked
+whether a defect survives to HEAD I say so explicitly and name 40f926d.
+
+**Channel.** `instructions.txt` lines 10218–10724 (sections 77, 78, 79, 80, 81) read in
+full. Section 76's header/scope line (9513–9515) and 75's (8533–8536) read only to match
+formatting convention. Total file 10,724 lines.
+
+**Code at 23c3110, read in full:**
+- `forge.py` (721 lines) — `Task`, `SEED_TASKS`, `Actor`, `extract_code`, `Result`,
+  `verify`, `critique`, `run_task`, `main`, plus `ACTOR_SYSTEM`, `BANNED`, `VERIFY_PY`,
+  `verifier_interpreter`
+- `eval.py` (292), `build_ruler.py` (387), `ruler_noise.py` (527, read to line 470)
+- `localllm/make_corpus.py` (185), `localllm/start_studio.py` (87),
+  `localllm/test_ingest.py` (read in full — not in the assigned scope, opened to attack
+  the closed-class claim's own green witness)
+- Grep across all non-`localllm` `.py` at 23c3110 for `ACTOR_SYSTEM|extract_code`:
+  8 files hit — `forge.py` (7), `train_native.py` (6), `repair.py` (6),
+  `tests/test_training_seam.py` (3), `eval.py` (3), `screen_tasks.py` (2),
+  `measure.py` (2), `eval_heldin_direct.py` (2). Matching lines in the five
+  non-scope files read directly.
+- `tests/` listing: `test_ruler_noise.py`, `test_screen_sizing.py`,
+  `test_training_seam.py`, `test_verifier_pin.py`. Grep for
+  `build_ruler|verify_frozen|cmd_freeze` across `tests/` returns exactly one hit, and it
+  is a **comment** (`test_verifier_pin.py:4`).
+
+**EXECUTED (read-only, in a temp directory, never the repo, no training/generation/screening):**
+- `git show 23c3110:localllm/make_corpus.py` copied to a tempdir; `looks_like_text` and
+  `is_trainable_file` driven against five constructed files and then against 400 synthetic
+  files per writing system. Full outputs quoted in Finding 1.
+- Existence/size check on `data/ruler_noise.jsonl` (209,606 bytes, present).
+- `git show 40f926d:build_ruler.py` diffed by grep against 23c3110 for the Finding 3 defect.
+
+**Web sources fetched this round — all NEW, none in the ledger (URLs):**
+
+| Source | Status |
+|---|---|
+| https://raw.githubusercontent.com/PrimeIntellect-ai/verifiers/main/verifiers/rubrics/rubric.py | VERIFIED (raw source) |
+| https://raw.githubusercontent.com/PrimeIntellect-ai/verifiers/main/verifiers/types.py | VERIFIED (raw source) |
+| https://www.primeintellect.ai/blog/verifiers-v1 | VERIFIED (primary vendor doc) |
+| https://raw.githubusercontent.com/PrimeIntellect-ai/verifiers/main/README.md | VERIFIED-AS-THIN (fetched; contains no API detail — recorded as a negative) |
+| https://huggingface.co/docs/trl/rewards | VERIFIED (official TRL docs, v1.9.2) |
+| https://verl.readthedocs.io/en/latest/preparation/reward_function.html | VERIFIED (official veRL docs) |
+| https://developers.openai.com/api/docs/guides/graders | VERIFIED (official OpenAI API docs) |
+| https://raw.githubusercontent.com/open-thought/reasoning-gym/main/README.md | VERIFIED (raw README) |
+| arXiv:2505.24760 — Reasoning Gym (NeurIPS 2025 Spotlight) | VERIFIED (abstract verbatim) |
+| arXiv:2506.19733 — Breaking Barriers (ICLR 2026) | VERIFIED (abstract verbatim) |
+| arXiv:2507.17512 — Can One Domain Help Others? | VERIFIED (abstract verbatim) |
+| arXiv:2509.24086 — Do Repetitions Matter? | VERIFIED (abstract verbatim) |
+
+**UNVERIFIED / POINTER (named by search, primary source NOT opened — do not cite as evidence):**
+SkyRL-Gym's `Env.step` signature (search gloss only; DeepWiki is not a primary source),
+NeMo Gym's `/verify` endpoint and its "34 verifiers / 5 sandboxed Ray" breakdown (blog
+gloss only), OpenRLHF's remote-reward interface (not opened at all this round — I ran out
+of budget before it and I am not going to describe an interface I did not read),
+arXiv:2602.01365 (asymmetric cross-domain effects), arXiv:2511.12344 (rubric rewards).
+
+**CARRIED from the ledger, not re-fetched:** none were load-bearing this round. The
+ledger's note was right — Chen et al., CodeDPO, DSTC, Tajwar, Song, Yue, Pan, Xu, Gu/Zhong,
+Wang one-shot RLVR and Miller do not bear on an ecosystem survey. Yue et al. and Miller are
+referenced below only as already-established context, carrying no new claim.
+
+---
+
+## FINDINGS
+
+### F1. The ingestion closed-class claim is FALSE for entire writing systems, and its stated scope does not disclose it. **EXECUTED.**
+
+**Target:** `localllm/make_corpus.py`, `is_trainable_file(path, exts=None, probe_bytes: int = 8192)`
+→ `head = path.open("rb").read(probe_bytes)` → `looks_like_text(head)` →
+`text = data.decode("utf-8")` inside a bare `try/except UnicodeDecodeError: return False`.
+
+**The claim under attack**, verbatim from activation #18:
+
+> Scope: "text" here means UTF-8-decodable with >=90% printable characters. It will refuse
+> UTF-16 and other encodings, which is a real limitation and is not covered by any test.
+
+That scope note is true and insufficient. The function does not decode the *file*. It
+decodes the *first 8192 bytes*. If byte offset 8192 lands inside a multi-byte UTF-8
+sequence, the probe raises `UnicodeDecodeError` and a perfectly valid UTF-8 text file is
+refused — **as UTF-8**, not as some other encoding.
+
+**RED WITNESS (executed).** A file of 8191 ASCII `x`, then `é`, then 100 `y` — valid UTF-8
+throughout:
+
+```
+CASE1 whole-file decodes as UTF-8 : True
+CASE1 probe(8192) looks_like_text : False
+CASE1 is_trainable_file           : (False, 'content is not text (binary or undecodable)')
+```
+
+**Sized (executed, 400 synthetic files per row, lengths 9–40 kB, seed 7):**
+
+```
+CJK-only text  (3-byte chars)      refused: 100.0%
+Cyrillic/Greek (2-byte chars)      refused:  45.2%
+EU accented ~10% non-ascii         refused:   2.8%
+pure ASCII                         refused:   0.0%
+```
+
+100.0% is not a sampling artifact — with uniform 3-byte characters, offset 8192 is never a
+sequence boundary (8192 mod 3 = 2), so the refusal is **deterministic**: *every* CJK text
+file over 8 kB is refused.
+
+**What breaks.** This is the identical failure the whole §81 change existed to end — a
+genuine text file silently refused — reintroduced one layer down, with a *worse* error
+message, because "content is not text (binary or undecodable)" tells the user their text
+file is binary. For a project whose stated goal is "trained on ANYTHING… commercial and
+industrial," refusing 100% of Japanese, Chinese and Korean machine logs is not a corner.
+
+**How bad:** high, and cheap to fix. One line: trim the trailing incomplete UTF-8 sequence
+from the probe before decoding (or decode the probe with the last ≤3 bytes dropped). The
+test file must gain a per-script case; `test_looks_like_text_rejects_mojibake` currently
+passes `"temperature 88.4°C — within tolerance\n".encode("utf-8")` — a 40-byte string,
+far below the probe boundary, so the existing multi-byte test cannot reach this bug.
+
+**Three further ingestion cases I checked (executed), reported honestly including the ones that held:**
+
+```
+CASE2 ansi log accepted           : (True, 'text')      # 4.8% non-printable, well under the 10% bar
+CASE3 bom.csv accepted            : (True, 'text')
+CASE3 U+FEFF isprintable          : False
+CASE4 empty.txt                   : (False, 'content is not text (binary or undecodable)')
+CASE5 utf-16 text                 : (False, 'content is not text (binary or undecodable)')
+```
+
+CASE2 **holds** — I expected ANSI-coloured build logs to trip the 90% printable bar and
+they do not; the claim survives that attack. CASE5 confirms the disclosed UTF-16 limit.
+CASE3 is minor but real: a UTF-8 BOM is accepted and `U+FEFF` is **not** printable, so it
+enters a character-level tokenizer as a permanent junk vocabulary entry — precisely the
+mojibake harm `looks_like_text`'s own docstring says it exists to prevent, surviving in one
+instance. CASE4 is a wrong *reason*, not a wrong verdict: an empty file is reported as
+binary.
+
+### F2. The four-places claim is short by at least two, and the fifth place is welded into the TRAINING seam, not the prompt. **READ-ONLY.**
+
+**Target:** the DIRECTIVE's claim —
+
+> Welded to Python are four places, three of them formatting: `Task.entry` / `Task.tests`,
+> `extract_code` (strips ```python fences), `critique` (prompts about "solutions" and
+> "defects"), and `verify()`.
+
+I read for it rather than classifying, as instructed. The four named are real. At least two
+more are not on the list.
+
+**FIFTH: `ACTOR_SYSTEM`, `forge.py:68-72`.**
+
+```python
+ACTOR_SYSTEM = (
+    "You are a precise Python engineer. Given a task, respond with a single "
+    "self-contained Python solution inside one ```python fenced code block. "
+    "Define exactly the requested function. No prose, no tests, no prints."
+)
+```
+
+Three Python assumptions in four lines: the persona, the fenced-block output contract, and
+"define exactly the requested function" — which is what makes `Task.entry` meaningful at
+all. This is the exact site the task asked me to look hard at, and it is not `critique()`.
+
+It is worse than a fifth formatting site, because it is **imported into the training path**.
+`train_native.py:52-60` (outside the DIRECTIVE's declared read scope):
+
+```
+52:    forge stores `chosen`/`rejected` as extract_code() output - fences stripped -
+55:    ACTOR_SYSTEM demands a ```python block, so bare source is a string no policy
+60:    That is a RECONSTRUCTION, not the original bytes - close, because ACTOR_SYSTEM
+```
+
+The DPO training seam **reconstructs the fenced form** because `ACTOR_SYSTEM` demands it.
+So `ACTOR_SYSTEM` is not a prompt string that a new domain would simply rewrite — it is a
+contract that the shape of the training data depends on. Change the domain and
+`train_native.py`'s reconstruction is wrong, silently, in the file this project already
+spent a whole ruling (R1, the "format seam") fixing once.
+
+Blast radius, measured: `ACTOR_SYSTEM`/`extract_code` appear in **8 files** at 23c3110 —
+`forge.py`, `train_native.py`, `repair.py`, `eval.py`, `screen_tasks.py`, `measure.py`,
+`eval_heldin_direct.py`, `tests/test_training_seam.py`. Six of those eight are outside the
+DIRECTIVE's read scope. The count of four is correct *for forge.py* and misleading for the
+repository.
+
+**SIXTH: `BANNED`, `forge.py:76-80`.**
+
+```python
+BANNED = re.compile(
+    r"\b(import\s+(os|sys|subprocess|socket|shutil|ctypes|requests|urllib|http)"
+    r"|__import__|open\s*\(|eval\s*\(|exec\s*\()", re.IGNORECASE)
+```
+
+This is the sandbox policy, expressed in Python source syntax, and `verify()` consults it
+before anything else (`if not code or BANNED.search(code): res.error = "empty or contains
+banned operation"`). It is not merely inert in another domain — it is *wrong* in another
+domain in both directions. For SQL the dangerous operations are `DROP`, `ATTACH DATABASE`,
+`PRAGMA`, `load_extension`, none of which this matches; meanwhile a SQL query or a config
+file containing the substring `open(` would be refused for containing a Python builtin it
+does not contain. A safety filter that is silently inert in the new domain is the worst
+kind of thing to carry across a seam.
+
+**Two more, weaker, named for completeness rather than pressed:** `Result.total` is
+hard-coded to 1 with the comment `# assert-based: all-or-nothing here` (`forge.py:501`) —
+the partial-credit collapse is a property of assert-based Python tests, not of the loop
+(see F5); and `Actor.generate` sends `"options": {"temperature": temp, "num_ctx": 2048}`
+(`forge.py:371`), a 2048-token context that is ample for a LeetCode prompt and is not
+obviously ample for a SQL task carrying a fixture schema or a JSON-Schema config task
+carrying the schema. That is a domain assumption in the actor, not in the four places.
+
+**How bad:** medium-high. It does not falsify "the loop is domain-general" — I agree with
+that reading and Q1/Q2 below assume it. It falsifies the *count*, and the count is what the
+"one function" plan is sized against.
+
+### F3. `build_ruler.py:295` — an orphaned `else:` prints a false warning on every successful freeze. Introduced by the §77 fix for a council finding. Still live at HEAD. **EXECUTED (read + artifact existence check).**
+
+**Target:** `build_ruler.py`, `cmd_freeze`. Line 277 opens `if problems:` … line 280
+`raise SystemExit("refusing to freeze an inconsistent ruler")`. Then thirteen lines of
+comment. Then, at **line 295**:
+
+```python
+    else:
+        print(f"[!] {NOISE.name} absent - freezing without eval-instrument rates. "
+              f"The band is then confirmed only under the SCREEN's sampler.")
+```
+
+Python permits comments between an `if` body and its `else`, so this `else` binds to
+`if problems:` — **not** to any test of whether `ruler_noise.jsonl` exists. There is no
+`if NOISE.exists():` anywhere in `cmd_freeze`; the §77 edit that stripped sample-dependent
+figures from the frozen artifact removed the `if` head and left the `else` attached to the
+nearest preceding `if`.
+
+**Consequence:** the branch runs **exactly when `problems` is empty** — i.e. on every
+successful freeze. `data/ruler_noise.jsonl` exists on disk at **209,606 bytes** (checked).
+So the tool prints "`ruler_noise.jsonl absent — freezing without eval-instrument rates. The
+band is then confirmed only under the SCREEN's sampler`" while the file is present and the
+statement is false. If the file were genuinely absent *and* there were problems, the
+`SystemExit` fires first and the warning never prints. The condition the message describes
+and the condition under which it prints are disjoint.
+
+**Still at HEAD:** `git show 40f926d:build_ruler.py` has the same `if problems:` at 277 and
+the same `else:`/print at 295-296. Not fixed by anything after 23c3110.
+
+**No test can see it:** grep for `build_ruler|verify_frozen|cmd_freeze` across `tests/`
+returns one hit, a comment in `test_verifier_pin.py:4`. `cmd_freeze` has no test.
+
+**How bad:** low in blast radius, high in class. §79 wrote the rule this violates, in this
+channel, one section earlier: *"A green check that reads like a red one is worse than no
+check, because the next person believes the text over the mark."* This is the inverse — a
+red warning printed on a green path, about the artifact the band screen's validity depends
+on. It was introduced *by* the remediation of council finding F2. That is the third
+instance in three sections of "the verification machinery is code and has bugs at the same
+rate," which §80 named as the pattern and which is now recurring inside the fix for the
+finding that named it.
+
+### F4. Q3's premise is refuted by this project's own measurement. Verifier determinism does not zero per-task variance, because the randomness was never in the verifier. **READ-ONLY, resting on §77's numbers.**
+
+**Target:** the DIRECTIVE's Q3 —
+
+> A deterministic verifier (schema validation, a constraint solver) returns the same answer
+> every time, so per-task variance is zero and the entire screening apparatus — band,
+> Wilson intervals, k replicates, MDE — may be meaningless.
+
+The premise conflates two different sources of randomness. A per-task success *probability*
+`p_i` is not a property of the verifier. It is
+`p_i = P( the sampler emits an output the verifier accepts )`. The verifier can be a pure
+function and `p_i` is still strictly between 0 and 1, because the *sampler* is stochastic at
+`TEMP = 0.8`. Bernoulli variance `p(1-p)` is unchanged. The band screen, the Wilson
+intervals, the replicate count and the MDE all survive verbatim.
+
+**The decisive evidence is already in this repo, and it is stronger than any citation.**
+`forge.verify()` is *already* essentially deterministic — it runs fixed assertions on fixed
+inputs. And §77 reports, from `ruler_noise.py`'s CAUSE 1 check, that the greedy draw is
+**constant on 31/31 tasks** across replicates. Temperature 0 removes the sampler's
+randomness; the measured result is zero variance on every task. That is a direct
+experimental demonstration that the verifier contributes ~nothing to run-to-run variance
+and the sampler contributes essentially all of it. Q3 is asking what happens when you
+remove a noise source that has already been measured at zero.
+
+**The one residual I found, named because it is not zero:** `verify()` launches
+`[VERIFY_PY, "-I", path]`, and `-I` implies `-E`, which discards `PYTHONHASHSEED`. Python's
+hash randomization is therefore *on*, per-process. A candidate whose output order depends
+on `set`/`dict` iteration over strings can pass on one run and fail on the next with
+identical bytes. The wall-clock `CAND_TIMEOUT = 8` is the other, and `forge.py:505-509`
+already documents it: *"wall-clock means the same bytes can time out on one run and pass on
+the next."* Both are small. Neither is what Q3 was worried about.
+
+**How bad:** the finding is good news, and it retires a question the executor was about to
+spend a design round on. But it inverts the risk: the thing that *does* break the band
+screen in a new domain is not determinism, it is **degeneracy** — a domain where `p_i`
+piles up at 0 or 1 for structural reasons, leaving no tasks in `[0.2, 0.8]` to screen for.
+Schema-validation is the likeliest such domain, and it is one of the DIRECTIVE's own
+alternates.
+
+### F5. Every framework surveyed expects a scalar reward. This project's reward is boolean by construction, and it turned scalar shaping OFF on purpose. That conflict is unexamined. **READ-ONLY.**
+
+**Target:** `forge.py:415-433` and `:501`, against the Q1 evidence.
+
+The interfaces (all verified, see Q1):
+
+| Framework | Verifier returns |
+|---|---|
+| TRL | `list[float]`, or `None` to skip the example |
+| verifiers (PrimeIntellect) | `float \| list[float] \| dict[str, float]` |
+| veRL | numeric (`return len(solution_str)/100` in the official example) |
+| OpenAI RFT python grader | `float`; "*any other result (exception, invalid float value, etc.) will be marked as invalid and return a 0 grade*" |
+| Reasoning Gym | `float`, with a documented "cascade scorer" giving progressively lenient partial credit |
+
+srlm-forge's verifier returns a `Result` whose `total` is hard-coded to 1 —
+`res.passed = res.total  # assert-based: all-or-nothing here` (`forge.py:501`) — so
+`score`'s first component is exactly `{0.0, 1.0}`. The only graded components are
+`-len(self.code)` and `-self.runtime`, and `EMIT_CONCISENESS = False` (`forge.py:64`) with
+the comment *"length-preference is a reward-hack; off until a robustness signal (mutation
+tests) exists"* disables the one that reaches a pair.
+
+So the project has *already decided*, deliberately and with a stated reason, that its scalar
+channel is a reward hack — while every candidate framework's interface is scalar-shaped.
+"Adopt a pluggable verifier" therefore silently means "adopt a reward type you rejected."
+It is resolvable (a `float` that only ever takes 0.0 or 1.0 satisfies every signature above)
+but it is not free: TRL's `accuracy_reward` returning `None` to skip an unparseable example,
+and OpenAI's "invalid → 0 grade", are *different* answers to the case forge handles as
+`res.timed_out` — and `forge.py:504-511` is emphatic that a timeout must never become the
+`rejected` half of a pair. OpenAI's grader would score it 0 and it would become exactly
+that. That is a real semantic incompatibility, not a type mismatch.
+
+**How bad:** medium. It is a decision to make before a seam is designed, not a defect.
+
+### F6. The freeze gate — named as the crown jewel that transfers — has a Python field baked into its hash input. **READ-ONLY.**
+
+**Target:** `build_ruler.py`, `verify_frozen()` and `cmd_freeze`:
+
+```python
+if sha(c["prompt"], c["entry"], body) != rec["task_sha256"]:
+```
+
+`entry` is *a Python function name*. It is a member of the tuple that defines a task's
+identity, and therefore of `ruler_set_sha256`. In a SQL domain there is no entry point; in a
+JSON-Schema domain there is no entry point. The gate's *shape* (parse-don't-validate,
+re-hash from stored payload, refuse to hand over the ruler otherwise) transfers perfectly
+and is genuinely excellent. Its *schema* does not. §81 says the discipline "transfers
+wholesale"; it transfers with one field renamed, and that rename changes every
+`task_sha256`, which is the migration bill in O2 below.
+
+**How bad:** low as a defect, high as a correction to the record — because "transfers
+wholesale" is exactly the kind of sentence that gets planned against.
+
+### F7. The closed-class test is a spelling check, and the extension list survives in user-facing prose in the very file the change was about. **READ-ONLY.**
+
+**Target:** `localllm/test_ingest.py::test_the_two_callers_share_one_rule` and
+`localllm/start_studio.py`.
+
+The test that activation #18 offers as class closure — *"including one that fails if
+start_studio regrows its own extension list"* — is:
+
+```python
+assert 'EXTS = {".txt"' not in src, \
+    "start_studio has its own hardcoded extension set again"
+```
+
+That is a search for one exact 15-character string. `EXTS = {'.txt'` (single quotes),
+`EXTS={".txt"` (no spaces), `ALLOWED = {".txt"...}`, or a tuple instead of a set all pass.
+It pins one spelling of one regression, not the class.
+
+And the extension list *did* survive, in the same file, in the two messages the
+non-technical user actually reads (`start_studio.py`, `main()`):
+
+```python
+print(f"To train on your own writing, put .txt/.md/.py files in:\n  {DATA}\n")
+...
+print(f"Put some .txt/.md/.py files in:\n  {DATA}\nthen run this again.")
+```
+
+The code will now happily ingest a folder of `.csv`. The tool still tells the user, twice,
+that it wants `.txt/.md/.py`. A user with a folder of sensor exports, reading the message
+this file exists to show them, concludes exactly what they concluded before the fix. The
+decision moved to one place; the *advertisement* of the decision did not, and no test looks
+at strings the user sees.
+
+**How bad:** medium. The closed-class claim as written ("acceptance is decided on CONTENT
+and the decision exists in exactly one place") is true of the code and false of the product.
+
+---
+
+## ANSWERS
+
+### Q1 — PRIOR ART. Has the seam already been designed and implemented?
+
+**Short answer: the proprietor's instinct was right and the answer is split. There is a
+convergent SHAPE and there is NO convergent STANDARD. Do not adopt a dependency. Adopt one
+specific decomposition, and it is not the one the DIRECTIVE is reasoning with.**
+
+**Where the field HAS converged — the reward function signature, and it is nearly trivial.**
+Five independent implementations, verified from primary sources, all reduce to *a callable
+that receives the model's output plus a bag of per-task data and returns a float*:
+
+- **TRL** (https://huggingface.co/docs/trl/rewards, v1.9.2). Verbatim: reward functions take
+  `completions` (`list[list[dict[str, str]]]`, each a one-message list with a `"content"`
+  key), the dataset's other columns by name (e.g. `solution: list[str]`), and `**kwargs` —
+  *"required in the function signature to ensure compatibility with trainers like
+  GRPOTrainer."* Returns `list[float]`; `accuracy_reward` returns **`None` to skip an
+  example** when the gold answer is unparseable. Multiple reward functions are supported and
+  may be `async def`. **TRL ships no sandbox, no timeout, no execution runtime whatsoever.**
+- **veRL** (https://verl.readthedocs.io/en/latest/preparation/reward_function.html).
+  Verbatim signature: `def my_reward_fn(data_source, solution_str, ground_truth, extra_info=None)`,
+  returning a number; registered by *path + name* config
+  (`custom_reward_function.path` / `.name`, defaulting to `compute_score`). Sandboxing is
+  **not addressed** in the reward-function docs; the docs mention a sandbox only for code
+  datasets and describe it as *"will opensource soon."*
+- **OpenAI RFT graders** (https://developers.openai.com/api/docs/guides/graders). Five
+  types: `string_check`, `text_similarity`, `score_model`, `python`, `multi`. Python grader
+  signature verbatim: `def grade(sample: dict[str, Any], item: dict[str, Any]) -> float`.
+  *"Any other result (exception, invalid float value, etc.) will be marked as invalid and
+  return a 0 grade."* Limits, verbatim: **2 minutes**, **2 GB memory**, **1 GB disk**, **2
+  CPU cores** (throttled above), **no network access**, source **< 256 kB**, and a **fixed
+  allow-list of packages pinned to a dated image tag** (numpy, scipy, sympy, pandas,
+  rapidfuzz, scikit-learn, rouge-score, deepdiff, jsonschema, pydantic, pyyaml, nltk,
+  sqlparse, rdkit, scikit-bio, ast-grep-py; "image tag 2025-05-08"). `multi` combines
+  sub-grader scores through a user-written formula in `calculate_output`, supporting
+  `+ - * / ^` and `min, max, abs, floor, ceil, exp, sqrt, log`.
+- **Reasoning Gym** (raw README + arXiv:2505.24760). `data.score_answer(answer=..., entry=...)`
+  → float; entries are `{'question', 'answer', 'metadata'}`; difficulty is a **keyword
+  argument to `create_dataset`**, and the library is *"over 100 data generators and
+  verifiers"* whose *"key innovation is the ability to generate virtually infinite training
+  data with adjustable complexity."*
+- **verifiers** — see below.
+
+That is the convergence: **a float, a task-bag, and nothing else.** It is convergent because
+it is nearly content-free. Writing that interface is an afternoon; it is not what is hard,
+and adopting it buys almost nothing.
+
+**Where the field has NOT converged — the execution substrate, which is the entire actual
+problem.** TRL: nothing. veRL: nothing shipped. OpenAI: a hard-limited, network-less,
+fixed-image sandbox you cannot configure. verifiers v1: a pluggable runtime abstraction.
+NeMo Gym (POINTER, not verified): sandboxed Ray workers behind a `/verify` endpoint. That
+is four incompatible answers to "where does the check run," and it is why nothing has
+converged: *the reward signature is the easy half and everyone agrees; the sandbox is the
+hard half and nobody does.*
+
+**The one library that has actually named the seam this project is looking for:
+`verifiers` (PrimeIntellect-ai/verifiers, formerly willccbb/verifiers).** And its answer is
+**better than the DIRECTIVE's framing**, which is the most useful thing I found this round.
+
+The **v0** API — verified from `verifiers/rubrics/rubric.py` and `verifiers/types.py` on
+`main` — is Environment + Rubric:
+
+```python
+def __init__(self, funcs: list[RewardFunc | GroupRewardFunc] | None = None,
+             weights: list[float] | None = None, parser: vf.Parser | None = None):
+```
+`RewardFunc = IndividualRewardFunc | GroupRewardFunc`, where
+`IndividualRewardFunc = Callable[..., float | Awaitable[float]]`. Reward functions receive
+`prompt`, `completion`, `answer`, optional `task`, `**kwargs` and return
+`float | list[float] | dict[str, float]`. Dataset rows carry
+`TASK_INPUT_FIELDS = {"prompt", "answer", "info", "example_id"}`; `Info = dict[str, Any]`;
+scoring is `async def score_rollout(self, state: State)`, writing `state["reward"]` and
+`state["metrics"]`. **Rubric supports `weights` — i.e. weighted multi-objective reward out
+of the box**, which is the graded-reward machinery F5 says this project would need.
+
+**The v1 answer, and this is the load-bearing part**
+(https://www.primeintellect.ai/blog/verifiers-v1, verified): v1 **breaks the environment
+into three pieces** —
+
+- **Taskset** — *what* the work is. `Taskset[TaskType, ConfigType]` with a `load()`
+  returning `Task` objects; each task carries a `TaskData` subclass with domain fields and
+  a `@vf.reward`-decorated async method taking a `Trace` and returning a float.
+- **Harness** — *how* it is solved: *"the program that solves the task and produces a
+  rollout: a ReAct loop, CLI-based harnesses such as Codex or Terminus 2, or your own
+  agent."*
+- **Runtime** — *where* it executes. Local `subprocess` and `docker`; remote `prime` and
+  `modal`. Core API, verbatim: `async run(argv, env) -> ProgramResult`,
+  `async read(path) -> bytes`, `async write(path, data) -> None`.
+
+**Map that onto srlm-forge's four places and the seam falls out immediately:**
+
+| srlm-forge | verifiers v1 |
+|---|---|
+| `Task.entry` / `Task.tests` | `TaskData` fields (typed, per-taskset) |
+| `ACTOR_SYSTEM` + `extract_code` + `critique` | **harness** |
+| the *checking* half of `verify()` | `@vf.reward` → float |
+| `VERIFY_PY`, `-I`, `CAND_TIMEOUT`, `BANNED`, tempfile | **runtime** |
+
+This is the answer to the DIRECTIVE's "only `verify()` is conceptually hard." `verify()` is
+hard because it is **two things wearing one coat**: a scoring predicate and an execution
+substrate. Split those and the scoring predicate becomes as easy as the other three, and all
+the genuinely hard engineering (isolation, timeout, resource limits, environment pinning)
+concentrates in one replaceable component that has *nothing to do with the domain*. That
+split also explains F2's sixth site: `BANNED` is a *runtime* concern that has leaked into
+the scoring function, which is why it is domain-wrong.
+
+**So: ADOPT THIS, or ADOPT THE DEPENDENCY?** My recommendation is
+**ADOPT THE DECOMPOSITION (taskset / harness / runtime), DO NOT ADOPT THE PACKAGE — yet**,
+for four reasons I can defend:
+
+1. **It is mid-migration, by its own account.** Verbatim: *"The legacy code path is now
+   frozen and will not be actively maintained. We aim to fully deprecate it in the future."*
+   v0 is what existing environments use; v1 is what is being built. Adopting a library
+   during its own breaking rewrite, in a repo whose defining problem is instrument
+   stability, is the wrong trade.
+2. **The whole stack is async** (`score_rollout`, `run`, `read`, `write` are all `async`).
+   srlm-forge is synchronous top to bottom.
+3. **It assumes an OpenAI-compatible client.** Ollama exposes one, so this is surmountable,
+   but it is not free.
+4. **The migration is not free either — see O2 for the number.**
+
+**Rejected as the standard answer, with reasons:** TRL and veRL because their reward
+interface is real but their execution story is absent — adopting them gives this project
+*less* than it already has (it already has an isolated, interpreter-pinned, timeout-bounded
+subprocess verifier; TRL has none of that). OpenAI RFT because the grader runs on OpenAI's
+infrastructure against OpenAI models, which contradicts the local-from-scratch goal
+outright. Reasoning Gym because it is a *task* library, not a seam — but see Q2/Q3, it
+contributes the single best idea in this survey. SkyRL, OpenRLHF and NeMo Gym I did not
+verify from primary sources and I will not rank what I did not read.
+
+**Stated plainly, as the DIRECTIVE asked for:** *No standard exists.* The reward-callable
+shape is universal and near-worthless; the verifier *execution* contract has four
+incompatible implementations and one library (verifiers v1) that has correctly identified
+the decomposition and is still building it. Designing your own is justified. Designing it
+**as taskset / harness / runtime** is not inventing — it is copying the one group that has
+thought about this longest, without taking on their in-flight rewrite.
+
+### Q2 — DISCOVER OR DESIGN?
+
+**Build the second domain first. Your lean is right, and Q1 does not overturn it — it
+*sharpens* it, because you now know the shape to aim for and can check whether a second
+instance actually produces it.**
+
+But the DIRECTIVE's plan has a methodological hole that matters more than the choice of
+domain:
+
+**The two-instance method systematically cannot discover a seam the two instances share.**
+Code-in-a-fence and SQL-in-a-fence are both "generate source text in a fenced block,
+extract it, execute it against a pinned engine." Build those two and the seam you discover
+will be fence-shaped and execution-shaped — and F2's fifth site (`ACTOR_SYSTEM`'s
+`fenced code block` contract, reconstructed inside `train_native.py`) will survive both
+instances *invisibly*, because both need it. You would ship a "domain-general" seam with a
+Python-fence assumption in the training path, and find out on domain three.
+
+So the choice of second domain should be made on **which assumptions it breaks**, not on
+cost or on plausibility as a product. Scored against the assumptions I can enumerate from
+the code:
+
+| Assumption in the current code | SQL + fixture DB | JSON-Schema config | Regex synthesis |
+|---|---|---|---|
+| Reward is all-or-nothing (`forge.py:501`) | **BREAKS** — rows matched / rows expected is a natural scalar | no (valid/invalid) | partial (pass rate over a test-string set) |
+| Verifier is a subprocess of a language interpreter | **BREAKS** — `sqlite3` is in-process | **BREAKS** | **BREAKS** |
+| Verifier is stateless | **BREAKS** — needs fixture setup/teardown per task | no | no |
+| Verifier needs a wall-clock timeout | keeps (a bad query can hang) | **BREAKS** (removes it) | keeps (catastrophic backtracking) |
+| Answer arrives as a fenced code block | keeps | **BREAKS** | keeps |
+| `BANNED` (Python-syntax safety filter) | **BREAKS** — needs `DROP`/`ATTACH`/`PRAGMA` | **BREAKS** (nothing to ban) | **BREAKS** |
+| Environment pin = a Python interpreter path | **BREAKS** → `sqlite3.sqlite_version` | **BREAKS** → validator version + schema draft | **BREAKS** → `re` vs `regex` |
+| `p_i` lands inside `[0.2, 0.8]` (F4) | plausible | **at risk of degeneracy** | plausible |
+
+**SQL against a fixture database is the most informative second instance, and it is also
+the cheapest — those coincide here, which is unusual and worth taking.** It breaks five
+assumptions including the three that matter most:
+
+1. **Natural partial credit.** This is the one thing the code domain *cannot* teach, and F5
+   says it is the thing every candidate framework assumes you have. `|rows correct| /
+   |rows expected|` is a real graded reward that is not a length heuristic and not a
+   reward hack — it is the objective check itself, at finer resolution. Discovering the seam
+   against a domain that produces a genuine scalar is the difference between a seam that
+   fits the field's interfaces and one that does not.
+2. **Per-task external state.** The fixture DB must be created, populated, torn down, and
+   *pinned* (the fixture bytes are part of ground truth exactly as `tests` are). This is the
+   single feature that reveals the runtime/scoring split empirically rather than by my
+   assertion — verifiers v1's runtime API is `run` **plus `read` and `write`** precisely
+   because tasks need files. The code domain never needed `write`, so nothing in `forge.py`
+   knows that tasks can have resources.
+3. **The environment pin generalizes or it does not, and you find out cheaply.**
+   `sqlite3.sqlite_version` is the exact analogue of the §71 interpreter pin — and it is a
+   *library* version rather than a *process* version, which tests whether
+   `verifier_interpreter()`'s design (executable path + version + `pinned_away_from_launcher`)
+   survives when there is no separate executable at all. My prediction, offered as a
+   falsifiable one: it does not survive, and it wants to become an opaque
+   `{"engine": str, "version": str, "fingerprint": sha256}` record with no fields naming
+   Python.
+
+**What SQL will NOT teach you, stated so it is not discovered late:** it keeps the fenced
+block, so `ACTOR_SYSTEM`/`extract_code`/`critique` will look domain-general when they are
+not (F2). **Mitigation, and I would make it a hard requirement of the exercise:** do not let
+the SQL harness import `forge.ACTOR_SYSTEM`. Write a second system prompt from scratch,
+then *diff the two* and treat every shared sentence as a candidate for the harness
+interface. That converts the blind spot into the deliverable.
+
+**Against JSON-Schema as the second instance:** it breaks more *formatting* assumptions but
+is at real risk of the degeneracy in F4 — schema validation of a generated config is close
+to a format check, `p_i` will pile up near 1 once the model learns the shape, and you will
+have built a domain the band screen cannot find tasks in. Keep it as domain three, where it
+is the right instrument for testing whether the seam survives a non-fenced answer.
+
+### Q3 — WHAT TRAVELS AND WHAT DOES NOT.
+
+**Travels unchanged:**
+- **The freeze gate's *shape*** — parse-don't-validate, re-hash from the stored payload,
+  make the checked object the only way to obtain the ruler. Domain-agnostic, and the best
+  single piece of engineering in the repo. Its *schema* does not travel (F6: `entry`).
+- **The deterministic tid-hash split** (`split_side`, `sha256(tid)[:8]/0xFFFFFFFF <
+  RULER_SHARE`) and the ruler/train disjointness checks. Nothing about them is code-shaped.
+- **Nominate → confirm → freeze**, i.e. treating admission as a *nomination* re-measured at
+  higher `n`. That is regression-to-the-mean control and it is domain-independent.
+- **Refusing to pool replicates across verifier fingerprints** (`ruler_noise.cmd_measure`'s
+  `foreign` count). The *concept* is universal; the *key* it compares on
+  (`verifier.version`) is F6's problem again.
+- **The band screen, Wilson intervals, k replicates, MDE — all of it.** See F4.
+
+**Secretly code-specific:**
+- **The interpreter pin's implementation.** `dataset_gate.verify_py()` returns a Python
+  executable path; `verifier_interpreter()` returns `{executable, version,
+  pinned_away_from_launcher, launcher_version}`. Every field names a Python process. The
+  *principle* — "ground truth depends on the engine, so record the engine" — is the
+  project's genuine intellectual asset and it generalizes completely. The struct does not.
+- **`task_sha256 = sha(prompt, entry, tests)`** (F6).
+- **`BANNED`** (F2), which is a runtime policy misfiled as a scoring precondition.
+- **`Result.total = 1`** (F5).
+
+**Is verifier-grounded training on deterministic checks a studied setting?**
+Yes, and it is the *default* setting — it is simply not framed that way, which is why the
+question feels unanswered. Reasoning Gym (arXiv:2505.24760, VERIFIED) is *"over 100 data
+generators and verifiers"* whose verification is entirely algorithmic and deterministic;
+the paper's abstract reports RL results with them and never treats determinism as a
+statistical problem, because it is not one. OpenAI's `string_check` and `python` graders are
+deterministic by construction. The literature does not discuss "the deterministic-verifier
+case" for the same reason it does not discuss "the deterministic-ruler case" in physics.
+
+**What replaces the noise floor?** **Nothing, because nothing is lost.** The noise floor was
+never measuring the verifier. Re-read what `ruler_noise.py` actually decomposes: greedy-draw
+determinism, marginal per-task rates, and inter-task covariance — three properties of *the
+sampler and the task set*, with the verifier appearing nowhere as a variance source. The
+eval-variance literature makes the same assumption explicitly: arXiv:2509.24086 (VERIFIED)
+concludes *"use ≥ 2 repetitions **under stochastic decoding**"* and attributes the whole
+problem to decoding — grading is assumed deterministic and is not a term in their
+mixed-effects model. That paper is worth banking for a second reason: *"10/12 slices (83%)
+invert at least one pairwise rank relative to the three-run majority"* and *"two runs remove
+~83% of single-run inversions"* — independent, published support for R7's replicate-count
+reasoning, from a different field of eval.
+
+**What genuinely changes in a fully-deterministic-verifier domain**, and this is the real
+Q3 answer:
+1. **Nothing, if you keep sampling at T>0.** `p_i` remains a sampler property.
+2. **Everything, if you move to greedy decoding.** At T=0 with a deterministic verifier the
+   whole instrument collapses to a single bit per task, variance is exactly zero, and the
+   *only* remaining "noise" is between training seeds. Then the estimand changes from
+   "this model's pass rate" to "this training procedure's pass rate," and Miller's `omega^2`
+   heterogeneity term (already banked) becomes the live one. This is the version of Q3
+   worth worrying about, and it is a *decoding* decision, not a verifier decision — which
+   makes it the same decision as the still-open greedy-free metric change from §76.
+3. **Degeneracy replaces stochasticity as the threat** (F4). And the field's answer to
+   degeneracy is **not** a band screen over a fixed pool — it is Reasoning Gym's:
+   *"generate virtually infinite training data with adjustable complexity"*, difficulty as
+   a **keyword argument**, not a survivor of a screen. For any domain where tasks can be
+   *generated* (SQL against a fixture DB absolutely can be), a difficulty knob strictly
+   dominates the screen: no selection-on-noise, no regression-to-the-mean drop-outs, no
+   "the ruler is spent" (§64) — you just generate more at the same difficulty. That is the
+   single most valuable transferable idea in this survey and it does not require adopting
+   anyone's code.
+
+### Q4 — MULTI-DOMAIN: does mixing verifiable domains help, hurt, or is it neutral?
+
+**The literature says: it does all three, the sign is domain-pair-specific, and the two
+best-identified results point away from "one general model" at this scale.**
+
+- **arXiv:2506.19733**, *"Breaking Barriers: Do Reinforcement Post Training Gains Transfer
+  To Unseen Domains?"* (ICLR 2026; abstract VERIFIED verbatim). Two studies —
+  observational across open-weight RPT models, and interventional (single-domain RPT, then
+  evaluate across domains). Both converge: *"although RPT brings substantial gains on tasks
+  similar to the fine-tuning data, the gains generalize inconsistently and can vanish on
+  domains with different reasoning patterns."* This is the direct answer to "does training
+  on code buy you SQL," and it is *no, not reliably*.
+- **arXiv:2507.17512**, *"Can One Domain Help Others? A Data-Centric Study on Multi-Domain
+  Reasoning via Reinforcement Learning"* (abstract VERIFIED verbatim). GRPO on
+  Qwen-2.5-7B across math, code, and logic puzzles; examines *"the intricate interactions
+  including mutual enhancements and conflicts that emerge during combined cross-domain
+  training."* Both signs occur. **I did not extract numbers** — the abstract carries none
+  and I did not open the tables, so I am not reporting a magnitude. Search glosses claiming
+  "math aids logic, math impedes code" are consistent with the abstract's framing but I did
+  not verify them against the paper and they should not be treated as evidence (the §62
+  precedent on arXiv:2603.20100).
+
+**Two caveats that make this shape-only evidence, and they are severe.** Both papers study
+**online RL (GRPO/RPT) at 7B+ with full-size datasets.** srlm-forge is **offline DPO**, LoRA
+r=16, on a 31-task ruler — and Track B is a 12.7M-parameter char model. This is the same
+off-domain-interpolation situation as Flan in §62, and it deserves the same label: *the
+shape of the finding transfers, the numbers do not.*
+
+**My answer to the product question, which is what Q4 is really asking.**
+"Train on ANYTHING" should be built as **a factory that produces many narrow models, not one
+general model** — for three reasons, only the first of which is the literature:
+1. 2506.19733 says the transfer you would be betting on is unreliable and can vanish.
+2. Every framework in Q1 that supports multiple domains does so by **composing tasksets and
+   weighting rewards** (verifiers' `Rubric(funcs, weights)`; OpenAI's `multi` grader with an
+   explicit `calculate_output` formula), i.e. the field's own answer to multi-domain is a
+   *configurable mixture per training run*, which is a factory.
+3. It is the only one of the two products that this project's actual assets serve. The
+   assets are the *discipline* — pin the engine, freeze the ruler, gate the training data,
+   size the noise floor. Those are per-domain machinery. A customer with a machine-checkable
+   spec wants a model that is right about *their* spec, verifiably, on their hardware.
+   That is a much better fit for "commercial and industrial" than a model that is mediocre
+   at three domains and whose cross-domain interference nobody can predict.
+
+If one general model is genuinely wanted later, 2507.17512's existence of *conflicts* means
+mixture weights become a tuned hyperparameter, and you would need the MDE budget to detect
+interference — at ~3pp MDE with 4,960 generations per arm, a per-domain interference effect
+smaller than 3pp is invisible to this instrument. That is a reason to defer, not a reason to
+refuse.
+
+---
+
+## LEFTOVER RISKS (unresolved even if every fix above lands)
+
+1. **The 90% printable / UTF-8 rule still refuses UTF-16, UTF-32 and every legacy codepage**
+   (CP1252, Shift-JIS, GB18030). Fixing F1's boundary bug does not touch this. For
+   "industrial data" this is the larger share of the problem — exported CSVs from Windows
+   tooling are frequently CP1252 or UTF-16LE. The disclosed scope is honest; the limitation
+   is not small.
+2. **`make_corpus` holds every file's full text in `seen` and `parts` simultaneously, then
+   builds `body = "\n\n".join(parts)` and writes it whole.** Peak memory ≈ 3× corpus size.
+   "Train on anything" applied to a real industrial log directory is an OOM, not a slow run.
+   Nothing in the ingestion change addressed scale.
+3. **F4's residuals are real but unmeasured:** hash randomization under `-I` (which discards
+   `PYTHONHASHSEED`) and the wall-clock `CAND_TIMEOUT`. Both inject genuine verifier
+   non-determinism. Nobody has measured how many of the 31 ruler tasks are hash-order
+   sensitive.
+4. **The greedy-free metric decision from §76 is still open**, and F4/Q3 make it *more*
+   consequential, not less: it is now also the decision about what the instrument's estimand
+   becomes in a deterministic-verifier domain.
+5. **The typing-import confound (12.8%) is still unchosen**, and it interacts with any
+   domain change: option (b) — prepending typing imports to the harness — becomes a *runtime*
+   concern under the Q1 decomposition, which is a cleaner place to put it than either of
+   the other two options implies.
+6. **Track B has no verifier at all.** Everything in this response is about Track A. A
+   character model trained on a corpus by next-token prediction has no objective check to
+   plug anything into. The stated goal covers both tracks; Q1–Q4 cover one.
+
+---
+
+## FIX CLASSES (the kind of change, not the change)
+
+- **F1** — *boundary-safe probing*: any fixed-size read used to decide a whole-file property
+  must be truncated at a unit boundary before decoding. Plus a per-writing-system test case
+  above the probe size. This is a **class**, not an instance: the same shape will recur
+  anywhere a `read(n)` feeds a decoder.
+- **F2** — *inventory by grep across the tree, not by reading one file*. The four-places
+  figure came from reading `forge.py`; the fifth and sixth sites are visible in one grep.
+  Record the corrected count in the channel before any seam is sized against it.
+- **F3** — *control-flow left dangling by a deletion*, plus **the absent test that would have
+  caught it**: `cmd_freeze` has no test at all. Restore the guard the `else` lost, and add
+  a test that runs a freeze and asserts on its output text, not its exit code (§80's own
+  lesson: "0 failed was never wrong").
+- **F5** — *decide the reward type before designing the seam*, and decide what a timeout
+  scores. Not a code change; a recorded decision.
+- **F6** — *schema neutrality in the identity hash*: the frozen task hash must not name a
+  Python concept. Rename to a domain-opaque field before a second domain exists, while the
+  re-freeze costs one artifact instead of two.
+- **F7** — *user-visible strings are claims too*: the claim-checker discipline of §79/§80
+  applies to `print()` output, not only to READMEs, and the class-closure test should assert
+  on behaviour (a `.csv` in a temp `training_data/` is found) rather than on the absence of
+  one exact source string.
+
+---
+
+## OMISSION ATTACK — what activation #18 did not ask
+
+**O1. Does "pluggable verifier" imply pluggable reward *shaping*?** Yes, and the answer
+matters. Covered in F5: five frameworks, five scalar interfaces, versus a project that
+disabled its only graded channel as a reward hack. Unasked and load-bearing.
+
+**O2. What does adopting an external task schema actually cost?** Not free, and the number
+is computable. The frozen ruler's identity is `sha(prompt, entry, tests)` per task and
+`ruler_set_sha256` over all of them. Renaming fields to any external schema
+(`{prompt, answer, info, example_id}` for verifiers; `sample`/`item` for OpenAI) changes
+every `task_sha256`, which changes the set hash, which **fires `verify_frozen()`** — and
+`ruler_noise` obtains the ruler *only* through that gate, by design. The ruler's identity
+changes, so the banked replicates are no longer replicates of the same instrument. The bill,
+from the code: `len(tasks) * ev.N_SAMPLES` = 31 × 5 = **155 generations per replicate ×
+40 banked replicates = 6,200 generations discarded**, plus a re-freeze that must be
+announced in the channel (`--force` requires it). That is the real price of "adopt X," and
+activation #18 asked which framework to adopt without asking what adoption costs.
+
+**O3. Is the interpreter-pinned receipt — the project's claimed differentiator — addressed
+by any of these frameworks?** Partly, and the honest answer is less flattering than the
+channel assumes. **TRL and veRL: no.** Neither ships an execution environment, so neither
+has the bug class or the fix; §71's defect genuinely cannot arise there because the
+capability does not exist. **OpenAI: yes, and more strongly** — the grader sandbox pins a
+dated *image tag* with an explicit package list, which is a strictly stronger pin than an
+interpreter path (it pins the libraries too, which `-I` does not). **verifiers v1: yes, and
+architecturally better** — a `docker` runtime pins by image digest. So the differentiator is
+real against the training libraries and *already surpassed* by the two systems that took
+execution seriously. The correct read is not "we have something nobody has"; it is "we
+independently rediscovered why serious systems containerise their verifiers, and the
+container is the general form of our pin." That is still a good position. It is a different
+claim.
+
+**O4. Where do the tasks come from?** This is the one I would have put first. Every
+framework in Q1 assumes a task bank with ground truth already exists — TRL wants a dataset
+column of `solution`, veRL wants `ground_truth`, verifiers wants `answer`, OpenAI wants
+`item`. srlm-forge draws from AceCode-89K. For "trained on ANYTHING, commercial and
+industrial," the binding constraint is not the verifier interface — it is that a customer
+has a machine-checkable spec and **no labelled task bank**, and no amount of seam design
+produces one. Reasoning Gym's answer is procedural generation, which is why it is the most
+useful thing in this survey despite not being a seam at all (Q3). Activation #18 asked how
+to plug a verifier in and never asked what it would be pointed at.
+
+**O5. Is DPO even the right consumer of a pluggable verifier?** Every interface surveyed is
+built to be called **inside an online RL loop, per rollout** — GRPO, PPO, RLOO, RPT.
+srlm-forge's `forge.py` runs offline and writes jsonl. Adopting any of these frameworks'
+seams therefore also means adopting an online trainer, which is a far larger change than
+"extract `verify()`." And the channel already has the argument for it: §62 banked Song et
+al. (coverage) and the still-unacted arXiv:2504.20571 (one-shot RLVR moving
+Qwen2.5-Math-1.5B 36.0%→73.6% via *on-policy* RLVR). The verifier-seam question and the
+offline-vs-online question are the same question wearing different clothes, and #18 asked
+only one of them.
+
+**O6. Which track is this about?** §81 puts the ingestion change (Track B, char model) and
+the structural finding (Track A, DPO) in one section under one restated goal, and Q1–Q4
+address only Track A. The closed-class claim this round is Track B. Nothing asks how a
+verifier seam relates to a from-scratch character model that has no objective check — and
+"from scratch on whatever machine is used" is a *Track B* promise while "improve against an
+objective check" is a *Track A* promise. They are two products.
+
+---
+
+## THE QUESTIONS THEMSELVES — did activation #18 ask the right four?
+
+**Q1 was the right question and it was right to make it the round.** It returned more than
+expected: not just "who has done this" but a *better decomposition than the one the
+DIRECTIVE was reasoning with*. The proprietor's instinct ("there's probably an implemented
+way this switch has been done before") was correct, and the payoff was not a library to
+adopt — it was the taskset/harness/runtime split that dissolves "only `verify()` is
+conceptually hard."
+
+**Q2 was right but under-specified.** It asked *which* second domain and not *what property
+a second domain must have*. Without the discriminating list, "cheapest genuinely different"
+was doing the work, and cheapness would have selected a domain that shares the fence
+assumption and hides F2's fifth site.
+
+**Q3 was asked on a false premise**, and the premise is refuted by this project's own
+`ruler_noise` output (F4). The question worth asking in its place is *"at what point does
+the estimand change from 'this model's pass rate' to 'this training procedure's pass rate',
+and does the instrument still work there?"* — which is the greedy-free decision from §76,
+still open, now more consequential.
+
+**Q4 was right, well-scoped, and honestly caveated by the answer** (7B online RL vs. this
+project's offline DPO — shape only).
+
+**The questions it should have asked and did not**, ranked:
+1. **"Where do tasks come from in a new domain?"** (O4) — the actual commercial blocker, and
+   the one with the best answer available in the literature.
+2. **"Is offline DPO the right consumer of a verifier seam at all?"** (O5) — the seam
+   question and the online question are entangled, and the channel already holds the
+   evidence for the online side.
+3. **"What does the reward have to *be* — bool, scalar, or structured — and what does a
+   timeout score?"** (O1/F5) — this is upstream of the interface, and the interface cannot
+   be designed without it.
+4. **"What does migrating the ruler cost?"** (O2) — 6,200 generations, computable from the
+   code, and not mentioned.
+5. **"Does any of this apply to Track B?"** (O6).
+
+---
+
+## ONE RECOMMENDED NEXT PROMPT
+
+> Two fixes with red witnesses first, then the second domain, built to break named
+> assumptions rather than to be cheap.
+>
+> **(1) Fix the ingestion probe.** `make_corpus.is_trainable_file` reads 8192 bytes and
+> strict-decodes them, so a valid UTF-8 text file is refused whenever the boundary splits a
+> multi-byte character — deterministically for 3-byte scripts. Red witness: 8191 ASCII
+> chars + `é` + 100 chars is refused as "content is not text". Trim the trailing incomplete
+> sequence before decoding. Add test cases per writing system (CJK, Cyrillic, EU-accented,
+> ASCII) at sizes above the probe boundary; the existing multi-byte test uses a 40-byte
+> string and cannot reach this. Also fix the two `start_studio.py` messages that still tell
+> the user to supply `.txt/.md/.py`, and change
+> `test_the_two_callers_share_one_rule` from a string search to a behavioural test
+> (a `.csv` written into a temp `training_data/` must be found by `user_files()`).
+>
+> **(2) Fix `build_ruler.cmd_freeze`.** Line 295's `else:` binds to `if problems:` at line
+> 277, not to any check of `ruler_noise.jsonl` — so every successful freeze prints
+> "ruler_noise.jsonl absent" while the file is present at 209,606 bytes. Restore the intended
+> guard and add the first test that `cmd_freeze` has ever had; assert on its printed output,
+> not its exit code.
+>
+> **(3) Correct the record in the channel** before sizing anything against it: the
+> domain-welded count in `forge.py` is at least six, not four — `ACTOR_SYSTEM` (`forge.py:68`)
+> and `BANNED` (`forge.py:76`) are the additions, and `ACTOR_SYSTEM` is load-bearing in
+> `train_native.py:52-60`, where the DPO seam reconstructs the fenced form because
+> `ACTOR_SYSTEM` demands it. Grep, don't read one file: `ACTOR_SYSTEM|extract_code` hits
+> 8 files.
+>
+> **(4) Then build SQL-against-a-fixture-DB as the second domain**, under three hard
+> constraints that make it a discovery instrument rather than a second product:
+> (a) **do not import `forge.ACTOR_SYSTEM`** — write a fresh system prompt, then diff the
+> two and treat every shared sentence as a candidate harness parameter;
+> (b) **emit a genuine scalar reward** (rows correct / rows expected), not a boolean, so the
+> partial-credit question is answered by an instance instead of by argument;
+> (c) **give tasks a fixture resource** that must be written before the check runs and
+> pinned into the task hash, so the runtime-vs-scoring split is discovered rather than
+> asserted.
+> Structure the result as **taskset / harness / runtime** — the decomposition
+> PrimeIntellect's `verifiers` v1 arrived at (https://www.primeintellect.ai/blog/verifiers-v1)
+> — but do **not** take the dependency: v0 is frozen and slated for deprecation, v1 is
+> mid-rewrite, and the whole stack is async while this one is not.
+>
+> **(5) Two decisions to record, not to code.** What does the reward *return* — every
+> surveyed framework wants a float, and this project disabled its only graded channel as a
+> reward hack; and what does a **timeout** score, given `forge.py:504-511` insists a timeout
+> must never become a `rejected`, while OpenAI's grader contract scores an exception as 0.
+>
+> Do **not** migrate the ruler to any external schema yet. It costs the 40 banked replicates
+> (31 tasks × 5 samples × 40 = 6,200 generations) because renaming task fields changes
+> `task_sha256`, changes `ruler_set_sha256`, and fires `verify_frozen()` by design.
+
+---
+
+*THE PHD, solo seat. Advisory only; no code was modified and no training, generation or
+screening command was run. The only executed work was read-only inspection of pinned bytes
+and of `make_corpus`'s pure functions in a temporary directory.*
+
+--------------------------------------------------------------------------------
+83. COUNCIL RESPONSE - THE PHD, SOLO SEAT  (2026-07-30 20:32 - activation #18
+    answered: Q1 prior art for a pluggable verifier seam, Q2 discover-or-design,
+    Q3 what verifier discipline travels, Q4 multi-domain mixing; plus the
+    closed-class ingestion claim. Scope: sections 77-81, code at 23c3110 via
+    `git show`, 12 searches / 7 primary sources opened. Banked verbatim.)
+--------------------------------------------------------------------------------
+NUMBERING: this block was written for section 82. The DIRECTIVE said "82 is
+free, number from the append rather than from a prior read." I did both:
+`grep -c "^82\." instructions.txt` returned 0 before I started and 1 when I
+went to append - a SECOND seat answered this same activation #18 and wrote
+section 82 at 20:36, two minutes before my transcript hit disk at 20:38, and
+the file grew 10,724 -> 11,667 lines underneath me. Per the DIRECTIVE ("if 82
+is taken, use the next free number and say so"), this is section 83. No
+section number is duplicated: `grep -oE "^[0-9]+\. (EXECUTOR|COUNCIL)" | sort
+| uniq -d` is empty. My body below was COMPLETE AND ON DISK before I read a
+single line of section 82 - sealed sideways, per the OPERATING PROTOCOL - and
+nothing in it was revised afterwards. The POST-SEAL ADDENDUM at the end is
+the only text written after seeing section 82 exists, and it says what that
+means. Artifacts: council/council-transcript-2026-07-30_2032.md (record) and
+council/council-report-2026-07-30_2032.md (briefing).
+
+# Council Transcript — srlm-forge — THE PHD, SOLO SEAT — activation #18
+
+**Session:** 2026-07-30 20:32. Answer to the activation #18 DIRECTIVE at the top of
+`instructions.txt`. Banked in the channel as **§82**; this file is the artifact of record
+and the §82 block matches it.
+
+**Code read at commit `23c3110`** via `git show`, never the working tree (which is on
+`fix/screen-sizing-single-source`).
+
+**VERDICT: GO-WITH-FIXES** — proceed, but not with the step you were about to take.
+Q1 comes back THICK, not thin: the interface has converged and costs you an afternoon.
+The design effort you were about to spend on it is the cheapest part of the problem.
+Two things you did not ask about are worth more than the seam.
+
+---
+
+## RANKED CRITIQUE
+
+### F1 — Q1 ANSWERED: THE INTERFACE HAS CONVERGED. ADOPT TRL'S SIGNATURE. THE PART NOBODY SHIPS IS THE PART YOU ALREADY BUILT. — READ-ONLY
+
+Four independent projects, three of them with no shared authorship, expose the same
+verifier hook. I opened each one's own documentation:
+
+| project | signature | returns |
+|---|---|---|
+| TRL (HuggingFace) | `reward_func(prompts, completions, **kwargs)` | `list[float]`, `None` to abstain |
+| veRL (`verl`) | `compute_score(data_source, solution_str, ground_truth, extra_info=None)` | `float` |
+| `verifiers` (Prime Intellect) | `func(prompt, completion, answer, state, **kwargs)` | `float`; `Rubric` = weighted sum |
+| Reasoning Gym | `score_answer(answer, entry)` | `float` in [0,1] |
+
+That is a convergence, and I want to be precise about what kind. **The SEMANTICS have
+converged: a plain Python callable, `(candidate_string, task_metadata) -> float`,
+aggregated by weighted sum, with the framework owning batching and the author owning
+everything inside.** The **ABI has not** — four different argument orders, four different
+names, no portable package. So both halves of your Q1 are true at once and neither is the
+whole answer:
+
+- **"A standard exists"** is true at the level you actually need. You are not writing a
+  framework; you are choosing a function signature. Four teams reached the same one
+  independently. That is as converged as this gets.
+- **"No standard exists"** is true at the level of a package you could `pip install` and
+  have your seam be done. There is none, and one candidate is actively going away: OpenAI's
+  reinforcement-fine-tuning graders (`string_check`, `text_similarity`, `score_model`,
+  `python`, combined by `multi_grader` with an arithmetic `calculate_output`, all scored
+  0–1) are, per OpenAI's own graders guide, **being deprecated along with the evals and
+  fine-tuning workflows they support**. Do not adopt a vendor's declarative grader schema.
+
+**ADOPT THIS: TRL's `reward_func(prompts, completions, **kwargs) -> list[float]`.** Not
+because it is the best-designed of the four — `verifiers`' is richer — but because of a
+fact already in your repo: `forge.py`'s docstring line 27 says the output is *"Unsloth DPO
+ready"*, and Unsloth's DPO trainer **is** TRL's `DPOTrainer`. TRL is already downstream of
+you. Matching the signature of the library you already feed is a zero-argument decision.
+Everything else in that table is then a 5-line adapter, in whichever direction you need.
+
+**And now the finding that actually matters.** I went looking for what these frameworks
+give you for the hard part, and the answer is: nothing.
+
+- veRL's own reward-function documentation mentions **no timeout, no sandbox, no partial-
+  credit convention**. Its code-execution story is a "SandBox" that the docs describe as
+  *"will opensource soon."*
+- TRL's reward functions are ordinary Python called in the trainer process. Your model's
+  output executing in your trainer's address space is your problem.
+- `verifiers` hands the environment author a `State` and gets a float back. What happens
+  inside is the author's.
+- The one place the industry did solve it, it solved it with **infrastructure, not an
+  interface**: SWE-bench's harness ships a **Docker image per instance** pinning the base
+  repository snapshot, dependency versions and build toolchain; ByteDance's SandboxFusion
+  is a *separate service* spanning ~20 languages.
+
+So: **the seam is free and the verifier is not.** `forge.verify()` at `forge.py:436-514`
+already carries subprocess isolation, `-I` (with the load-bearing `PYTHONOPTIMIZE`
+reasoning at :456-457), an 8s timeout that is recorded as *not-a-wrong-answer* at :504-511,
+a pinned interpreter at :126, and a strict-return-type guard at :458-475 that closes the
+`__eq__`-override reward hack. **None of the four frameworks ships any of that.** You have
+been treating the seam as the asset and the verifier as the commodity. It is the reverse.
+
+There is one design lesson worth taking from the table, and it is free: **every one of the
+four returns a FLOAT, not a boolean.** `forge.Result` already has the fields for it
+(`passed`/`total`, `forge.py:416-417`) and then throws the resolution away at `:501` —
+`res.passed = res.total`, commented *"assert-based: all-or-nothing here."* Partial credit
+is the single thing the convergent interface has that you don't.
+
+---
+
+### F2 — THE QUESTION THE DIRECTIVE DID NOT ASK: YOU ARE ALREADY GENERATING GRPO GROUPS AND THROWING MOST OF EACH ONE AWAY. — READ-ONLY
+
+`run_task` (`forge.py:559-629`) samples `NUM_CANDIDATES = 4` completions for one prompt
+(`:562`) and scores every one of them against an objective verifier (`:569`). **That is a
+GRPO group.** It is the exact object DAPO and GRPO consume: one prompt, G rollouts, G
+verifier scores.
+
+What you then do with it: sort (`:577`), take the best (`:578`), find one failing
+candidate (`:592-593`), emit **one** preference pair (`:607-628`), discard the other two.
+On an all-pass task you emit nothing at all (`:596-597`, `EMIT_CONCISENESS = False`) — a
+task the model solved 4/4 produces **zero** training signal, and so does a task it solved
+0/4 (`:581-587`, routed to curriculum).
+
+Now read that against DAPO (arXiv 2503.14476, ByteDance Seed, 2025), whose Dynamic
+Sampling exists for precisely this: it enforces `0 < |{o_i : is_equivalent(a, o_i)}| < G`,
+because *"if all outputs of a particular prompt are correct and receive the same reward 1,
+the resulting advantage for this group is zero. A zero advantage results in no gradients."*
+Your pipeline reaches the same conclusion by a different route and pays a different price:
+DAPO **oversamples until the batch is full of gradient-bearing prompts**; you **drop the
+task**.
+
+And your `[0.2, 0.8]` band screen is the same idea applied at ruler-construction time
+rather than batch time — which is the third independent rediscovery, because *Learning to
+Reason at the Frontier of Learnability* (Foster et al., arXiv 2502.12272, Feb 2025)
+proposes SFL, a curriculum that prioritises questions by **the variance of success over
+multiple attempts**, on the stated observation that *"many questions are either solved by
+all attempts... or by none — providing no meaningful training signal."* Variance of a
+Bernoulli is `p(1-p)`, maximised at 0.5 and small at the edges. **Your band is SFL's
+learnability criterion with a hard threshold instead of a soft weight.** That is a
+compliment to the instrument and a warning about the pipeline: you built the selection
+half of the published recipe and not the training half.
+
+The strategic question this raises — and the one the DIRECTIVE should have asked instead
+of Q2 — is: **why is this an offline DPO pipeline at all?** You already pay the expensive
+part (K rollouts + K verifications per prompt). GRPO consumes that group directly, uses
+all G scores, and is the algorithm every framework in F1's table is built around. DPO
+compresses G scored rollouts into one binary bit and needs a `chosen` that passes, which is
+why `three_sum`-class tasks contribute nothing. I am not telling you to switch — that is an
+implementation decision and it is yours, and a 16GB card with an 8B model makes online RL
+genuinely harder than offline DPO. I am telling you that **"which domain is second" is a
+smaller question than "am I using 25% of the rollouts I already paid for",** and the
+DIRECTIVE did not put the second one on the table.
+
+---
+
+### F3 — "ONLY FOUR PLACES ARE PYTHON-SPECIFIC" IS UNDERCOUNTED. IT IS AT LEAST SIX, AND THE TWO YOU OMITTED ARE THE DANGEROUS ONES. — EXECUTED
+
+I read `forge.py` in full at `23c3110` (721 lines) and then enumerated the sites
+mechanically. Your four are real. Two more are not on your list:
+
+**(5) `ACTOR_SYSTEM`, `forge.py:68-72`.** *"You are a precise Python engineer... inside one
+```python fenced code block. Define exactly the requested function."* This is not
+formatting — it is the contract that makes `extract_code` work at all, and it is
+**imported across files**: `eval.py:35` reads `import forge  # reuse Task, Actor, verify,
+extract_code, ACTOR_SYSTEM`. A domain switch has to change it in a place your four-place
+map does not name, and the file that breaks is the evaluator, not the generator.
+
+**(6) `BANNED`, `forge.py:76-80`.** The regex matches Python import statements plus
+`__import__`, `open(`, `eval(`, `exec(`. Its own comment calls it *"Cheap defense-in-depth
+for executing model output."* **Executed probe, against the pinned regex text:**
+
+```
+BANNED blocks 'DROP TABLE users;'                         -> False
+BANNED blocks "ATTACH DATABASE '/etc/passwd' AS p;"       -> False
+BANNED blocks "SELECT writefile('C:/evil.exe', x'4d5a');" -> False
+BANNED blocks "PRAGMA temp_store_directory = 'C:/';"      -> False
+BANNED blocks '{"$ref": "file:///etc/passwd"}'            -> False
+BANNED blocks '(a+)+$'                                    -> False
+```
+
+Zero of six. And these are not hypotheticals: `writefile()` is a real SQLite CLI function,
+`ATTACH DATABASE` reads arbitrary paths, and `(a+)+$` is catastrophic backtracking — the
+regex-synthesis domain's entire hazard, invisible to a byte filter and caught only by a
+timeout.
+
+**This is exactly the `venv_guard` shape you cited from §65/67** — a helper correct in its
+first file and wrong the moment it is reused — with one difference that makes it worse:
+`venv_guard` failed loudly. `BANNED` fails **silently and green**. Move to SQL and your
+defense-in-depth layer does not error, does not warn, and does not block anything; it just
+quietly becomes a no-op while every log line still says the pipeline is filtered.
+
+Two corrections in your favour, because the count is wrong in both directions:
+
+- **`extract_code` is LESS Python-specific than you claimed.** `CODE_RE` at `:393` is
+  ` ```[^\n`]*\n(.*?)``` ` — language-agnostic, it matches any fence. The only Python-welded
+  line is `:407`, stripping a leading `python`/`py` tag. That is one line, not a function.
+- **`VERIFY_PY` / `verifier_interpreter()` (`:126`, `:129-136`) are arguably a seventh
+  site,** and they are the interesting one for Q3 — see F5.
+
+Your method note in §81 (that the automated classifier inflated this to fourteen and you
+went back to reading) was the right call and I am not reversing it. Reading found four;
+reading harder finds six. The lesson is not "use the tool" — it is that **a count of
+domain-specific sites is exactly the coverage list the OPERATING PROTOCOL says must be
+generated from the real interface rather than typed by hand,** and this one was typed by
+hand. The generated version is not a classifier over `forge.py` — it is: *build domain #2
+and see what breaks.* Which is your own Q2 lean, arriving with better evidence than the
+instinct you offered for it.
+
+---
+
+### F4 — Q3 ANSWERED: THE BAND SCREEN SURVIVES A DETERMINISTIC VERIFIER, BECAUSE YOUR VERIFIER IS ALREADY DETERMINISTIC. THE PREMISE OF THE QUESTION IS A CATEGORY ERROR. — READ-ONLY
+
+You asked whether the `[0.2, 0.8]` screen, Wilson intervals, k replicates and MDE become
+meaningless when the verifier is deterministic. **They do not, and the reason is visible in
+your own code.**
+
+`ruler_noise.decompose()` at `ruler_noise.py:263` computes each task's rate as
+`p["correct"] / p["n"]` — where `n` is the number of **sampled candidates**, not the number
+of times the verifier was invoked on one candidate. Every downstream quantity —
+`per_task_var` (`:274`), `cov_total` (`:277`), `binom_var` (`:302`), the MDE table — is
+built on that. The random variable being measured is **"does the policy emit a passing
+candidate on a draw"**, not **"does the verifier agree with itself."**
+
+And `forge.verify()` is *already* deterministic. Given the same `(code, task)` it runs the
+same harness under the same pinned interpreter and returns the same verdict. The single
+exception is `timed_out` (`:504-511`), which is wall-clock and genuinely non-deterministic —
+and you have already excluded it from ever becoming the `rejected` half of a pair (`:592`:
+`if not r.ok and not r.timed_out and ...`), with the comment stating exactly why.
+
+**So there is no transition to worry about.** RLVR is *by construction* the deterministic-
+verifier setting: exact-match on a math answer, unit tests, a schema check — all
+deterministic. The stochasticity that DAPO's dynamic sampling and SFL's learnability
+criterion operate on is, in every one of those papers, **sampler stochasticity**, exactly as
+in yours. Nothing about the band, Wilson, replicates or MDE is code-specific. They are
+properties of a Bernoulli policy under temperature, and they carry to SQL, schemas and
+regexes unchanged.
+
+**What replaces the noise floor when the only randomness is the sampler? Nothing — that is
+already what it is measuring.** The thing that would actually break the apparatus is not
+determinism, it is **degeneracy**: if you evaluate greedily (temperature 0), `p ∈ {0, 1}`
+per task, per-task variance is exactly zero, and the whole instrument collapses. Your own
+§77 measured this — the greedy draw is constant on **31/31 tasks**, contributing zero
+variance, which is why the greedy-corrected null is 0.0326 rather than 0.0376. **You have
+already measured the failure mode you were worried about, in the one draw where it occurs.**
+The correct statement of the risk is therefore: *the ruler requires a stochastic sampler,
+not a stochastic verifier, and the temperature (`GEN_TEMP = 0.8`, `forge.py:60`;
+`eval.TEMP = 0.8`) is a load-bearing instrument parameter that must be pinned in the receipt
+alongside the verifier bytes and the interpreter.* **Check whether it is.** The receipt pins
+`VERIFY_PY` and the ruler-set hash; if `GEN_TEMP` is not in the frozen artifact, then a
+temperature change silently re-defines every rate in it, in the same way §71's interpreter
+change did — and that is the same class of defect, arriving in a new costume for the third
+time.
+
+**Now, what actually does NOT travel.** Sorting your discipline honestly:
+
+| asset | travels? | why |
+|---|---|---|
+| receipt pinning verifier BYTES | **yes, unchanged** | hash a file; domain-blind |
+| training gate reading the frozen hash | **yes, unchanged** | `parse-don't-validate`; domain-blind |
+| band screen `[0.2, 0.8]` | **yes** | policy-level Bernoulli; = SFL/DAPO |
+| Wilson CIs, k replicates, MDE | **yes** | same |
+| `verify_frozen()` re-hash-from-payload | **yes** | domain-blind |
+| **interpreter pin** | **NO — code-specific in form** | see below |
+| `BANNED` filter | **NO — actively misleading** | F3 |
+| strict-return-type guard (`:458-475`) | **NO — Python object model** | `__eq__` override is a Python hack |
+| the 8s `CAND_TIMEOUT` | **form yes, value no** | a SQL fixture query and a PLC sim have different natural scales |
+
+The interpreter pin is the subtle one, and it is the most valuable thing you own. **The
+principle travels and the mechanism does not.** The principle is: *the verifier is not a
+function of its own source; it is a function of source × runtime, and both must be in the
+receipt.* For SQL the runtime is not a Python executable — it is the **SQLite library
+version compiled into whichever Python is running** (`sqlite3.sqlite_version`, which is not
+the same as `sqlite3.version`), plus the fixture database's bytes, plus any `PRAGMA`
+defaults. A `JSON` schema domain's runtime is the validator's **draft version**
+(2020-12 vs draft-07 change what `$ref` and `items` mean). A regex domain's runtime is the
+engine and its backtracking limits. **Each domain has a runtime pin and each one is a
+different object.** That is the single most transferable insight this project has produced,
+and it is also — note carefully — the reason SWE-bench ships a Docker image per instance
+rather than a version string: at scale the industry gave up on naming the runtime and
+started shipping it.
+
+---
+
+### F5 — THE ERROR TERM YOU HAVE NOT MEASURED IS AN ORDER OF MAGNITUDE LARGER THAN THE ONE YOU HAVE. — READ-ONLY
+
+You have spent, by my count of sections 61–80, most of this project's measurement budget
+establishing a **~3pp sampler-noise floor**. Meanwhile:
+
+**EvalPlus** — *"Is Your Code Generated by ChatGPT Really Correct? Rigorous Evaluation of
+Large Language Models for Code Generation"* (Liu et al., NeurIPS 2023, arXiv 2305.01210).
+I opened the abstract. They extend HumanEval's test cases by **80×** (EvalPlus reports an
+average of ~764 tests per problem against HumanEval's handful) and measured pass@k drop by
+**up to 19.3–28.9% across 26 LLMs**. Their framing is the one that should worry you: *"these
+test-cases can be limited in both quantity and quality for fully assessing the functional
+correctness of the generated code."*
+
+Now count the asserts in `SEED_TASKS` at `forge.py:150-348`: `two_sum` 4, `roman` 6,
+`balanced` 6, `spiral` 5, `atoi` 8, `lps` 5, `merge_intervals` 5, `simplify_path` 5,
+`decode_ways` 6, `three_sum` 4, `word_break` 5, `multiply_strings` 5, `next_permutation` 5.
+**Four to eight asserts per task.** That is HumanEval's density, which EvalPlus measured as
+over-crediting by up to ~29 points.
+
+So the honest accounting of your reward signal is:
+
+- **sampler noise: ~3pp, measured to four decimals, with a CI, over 40 replicates.**
+- **verifier permissiveness: unmeasured, and the nearest published estimate for this exact
+  test density is ~20 points.**
+- **typing-import confound: 12.8% of failures (your §80), measured, unresolved.**
+
+You are the only person I have reviewed who would find that sentence useful rather than
+insulting, so: **the instrument is precise about the small term and silent about the big
+one.** The strict-return-type guard at `:458-475` is genuinely excellent work and closes one
+specific reward hack — a `_Always.__eq__` class passing every assert — but *closing one
+known hack is not test adequacy*. A solution that special-cases the five asserted inputs
+passes every task in `SEED_TASKS` and the guard says nothing about it.
+
+This is directly relevant to the domain question, and it cuts **for** you: a SQL verifier
+comparing full result sets against a fixture database is **structurally more adequate** than
+5 asserts, because the check is over the whole output, not five sampled points. That is a
+real argument for SQL that neither you nor I would have found without asking what the
+verifier's error term is.
+
+---
+
+### F6 — Q2 ANSWERED: SQL IS RIGHT, AND YOUR STATED REASON IS THE WEAK ONE. — READ-ONLY
+
+**Build the second domain. Do not design the interface first.** Q1 does not overturn your
+lean — it *reinforces* it, for a reason you did not have when you formed it: since the
+interface is a one-line signature copied from TRL, "designing it up front" is not a design
+task at all. There is nothing to design. The seam costs an afternoon whenever you do it, so
+the only question left is which order buys more information, and building first buys more.
+
+**But your stated justification is the wrong one.** *"sqlite3 is stdlib, so no new
+dependency"* is an argument that SQL is **cheap**. You asked me for **informative**. Here is
+the informative argument, and it also settles the alternates:
+
+**SQL is the only one of the three candidates whose verifier has STATE.** JSON-schema
+validation and regex synthesis are both pure functions of the candidate string —
+`validate(candidate, schema) -> bool`, `match(candidate_regex, cases) -> bool`. Both would
+drop into `verify(code, task) -> Result` **without changing the signature at all**, which is
+precisely why they teach you nothing. You would build them, they would fit, and you would
+conclude your interface generalises — on evidence that could not have come out any other
+way. That is the shape of a test that cannot fail, which is the exact defect you caught in
+your own `test_verifier_pin.py` in §77.
+
+SQL forces four things the code domain has never made you confront, and every one of them
+is a field the convergent interface in F1 does **not** have:
+
+1. **Setup / teardown / isolation.** A fixture DB must be restored between candidates, or
+   candidate N's `UPDATE` scores candidate N+1. `verify(code, task)` has nowhere to put
+   that. Neither does veRL's `compute_score`. This is the field the whole industry
+   discovers late and then solves with containers.
+2. **Genuine verifier non-determinism, for the first time.** `SELECT` without `ORDER BY`
+   returns rows in **undefined order**. So "compare the rows" is under-specified: set
+   comparison or sequence comparison, and which one is *task metadata*, not a global. This
+   is where a real `Task` schema is forced to grow a field.
+3. **Natural partial credit.** Row-set overlap (Jaccard, or precision/recall over rows) is
+   an obvious scalar in [0,1]. That is the float the four frameworks all return and the one
+   `Result.passed/total` currently collapses at `:501`. SQL is where you would discover
+   whether partial credit helps or just adds a reward-hacking surface.
+4. **A safety model that Python's does not cover.** F3's probe, executed: `BANNED` blocks
+   none of `DROP TABLE`, `ATTACH DATABASE`, `writefile()`, `PRAGMA temp_store_directory`.
+   SQL breaks your safety layer on contact, loudly, in a domain where you control the
+   fixture and the blast radius is a temp file. **That is the cheapest possible place to
+   learn F3.**
+
+Keep regex on the list as a *third* domain specifically for the timeout channel —
+catastrophic backtracking is the one hazard that no static filter catches and only the
+timeout does, and it would tell you whether `timed_out` deserves to be a first-class
+verdict rather than an exclusion. But SQL second.
+
+**One caution.** Do not let "SQL" become "text-to-SQL on Spider/BIRD". You want a fixture DB
+you author, with tasks whose base-model pass rate you can screen into `[0.2, 0.8]` — that
+band is the thing that makes your ruler an instrument, and an off-the-shelf benchmark will
+not sit in it.
+
+---
+
+### F7 — Q4 ANSWERED: MIXING HELPS FOR DOMAINS THE BASE MODEL ALREADY SAW AND NOT OTHERWISE; CODE IS THE ONE REPORTED TO CONFLICT; AND NONE OF IT WAS MEASURED AT YOUR SCALE OR WITH YOUR ALGORITHM. — READ-ONLY
+
+Primary sources I opened:
+
+- **Guru** — *"Revisiting Reinforcement Learning for LLM Reasoning from A Cross-Domain
+  Perspective"* (arXiv 2506.14965, 2025). 92K verifiable examples across **six** domains:
+  Math, Code, Science, Logic, Simulation, Tabular. Models: **Guru-7B and Guru-32B**. The
+  headline finding, in their words: *"domains frequently seen during pretraining (Math,
+  Code, Science) easily benefit from cross-domain RL training, while domains with limited
+  pretraining exposure (Logic, Simulation, and Tabular) require in-domain training to
+  achieve meaningful performance gains."*
+- **"Can One Domain Help Others? A Data-Centric Study on Multi-Domain Reasoning via
+  Reinforcement Learning"** (arXiv 2507.17512, 2025). Math + code + logic puzzles, GRPO on
+  the **Qwen-2.5-7B** family, base vs instruct under identical configs. Reports *"intricate
+  interactions including mutual enhancements and conflicts."* The abstract does not itemise
+  which pairs help and which hurt; the secondary reporting that **math+logic enhances both
+  while adding code generation introduces structural conflicts that degrade performance** is
+  consistent with Guru's direction but I did **not** confirm that specific sentence in the
+  primary text — treat it as directional, not established.
+
+**Direct answer to your question:** the literature says mixing is roughly **neutral-to-
+positive** for pretraining-rich domains, and mixing does **not substitute for in-domain
+data** for exotic ones. Applied to your roadmap: SQL is pretraining-rich (it is all over any
+code corpus) and would probably mix fine with Python. **A PLC config format, a proprietary
+industrial schema, or a plant-control policy is the exotic case** — and the literature says
+plainly that those will need their own in-domain data and will not get much for free from
+your Python work. Since the exotic case *is* the commercial goal, that is the finding to
+carry: **"train on anything" gets no discount from transfer in exactly the domains you care
+most about.**
+
+**Two caveats that matter more than the result, and neither is in the papers' favour:**
+
+1. **Scale.** Guru is 7B/32B with full RL infrastructure; 2507.17512 is 7B GRPO. **Nobody in
+   this literature is doing QLoRA on a single 16GB card.** Adapter capacity is a real
+   constraint that these results do not speak to — LoRA rank bounds how much orthogonal
+   task structure one adapter can hold, and multi-domain is precisely the regime where that
+   bites.
+2. **Algorithm.** Every result above is **online RL (GRPO/PPO)**. You are doing **offline
+   DPO on verifier-selected pairs**. Transfer results from online RL do not automatically
+   carry to offline preference learning; the mechanisms differ (advantage over a group vs.
+   a contrastive gradient between two fixed strings). **This is F2 arriving again from a
+   different direction:** the fact that you cannot cite this literature *at* your own
+   pipeline is itself evidence about the pipeline.
+
+**Product answer:** at 16GB with QLoRA, **the factory-of-adapters is the defensible
+product and the single general model is the research bet.** One adapter per verifier is
+cheap, independently gate-able, independently receipted, and fails locally — which fits
+everything else this project has built. Ship the factory; run the mixed model as an
+experiment against it, with the factory as the control arm.
+
+---
+
+### F8 — THE CLOSED-CLASS CLAIM IS **PARTIALLY TRUE**. THE SINGLE-PLACE HALF IS TRUE. THE "CONTENT NOT EXTENSION" HALF IS NOT, AND YOUR OWN GREEN WITNESS SHOWS IT. — EXECUTED
+
+**Claim:** *"acceptance is decided on CONTENT and the decision exists in exactly one place."*
+
+**TRUE — one place, genuinely.** `is_trainable_file()` is defined once at
+`localllm/make_corpus.py:71-95`. `localllm/start_studio.py:22` does
+`from make_corpus import is_trainable_file` and calls it at `:37`. `make_corpus.main()`
+calls it at `:128`. There is no second copy and no second extension set. The `venv_guard`
+lesson was applied correctly here.
+
+**NOT TRUE — acceptance is not decided on content alone.** Read the order of operations in
+`is_trainable_file`:
+
+```
+:85   if exts is not None and path.suffix.lower() not in exts:   -> refuse (opt-in filter)
+:87   if path.suffix.lower() in BINARY_EXTS:                     -> refuse ON NAME
+:90   head = path.open("rb").read(probe_bytes)                   <- first byte is read HERE
+:93   if not looks_like_text(head):                              -> refuse on content
+```
+
+**A hardcoded 40-entry extension list (`BINARY_EXTS`, `:28-35`) short-circuits at `:87`,
+before a single byte is read.** Executed probe against the pinned file:
+
+```
+blob.bin holds PURE TEXT       -> (False, 'binary file type (.bin)')
+looks_like_text(its bytes)     -> True
+data.db (a CSV)                -> (False, 'binary file type (.db)')
+```
+
+**Your own GREEN witness records this and reads past it.** §81/the DIRECTIVE state the RED
+defect as *"blob.bin refused for its NAME not its bytes"* — and the GREEN line is
+*"blob.bin refused as 'binary file type'"*, which is the string emitted at `:88` **from the
+extension branch**. The named defect is still present for that exact file; only the *unknown
+`.dat` carrying a NUL* in your witness actually exercises the content path. The green
+witness does not distinguish name-refusal from content-refusal, so it cannot fail if the
+extension branch grows.
+
+I will say what is true in your favour: **the code comment at `:25-27` discloses this
+honestly** — *"Checked only to avoid reading large media files off disk; the real decision
+is made on bytes, so an unknown extension is never rejected for being unknown."* The
+**unknown-extension** claim is fully true and it is the one that mattered for the industrial
+case (`.csv`, `.jsonl`, `.log`, `.tsv`, no extension). The over-reach is only in the
+DIRECTIVE's compressed restatement. Per the OPERATING PROTOCOL's *"when a claim over-reaches,
+DELETE it"*: the shippable claim is **"an unknown extension is never refused for being
+unknown, and the decision lives in one place"** — which is true, checked, and enough.
+
+**A second, unlisted hole, executed.** `looks_like_text` inspects only the first
+`probe_bytes = 8192` (`:72`, `:90`). NUL is valid UTF-8 (U+0000), so a NUL past the probe
+window passes the gate *and* survives `read_text` at `:136`:
+
+```
+9000 'A' bytes + b"\x00\x00\x00" + 100 'B' bytes, named nul_tail.log
+  is_trainable_file        -> True | 'text'
+  looks_like_text(FULL)    -> False      <- the rule disagrees with its own gate
+  read_text SUCCEEDS       -> len 9103, contains NUL: True
+  NULs entering a char-level vocab: 3
+```
+
+The NUL rule is stated in the docstring at `:51` as *"A NUL byte means binary"* and holds
+only for the first 8KB. For a character-level tokenizer, where **the vocabulary is the set
+of characters in the corpus** (the file's own docstring, `:11-12`), this is the same class
+as the mojibake problem the rewrite was written to fix — it just moved past byte 8192. Your
+`>300 distinct characters` warning at `:174` would not fire on three extra NULs.
+
+**Third, cosmetic but in the user-facing path:** `start_studio.py:56` and `:59` still print
+*"Put some .txt/.md/.py files in:"* — the double-click path still **advertises** the
+allowlist that was just removed. Your test guards the code against regrowing an extension
+list; nothing guards the prose, and prose is what the non-technical user obeys.
+
+**Your disclosed limitation stands and is correctly disclosed:** UTF-16 text is refused as
+binary, untested. I confirm that (`:62`, `data.decode("utf-8")` with a bare
+`UnicodeDecodeError` refusal at `:63-64`).
+
+---
+
+## THE NON-CLAIMS, CHECKED
+
+You asked me to check these rather than wave them through. I did.
+
+- **"NOT claiming the loop IS domain-general."** Correct not to claim it, and F3 shows the
+  supporting count was low by two. But your *structural* reading is right: `run_task`'s
+  shape (sample K → score all → prefer winner → emit pair → route all-fail to curriculum) is
+  domain-independent, and F2 shows it is in fact a recognised published shape. **The claim
+  you could have made and didn't is stronger than the one you hedged.**
+- **"NOT claiming a char-level model at this scale is adequate."** Agreed, and 0.088/2.774
+  is the correct thing to point at. I add one thing: Track B's memorisation is now
+  *coupled* to the §81 ingestion change. Content-based acceptance means arbitrary industrial
+  text now enters a 12.7M char model whose vocabulary **is** its corpus. The `>300 distinct
+  characters` warning is a good instinct; the failure it will not catch is a corpus of
+  machine logs that is 90% timestamps, where the model memorises the log format and the
+  val/train gap looks *better*, not worse. **Low training loss on log data is not a signal
+  that anything was learned.**
+- **"NOT claiming the ruler/gate/noise-floor transfer."** F4: more of it transfers than you
+  feared, less than a naive read would assume, and the **temperature pin** is the piece
+  neither of us had on the list.
+- **"NOT claiming the typing-import confound is resolved."** Correct, and I decline to pick
+  for you — it is a decision about what the reward means and it is the proprietor's. What I
+  will add is that it is **an instance of F4's runtime-pin principle**, not a Python quirk:
+  option (b), prepending typing imports to the harness, is *changing the runtime*, which
+  invalidates the receipt exactly as §71's interpreter change did. If (b) is chosen it needs
+  a re-freeze and a new receipt, not a patch. Option (c) — report the next run twice, with
+  and without typing-NameError-only pairs — is the only one that costs nothing and preserves
+  the ability to decompose the claim later, which makes it the option that keeps the most
+  doors open. That is a preference, not a recommendation.
+- **"NOT claiming the greedy-free metric change has been made."** Confirmed unmade:
+  `eval.py:38` still has `TEMP = 0.8` alongside the greedy anchor, and
+  `forge.run_task:563` still does `temp = 0.0 if i == 0 else GEN_TEMP`. Still open from §76,
+  as you say.
+
+---
+
+## THE ONE RECOMMENDED NEXT PROMPT
+
+> Build the SQL domain as a second real instance, and let the seam be discovered. Do not
+> design a plugin interface first — Q1 found the interface is a one-line signature that four
+> independent frameworks converged on, and the one you should match is TRL's
+> `reward_func(prompts, completions, **kwargs) -> list[float]`, because `forge.py`'s output
+> already feeds Unsloth's DPO trainer, which is TRL's.
+>
+> Scope it to a fixture SQLite database you author, 12–20 tasks, screened into `[0.2, 0.8]`
+> on the same base model, with the same freeze/receipt/gate discipline. Three things must
+> come out of it as evidence, not as prose:
+>
+> 1. **A red witness for `BANNED`.** Show, before you build anything else, that
+>    `forge.BANNED` blocks none of `DROP TABLE`, `ATTACH DATABASE`, `writefile()`,
+>    `PRAGMA temp_store_directory` — then decide whether the filter becomes per-domain or is
+>    deleted as security theatre. It is currently a silent no-op off Python and that is the
+>    §65/67 failure shape with a green log line.
+> 2. **The receipt must pin the SQL runtime and the sampler.** `sqlite3.sqlite_version` (not
+>    `sqlite3.version`), the fixture DB's sha256, and `GEN_TEMP`. Check first whether
+>    `GEN_TEMP` is already in the frozen ruler artifact for the Python domain — if it is not,
+>    that is the §71 interpreter defect in a third costume and it is one line to close.
+> 3. **Answer the two questions only a stateful verifier can ask, and write down what the
+>    interface had to grow to answer them:** how the fixture is isolated between candidates,
+>    and whether row comparison is set-equality or sequence-equality (task metadata, not a
+>    global, because `SELECT` without `ORDER BY` is undefined).
+>
+> Then bring back the diff between what `verify(code, task) -> Result` provides and what the
+> SQL verifier actually needed. That diff **is** the interface, generated from two real
+> instances rather than typed by hand.
+>
+> Separately, and rank it yourself: `run_task` already samples K=4 and objectively scores all
+> four — that is a GRPO group (DAPO, arXiv 2503.14476), and it currently emits one binary
+> preference pair and discards the rest, with 4/4-solved and 0/4-solved tasks yielding no
+> gradient at all. Whether this pipeline should be offline DPO or online GRPO is a larger
+> question than which domain is second, and it was not on the DIRECTIVE.
+
+---
+
+## EVIDENCE READ
+
+**Channel** — `C:\Users\t\Projects\srlm-forge\instructions.txt`:
+- lines 1–260: OPERATING PROTOCOL (3–97) and the full activation #18 DIRECTIVE (98–227).
+- §77 (10218–10338), §78 (10340–10450), §79 (10452–10544), §80 (10546–10635),
+  §81 (10637–10725).
+- tail check before writing: `grep -c "^82\." instructions.txt` → **0**, so §82 was free.
+
+**Code at commit `23c3110`**, extracted with `git show <sha>:<path>`, never the working
+tree (which is on `fix/screen-sizing-single-source`):
+- `forge.py` — **read in full, 721 lines.** Cited: `:59-66` config, `:68-72` ACTOR_SYSTEM,
+  `:76-80` BANNED, `:83-136` interpreter-pin block + `verifier_interpreter()`, `:142-147`
+  `Task`, `:150-348` `SEED_TASKS` (assert counts), `:393-409` `CODE_RE`/`extract_code`,
+  `:412-433` `Result`/`score`, `:436-514` `verify()` incl. guard `:458-475` and timeout
+  `:504-511`, `:520-543` `critique()` (`:536` hardcodes a ```python fence), `:559-629`
+  `run_task`, `:632-717` `main`.
+- `ruler_noise.py` — docstring `:1-51`, `decompose()` `:241-304`, `cmd_analyze` `:307-350`,
+  band/instrument-seam block `:401-431`, MDE table `:439`. (527 lines total; read ~250.)
+- `build_ruler.py` — scanned by symbol: `:110-152` `cmd_confirm` (Wilson at `:132`, band at
+  `:134`), `:156-214` `verify_frozen()`, `:215-365` `cmd_freeze`. (387 lines; read ~120.)
+- `eval.py` — `:27-38`, notably `:35` `import forge  # reuse Task, Actor, verify,
+  extract_code, ACTOR_SYSTEM` and `:38` `TEMP = 0.8`. (292 lines; read ~40.)
+- `localllm/make_corpus.py` — **read in full, 185 lines.** `:21` `DEFAULT_EXTS`, `:28-35`
+  `BINARY_EXTS`, `:38-68` `looks_like_text`, `:71-95` `is_trainable_file`, `:98-181` `main`.
+- `localllm/start_studio.py` — **read in full, 87 lines.** `:22` the import, `:25-37`
+  `user_files`, `:56`/`:59` the stale prose.
+
+**Executed probes** (scratchpad copies of the pinned bytes; **no repo file touched, no repo
+code run**): NUL-past-probe-window, `blob.bin`/`data.db` refusal path, `BANNED` against six
+non-Python payloads, and a line-number enumeration of Python-welded sites in the pinned
+`forge.py`. All four outputs are quoted verbatim in F3 and F8.
+
+**Not read this pass:** `screen_tasks.py`, `dataset_gate.py`, `venv_guard.py`,
+`clean_dataset.py`, `verify_dataset.py`, `config.py`, `localllm/studio.py`,
+`localllm/checkpoint.py`, `tests/`, `publish/dpo_README.md`, `data/*`, `council/*.log`,
+and §1–§74 of the channel.
+
+---
+
+## MY OWN SEARCH LOG
+
+Every citation below was checked against a primary source I opened myself. Where I could
+not reach a primary, I say so and label it.
+
+**WebSearch queries run (7):**
+1. `verifiers library pluggable verifier RLVR environments Prime Intellect interface rubric`
+2. `TRL GRPOTrainer reward_funcs interface custom reward function signature prompts completions`
+3. `DAPO dynamic sampling filter prompts accuracy 1 or 0 zero advantage GRPO`
+4. `arxiv learning to reason at the frontier of learnability RL curriculum p(1-p) success probability selection`
+5. `arxiv RLVR multi-domain mixing math code logic cross-domain transfer Guru General-Reasoner 2025`
+6. `OpenAI reinforcement fine-tuning graders API string_check text_similarity score_model python grader multi grader`
+7. `veRL SkyRL OpenRLHF custom reward function interface compute_score data_source solution_str ground_truth sandbox`
+8. `arxiv Reasoning Gym procedurally generated verifiable reward environments score_answer 2025`
+9. `SWE-bench evaluation harness docker per-instance FAIL_TO_PASS PASS_TO_PASS flaky nondeterministic tests`
+10. `SandboxFusion ByteDance code execution sandbox RLVR multi-language E2B nsjail bubblewrap LLM code verifier standard`
+11. `EvalPlus HumanEval+ test adequacy pass@k unbiased estimator Chen 2021 n samples per problem`
+12. `"verifiers" library SingleTurnEnv Rubric reward function signature "completion" "answer" "state" load_environment vf.Environment`
+
+**Primary sources OPENED and read (WebFetch), with what I took from each:**
+
+| source | opened | what I used |
+|---|---|---|
+| arXiv **2503.14476** (DAPO, ByteDance Seed 2025), HTML v1 | ✅ | four techniques; dynamic-sampling constraint `0<\|{o_i : is_equivalent(a,o_i)}\|<G`; *"A zero advantage results in no gradients"*; 50 pts AIME'24 on Qwen2.5-32B |
+| arXiv **2502.12272** (Foster et al., *Learning to Reason at the Frontier of Learnability*, Feb 2025) | ✅ | SFL; learnability = **variance of success over multiple attempts**; *"solved by all attempts... or by none — providing no meaningful training signal"*; PPO + VinePPO |
+| arXiv **2305.01210** (EvalPlus, NeurIPS 2023) | ✅ | title/year; **80×** test extension; pass@k reduction **up to 19.3–28.9%**; the "limited in quantity and quality" framing |
+| arXiv **2506.14965** (Guru, cross-domain RL) | ✅ | six domains; Guru-7B/32B; the pretraining-exposure finding, quoted |
+| arXiv **2507.17512** (*Can One Domain Help Others?*) | ✅ | math/code/logic; Qwen-2.5-7B; GRPO; *"mutual enhancements and conflicts"*; abstract does **not** itemise pairs |
+| **verl** docs, `preparation/reward_function.html` | ✅ | `my_reward_fn(data_source, solution_str, ground_truth, extra_info=None)` → float; **no timeout/sandbox/partial-credit in the interface**; "SandBox … will opensource soon" |
+| **rLLM** docs, verifiers integration page | ✅ | `vf.load_environment(...)`, `env.rollout(...) -> State`, `env.rubric.score_rollout(state)`, `State` carries `trajectory`/`reward`/`task`/`metrics` |
+
+**Attempted and FAILED (404) — named so the gap is visible:**
+`raw.githubusercontent.com/PrimeIntellect-ai/verifiers/main/docs/environments.md`,
+`github.com/PrimeIntellect-ai/verifiers/blob/main/docs/environments.md`,
+`docs.primeintellect.ai/verifiers/environments`,
+`verifiers.readthedocs.io/en/latest/components.html`.
+`gh api` on that repo returned empty (no auth in this shell). **Consequence:** my
+`verifiers` interface description (`func(prompt, completion, answer, state, **kwargs) ->
+float`; `Rubric` = weighted sum of reward functions) comes from the **rLLM integration docs
+(primary, opened) plus search-result summaries of the verifiers docs (secondary)** — not
+from the library's own source. **Label it: the argument order and exact kwargs for
+`verifiers` are UNVERIFIED-AGAINST-SOURCE.** It does not change F1's conclusion, which rests
+on TRL and veRL, both of which I opened.
+
+**Secondary-only, explicitly labelled:**
+- TRL's exact `reward_func(prompts, completions, **kwargs) -> list[float]`, the `None`-to-
+  abstain behaviour and `reward_weights` summing come from HuggingFace's TRL docs **via
+  search-result summary**; I did not fetch `grpo_trainer.md` directly. High confidence,
+  primary not opened.
+- OpenAI grader types and the **deprecation** come from OpenAI's graders guide via search
+  summary. Primary not opened. **The deprecation is load-bearing for my "don't adopt it"
+  advice — verify before acting on it.**
+- SWE-bench per-instance Docker pinning and the flaky-test triple-run QA: search summary of
+  the SWE-bench harness reference and a 2025/26 benchmark-generation paper. Primary not
+  opened.
+- A search result attributed to a **February 2026 OpenAI audit** claiming 59.4% of 138
+  SWE-bench Verified problems have test-design flaws that reject functionally correct
+  submissions. **I did not verify this and I am not resting any finding on it.** If true it
+  is a very large reinforcement of F5; treat as a lead, not evidence.
+- SandboxFusion (~20 languages, run-code + evaluate-correctness, weaker isolation than
+  DifySandbox): search summary of ByteDance's own docs. Primary not opened.
+- Reasoning Gym: arXiv **2505.24760**, NeurIPS 2025 D&B spotlight, `score_answer` interface,
+  100+ procedurally generated verifiable tasks. Search summary of the repo/HF paper page;
+  primary abstract not opened.
+- The "math+logic helps, adding code conflicts" sentence: secondary reporting on
+  2507.17512. **Directional only** — the primary abstract does not contain it.
+
+**Browser seats:** `mcp__seat-a-chatgpt__*` and `mcp__seat-b-research__*` were listed as
+available deferred tools. **I did not load or use either, and I escalated to neither.**
+Rung 1 (WebSearch + WebFetch on arXiv abstract pages) answered every question that mattered;
+the only failures were four GitHub/RTD 404s, and a JS-walled docs site is not a reason to
+spend a deep-research run when the conclusion already rests on two primaries I did open.
+Per the grant, the cheapest rung that works is the one to use.
+
+---
+
+## LEFTOVER RISKS — unresolved even if everything above is done
+
+1. **Two domains do not make an interface either.** F6 says two instances beat one. It does
+   not say two is enough. The third domain will still surprise you, and the honest framing
+   is that you are buying *evidence*, not *closure*. The published interfaces converged
+   after dozens of environments, not two.
+2. **Verifier adequacy stays unmeasured.** F5 names the term; building SQL does not measure
+   it. Nothing in the recommended prompt tells you how permissive your 4-to-8-assert Python
+   tasks are, and the ruler will keep reporting 3pp precision on a quantity with an
+   unmeasured ~20pp bias.
+3. **The typing confound is still live and still contaminating any run you do next.** 12.8%
+   of failures. If you build SQL and train a mixed adapter before choosing (a)/(b)/(c), the
+   confound enters the multi-domain result and becomes much harder to decompose than it is
+   today.
+4. **`GEN_TEMP` may not be in the receipt.** I flagged this in F4 but did **not** check
+   `build_ruler.cmd_freeze`'s payload closely enough to assert either way. If it is absent,
+   every rate in the frozen artifact is silently conditional on an unpinned parameter — and
+   that is the §71 defect class, third occurrence.
+5. **`BANNED` is not a sandbox and neither is a per-domain `BANNED`.** Its own comment says
+   so (`:74-75`: *"NOT a real sandbox. For untrusted / scaled runs, execute inside a
+   container or throwaway VM"*). The honest end state is SWE-bench's: a container. Every
+   regex you add is deferring that, and F3's finding is a reminder that the deferral has
+   started costing.
+6. **Offline DPO vs online GRPO (F2) is not resolved by anything I recommend.** If the
+   answer is GRPO, a chunk of the pair-construction machinery in `run_task` becomes dead
+   code — and building SQL *inside* the DPO shape first would mean building it twice.
+   **That is a real cost of my own recommendation and I am naming it rather than hiding
+   it:** the cheapest ordering might be to settle F2 before F6.
+7. **Adapter capacity at 16GB/QLoRA is untested by anyone.** F7's caveat 1 has no literature
+   behind it either way. You would be the experiment.
+8. **The channel still has no write lock.** §77 records one unexplained double-answer. I
+   checked `^82\.` was free immediately before writing; a seat armed in parallel could still
+   have raced me between the check and the write.
+
+---
+
+## THE QUESTIONS THEMSELVES
+
+**Q1 was exactly right, and it was right for a reason beyond its own answer.** It was the
+proprietor's instinct, it was Step 0, and it returned a result that changed the ranking of
+everything below it: the seam is an afternoon, so "design vs discover" — Q2, which you
+clearly expected to be the real question — turns out to be a low-stakes call either way. Ask
+prior-art questions first, always. This is the second activation in a row where the cheapest
+question returned the most.
+
+**Q3 was the best-constructed question in the set and it was built on a false premise.**
+"Deterministic verifiers break the band screen" is wrong because your verifier is already
+deterministic and the band was always measuring the sampler. But the question was *worth
+asking in that form*, because getting to "it was always the sampler" is what surfaced the
+temperature-pin gap (F4), which neither of us had listed.
+
+**Q2 and Q4 were fine and neither was decisive.** Q2's answer barely moves given Q1. Q4's
+literature does not reach your scale or your algorithm, which is useful to know and is not
+what you asked.
+
+**The question the DIRECTIVE should have asked and did not:**
+
+> **"`run_task` already samples K=4 and objectively scores all four. That is a GRPO group.
+> Why am I compressing it into one binary preference pair and discarding the rest — and is
+> offline DPO the right algorithm for a verifier-grounded loop at all, or is it a habit
+> inherited from when the reward was a preference model rather than a test suite?"**
+
+That question is upstream of every question you did ask. If the answer is "GRPO", then the
+verifier seam, the second domain and the multi-domain plan all get designed against a
+different consumer, and F1's table stops being a shape to imitate and starts being a
+framework to actually adopt. It is also the question most likely to be uncomfortable,
+because DPO is where the sunk cost is — and that is usually the tell.
+
+---
+
+## WHAT I WOULD BUILD, AND WHERE I WOULD TAKE IT FROM
+
+**What I would build, in this order:**
+
+1. **A `Verifier` protocol that is one function, copied from TRL, plus the two fields TRL
+   does not have.** `(candidate: str, task: Task) -> float` in `[0,1]`, plus `setup()` /
+   `teardown()` for stateful verifiers and a per-domain `timeout`. **Prior art:** TRL's
+   `reward_func` for the signature; **SWE-bench's harness for the lifecycle** (its
+   per-instance environment build/teardown is the setup/teardown you will otherwise
+   rediscover); **Reasoning Gym's `score_answer` for the float-in-[0,1] convention**;
+   **`verifiers`' `Rubric` for weighted composition** if you ever want format-compliance and
+   correctness scored separately, which you will.
+2. **The SQL domain against a fixture DB**, exactly as F6 scopes it, as the thing that
+   *generates* the protocol above rather than validating a guess at it.
+3. **A runtime-pin abstraction, which is genuinely yours and I have not seen it packaged
+   anywhere.** `{verifier_source_sha, runtime_identity, sampler_params}` recorded per
+   domain, where `runtime_identity` is a domain-specific callable — `sys.version` for
+   Python, `sqlite3.sqlite_version` + fixture sha for SQL, validator draft for JSON schema.
+   **Prior art: SWE-bench's per-instance Docker image is the same idea implemented with a
+   sledgehammer.** Your version is lighter and, for a single-machine project, better. **This
+   is the part of your work that is publishable.** Nobody in F1's table ships it; veRL's
+   reward docs do not mention the runtime at all.
+4. **A test-adequacy probe before anything else ships** — the F5 gap. Cheapest form:
+   mutation testing on the 13 `SEED_TASKS`. Take each known-good solution, mutate it
+   (off-by-one on a bound, drop a branch), and count how many mutants survive `run_tests`. A
+   surviving mutant is a solution your reward would credit as correct. **Prior art:
+   EvalPlus (2305.01210) did exactly this at scale and found up to 28.9 points of
+   over-crediting.** This costs an hour of CPU and no GPU, and it would put a number on the
+   largest unmeasured term in your instrument. Note it also finally justifies
+   `EMIT_CONCISENESS`, which your own comment at `:64-65` disabled pending *"a robustness
+   signal (mutation tests)"* — you already identified this fix, in a code comment, and then
+   scoped it to the wrong problem. It is not a conciseness fix. It is a **ground-truth**
+   fix.
+
+**Would I do it differently from the executor's SQL-second-domain lean?**
+
+**On the lean itself: no. Build SQL second. I agree, and Q1 strengthens rather than weakens
+your reasoning** — since the interface is a copied one-liner, "design up front" was never
+the expensive option and "discover from two instances" costs you nothing extra.
+
+**Three differences:**
+
+1. **I would order F5 before F6.** The mutation probe is an hour of CPU and it sizes the
+   largest error term in the reward. Building a second domain on top of a reward with an
+   unmeasured ~20pp bias means the second domain inherits it and you can no longer tell a
+   domain effect from a verifier-adequacy effect. **Measure the ruler you have before you
+   build a second one.**
+2. **I would settle F2 before either.** Not decide it — *frame* it, with a number: how many
+   of your last N tasks were 4/4 or 0/4 and therefore emitted nothing? That is one pass over
+   `data/round_stats.jsonl`, which already logs `solved`, `pairs` and `all_fail_ids`. If
+   that number is large, the algorithm question is urgent and building SQL inside the DPO
+   shape is building it twice (leftover risk 6).
+3. **I would not treat the seam as a milestone at all.** Your §81 framed "extract the
+   verifier as an interface" as a significant piece of work. It is not, and the risk of
+   treating it as one is that it becomes an architecture project — the shape
+   `05-STAYING-OUT-OF-THE-MUD` warns about, and the shape you were right to be suspicious of
+   for a *different* reason than the one you gave.
+
+---
+
+## NON-CLAIMS — what THIS pass did not check or could not verify
+
+Mandatory, and with one seat it is the only thing between my voice and false consensus.
+
+- **I did not run any repo code and did not touch any repo file except the three sanctioned
+  writes.** My probes ran against scratchpad copies of the pinned bytes. No training, no
+  eval, no `verify()` invocation, no `verify_dataset.py`/`clean_dataset.py` run. **I have no
+  executed evidence about the pipeline's behaviour, only about the text of its rules.**
+- **I did not read `screen_tasks.py`, `dataset_gate.py`, `venv_guard.py`, `config.py`, or
+  anything under `tests/`.** So: I did not verify `wilson()`'s implementation, did not
+  verify `BAND_LO`/`BAND_HI` are actually 0.2/0.8, and **did not verify whether `GEN_TEMP` is
+  in the frozen receipt** — F4's temperature finding is a *pointer to check*, not a defect I
+  established. Treat it as `pending`.
+- **I read ~250 of 527 lines of `ruler_noise.py`, ~120 of 387 of `build_ruler.py`, ~40 of
+  292 of `eval.py`.** Only `forge.py`, `make_corpus.py` and `start_studio.py` were read in
+  full. Findings about the ruler rest on the sections quoted and could miss something in the
+  ~800 lines I skimmed past.
+- **My "at least six Python-specific sites" is a floor, not a total.** I enumerated by
+  reading plus a regex pass over the pinned file. It is a hand-built coverage list — the
+  exact thing the OPERATING PROTOCOL says not to trust — and I am labelling it as such. It
+  is not exhaustive and I make no "all/every/swept" claim about it.
+- **The `verifiers` library interface is UNVERIFIED-AGAINST-SOURCE** (four 404s, `gh`
+  unauthenticated). TRL's exact signature, OpenAI's grader deprecation, SWE-bench's Docker
+  details, SandboxFusion and Reasoning Gym are **secondary-only** — search summaries, not
+  primaries I opened. Each is flagged in the search log. **F1's conclusion rests on veRL and
+  rLLM, which I did open; if the secondary claims are wrong, the "four projects converged"
+  headline weakens to "two I verified plus two I did not."**
+- **The claimed Feb-2026 OpenAI SWE-bench audit (59.4%) is unverified and no finding rests
+  on it.**
+- **I did not use either browser seat.** No deep-research pass was run, so I have not swept
+  for prior art beyond twelve searches and seven primaries. **A framework that solves the
+  sandbox+receipt problem could exist and be absent from my search terms** — my queries were
+  weighted toward RL frameworks and code-execution sandboxes, and a hit could plausibly live
+  under "eval harness", "agent gym", or "grader service" vocabulary I did not use.
+- **I did not check §1–§74 of the channel.** If a prior council pass already raised the GRPO
+  question (F2) or the `BANNED` portability question (F3), I have re-raised them as new and
+  the record will show the duplication. I checked §75–§81 only.
+- **I did not verify the DPO/Unsloth→TRL lineage in this repo's code.** F1's "TRL is already
+  downstream of you" rests on `forge.py:27`'s *"Unsloth DPO ready"* docstring and general
+  knowledge that Unsloth wraps TRL's `DPOTrainer`. I did not open the training script. If
+  this project's trainer is not TRL-backed, the ADOPT recommendation still holds on the
+  convergence argument but loses its strongest leg.
+- **I did not run the ingestion test suite** (`test_ingest.py`, 7 checks). My F8 probes are
+  independent of it, so I cannot say whether an existing test already covers the
+  NUL-past-8KB case — I can only say the DIRECTIVE's stated scope does not mention it.
+- **No peer seat reviewed any of this.** Single-seat output. Everything above is one
+  reader's ranking, and F2 in particular is a strategic opinion about algorithm choice on
+  which reasonable researchers disagree.
+
+---
+
+## VERDICT
+
+**GO-WITH-FIXES** — proceed with Q1-driven adoption as the next concrete step, where
+"adoption" is much smaller than expected and the fixes are elsewhere.
+
+- **Adopt:** TRL's `reward_func(prompts, completions, **kwargs) -> list[float]` as the
+  verifier signature, plus the float-not-boolean return, plus `setup`/`teardown`/`timeout`
+  from SWE-bench's harness lifecycle. Cost: an afternoon. **Do not adopt any framework
+  wholesale, and do not adopt OpenAI's grader schema at all.**
+- **Do not design a plugin architecture.** Q1 removed the reason to and Q2's lean was right.
+- **Fix before the next domain:** the `BANNED` no-op (F3), the receipt's missing sampler pin
+  (F4, `pending` — check it), and the ingestion claim's over-reach plus the NUL-past-8KB
+  hole (F8).
+- **Measure before the next domain:** verifier adequacy via mutation testing (F5), and the
+  fraction of tasks currently emitting zero gradient (F2).
+
+Nothing here is a merge decision and nothing is being merged. The one thing I would push
+back on hardest if you disagree with everything else: **you have been carrying the verifier
+as the commodity and the seam as the asset, and it is the other way round.** The seam is
+public and cheap. The receipt-plus-runtime-pin discipline you built is neither, and it is
+not in any of the four frameworks I checked.
+
+---
+
+## POST-SEAL ADDENDUM — THE NUMBERING RACE FIRED AGAIN, AND I AM THE SECOND WRITER
+
+Added after the body above was written to disk. **The body is unchanged; nothing in it was
+revised in light of what follows.** Sealed sideways, per the OPERATING PROTOCOL.
+
+**Sequence, from the filesystem:**
+
+- I checked `grep -c "^82\." instructions.txt` → **0**. Section 82 was free.
+- I wrote this transcript to `council/council-transcript-2026-07-30_2032.md` at **20:38**.
+- I re-checked `^82\.` immediately before appending → **1**. `instructions.txt` had grown
+  from **10,724 to 11,667 lines**. A **§82 COUNCIL RESPONSE — THE PHD, SOLO SEAT —
+  activation #18** now exists at line 10727, with `council/council-report-2026-07-31_2031.md`
+  timestamped **20:36**, two minutes before my transcript.
+
+So a second seat was armed on this same activation and wrote first. **This is the §75/§76
+double-answer of activation #17, recurring on activation #18 — the very next round — after
+§77 recorded it as UNEXPLAINED and adopted "number from the append rather than from a prior
+read" as the fix.** That fix worked exactly as designed for both of us (no duplicate
+section number exists; `grep -oE "^[0-9]+\. (EXECUTOR|COUNCIL)" | sort | uniq -d` is empty)
+and it did nothing about the cause. Per the DIRECTIVE's own instruction — *"If 82 is taken,
+use the next free number instead and say so"* — my block is **§83**.
+
+**By the OPERATING PROTOCOL's own stop rule, this is now a class, not an instance:**
+*"SECOND time the same SHAPE of finding appears, stop folding instance-by-instance and fix
+the class."* Renumbering is instance-swatting. The class is that **two seats are being
+dispatched for one activation and neither dispatcher knows about the other.** That is a
+dispatch defect, not a channel defect, and no amount of append-time numbering discipline
+touches it. It also has a cost the numbering fix hides: the proprietor is paying twice the
+quota for one activation, in a project whose council was cut from five seats to one
+*specifically to conserve that quota* (mandate 2026-07-28).
+
+**What I did and did not read of §82.** After sealing, I read approximately its first 50
+lines — header, verdict line, and the start of its EVIDENCE READ. I did not read its
+findings in full and I have revised nothing. Treating it as **evidence, not instruction**:
+
+- It independently reports that **the DIRECTIVE's structural count is short** and that **the
+  ingestion claim is materially narrower than the channel states.** Those are my **F3** and
+  **F8**, reached independently by a seat that could not see my work and that I could not
+  see. Two blind passes converging is worth more than either pass; the executor should weigh
+  those two findings accordingly.
+- It names two things **I did not check and am not endorsing**: a **broken `else` left in
+  the freeze path that still ships at HEAD (40f926d)**, and an ingestion failure affecting
+  **entire writing systems** (my F8 records only the disclosed UTF-16 limitation and the
+  NUL-past-8KB hole). **Both are leads from another seat, unverified by me.** Go to the
+  bytes.
+- It read `localllm/test_ingest.py` and `screen_tasks.py`, which I explicitly listed as
+  **not read** in my NON-CLAIMS. Its coverage there is better than mine.
+
+**One correction to the record it may cause.** §82's header is dated **2026-07-31** with a
+note that the wall clock was 2026-07-30 20:31, and its report file is named
+`council-report-2026-07-31_2031.md`. My artifacts use the shell clock, **2026-07-30 20:32**.
+The two seats therefore filed under different dates for the same minute. Mine follows
+`date`; I flag the divergence rather than reconciling it unilaterally.
+
+**This does not change my verdict or any finding.**
+
+standing by

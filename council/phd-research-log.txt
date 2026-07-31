@@ -47,6 +47,25 @@ SUMMARY — decisions this project made because of these papers
     marginal variance but inter-task correlation raises run-level sd, and at
     T=31 the second dominates                                               (DivPO 2501.18101 + Kirk 2310.06452 vs the project's own rho_bar=+0.0102)
   - "§59 finding 2's tau^2/T term now has a citation": Miller's omega^2      (Miller 2411.00640)
+  - "NO STANDARD EXISTS for a pluggable verifier seam" - the reward-callable
+    shape is universal and near-worthless; the verifier EXECUTION contract has
+    four incompatible answers                                               (TRL docs + veRL docs + OpenAI graders + verifiers v0/v1 source)
+  - ADOPT THE DECOMPOSITION, NOT THE DEPENDENCY: taskset / harness / runtime,
+    which dissolves "only verify() is conceptually hard" - verify() is a
+    scoring predicate AND an execution substrate wearing one coat            (PrimeIntellect verifiers v1 blog + rubric.py + types.py)
+  - Q3's premise REFUTED: verifier determinism does not zero per-task
+    variance, because the randomness is in the SAMPLER. The band screen,
+    Wilson intervals, k replicates and MDE all survive a domain change       (§77's own 31/31 constant greedy + arXiv:2509.24086)
+  - "Degeneracy, not determinism, is what breaks a band screen in a new
+    domain - and a procedural DIFFICULTY KNOB strictly dominates screening
+    a fixed pool"                                                            (Reasoning Gym 2505.24760)
+  - "Build the SECOND DOMAIN first, but choose it by which assumptions it
+    BREAKS" - the two-instance method cannot discover a seam both instances
+    share, so SQL+fixture-DB was recommended with a no-shared-prompt rule    (PhD reasoning against forge.py + train_native.py:52-60)
+  - "A FACTORY OF NARROW MODELS, not one general model, at this scale"       (2506.19733 ICLR'26 + 2507.17512; shape-only, both are 7B online RL)
+  - "Adopting an external task schema costs 6,200 banked generations" -
+    renaming task fields changes task_sha256 -> ruler_set_sha256 -> fires
+    verify_frozen() by design                                                (PhD arithmetic over build_ruler.py + ruler_noise.py)
 
 --------------------------------------------------------------------------------
 ROUND: activation #15 (banked as §59) — effect size + evol license
@@ -449,6 +468,180 @@ Pointers only (named, NOT opened — do not cite as evidence without opening):
   arXiv:2505.22617 — entropy mechanism of RL for reasoning LMs
   arXiv:2411.04712 — SEE-DPO (self-entropy regularised DPO)
   APPLIED: none. Context only.
+
+--------------------------------------------------------------------------------
+ROUND: activation #18 (banked as §82) - prior art for a pluggable verifier seam,
+discover-or-design, what verifier discipline transfers, multi-domain mixing
+--------------------------------------------------------------------------------
+Read scope: instructions.txt 77-81; code at commit 23c3110 via `git show` (HEAD
+was 40f926d and is recorded as such). This was an ECOSYSTEM/FRAMEWORK survey, so
+almost every source is NEW - nothing in the ledger bore on it, exactly as the
+activation predicted.
+
+PrimeIntellect-ai/verifiers - verifiers/rubrics/rubric.py (raw source, main)
+  Cited for: the v0 API. Rubric.__init__(funcs, weights, parser); reward funcs
+  receive prompt, completion, answer, optional task, **kwargs and return
+  float | list[float] | dict[str, float]; async score_rollout(state) writes
+  state["reward"] and state["metrics"]. NOTE `weights` - weighted multi-objective
+  reward is already in the interface.
+  Status: VERIFIED (raw source fetched and read this round)
+  APPLIED: half the Q1 answer, and the evidence for F5 (every framework expects a
+  scalar). Also the concrete shape behind "adopt the decomposition".
+
+PrimeIntellect-ai/verifiers - verifiers/types.py (raw source, main)
+  Cited for: RewardFunc = IndividualRewardFunc | GroupRewardFunc, where
+  IndividualRewardFunc = Callable[..., float | Awaitable[float]];
+  TASK_INPUT_FIELDS = {"prompt", "answer", "info", "example_id"}; Info =
+  dict[str, Any]; RolloutInput requires prompt + example_id.
+  Status: VERIFIED (raw source)
+  APPLIED: the exact schema used to compute O2's migration bill - renaming
+  srlm-forge's (prompt, entry, tests) to (prompt, answer, info) changes every
+  task_sha256 and fires the freeze gate.
+
+primeintellect.ai/blog/verifiers-v1 - "verifiers v1: Decomposing Tasksets and
+  Harnesses for Agentic RL & Evaluations"
+  Cited for: THE finding of the round. v1 breaks the environment into TASKSET
+  (what: Task/TaskData + @vf.reward async method returning float), HARNESS (how:
+  "the program that solves the task and produces a rollout"), and RUNTIME (where:
+  local subprocess/docker, remote prime/modal), with the runtime API
+  `async run(argv, env) -> ProgramResult`, `async read(path) -> bytes`,
+  `async write(path, data) -> None`. Also verbatim: "The legacy code path is now
+  frozen and will not be actively maintained. We aim to fully deprecate it in the
+  future."
+  Status: VERIFIED (primary vendor doc)
+  APPLIED, decisively - this is the Q1 answer and the recommended architecture.
+  It maps onto srlm-forge's four places and shows verify() is TWO things (a
+  scoring predicate + an execution substrate), which is why it was the only "hard"
+  one. Also the source of the ADOPT-THE-SHAPE-NOT-THE-PACKAGE recommendation: the
+  deprecation sentence is why the dependency was declined.
+
+PrimeIntellect-ai/verifiers - README.md (raw)
+  Status: VERIFIED-AS-THIN. Fetched; contains installation and positioning only,
+  no class definitions, no signatures, no schema. Recorded as a NEGATIVE so the
+  next round does not re-fetch it hoping for API detail.
+  APPLIED: none directly; it is why rubric.py/types.py were fetched instead.
+
+huggingface.co/docs/trl/rewards - TRL official reward-function docs (v1.9.2)
+  Cited for: reward funcs take completions (list[list[dict[str,str]]] with a
+  "content" key), dataset columns by name, and **kwargs "required ... to ensure
+  compatibility with trainers like GRPOTrainer"; return list[float];
+  accuracy_reward returns None to SKIP an unparseable example. Ships
+  get_cosine_scaled_reward, get_repetition_penalty_reward,
+  get_soft_overlong_punishment, think_format_reward. Ships NO sandbox, NO timeout,
+  NO execution runtime.
+  Status: VERIFIED (official docs)
+  APPLIED: ruled OUT as the standard answer - adopting TRL's seam would give this
+  project LESS than it has (it already has an isolated, pinned, timeout-bounded
+  verifier). Also the "None to skip" semantics vs forge's timed_out handling (F5).
+
+verl.readthedocs.io/en/latest/preparation/reward_function.html - veRL official
+  Cited for: `def my_reward_fn(data_source, solution_str, ground_truth,
+  extra_info=None)` returning a number; registered by custom_reward_function.path
+  + .name (defaults to compute_score). Sandboxing NOT addressed; the sandbox is
+  described as "will opensource soon".
+  Status: VERIFIED (official docs)
+  APPLIED: same as TRL - ruled out as the standard answer, and one of the four
+  incompatible execution stories that make "no standard exists" the honest verdict.
+
+developers.openai.com/api/docs/guides/graders - OpenAI RFT graders
+  Cited for: five grader types (string_check, text_similarity, score_model,
+  python, multi); python grader signature
+  `def grade(sample: dict[str, Any], item: dict[str, Any]) -> float`, with "Any
+  other result (exception, invalid float value, etc.) will be marked as invalid
+  and return a 0 grade". Limits verbatim: 2 minutes, 2 GB memory, 1 GB disk,
+  2 CPU cores, NO network, source < 256 kB, fixed package allow-list pinned to a
+  DATED IMAGE TAG ("2025-05-08"). multi combines sub-scores via a user-written
+  calculate_output formula (+ - * / ^, min/max/abs/floor/ceil/exp/sqrt/log).
+  Status: VERIFIED (official API docs)
+  APPLIED, twice: (1) the most complete published answer to "timeouts, sandboxing,
+  partial credit" and the model for what a runtime contract should specify;
+  (2) the O3 correction - the interpreter-pinned receipt is NOT unique, it is
+  SURPASSED here by an image-tag pin that also pins libraries. Also the source of
+  the timeout-semantics conflict in F5 (OpenAI scores an exception 0; forge.py
+  504-511 insists a timeout must never become a `rejected`).
+
+open-thought/reasoning-gym - README.md (raw) + arXiv:2505.24760 (NeurIPS 2025
+  Spotlight)
+  Cited for: score_answer(answer=..., entry=...) -> float; entries are
+  {'question','answer','metadata'}; a "cascade scorer" giving progressively
+  lenient partial credit; difficulty as a KEYWORD ARGUMENT to create_dataset.
+  Abstract verbatim: "over 100 data generators and verifiers ... Its key
+  innovation is the ability to generate virtually infinite training data with
+  adjustable complexity".
+  Status: VERIFIED (raw README + abstract verbatim)
+  APPLIED: the single most transferable idea in the survey, and it is not a seam.
+  A procedural DIFFICULTY KNOB strictly dominates screening a fixed pool into
+  [0.2,0.8]: no selection-on-noise, no regression-to-the-mean drop-outs, and no
+  "the ruler is spent" (§64). Drives the Q3 answer on what actually threatens the
+  band screen (degeneracy, not determinism) and the O4 answer on where tasks come
+  from. NOT YET ACTED ON.
+
+arXiv:2506.19733 - Hu, Zhu, Kellermann, Biddulph, Waiwitlikhit, Benn, Kang -
+  "Breaking Barriers: Do Reinforcement Post Training Gains Transfer To Unseen
+  Domains?" (ICLR 2026)
+  Cited for, verbatim: "although RPT brings substantial gains on tasks similar to
+  the fine-tuning data, the gains generalize inconsistently and can vanish on
+  domains with different reasoning patterns." Two studies (observational across
+  open-weight RPT models; interventional single-domain RPT evaluated cross-domain)
+  converging on the same conclusion.
+  Status: VERIFIED (abstract verbatim)
+  APPLIED: the primary evidence for the Q4 answer - build a FACTORY of narrow
+  models rather than one general model. Caveated as shape-only: 7B+, online RL,
+  full datasets, versus this project's offline DPO on a 31-task ruler (the same
+  off-domain-interpolation label §62 put on Flan).
+
+arXiv:2507.17512 - "Can One Domain Help Others? A Data-Centric Study on
+  Multi-Domain Reasoning via Reinforcement Learning"
+  Cited for: GRPO on Qwen-2.5-7B across math / code / logic puzzles, examining
+  "the intricate interactions including mutual enhancements and conflicts that
+  emerge during combined cross-domain training". BOTH signs occur.
+  Status: VERIFIED (abstract verbatim). NO NUMBERS EXTRACTED - the abstract carries
+  none and the tables were not opened. Search glosses claiming "math aids logic,
+  math impedes code" were REFUSED as evidence on the §62 arXiv:2603.20100
+  precedent.
+  APPLIED: co-supporting evidence for Q4 (interference is real, so mixture weights
+  would become a tuned hyperparameter). Explicitly NOT used for any magnitude.
+
+arXiv:2509.24086 - "Do Repetitions Matter? Strengthening Reliability in LLM
+  Evaluations"
+  Cited for, verbatim: "10/12 slices (83%) invert at least one pairwise rank
+  relative to the three-run majority"; "two runs remove ~83% of single-run
+  inversions"; "treat evaluation as an experiment, report uncertainty, and use
+  >= 2 repetitions under stochastic decoding." Attributes the entire repetition
+  requirement to STOCHASTIC DECODING; grading is assumed deterministic and is not
+  a term in their mixed-effects model.
+  Status: VERIFIED (abstract verbatim)
+  APPLIED, twice: (1) the literature leg of the Q3 answer - the field already
+  treats the decoder as the noise source and the grader as deterministic, which is
+  why "deterministic verifier" is not a studied problem; (2) independent,
+  cross-field support for ruling R7's replicate-count reasoning.
+
+UNVERIFIED / POINTER - named by search, primary source NOT opened. Do NOT cite as
+  evidence without opening them:
+  SkyRL / SkyRL-Gym - Gymnasium-style Env.step/init/close for tool-use
+    environments. Only a DeepWiki gloss was seen; no primary source read.
+  NVIDIA NeMo Gym / NeMo-Skills - a /verify endpoint, "34 verifiers ... 5 using
+    sandboxed Ray execution". Blog gloss only.
+  OpenRLHF - NOT OPENED AT ALL this round (budget exhausted before it). Named in
+    the activation's candidate list and deliberately left unanswered rather than
+    described from memory.
+  arXiv:2602.01365 (asymmetric/order-sensitive cross-domain effects),
+  arXiv:2511.12344 (rubric rewards for multi-domain reasoning).
+  APPLIED: none. Explicitly excluded from the Q1 ranking - "I will not rank what I
+  did not read."
+
+NEGATIVE / EXECUTED EVIDENCE recorded from this round (not a paper, but it is what
+  several findings rest on):
+  - make_corpus.is_trainable_file driven in a tempdir against constructed files
+    and 400 synthetic files per writing system: a VALID UTF-8 file is refused when
+    the 8192-byte probe splits a multi-byte character - CJK 100.0%, Cyrillic/Greek
+    45.2%, EU-accented 2.8%, ASCII 0.0%. F1.
+  - build_ruler.py:295's `else:` binds to `if problems:` at :277, so every
+    SUCCESSFUL freeze prints "ruler_noise.jsonl absent" while the file is present
+    at 209,606 bytes. Still at HEAD 40f926d. No test covers cmd_freeze. F3.
+  - grep for ACTOR_SYSTEM|extract_code at 23c3110 hits 8 files, six of them
+    outside the activation's declared read scope. F2.
+  APPLIED: the three fixes in the recommended next prompt.
 
 --------------------------------------------------------------------------------
 CARRIED FORWARD, NOT RE-VERIFIED IN ROUND 2 (still resting on Round 1's read)
