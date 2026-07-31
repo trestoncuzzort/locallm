@@ -438,24 +438,33 @@ class Studio(ttk.Frame):
         self.l_corpus = ttk.Label(box, text="—", foreground="#555",
                                   wraplength=300, justify="left")
         self.l_corpus.grid(row=1, column=0, sticky="w", padx=10, pady=(2, 4))
-        ttk.Button(box, text="Choose a different file…", command=self._browse).grid(
-            row=2, column=0, sticky="w", padx=10, pady=(0, 9))
+        brow = ttk.Frame(box)
+        brow.grid(row=2, column=0, sticky="w", padx=10, pady=(0, 9))
+        ttk.Button(brow, text="Get better text…",
+                   command=self._get_corpus).grid(row=0, column=0)
+        ttk.Button(brow, text="Use my own file…", command=self._browse).grid(
+            row=0, column=1, padx=(6, 0))
 
         # --- 2. size
         arch = ttk.LabelFrame(left, text=" 2 · How big should it be? ")
         arch.grid(row=1, column=0, sticky="ew", pady=(0, 10))
         arch.columnconfigure(0, weight=1)
+        # Radio and blurb get their OWN rows. Sharing one cell and separating
+        # them with padding put the description on top of the option's name, so
+        # the three sizes rendered with no readable labels at all.
         for i, name in enumerate(SIZES):
             ttk.Radiobutton(arch, text=name, value=name, variable=self.size_name,
                             command=self._apply_preset).grid(
-                row=i, column=0, sticky="w", padx=10, pady=(6 if i == 0 else 0, 0))
+                row=2 * i, column=0, sticky="w", padx=10,
+                pady=(8 if i == 0 else 6, 0))
             ttk.Label(arch, text=SIZES[name]["blurb"], foreground="#777",
-                      wraplength=290, justify="left").grid(
-                row=i, column=0, sticky="w", padx=(32, 10), pady=(22, 4))
+                      wraplength=280, justify="left").grid(
+                row=2 * i + 1, column=0, sticky="w", padx=(30, 10), pady=(0, 2))
         self.l_params = ttk.Label(arch, text="", font=("Segoe UI", 9, "bold"),
                                   foreground="#2d7d46", wraplength=300,
                                   justify="left")
-        self.l_params.grid(row=len(SIZES), column=0, sticky="w", padx=10, pady=(2, 9))
+        self.l_params.grid(row=2 * len(SIZES), column=0, sticky="w",
+                           padx=10, pady=(6, 9))
 
         # --- 3. how long
         tr = ttk.LabelFrame(left, text=" 3 · How long should it practise? ")
@@ -560,7 +569,17 @@ class Studio(ttk.Frame):
                  "The orange line is text it was never shown — if orange stops "
                  "falling while blue keeps going, it has started memorising "
                  "instead of learning.")
-        self.l_explain.grid(row=2, column=0, sticky="w", pady=(6, 8))
+        self.l_explain.grid(row=2, column=0, sticky="ew", pady=(6, 8))
+
+        # A hard-coded wraplength is a guess about the window width, and it was
+        # wrong: at the default size the sentence ran off the right edge mid-word.
+        # Track the real width instead, so it stays right when the window is
+        # resized or maximised too.
+        def _rewrap(event):
+            w = max(240, event.width - 12)
+            self.l_headline.configure(wraplength=w)
+            self.l_explain.configure(wraplength=w)
+        right.bind("<Configure>", _rewrap)
 
         logbox = ttk.LabelFrame(right, text=" What's happening ")
         logbox.grid(row=3, column=0, sticky="nsew")
@@ -696,6 +715,92 @@ class Studio(ttk.Frame):
             self.v_data.set(p)
             self._scan_corpus()
 
+    def _get_corpus(self):
+        """Pick ready-made training text, as presets rather than a URL box.
+
+        WHY THIS BUTTON EXISTS. The corpus that shipped was 549 KB of this
+        repository's own Python across 13 files. A 3M-parameter character model
+        cannot produce anything usable from that no matter how long it trains,
+        which made the whole tool look like a benchmark harness for something
+        unusable. What a small model needs is simple, plentiful English, and
+        which corpus that is happens to be a settled question - see get_corpus.py.
+        """
+        import get_corpus
+
+        win = tk.Toplevel(self)
+        win.title("Get text to learn from")
+        win.transient(self.winfo_toplevel())
+        win.resizable(False, False)
+        choice = tk.StringVar(value="stories")
+        mb = tk.IntVar(value=200)
+
+        ttk.Label(win, text="What should your AI read?",
+                  font=("Segoe UI", 11, "bold")).grid(
+            row=0, column=0, sticky="w", padx=14, pady=(12, 8))
+        for i, name in enumerate(sorted(get_corpus.SOURCES)):
+            s = get_corpus.SOURCES[name]
+            label = {"stories": "Simple stories  (recommended)",
+                     "books": "Classic books"}.get(name, name)
+            ttk.Radiobutton(win, text=label, value=name, variable=choice).grid(
+                row=1 + 2 * i, column=0, sticky="w", padx=14)
+            ttk.Label(win, text=s["best_for"], foreground="#777",
+                      wraplength=430, justify="left").grid(
+                row=2 + 2 * i, column=0, sticky="w", padx=(36, 14), pady=(0, 8))
+
+        size_row = ttk.Frame(win)
+        size_row.grid(row=9, column=0, sticky="ew", padx=14, pady=(4, 2))
+        ttk.Label(size_row, text="How much?").grid(row=0, column=0)
+        l_mb = ttk.Label(size_row, text="", width=22, foreground="#555")
+        ttk.Scale(size_row, from_=20, to=600, orient="horizontal", variable=mb,
+                  length=250,
+                  command=lambda *_: l_mb.config(
+                      text=f"{int(mb.get())} MB  (~{int(mb.get())*1_000_000/1e6:.0f}M characters)")
+                  ).grid(row=0, column=1, padx=8)
+        l_mb.grid(row=0, column=2)
+        l_mb.config(text="200 MB  (~200M characters)")
+
+        ttk.Label(win, wraplength=430, justify="left", foreground="#777",
+                  text="Downloaded once and kept, so this is a one-time wait. "
+                       "Only plain text is fetched — the model itself is always "
+                       "built from scratch on this computer.").grid(
+            row=10, column=0, sticky="w", padx=14, pady=(6, 8))
+
+        btns = ttk.Frame(win)
+        btns.grid(row=11, column=0, sticky="e", padx=14, pady=(0, 12))
+        b_go = ttk.Button(btns, text="Download")
+        b_go.grid(row=0, column=0)
+        ttk.Button(btns, text="Cancel", command=win.destroy).grid(
+            row=0, column=1, padx=(6, 0))
+
+        def go():
+            b_go.config(state="disabled", text="Downloading…")
+            src, want = choice.get(), int(mb.get())
+            self._write(f"Downloading {want} MB of '{src}'. This runs once and is "
+                        f"then kept on disk.")
+
+            def work():
+                try:
+                    import io as _io
+                    import contextlib as _ctx
+                    buf = _io.StringIO()
+                    argv = sys.argv
+                    sys.argv = ["get_corpus.py", src, "--mb", str(want),
+                                "--out", str(HERE / "corpus.txt")]
+                    try:
+                        with _ctx.redirect_stdout(buf):
+                            get_corpus.main()
+                    finally:
+                        sys.argv = argv
+                    self.q.put(("corpus", buf.getvalue()))
+                except Exception:
+                    self.q.put(("error", traceback.format_exc()))
+
+            threading.Thread(target=work, daemon=True).start()
+            win.destroy()
+
+        b_go.config(command=go)
+        win.grab_set()
+
     def _scan_corpus(self, quiet=False):
         p = Path(self.v_data.get())
         self.l_file.config(text=p.name)
@@ -726,6 +831,11 @@ class Studio(ttk.Frame):
             text=f"{len(text):,} characters · {self.vocab} different characters · "
                  f"{len(documents(text)):,} document(s)\n{note}",
             foreground=colour)
+        # Show the "pure guessing" baseline as soon as a file is chosen, not only
+        # once training starts. Before this the chart opened as an empty 1-10 box
+        # with nothing to compare anything against, which is the exact problem the
+        # baseline exists to solve.
+        self.plot.reset(self.plot.total_steps, self.vocab)
         self._apply_preset()
         if not quiet:
             self._write(f"Loaded {p.name}: {len(text):,} characters.")
@@ -881,6 +991,13 @@ class Studio(ttk.Frame):
                     self._set_status(
                         f"Finished in {human_time(payload['elapsed'])}. "
                         f"Press “Write something” to see what it learned.")
+                elif kind == "corpus":
+                    for line in payload.splitlines():
+                        if line.strip():
+                            self._write(line.rstrip())
+                    self.v_data.set(str(HERE / "corpus.txt"))
+                    self._scan_corpus(quiet=True)
+                    self._set_status("New text ready — press “Start training”.")
                 elif kind == "sample":
                     self._write("\n─── what YOUR model wrote ───\n" + payload + "\n")
                     self.b_gen.config(state="normal")
@@ -898,7 +1015,22 @@ class Studio(ttk.Frame):
 
 
 def main():
+    # DPI AWARENESS, BEFORE THE ROOT EXISTS. Windows scales unaware apps by
+    # stretching their bitmap, so on a 150%-scaled display every label came out
+    # soft and slightly blurred. Telling Windows we handle it ourselves, then
+    # telling Tk the real pixel density, gets crisp text at any scale. Wrapped
+    # because neither call exists off Windows and neither is worth failing over.
+    try:
+        import ctypes
+        ctypes.windll.shcore.SetProcessDpiAwareness(1)   # per-monitor aware
+    except Exception:                                    # noqa: BLE001
+        pass
+
     root = tk.Tk()
+    try:
+        root.tk.call("tk", "scaling", root.winfo_fpixels("1i") / 72.0)
+    except tk.TclError:
+        pass
     root.title("Train My AI — built from scratch on this computer")
     root.geometry("1180x820")
     root.minsize(980, 700)
