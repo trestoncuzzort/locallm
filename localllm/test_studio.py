@@ -293,6 +293,111 @@ def test_time_estimates_come_from_a_real_benchmark_or_are_not_shown():
         root.destroy()
 
 
+# ---------------------------------------------------------------------------
+# dark mode, following the system
+# ---------------------------------------------------------------------------
+def test_the_theme_follows_the_system_setting():
+    import os
+    was = os.environ.get("LOCALLLM_THEME")
+    try:
+        os.environ["LOCALLLM_THEME"] = "dark"
+        assert studio.system_wants_dark() is True
+        os.environ["LOCALLLM_THEME"] = "light"
+        assert studio.system_wants_dark() is False
+        os.environ.pop("LOCALLLM_THEME")
+        assert isinstance(studio.system_wants_dark(), bool)   # reads the OS
+    finally:
+        if was is None:
+            os.environ.pop("LOCALLLM_THEME", None)
+        else:
+            os.environ["LOCALLLM_THEME"] = was
+
+
+def test_both_palettes_define_the_same_colours():
+    light, dark = studio.THEMES["light"], studio.THEMES["dark"]
+    assert set(light) == set(dark), set(light) ^ set(dark)
+    for name, pal in studio.THEMES.items():
+        for k, v in pal.items():
+            assert v.startswith("#") and len(v) == 7, f"{name}.{k} = {v!r}"
+
+
+def test_dark_mode_is_actually_dark_and_readable():
+    """A palette that says "dark" while drawing dark text is worse than none."""
+    import os
+    was = os.environ.get("LOCALLLM_THEME")
+    os.environ["LOCALLLM_THEME"] = "dark"
+    try:
+        root, s = _studio()
+        try:
+            assert s.dark is True
+            assert s.C is studio.THEMES["dark"]
+
+            def lum(hexcol):
+                r, g, b = (int(hexcol[i:i + 2], 16) for i in (1, 3, 5))
+                return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255
+
+            assert lum(s.C["bg"]) < 0.25, s.C["bg"]
+            assert lum(s.C["fg"]) > 0.7, s.C["fg"]
+            # every text colour must contrast with the background it sits on
+            for key in ("fg", "muted", "faint", "ok", "warn", "bad"):
+                assert lum(s.C[key]) - lum(s.C["bg"]) > 0.25, \
+                    f"{key} {s.C[key]} is too close to the background"
+            assert s.plot.BG == s.C["plot_bg"]
+        finally:
+            root.destroy()
+    finally:
+        if was is None:
+            os.environ.pop("LOCALLLM_THEME", None)
+        else:
+            os.environ["LOCALLLM_THEME"] = was
+
+
+def test_dark_mode_leaves_no_widget_on_a_native_light_background():
+    """The 'vista' ttk theme draws from native bitmaps and ignores background
+    colour, so dark mode has to switch to a theme Tk draws itself or the panels
+    stay light grey with pale text on them."""
+    import os
+    was = os.environ.get("LOCALLLM_THEME")
+    os.environ["LOCALLLM_THEME"] = "dark"
+    try:
+        root, s = _studio()
+        try:
+            assert ttk.Style().theme_use() == "clam", ttk.Style().theme_use()
+        finally:
+            root.destroy()
+    finally:
+        if was is None:
+            os.environ.pop("LOCALLLM_THEME", None)
+        else:
+            os.environ["LOCALLLM_THEME"] = was
+
+
+# ---------------------------------------------------------------------------
+# fitting on the screen
+# ---------------------------------------------------------------------------
+def test_the_window_never_asks_for_more_than_a_small_screen_has():
+    """A 1366x768 laptop is the floor. If the layout demands more than that at
+    scale 1.0, someone cannot reach the Start button."""
+    root, s = _studio()
+    try:
+        root.update_idletasks()
+        assert s.winfo_reqwidth() <= 1286, s.winfo_reqwidth()
+        assert s.winfo_reqheight() <= 668, s.winfo_reqheight()
+    finally:
+        root.destroy()
+
+
+def test_the_settings_column_can_scroll():
+    """Whatever the screen, the tall column must be reachable rather than cut."""
+    root, s = _studio()
+    try:
+        assert isinstance(s._left_canvas, tk.Canvas)
+        assert str(s._left_canvas.cget("yscrollcommand")), \
+            "the settings column is not attached to a scrollbar"
+    finally:
+        root.destroy()
+
+
 def test_human_time_reads_like_a_person_wrote_it():
     assert studio.human_time(45) == "45 seconds"
     assert studio.human_time(300) == "5 minutes"
