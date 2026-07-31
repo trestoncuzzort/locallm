@@ -9,6 +9,12 @@ dpo_adapter_native/
 dpo_adapter/
 localllm/out_demo/
 localllm/corpus.txt
+# Downloaded training TEXT and the model folders trained from it. get_corpus.py
+# caches ~200 MB here and the corpus is re-derivable from a named source plus a
+# size, so the recipe belongs in git and the bytes do not.
+localllm/corpora/
+localllm/corpus.previous.txt
+localllm/out_*/
 *.err
 *.log
 **/__pycache__/
