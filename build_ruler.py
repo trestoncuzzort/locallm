@@ -279,10 +279,9 @@ def cmd_freeze(args: argparse.Namespace) -> None:
             print(f"[!] {p}")
         raise SystemExit("refusing to freeze an inconsistent ruler")
 
-    # ---- eval-instrument rates, if they have been measured -------------
+    # ---- what the band's numbers rest on, said out loud ----------------
     # confirm measured pure temp 0.8; eval.py scores 1 greedy + 4 at 0.8. The
-    # band has to hold under the instrument that will actually be used, so the
-    # measured rate is recorded next to the confirmed one where available.
+    # band has to hold under the instrument that will actually be used.
     # NO SAMPLE-DEPENDENT MEASUREMENTS GO IN HERE. An earlier version recorded a
     # per-task eval_instrument_rate averaged over whatever replicates existed at
     # freeze time, which meant the FROZEN artifact went stale the moment another
@@ -292,9 +291,20 @@ def cmd_freeze(args: argparse.Namespace) -> None:
     # (council/ruler_noise_analysis_*.txt), which are dated and re-derivable.
     # confirmed_rate stays because it is ADMISSION PROVENANCE - the number that
     # decided membership - not a live measurement of the instrument.
-    else:
-        print(f"[!] {NOISE.name} absent - freezing without eval-instrument rates. "
-              f"The band is then confirmed only under the SCREEN's sampler.")
+    #
+    # WHAT IS LEFT HERE IS A WARNING, NOT A WRITE, AND ITS CONDITION IS NOW
+    # SPELLED OUT. Council #18 (section 82, F3) found the line below attached to
+    # a bare `else:` that bound to `if problems:` above -- the comment block does
+    # not end a suite, so the `if NOISE.exists():` head removed by the section-77
+    # edit left its `else` bound to the nearest preceding `if`. It therefore
+    # fired on every SUCCESSFUL freeze, announcing that ruler_noise.jsonl was
+    # missing while the file sat on disk at 209,606 bytes. A red warning printed
+    # on a green path is section 79's rule inverted: the next person believes the
+    # text over the mark.
+    if not NOISE.exists():
+        print(f"[!] {NOISE.name} absent - the band is confirmed only under the "
+              f"SCREEN's sampler. Nothing has measured it under the eval "
+              f"instrument, so how it behaves there is unknown.")
 
     def sha(*parts: str) -> str:
         h = hashlib.sha256()
