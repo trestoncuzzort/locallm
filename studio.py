@@ -28,6 +28,7 @@ if str(HERE) not in sys.path:
 
 import torch  # noqa: E402
 
+import checkpoint  # noqa: E402
 import runlog  # noqa: E402
 
 from model import GPT, GPTConfig  # noqa: E402
@@ -302,6 +303,13 @@ class Studio(ttk.Frame):
         self._build_left()
         self._build_right()
         self._scan_corpus(quiet=True)
+        # If a previous run left a model in the output folder, pick it up now so
+        # the Sample button is live on startup. Without this the button is
+        # created disabled and only the "done" handler ever enables it, which is
+        # why a trained model became unreachable the moment the window closed.
+        # quiet=True: finding nothing here is the normal first-run case, not an
+        # error worth a dialog.
+        self._load_saved(quiet=True)
         self._update_params()
         self.after(100, self._drain)
 
@@ -528,8 +536,46 @@ class Studio(ttk.Frame):
         self.b_stop.config(state="disabled")
         self._set_status("stopping after this step…")
 
+    def _load_saved(self, quiet: bool = False) -> bool:
+        """Bring a previously trained model back off disk.
+
+        This is the path that did not exist. `self.model` was only ever set by
+        finishing a training run in the same session, so reopening the GUI left
+        the model in <out>/ unreachable and the Sample button greyed out forever.
+        """
+        out = self.v_out.get().strip() or "out"
+        try:
+            model, tok, cfg = checkpoint.load_checkpoint(out, self.device)
+        except (FileNotFoundError, ValueError) as e:
+            if not quiet:
+                messagebox.showerror("No model to load", str(e))
+            return False
+        except Exception:
+            if not quiet:
+                messagebox.showerror("Could not load model", traceback.format_exc())
+            return False
+        self.model, self.tok = model, tok
+        self.vocab = len(tok.chars)
+        self.b_gen.config(state="normal")
+        self._write(f"loaded trained model from {out}/  "
+                    f"({model.num_params():,} params, vocab {self.vocab}) — "
+                    f"ready to sample")
+        self._set_status(f"loaded {out}/ — ready to sample")
+        return True
+
     def _generate(self):
-        if self.model is None:
+        # NEVER FAIL SILENTLY. This began `if self.model is None: return`, so on a
+        # fresh start the Sample button did nothing at all and said nothing about
+        # why. Try to load what is on disk; if that is not possible, say so.
+        if self.model is None and not self._load_saved(quiet=True):
+            out = self.v_out.get().strip() or "out"
+            messagebox.showinfo(
+                "No model yet",
+                f"There is no trained model loaded, and none found in {out}/.\n\n"
+                f"Train one with 'Train My AI', or set the output folder to a "
+                f"directory a previous run wrote (it needs ckpt.pt and "
+                f"tokenizer.json).")
+            self._set_status("nothing to sample — train a model first")
             return
         try:
             tokens = int(self.v_tokens.get())
@@ -544,11 +590,11 @@ class Studio(ttk.Frame):
 
         def work():
             try:
-                ids = self.tok.encode(self.v_prompt.get()) or [0]
-                idx = torch.tensor([ids], dtype=torch.long, device=self.device)
-                self.model.eval()
-                out = self.model.generate(idx, tokens, temperature=temp, top_k=topk)
-                self.q.put(("sample", self.tok.decode(out[0].tolist())))
+                # checkpoint.sample, not a second copy of the same six lines --
+                # the GUI and generate.py now sample through one implementation.
+                self.q.put(("sample", checkpoint.sample(
+                    self.model, self.tok, self.v_prompt.get(), tokens,
+                    temperature=temp, top_k=topk, device=self.device)))
             except Exception:
                 self.q.put(("error", traceback.format_exc()))
 

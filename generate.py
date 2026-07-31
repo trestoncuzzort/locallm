@@ -6,10 +6,7 @@ from __future__ import annotations
 
 import argparse
 
-import torch
-
-from model import GPT, GPTConfig
-from data import CharTokenizer
+import checkpoint
 
 
 def main():
@@ -21,19 +18,11 @@ def main():
     ap.add_argument("--top-k", type=int, default=40)
     args = ap.parse_args()
 
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    # weights_only=True: forward-compatible with torch>=2.6, where it becomes the
-    # default. Our checkpoint is a plain dict of tensors + config primitives.
-    ck = torch.load(f"{args.out}/ckpt.pt", map_location=device, weights_only=True)
-    model = GPT(GPTConfig(**ck["config"])).to(device)
-    model.load_state_dict(ck["model"])
-    model.eval()
-    tok = CharTokenizer.load(f"{args.out}/tokenizer.json")
-
-    ids = tok.encode(args.prompt) or [0]
-    idx = torch.tensor([ids], dtype=torch.long, device=device)
-    out = model.generate(idx, args.tokens, temperature=args.temperature, top_k=args.top_k)
-    print(tok.decode(out[0].tolist()))
+    # One implementation, imported: checkpoint.py owns loading and sampling so
+    # studio.py cannot drift away from what this CLI does (and vice versa).
+    model, tok, _ = checkpoint.load_checkpoint(args.out)
+    print(checkpoint.sample(model, tok, args.prompt, args.tokens,
+                            temperature=args.temperature, top_k=args.top_k))
 
 
 if __name__ == "__main__":
