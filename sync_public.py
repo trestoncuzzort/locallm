@@ -121,6 +121,8 @@ DPO_PUBLISH = {
     "repair.py": "repair.py",
     "measure.py": "measure.py",
     "config.py": "config.py",
+    # The claim-checker ships under the name the published layout expects.
+    "verify_dpo_claims.py": "verify_claims.py",
     "data/dpo_pairs.jsonl": "data/dpo_pairs.jsonl",
     "data/dpo_pairs_capped.jsonl": "data/dpo_pairs_capped.jsonl",
     "data/repair_pairs.jsonl": "data/repair_pairs.jsonl",
