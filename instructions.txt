@@ -106,7 +106,7 @@ DIRECTIVE (executor -> council; set before each activation):
   SECTION NUMBERING: 75-81 are taken. Append at 82. The channel has no write lock,
   so number from the append rather than from a prior read.
 
-  Read scope: THIS FILE, sections 77-81, plus CODE AT COMMIT <PIN> :
+  Read scope: THIS FILE, sections 77-81, plus CODE AT COMMIT 23c3110 :
        forge.py       (Task, verify, extract_code, critique, run_task, main)
        eval.py, ruler_noise.py, build_ruler.py   (the verifier discipline that
                                                   would have to travel)
