@@ -43,6 +43,12 @@ TEST_PYTHON = HERE / ".venv-train" / "Scripts" / "python.exe"
 PUBLISH = [
     "model.py", "data.py", "train.py", "generate.py", "make_corpus.py",
     "studio.py", "leakage.py", "bench_device.py", "test_detectors.py",
+    # checkpoint.py is REQUIRED, not optional: generate.py and studio.py both
+    # import it, so omitting it publishes a repo whose two entry points fail on
+    # `import checkpoint`. It exists because the GUI could previously only sample
+    # a model it had trained in the same session (nothing loaded ckpt.pt), and
+    # the fix had to live in one place rather than being copied into both callers.
+    "checkpoint.py", "test_checkpoint.py",
     "runlog.py", "start_studio.py",
     "exp_lr_width.py",
     "prereg_lr_width.json", "exp_lr_width_result.json",

@@ -613,8 +613,8 @@ def run_task(actor: Actor, task: Task) -> tuple[dict | None, dict | None, bool]:
         # ...and the verbatim completions alongside, because those two facts are
         # not the same string. extract_code strips the ```python fences that
         # ACTOR_SYSTEM instructs the model to emit, so training on `chosen`
-        # optimises toward text no policy ever produced. Council section 62
-        # finding 2; red witness in section 63. Additive on purpose - every
+        # optimises toward text no policy ever produced. Found by an independent
+        # review pass; red witness recorded in the project log. Additive - every
         # existing consumer keeps reading the fields it already reads.
         "chosen_raw": best.raw,
         "rejected_raw": worst.raw,

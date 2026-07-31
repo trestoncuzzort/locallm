@@ -96,7 +96,7 @@ def verify_py() -> str:
     that on any machine without .venv-train the verifier silently became the
     launching interpreter again -- i.e. the exact section 71 defect, restored,
     with every artifact still recording a fingerprint as if a pin were in force.
-    Council activation #17 (C6) caught it. Red witness, with _VENV_PY patched to
+    An independent review pass caught it. Red witness, with _VENV_PY patched to
     a nonexistent path in-memory:
         verify_py() -> C:\\Python314\\python.exe   == sys.executable   DEFECT BACK
     A fallback that reintroduces the bug is worse than no fallback, because it is
