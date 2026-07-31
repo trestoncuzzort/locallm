@@ -57,6 +57,32 @@ receipt covers their exact input bytes with zero violations (`dataset_gate.py`).
 a dataset and the hash stops matching, so training halts until it is re-verified.
 There is no bypass flag.
 
+**The receipt pins the verifier, and the Python interpreter, not just the data.**
+"0 violations" is a statement about specific code executed by a specific Python,
+so the receipt records the sha256 of `forge.py` *and* the interpreter version, and
+the gate refuses if either has changed since. This is not hypothetical: `verify()`
+used to launch candidates with `sys.executable`, which meant ground truth depended
+on which script happened to call it. Replaying 310 identical completions under two
+interpreters scored 172/310 on 3.14 against 154/310 on 3.11 — 18 disagreements,
+every one in the same direction. (Those counts come from a local replay whose
+completions are not published, so treat them as illustration, not evidence.) **The
+mechanism, unlike the counts, you can check in ten seconds**, and it is the part
+that matters — [PEP 649](https://peps.python.org/pep-0649/) defers annotation
+evaluation:
+
+```bash
+python -c "def f(x: List[int]) -> Tuple[int,int]: return (1,2)"
+# Python <=3.13 -> NameError: name 'List' is not defined
+# Python 3.14   -> exits 0
+```
+
+So `def f(x: List[int])` without `from typing import List` fails on 3.11 and runs
+fine on 3.14, and any verifier that inherits its interpreter silently changes what
+"correct" means. The interpreter is now
+resolved in one place and recorded in every receipt. Re-verifying all 1,269 pairs
+under the pinned interpreter still gives 0 violations, so the stricter reading cost
+this dataset nothing.
+
 Latest gate run: **1,269 unique pairs, 0 violations**, covering 2,190 rows across
 `dpo_pairs.jsonl` (1,234), `dpo_pairs_capped.jsonl` (918 — the training file) and
 `repair_pairs.jsonl` (38). Unique is below the row total because 3 pairs appear in
@@ -101,6 +127,14 @@ None of this has been done, and the numbers below are why it is not a formality:
   adapter did something" is not confounded with "the export did something";
 - k>=5 seeds, with test-retest variance reported separately from between-config
   variance.
+
+> **The figures in the next two paragraphs are NOT reproducible from this repo.**
+> They come from `data/eval_history.jsonl`, a local run log that is not published,
+> so you cannot re-derive them the way you can re-run the gate. They are reported
+> here because leaving them out would flatter the project, and you are being asked
+> to take them on trust — which is exactly the thing every other number on this
+> page does not ask of you. `python verify_claims.py` checks the claims that CAN
+> be settled from the shipped artifacts and says plainly that these cannot.
 
 **The ruler is currently saturated, and this is the binding constraint.** Across 57
 logged runs of the identical configuration, 6 of the 10 held-out tasks scored a
