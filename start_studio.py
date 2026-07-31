@@ -14,17 +14,27 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+if str(HERE) not in sys.path:
+    sys.path.insert(0, str(HERE))
 DATA = HERE / "training_data"
 CORPUS = HERE / "corpus.txt"
-EXTS = {".txt", ".md", ".py"}
+
+from make_corpus import is_trainable_file  # noqa: E402
 
 
 def user_files() -> list[Path]:
+    """Every file here that a character model can actually read.
+
+    This used to filter on a hardcoded {".txt", ".md", ".py"}. That made the
+    double-click path — the one for people who never open a terminal — silently
+    ignore a folder full of .csv, .jsonl or .log files and then announce there
+    was nothing to train on. The decision now comes from make_corpus, is made on
+    CONTENT rather than extension, and lives in exactly one place.
+    """
     if not DATA.is_dir():
         return []
     return [p for p in sorted(DATA.rglob("*"))
-            if p.is_file() and p.suffix.lower() in EXTS
-            and p.name.lower() != "readme.txt"]
+            if is_trainable_file(p)[0] and p.name.lower() != "readme.txt"]
 
 
 def main() -> int:
