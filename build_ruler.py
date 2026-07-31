@@ -274,6 +274,16 @@ def cmd_freeze(args: argparse.Namespace) -> None:
     clash = sorted((set(kept) | set(train)) & reserved)
     if clash:
         problems.append(f"tids collide with SEED_TASKS/HELD_OUT: {clash}")
+    # A RATE WITH NO SAMPLER IS NOT A NUMBER. Every confirmed_rate below was
+    # measured at some temperature; cmd_confirm records it and this used to drop
+    # it on the floor, so the frozen rates were conditional on a parameter the
+    # frozen file did not name. Council #18 (section 83, F4) raised it as
+    # pending; checked at the bytes and it was real. Fatal rather than recorded
+    # as null, because a rate whose sampler is unknown cannot be interpreted at
+    # all -- the same reason the interpreter pin (section 71) is fatal.
+    if spec.get("temp") is None:
+        problems.append(f"{RULER.name} has no recorded sampler temperature; its "
+                        f"rates cannot be interpreted, let alone frozen")
     if problems:
         for p in problems:
             print(f"[!] {p}")
@@ -332,6 +342,10 @@ def cmd_freeze(args: argparse.Namespace) -> None:
         "frozen_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
         "model": spec["model"],
         "band": spec["band"],
+        # The instrument these rates were measured with, not just the model.
+        # Provenance only: it is NOT part of ruler_set_sha256 and adding it does
+        # not change any task_sha256, so it costs no banked replicate.
+        "sampler": {"temperature": spec["temp"], "confirm_n": spec.get("n")},
         "ruler_set_sha256": set_sha,
         "n_ruler": len(tasks),
         "ruler": tasks,
