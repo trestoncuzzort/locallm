@@ -12839,3 +12839,221 @@ NOT CLAIMED:
     changes task_sha256, changes ruler_set_sha256, and fires verify_frozen by
     design: 31 tasks x 5 samples x 40 banked replicates = 6,200 generations
     discarded. Not for a rename.
+
+--------------------------------------------------------------------------------
+85. EXECUTOR LOG  (2026-07-31 - activation #18 folded, part 2: the second domain
+    is BUILT and RUN. The seam is reported as a diff between two real instances
+    rather than as a design. Section number taken at the append: 84 was the
+    tail. Code at 8318827.)
+--------------------------------------------------------------------------------
+Q2's answer was taken: build the second domain, do not design the interface
+first. SQL against a fixture SQLite database, ten tasks, structured
+taskset / harness / runtime - Prime Intellect's verifiers v1 decomposition -
+without taking that library as a dependency. v0 is frozen and slated for
+deprecation by its own authors, v1 is mid-rewrite, and the whole stack is async
+while this one is synchronous top to bottom.
+
+WHAT WAS BUILT
+    domains/sql/taskset.py   what the work IS
+    domains/sql/harness.py   how it is ATTEMPTED
+    domains/sql/runtime.py   where it EXECUTES
+    domains/sql/reward.py    what the check RETURNS - a float, not a bool
+    domains/sql/diff.py      the deliverable: the two prompts, diffed
+    run_sql_screen.py        the integration point, at the root on purpose
+    tests/test_sql_domain.py 19 checks
+
+Nothing under domains/ may import forge, and test_no_module_in_this_domain_
+imports_forge enforces it by reading every .py under domains/. Even diff.py obeys
+it: it pulls ACTOR_SYSTEM's literal out of forge.py with `ast` rather than
+importing the module, so the invariant is absolute rather than nearly absolute.
+
+================================================================================
+THE SEAM, AS A DIFF BETWEEN TWO REAL INSTANCES
+================================================================================
+FOUR THINGS THE CODE DOMAIN COULD NOT HAVE SHOWN, and I would not have predicted
+the fourth:
+
+1. TASKS OWN RESOURCES, AND forge.Task CANNOT SAY SO. A Python task is
+   (prompt, entry, tests) and the tests carry their own inputs. "Which machines
+   ran hot" is meaningless without rows. So the fixture is part of the task and
+   its sha256 is part of task_sha256 - and note that veRL's
+   compute_score(data_source, solution_str, ground_truth, extra_info) has nowhere
+   to put it either. This is why verifiers v1's runtime API is `run` PLUS
+   `read`/`write`. The code domain never needed `write`, so nothing in forge.py
+   knows a task can have a resource at all.
+
+2. GROUND TRUTH IS DERIVED, WHICH PUTS THE ENGINE INSIDE IT. The answer keys are
+   produced by executing a REFERENCE query, never typed out; a typed key is a
+   second source of truth that goes stale the moment a fixture row moves. The
+   consequence is section 71 arriving in a domain with no interpreter: the key is
+   a function of reference x fixture x ENGINE VERSION, so runtime.identity()
+   returns {engine, version, fingerprint} and not one field of
+   verifier_interpreter() survived. There is no executable, no launcher, and
+   nothing to be pinned away from. The PRINCIPLE travels perfectly and the STRUCT
+   does not travel at all, which is exactly what section 83 predicted and it is
+   worth recording that the prediction was falsifiable and held.
+
+3. ORDER IS TASK METADATA, NOT A GLOBAL. SELECT without ORDER BY has undefined
+   row order, so "compare the rows" is under-specified until the task says set or
+   sequence. One of ten tasks sets ordered=True, and it is in the hash because
+   changing it changes what counts as correct.
+
+4. ISOLATION IS NOT A SUBPROCESS. This is the one that surprised me. forge.verify
+   isolates with a subprocess and I had that filed as "how you isolate". It is
+   not - it is how you isolate a PYTHON INTERPRETER. Here isolation is rebuilding
+   an in-memory database per candidate, and there is no process at all. Timeout
+   likewise: wall clock on a child process there, an instruction-counting
+   progress handler inside this process here. Same two concerns, zero shared
+   mechanism. A "pluggable verifier" interface that assumed a subprocess would
+   have been wrong on its second use.
+
+THE PROMPT DIFF, WHICH WAS THE INSTRUCTION AND IS THE MOST USEFUL OUTPUT.
+SQL_SYSTEM was written without reading ACTOR_SYSTEM. `python -m domains.sql.diff`:
+
+    SHARED (3 of 4 Python sentences have a SQL counterpart)
+      PY  : You are a precise Python engineer.
+      SQL : You are a careful SQL analyst.
+      PY  : Given a task, respond with a single self-contained Python solution
+            inside one ```python fenced code block.
+      SQL : Given a database schema and a question, answer with a single SQLite
+            SELECT statement inside one ```sql fenced code block.
+      PY  : No prose, no tests, no prints.
+      SQL : No prose, no explanation, no comments.
+
+    DOMAIN-ONLY
+      PY-ONLY  : Define exactly the requested function.
+      SQL-ONLY : Return exactly the columns asked for and nothing else.
+      SQL-ONLY : The database is read-only.
+
+So a harness interface with FOUR parameters falls out of two instances:
+persona, artifact-kind + fence-tag, output-contract, forbidden-extras. I am
+recording one honest weakness in my own matcher: it did not pair "define exactly
+the requested function" with "return exactly the columns asked for", and reading
+them side by side they are plainly the same slot - the output contract - wearing
+two domains. The tool under-counted the shared set; a human reading the six
+sentences catches it. Treat the 3-of-4 figure as a floor.
+
+The genuinely SQL-only sentence is the interesting one: "the database is
+read-only" is a RUNTIME fact that this domain tells the model and the Python
+domain enforces silently through BANNED without ever mentioning it. Two domains,
+two different answers to "does the model get told the constraint", and neither
+was a decision anyone made.
+
+================================================================================
+BANNED: THE RED WITNESS THAT WAS ASKED FOR BEFORE ANYTHING WAS BUILT
+================================================================================
+    BANNED blocks 'DROP TABLE machines;'                  -> False
+    BANNED blocks "ATTACH DATABASE '/etc/passwd' AS p;"   -> False
+    BANNED blocks "PRAGMA temp_store_directory = 'C:/';"  -> False
+    BANNED blocks 'DELETE FROM readings;'                 -> False
+    BANNED blocks 'UPDATE machines SET line = 1;'         -> False
+
+Zero of five, and in the other direction it fires on a SELECT whose text merely
+contains "open(". Carried across, it would have been a safety layer that never
+errors, never warns, blocks nothing, and leaves every log line saying the
+pipeline is filtered. That is the venv_guard shape (sections 65/67) except silent
+and green instead of loud, which is worse.
+
+DELETED rather than ported. Safety here is SQLite's own authorizer callback: a
+chokepoint at the engine, after parsing, that refuses anything which is not a
+read and cannot be evaded by case, comments, whitespace or a spelling nobody
+thought of. Plus a per-candidate database rebuild, so even a hypothetical
+authorizer miss cannot reach the next candidate. Closing the class was cheaper
+than handling instances - and it is NOT a sandbox, it is in-process, and the
+honest end state for untrusted input is still a container.
+
+================================================================================
+THE MEASUREMENT, AND IT CUTS AGAINST BOTH SEATS
+================================================================================
+5 banked replicates, llama3:8b-instruct-q4_K_M, 10 tasks x 8 candidates at
+temperature 0.8, no greedy anchor (data/sql_screen_history.jsonl):
+
+    candidates scored strictly between 0 and 1 : 5.5%   (sd 0.7pp)
+    mean exact-match rate over tasks           : 0.5900 (sd 0.0347)
+    mean SCALAR reward over tasks              : 0.6089 (sd 0.0320)
+
+BOTH SEATS made natural partial credit the headline argument for choosing SQL -
+section 82 called it "the one thing the code domain CANNOT teach", section 83
+called it the float "the four frameworks all return". Measured, it is much
+smaller than that. On 7 of the 10 tasks the scalar and the boolean are identical
+in every replicate, because a wrong query GROUPs or JOINs differently and returns
+a row set disjoint from the answer key, scoring 0.0 anyway. Overlap turns out to
+be a graded metric over an outcome space that is nearly bimodal.
+
+WHAT IT ACTUALLY BUYS, at the size the evidence supports. A task at 0.00 has zero
+variance and therefore no gradient (DAPO, arXiv 2503.14476). Of the three tasks
+at the floor on exact match:
+
+    sql_alarm_share           scalar 0.125-0.292 in all 5 runs   reliably alive
+    sql_above_line_average    scalar 0.000 x4, 0.083 x1          intermittently
+    sql_maint_hours_per_line  scalar 0.000 in all 5 runs         dead either way
+
+One reliably, one intermittently, one not at all. That is a real gain and it is
+not the gain that was advertised. reward.py's docstring now states this and the
+stronger claim is deleted, not reworded.
+
+THE BAND SCREEN TRANSFERS; THE HAND-WRITTEN TASKSET DOES NOT COOPERATE.
+
+    tid                        exact rate, 5 runs        in band
+    sql_line_a_machines        0.38 0.88 0.38 0.62 0.62   4/5
+    sql_readings_per_machine   1.00 1.00 1.00 1.00 1.00   0/5
+    sql_hot_machines           1.00 1.00 1.00 1.00 1.00   0/5
+    sql_never_maintained       0.88 1.00 1.00 1.00 0.88   0/5
+    sql_avg_temp_per_line      0.75 0.88 0.75 0.88 0.88   2/5
+    sql_top3_hottest           0.75 0.62 0.50 0.50 0.62   5/5
+    sql_alarm_share            0.00 0.12 0.12 0.12 0.12   0/5
+    sql_maint_hours_per_line   0.00 0.00 0.00 0.00 0.00   0/5
+    sql_above_line_average     0.00 0.00 0.00 0.00 0.00   0/5
+    sql_first_reading_each     0.88 0.88 0.75 0.88 0.88   1/5
+
+Aggregates are stable (sd 0.035). Per-task band membership is not: 1 to 4 of 10
+tasks in [0.2, 0.8] run to run, ONE task in band in all five, SIX in band in
+none. Hand-authored tasks pile up at 1.00 or at 0.00 and the middle is thin.
+
+That is the DEGENERACY that section 82 F4 named as the real threat - and it lands
+on the TASKSET, not on the verifier, exactly as it argued. It is also independent
+support for the single idea section 82 rated most valuable in its whole survey:
+where tasks can be GENERATED, a difficulty knob strictly dominates screening a
+fixed pool, because a screen can only discard and cannot manufacture a task in
+the middle. Ten hand-written tasks produced one.
+
+k=8 gives se ~= 0.177 at p=0.5, which is wider than half the band. NOTHING HERE
+IS SCREENED. These are nominations at a sample size the screen's own doctrine
+(build_ruler.py, se ~= 0.077 at n=40) would reject, and they are labelled that
+way in the code.
+
+================================================================================
+ALSO CLOSED THIS ROUND
+================================================================================
+GEN_TEMP was NOT in the frozen receipt. Section 83 F4 raised it as a pointer and
+labelled it pending; I checked and it was real. ruler_confirmed.json records
+`temp`; cmd_freeze copied `model` and `band` across and dropped it, so all 31
+confirmed rates were conditional on a parameter the frozen file does not name,
+with ruler_set_sha256 identical either way. Fixed with a red witness, and absence
+is now fatal rather than recorded as null. The EXISTING artifact still lacks the
+key: re-freezing needs --force and an announcement here, and that is the
+proprietor's call. It costs nothing banked - "sampler" is provenance, not part of
+any hash - but I am not re-freezing on my own judgement.
+
+================================================================================
+WHAT I AM NOT CLAIMING
+================================================================================
+  - NOT claiming two instances make an interface. Section 83's leftover risk 1 is
+    right: the published interfaces converged after dozens of environments, not
+    two. What is banked is EVIDENCE about four specific assumptions, not closure.
+  - NOT claiming the SQL tasks are a ruler. They are ten hand-written tasks at
+    k=8, unscreened, one of which is reliably in band. Nothing may be trained
+    against them as they stand.
+  - NOT claiming the authorizer is a sandbox. It is in-process; a SQLite bug is a
+    process bug. The fixture is one this repo wrote and the blast radius is an
+    in-memory database, which is why the deferral is defensible - it is not a
+    claim of safety against a hostile user.
+  - NOT claiming the harness parameter list is complete. It comes from two
+    prompts and my own matcher under-counted the shared set by at least one.
+  - NOT claiming anything about training. No adapter was trained, no DPO pair was
+    emitted from SQL, and whether the pipeline should be offline DPO or online
+    GRPO (section 83 F2) is untouched and is a larger question than this one.
+  - The typing-import confound (12.8%), the greedy-free metric change, verifier
+    ADEQUACY on the Python side (section 83 F5 - the mutation-testing probe, the
+    largest unmeasured term in the instrument), and the council dispatch race all
+    remain open.
