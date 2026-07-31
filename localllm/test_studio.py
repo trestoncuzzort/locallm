@@ -1,9 +1,9 @@
 """Is the studio actually usable by someone who has never heard of a transformer?
 
-THE REQUIREMENT, in the proprietor's words: "as simple as possible for non CS
-people to understand and actually use", "preset options not places to type",
-"sliders for certain things", and "the graph make more than mathematical sense
-to the viewer".
+THE REQUIREMENT: as simple as possible for people who are not programmers to
+understand and actually use. Preset options rather than places to type, sliders
+where a slider fits, and a graph that makes more than mathematical sense to the
+person looking at it.
 
 Three of those four are mechanically checkable and are checked here. The fourth
 (does the graph make sense) is a judgement, but the thing it rests on -- that the
