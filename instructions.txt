@@ -10557,3 +10557,94 @@ and nothing checks them. That is the obvious next instance of this class and it
 is named here rather than done quietly.
 
 standing by
+
+--------------------------------------------------------------------------------
+80. EXECUTOR LOG  (2026-07-30 - the typing-import confound MEASURED at 12.8% of
+    failures; then the DPO public README audited the same way as the product one.
+    12/12. Two real defects, and I committed one of them while fixing the other.)
+--------------------------------------------------------------------------------
+THE CONFOUND IS REAL AND NOW SIZED. Section 77 recorded it as a cheap pre-check
+that had not been run. It cost nothing to run after all, because the 310
+completions banked for section 71's red witness are oss-task completions and were
+still on disk. Replayed under the pinned verifier:
+
+  total completions   310
+  failures            156
+  bare typing-generic NameError:  20   (12.8% of failures, 6.5% of all)
+  which names: List x10, Optional x4, Tuple x4, Union x1, Any x1
+
+So roughly one in eight `rejected` completions drawn from the 43-tid oss pool
+would be rejected for a missing `from typing import ...` and nothing else. Train
+DPO on that and the model learns import hygiene; the ruler, which verifies the
+same way, then rewards it. TRUE POSITIVE ON THE INSTRUMENT, FALSE POSITIVE ON THE
+THESIS - the pipeline would look like it taught the model to code when it taught
+it to add one import line. This is a consequence of MY pin, not an argument
+against it: under 3.11 that code genuinely does not run.
+
+It is MEASURED, not fixed. Three options exist and they are not equivalent:
+  (a) accept it - it is a real correctness failure, and teaching the import is
+      teaching correct Python for every interpreter before 3.14;
+  (b) neutralise it by prepending typing imports to the verifier harness, which
+      would ALSO have prevented the whole section 71 divergence - but it makes
+      the verifier more permissive, and that re-defines ground truth again and
+      invalidates the receipt and the confirmed rates;
+  (c) keep it and report the next run's effect twice, with and without
+      typing-NameError-only pairs, so the claim can be decomposed.
+This is a decision about what the reward MEANS and it goes to the proprietor.
+
+THE DPO PUBLIC README, audited as section 79 said it should be. 12/12 now, via
+verify_dpo_claims.py (ships as dpo/verify_claims.py). TWO REAL DEFECTS:
+
+  1. IT NEVER DISCLOSED THE INTERPRETER PIN. The page claims "edit a dataset and
+     the hash stops matching, so training halts" and "there is no bypass flag",
+     but since section 71 what "verified" MEANS also depends on which Python ran
+     the candidates, and the receipt now records that. A reader could not know
+     re-verification is interpreter-specific. Fixed, and the fix ships the
+     MECHANISM rather than my numbers:
+         python -c "def f(x: List[int]) -> Tuple[int,int]: return (1,2)"
+     RUN: 3.14 exits 0; 3.11 -> NameError: name 'List' is not defined. Ten
+     seconds, any reader, no artifacts required.
+
+  2. THE HEADLINE HONESTY FIGURES ARE NOT REPRODUCIBLE FROM THE PUBLISHED REPO.
+     The 57-run saturation and sd 0.0199 numbers rest on data/eval_history.jsonl,
+     which is not in the publish whitelist. Every other number on that page can
+     be re-derived from a shipped artifact; those cannot, and nothing said so.
+     They now carry an explicit block stating they are taken on trust and why
+     they are reported anyway - omitting them would flatter the project.
+
+AND I COMMITTED DEFECT 2 WHILE FIXING DEFECT 1. My first draft of the pin
+disclosure put "172/310 on 3.14 against 154/310 on 3.11" in bold, sourced from a
+local replay that is not published either. Caught on re-read, demoted to
+illustration, and replaced as evidence by the two-line reproduction above. Writing
+a rule and breaking it inside the same edit is worth the space it takes to record.
+
+FOUR OF THE CHECKER'S OWN FAILURES WERE THE CHECKER, NOT THE README. Same shape
+as the product-side pass, and one was worse than anything it found:
+  - layout detection preferred HERE/README.md, which in this repo is a DIFFERENT
+    project's readme. Every check ran against the wrong document and reported
+    failures that meant only "that text is not in this file". Source layout is
+    tried first now.
+  - "is it published?" tested whether the file exists ON THIS DISK, which answers
+    YES for every unpublished artifact in data/ - the exact inverse of the truth
+    and precisely what that check exists to catch. It reads the publish whitelist
+    now, falling back to the filesystem only in the published layout where the
+    two agree.
+  - the interpreter-disclosure check passed because the word "interpreter"
+    appeared in an unrelated sentence about PYTHONOPTIMIZE. A green mark earned
+    for the wrong reason is worse than a red one.
+  - a line-wrap bug: markdown wraps, so "an 8-second\ntimeout" never matched a
+    regex written against raw text, and a claim plainly on the page was reported
+    missing. Prose checks use a flattened copy.
+
+THE PATTERN ACROSS SECTIONS 79 AND 80 IS THE FINDING. Across two claim-checkers,
+seven defects were in the CHECKERS and three were in the READMEs. Verification
+machinery is not free and is not automatically trustworthy: a checker is code, it
+has bugs at the same rate as other code, and its bugs are more dangerous because a
+passing check reads as evidence. Every one of these was caught only by reading the
+output rather than the exit code - "0 failed" was never wrong, but "[ok] no
+torch.Generator found" was.
+
+PUBLISHED: 37a4fde (product claims), b7fac75 (DPO claims + disclosures). Both
+clean through the whitelist and forbidden-term scan.
+
+standing by
