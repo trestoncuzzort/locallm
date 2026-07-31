@@ -81,7 +81,7 @@ def _build(tmp: pathlib.Path, with_noise: bool) -> dict:
     }), encoding="utf-8")
 
     (tmp / "ruler_confirmed.json").write_text(json.dumps({
-        "model": "fixture-model", "band": [0.2, 0.8],
+        "model": "fixture-model", "band": [0.2, 0.8], "n": 60, "temp": 0.8,
         "kept": [{"tid": t, "confirmed_rate": 0.5, "n": 60,
                   "wilson95": [0.38, 0.62]} for t in ruler_tids],
         "dropped": [],
@@ -155,6 +155,53 @@ def test_the_freeze_still_produces_a_usable_frozen_ruler():
         assert build_ruler.split_side(tid) == "ruler"
         assert len(rec["task_sha256"]) == 64
     assert "FROZEN 2 ruler tasks" in out
+
+
+def test_the_frozen_receipt_pins_the_sampler():
+    """Council #18 section 83 F4, raised as `pending` and confirmed here.
+
+    Every confirmed_rate in the frozen artifact is a measurement made at some
+    temperature. cmd_confirm records `temp` in ruler_confirmed.json; cmd_freeze
+    copied `model` and `band` across and dropped it. So the frozen rates were
+    conditional on a parameter the frozen file did not name, and changing
+    GEN_TEMP would silently redefine every one of them - which is section 71's
+    interpreter defect wearing a third costume.
+    """
+    with tempfile.TemporaryDirectory() as d:
+        tmp = pathlib.Path(d)
+        with _freeze_in(tmp, with_noise=True) as (out, paths):
+            frozen = json.loads(paths["FROZEN"].read_text(encoding="utf-8"))
+    assert "sampler" in frozen, \
+        "the frozen ruler does not record the sampler its rates were measured under"
+    assert frozen["sampler"]["temperature"] == 0.8, frozen["sampler"]
+
+
+def test_a_ruler_measured_at_an_unrecorded_temperature_cannot_be_frozen():
+    """The other half: absence must be fatal, not recorded as null. A rate whose
+    sampler is unknown cannot be interpreted at all."""
+    with tempfile.TemporaryDirectory() as d:
+        tmp = pathlib.Path(d)
+        paths = _build(tmp, with_noise=True)
+        spec = json.loads(paths["RULER"].read_text(encoding="utf-8"))
+        del spec["temp"]
+        paths["RULER"].write_text(json.dumps(spec), encoding="utf-8")
+
+        saved = {k: getattr(build_ruler, k) for k in paths}
+        for k, v in paths.items():
+            setattr(build_ruler, k, v)
+        buf = io.StringIO()
+        try:
+            with contextlib.redirect_stdout(buf):
+                try:
+                    build_ruler.cmd_freeze(argparse.Namespace(force=False))
+                    raised = None
+                except SystemExit as e:
+                    raised = str(e)
+        finally:
+            for k, v in saved.items():
+                setattr(build_ruler, k, v)
+    assert raised, "a ruler with no recorded sampler temperature was frozen anyway"
+    assert not paths["FROZEN"].exists()
 
 
 def test_an_inconsistent_ruler_is_still_refused():
