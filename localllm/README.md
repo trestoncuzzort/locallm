@@ -36,6 +36,7 @@ A small, readable, from-scratch GPT and a GUI so you don't need a terminal to us
 | `data.py` | A character-level tokenizer built from *your* corpus, plus batching. No external tokenizer, nothing downloaded. |
 | `train.py` | The training loop. Random init → your weights. Cosine schedule, warmup, gradient clipping, bf16 autocast when your GPU supports it. |
 | `generate.py` | Sample from a model you trained. |
+| `checkpoint.py` | Loads a saved model back off disk and samples from it. One implementation, shared by `generate.py` and the GUI so they cannot drift apart. |
 | `make_corpus.py` | Point it at a folder; it builds `corpus.txt` from your files. |
 | `studio.py` | The GUI. Build the architecture, train it, watch the loss curve, sample from it. |
 | `leakage.py` | Finds training text hiding in your validation set, and says so. |
@@ -44,6 +45,7 @@ A small, readable, from-scratch GPT and a GUI so you don't need a terminal to us
 | `runlog.py` | Append only record of every run. `python runlog.py` to see them all. |
 | `start_studio.py` | Double click entry point: rebuilds the corpus from your files, opens the studio. |
 | `exp_lr_width.py` | A preregistered experiment harness (see below). |
+| `verify_claims.py` | Checks this README's factual claims against the repo. `python verify_claims.py`, exits non-zero if any has drifted. |
 
 Dependencies: **PyTorch and Tk.** That's it. Tk ships with Python.
 
@@ -99,6 +101,15 @@ This one is built to stop you fooling yourself:
   val loss it qualifies. `python runlog.py` prints the history, `--review` prints a
   digest for someone who did not watch it happen. A result file that the next run
   overwrites cannot show you a trend.
+- **This README is machine-checked.** `python verify_claims.py` re-derives every
+  factual claim below from the repo itself and exits non-zero if one has drifted: that
+  the listed files exist, that `model.py` really is ~145 lines, that the dependency
+  claim holds (against the interpreter's own stdlib list, not a hand-written one), that
+  nothing imports a network module, and that **every number in the worked result below
+  matches `exp_lr_width_result.json` to the digit** — means, ranges, gap, overlap and
+  verdict. Its limits are stated in its own docstring: it cannot check the roadmap, it
+  cannot check hardware timings on your machine, and it is a fixed list of checks rather
+  than a general fact-checker, so a newly added sentence is not caught automatically.
 - **The detector is itself tested, against a copy of its own old bug.**
   `test_detectors.py` keeps the previous, broken fingerprinter in the file on purpose and
   runs every test against both: the current one must pass and the broken one must fail. A
