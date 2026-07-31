@@ -12618,3 +12618,224 @@ The two seats therefore filed under different dates for the same minute. Mine fo
 **This does not change my verdict or any finding.**
 
 standing by
+
+--------------------------------------------------------------------------------
+84. EXECUTOR LOG  (2026-07-30 - activation #18 folded, part 1: the two named
+    defects fixed with red witnesses, and the domain-welded count corrected
+    from four to eight. Section number taken at the append: 83 was the tail,
+    no duplicates. Code at 10f0d88.)
+--------------------------------------------------------------------------------
+Both council seats are folded here on the two things they AGREED on and that I
+re-verified at the bytes. The strategic answers (Q1-Q4) are acted on in the next
+section, not this one.
+
+THE DISPATCH RACE IS A CLASS NOW, AND I AM NOT FIXING IT BY RENUMBERING AGAIN.
+Two seats answered activation #18. Section 77 recorded the same thing for #17 as
+UNEXPLAINED and adopted "number from the append" as the fix; that fix worked
+perfectly - no duplicate section number exists in this file - and it addressed
+the symptom. The cause is that two seats get dispatched for one activation and
+neither dispatcher knows about the other. That is not a channel defect and no
+amount of append-time discipline touches it. Second appearance of the shape, so
+by this protocol's own stop rule it is a class. It also costs the proprietor
+twice the quota for one activation, on a council cut to one seat in order to
+conserve exactly that. PARKED, deliberately and in writing: I do not own the
+dispatcher and I am not going to guess at it. WHY: cause is outside this repo
+and unknown to me. WHERE: this paragraph, and section 83's post-seal addendum.
+It stays on the open list.
+
+Both passes are banked at de809ca with their artifacts.
+
+================================================================================
+DEFECT 1 - THE INGESTION PROBE REFUSED TEXT FOR BEING LONG.  FIXED, 239ca6d.
+================================================================================
+Section 82 F1 and section 83 F8 found this from two directions. Both were right
+and neither had the whole of it.
+
+is_trainable_file decides a whole-file property from the first 8192 bytes and
+then strict-decodes them. When that boundary falls inside a multi-byte character
+the probe is not valid UTF-8 although the file is, and the file is refused as
+"content is not text (binary or undecodable)" - told, in other words, that its
+text is binary. RED, 200 synthetic files per script, 9-40 kB, alignment
+randomised:
+
+    CJK (3-byte chars)          refused 100.0%
+    Cyrillic (2-byte chars)     refused  45.5%
+    EU accented ~10% non-ascii  refused  18.0%
+    pure ASCII                  refused   0.0%
+
+A CORRECTION AGAINST MYSELF, because I nearly banked a wrong number. My first
+version of that measurement built each file by repeating a fixed unit, which
+pins the byte alignment, and it reported Cyrillic at 0.0% - I would have
+published a refutation of section 82's 45.2% that was an artifact of my own
+generator. Randomising the alignment reproduces the council's figure at 45.5%,
+independently. The CJK 100.0% is not sampling noise: with uniform 3-byte
+characters the probe boundary is almost never a character boundary, so the
+refusal is deterministic.
+
+SECOND HOLE, SAME CLASS (section 83 F8, which section 82 did not have): a probe
+is a SAMPLE. A NUL byte past byte 8192 passed the gate and reached the corpus,
+where in a character model every distinct character is a permanent vocabulary
+entry. That is the mojibake harm looks_like_text exists to prevent, arriving
+after the probe window.
+
+The class is "a fixed-size read used to decide a property of the whole file",
+and it is closed in two places rather than patched in one: the probe is cut back
+to a character boundary before it is decoded (trim_to_char_boundary), and main()
+re-applies the rule to the WHOLE text once it is in hand, which it already had
+in memory. The rule itself is now one function, text_is_readable, called from
+both.
+
+GREEN, end to end over a fixture folder (a 400-line Japanese machine log padded
+so the probe genuinely splits a character, a nul_tail.log, a control file):
+
+    RED    japanese log reached the corpus : False   <- refused as binary
+           NUL characters in the corpus    : 3
+    GREEN  japanese log reached the corpus : True
+           NUL characters in the corpus    : 0
+           skipped 1 file(s): content is not text past the first 8 kB
+
+A BUG IN MY OWN FIX, caught by my own test before it shipped.
+trim_to_char_boundary treated every byte >= 0xC0 as a sequence lead and
+therefore trimmed 0xFF, which can never start a character - turning corruption
+into "text that ends early". Only 0xC2-0xF4 is a lead byte now.
+
+THE CLAIM IS CORRECTED, NOT SOFTENED. Section 83 F8 is right that "acceptance is
+decided on CONTENT" over-reaches: BINARY_EXTS short-circuits on the file NAME at
+:87 before a byte is read, so a .bin holding pure text is still refused for
+being called .bin. That check is deliberate - it avoids reading large media off
+disk. The old wording is DELETED from test_ingest.py's docstring rather than
+reworded. What ships is the narrower claim, which is also the one the industrial
+case actually needed: an unknown extension is never refused for being unknown,
+and the decision lives in exactly one place.
+
+THE CLASS-CLOSURE TEST WAS A SPELLING CHECK (section 82 F7, and it is right).
+It asserted the 15-character string 'EXTS = {".txt"' was absent from
+start_studio.py. I rebuilt the regression with a different spelling - single
+quotes, no spaces - and ran both checks against it:
+
+    OLD check (string search)                 : PASS - regression NOT caught
+    NEW check (run the caller, find the .csv) : FAIL - caught
+      files the double-click path found: {}
+
+And the user-facing prose is fixed: the code would ingest a folder of .csv while
+start_studio told the user, twice, to supply .txt/.md/.py. User-visible strings
+are claims and get checked like claims.
+
+RUN: localllm/test_ingest.py 11 checks, 0 failed on the live tree. The same file
+against the pre-fix tree at 40f926d: 3 failed - straddling probe, NUL past the
+window, stale prose - each for the reason it exists.
+
+================================================================================
+DEFECT 2 - THE FREEZE PATH WARNED ABOUT A FILE THAT WAS THERE.  FIXED, 10f0d88.
+================================================================================
+Section 82 F3, verified at the bytes before I touched anything. cmd_freeze had
+`if problems:` at build_ruler.py:277 ending in SystemExit, thirteen lines of
+comment, then a bare `else:` at :295. A comment block does not end a suite, so
+that else bound to `if problems:`. There was no `if NOISE.exists():` anywhere in
+the function - the section-77 edit that stripped sample-dependent figures out of
+the frozen artifact emptied that branch, deleted its head, and left the else
+attached to the nearest preceding if.
+
+The branch therefore ran exactly when `problems` was EMPTY - on every SUCCESSFUL
+freeze - announcing that data/ruler_noise.jsonl was missing while it sits on
+disk at 209,606 bytes. When the file genuinely was absent AND there were
+problems, the SystemExit fired first and it never printed. The condition the
+message described and the condition under which it printed were disjoint.
+
+    RED    FAIL test_a_successful_freeze_does_not_claim_the_noise_file_is_missing
+           3 other checks PASS   <- the fixture is good; only the branch is wrong
+    GREEN  4 checks, 0 failed
+
+cmd_freeze had never had a test. This is its first, and it asserts on the
+printed OUTPUT rather than the exit code, which is section 80's lesson - "0
+failed was never wrong". A command that exits 0 while printing a false statement
+is exactly what an exit-code check cannot see. Two of the four tests exist to
+block the obvious wrong fixes: one fails if the warning is simply deleted, one
+fails if the rewiring lets a ruler and training pool that overlap through.
+
+The message changed too, because it was stale even where it was reachable: after
+section 77 no eval-instrument rates go into the frozen artifact under any
+condition, so "freezing without eval-instrument rates" described an alternative
+that no longer exists.
+
+================================================================================
+THE DOMAIN-WELDED COUNT: FOUR WAS WRONG. IT IS EIGHT, AND ONE OF MINE WAS TOO BIG
+================================================================================
+Both seats independently said at least six and both named ACTOR_SYSTEM and
+BANNED. I re-read forge.py rather than take either pointer. My enumeration, with
+line numbers at 10f0d88:
+
+  1. Task.entry / Task.tests            :145-147  a Python function name, and
+                                                  assert source defining run_tests()
+  2. verify()                           :436+     builds a Python harness and
+                                                  executes it under a pinned Python
+  3. ACTOR_SYSTEM                       :68-72    "precise Python engineer", a
+                                                  ```python fenced-block contract,
+                                                  and "define exactly the requested
+                                                  function" - which is what makes
+                                                  Task.entry mean anything
+  4. BANNED                             :76-80    the safety filter, in Python syntax
+  5. critique()                         :520-543  "solutions"/"defects", and :536
+                                                  hardcodes a ```python fence
+  6. extract_code                       :407      ONE line, stripping a leading
+                                                  python/py tag
+  7. VERIFY_PY / verifier_interpreter() :126,:129 every field names a Python process
+  8. Result.total = 1 / score           :417,:433 all-or-nothing, which is a property
+                                                  of assert-based tests, not of the loop
+
+TWO CORRECTIONS IN MY OWN FAVOUR, because the count was wrong in both
+directions. extract_code is LESS welded than I claimed: CODE_RE at :393 matches
+any fence in any language, so ONE LINE is Python-specific rather than the
+function. And section 83 is right that VERIFY_PY belongs on the list - I had it
+filed under discipline-that-travels, and its STRUCT does not travel at all.
+
+BLAST RADIUS, GENERATED not typed - the protocol says a coverage list must come
+from the real interface. Regex over every .py outside localllm/ and the venvs:
+
+    ACTOR_SYSTEM          8 files, 19 occurrences
+    extract_code          7 files, 13 occurrences
+    ACTOR_SYSTEM OR extract_code -> 8 files: eval.py, eval_heldin_direct.py,
+        forge.py, measure.py, repair.py, screen_tasks.py,
+        tests/test_training_seam.py, train_native.py
+
+Six of those eight are outside activation #18's declared read scope. Four was
+correct FOR forge.py and misleading for the repository, which is what section 82
+said. What that regex would MISS: a site that uses the prompt contract without
+naming either symbol - a hand-written ```python fence somewhere else, say - is
+not caught, and I did not sweep for that.
+
+ONE THING NEITHER SEAT REPORTED, found while running that grep. BANNED has THREE
+roles in three files, not one:
+    forge.py:438         a precondition on executing a candidate
+    repair.py:48         a failure signal shown to the model
+    screen_tasks.py:199  TASK ADMISSION - it drops candidate tasks whose test
+                         body or question matches the regex, before any model
+                         sees them
+The third is the interesting one. It is not a sandbox concern at all; it is a
+filter on the corpus of tasks. In a SQL domain it goes silently inert there too,
+so nothing gets filtered - and a SQL task whose text merely contains "open("
+would be dropped from the pool for a reason that does not exist in SQL. There is
+no second COPY of the regex (dataset_gate mentions it only in comments), so this
+is not the venv_guard shape. It is one definition doing three jobs, two of which
+nobody wrote down.
+
+NOT CLAIMED:
+  - NOT claiming eight is complete. It is a hand-built list from reading one file
+    plus a grep for two symbols, which is the exact kind of coverage list this
+    protocol says not to trust. It is a FLOOR. The generated version is not a
+    better classifier - it is building domain #2 and seeing what breaks.
+  - NOT claiming the ingestion path handles non-UTF-8. UTF-16, UTF-32, CP1252,
+    Shift-JIS and GB18030 are all still refused as binary, untested, and for
+    Windows-exported industrial CSVs that is the larger share of the problem.
+  - NOT claiming anything about make_corpus at scale. It holds every file's text
+    in `seen` and `parts` at once and joins the whole corpus in memory; peak is
+    roughly 3x corpus size. Section 82 leftover-risk 2, untouched.
+  - NOT claiming GEN_TEMP is or is not in the frozen receipt. Section 83 F4
+    raised it and labelled it pending; it is still pending and I have not checked
+    it. It is in the next section's scope.
+  - The greedy-free metric change (section 76) and the typing-import confound
+    (12.8%, section 80) are both still open and unchosen.
+  - The ruler's schema is UNTOUCHED and stays that way. Renaming any task field
+    changes task_sha256, changes ruler_set_sha256, and fires verify_frozen by
+    design: 31 tasks x 5 samples x 40 banked replicates = 6,200 generations
+    discarded. Not for a rename.
