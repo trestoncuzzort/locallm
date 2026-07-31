@@ -2,7 +2,11 @@
 
 **Build and train your own language model from scratch, on your own machine, from your own text.**
 
-No pretrained weights. No API. No account. No downloads. Nothing leaves your computer.
+No pretrained weights. No API. No account. Nothing leaves your computer.
+
+You can optionally **download plain text to train on** (`get_corpus.py`) — never weights.
+The model is always built from random numbers on your machine; what you download is
+something to read, not something that already knows how to write.
 
 The model starts as random numbers. The vocabulary is built from exactly the characters
 in the text you give it. You watch it learn.
@@ -38,7 +42,8 @@ A small, readable, from-scratch GPT and a GUI so you don't need a terminal to us
 | `generate.py` | Sample from a model you trained. |
 | `checkpoint.py` | Loads a saved model back off disk and samples from it. One implementation, shared by `generate.py` and the GUI so they cannot drift apart. |
 | `make_corpus.py` | Point it at a folder; it builds `corpus.txt` from your files. Accepts any file whose **content** is text, refuses binaries by their bytes, and warns when your vocabulary gets expensive. |
-| `studio.py` | The GUI. Build the architecture, train it, watch the loss curve, sample from it. |
+| `get_corpus.py` | Downloads text worth training a small model on — simple stories, or public-domain books. Text only; weights are never downloaded. The one file here that opens a network connection. |
+| `studio.py` | The GUI. Pick a size and a practice length from presets, train, watch how many characters it is still choosing between, and write something with it. Advanced settings hold every original knob. |
 | `leakage.py` | Finds training text hiding in your validation set, and says so. |
 | `bench_device.py` | Times a real training step on your hardware and tells you what it can handle. |
 | `test_detectors.py` | Tests for the leakage detector. `python test_detectors.py`, no framework. |
@@ -72,7 +77,10 @@ python make_corpus.py --src ./my_notes  # or --src . --ext .py to train on code
 python studio.py                        # or: python train.py --data corpus.txt
 ```
 
-Then in the GUI: **Scan** your corpus → set the architecture → **Train from scratch** → **Sample**.
+Then in the GUI: pick a **size** → pick how long it should **practise** → **Start training**
+→ **Write something**. Four choices, all of them presets or sliders; there is nothing to type
+except the words you want the model to continue. Every original knob is still there under
+**Show advanced settings**, which is shut by default.
 
 Checkpoints are plain `ckpt.pt` + `tokenizer.json` in your output folder. They're yours.
 `generate.py --out <folder>` reads them back.

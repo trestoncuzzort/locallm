@@ -53,10 +53,14 @@ def main() -> int:
             print("The studio will open with whatever corpus was there before.")
     elif CORPUS.is_file():
         print("training_data is empty, so the existing corpus will be used.")
-        print(f"To train on your own writing, put .txt/.md/.py files in:\n  {DATA}\n")
+        print(f"To train on your own writing, put any text files in:\n  {DATA}\n"
+              f"Anything readable as text works - .txt, .md, .csv, .log, .json,\n"
+              f"source code, or no extension at all.\n")
     else:
         print("No training data and no corpus yet.")
-        print(f"Put some .txt/.md/.py files in:\n  {DATA}\nthen run this again.")
+        print(f"Put any text files in:\n  {DATA}\nthen run this again.\n"
+              f"Anything readable as text works - .txt, .md, .csv, .log, .json,\n"
+              f"source code, or no extension at all.")
         input("\nPress Enter to close...")
         return 1
 
