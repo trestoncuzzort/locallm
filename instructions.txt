@@ -10463,3 +10463,97 @@ and the gap is what you would expect; it is a separate question from "it won't
 talk back" and the proprietor did not ask it.
 
 standing by
+
+--------------------------------------------------------------------------------
+79. EXECUTOR LOG  (2026-07-30 - the Track B GUI fix CONFIRMED by the proprietor on
+    the path I could not test; then every factual claim on the public README made
+    machine-checkable. 18/18. Two of the first three failures were bugs in my own
+    checker.)
+--------------------------------------------------------------------------------
+SECTION 78 SHIPPED WITH AN UNTESTED CLAIM and said so: no test clicks the Sample
+button, because Tk needs a desktop session this shell has not got. The proprietor
+ran it and reported back the loader's own line, verbatim:
+
+  loaded trained model from out_gui/  (12,661,504 params, vocab 97) - ready to sample
+  --- sample from YOUR model ---
+  def two_sum(nums, target):
+      num_dict = {}
+      ...
+
+That is `_load_saved`'s message, so auto-load-on-startup fired, the Sample button
+was live WITHOUT training first, and generation ran. The one gap in section 78's
+evidence is closed by a witness rather than an assumption. (The sample reciting
+two_sum/my_atoi is the memorisation the 0.088/2.774 loss gap predicts, not a new
+fault.)
+
+THEN THE REAL ASK: "make sure everything I state on the repo is verifiable." The
+public README is written in the proprietor's voice, so every factual sentence in
+it is a claim HE is making. Auditing it once would have been worth little - the
+claims drift the moment anything changes. So localllm/verify_claims.py now
+re-derives each checkable claim FROM THE REPO and exits non-zero on drift.
+
+VERIFIED, 18/18, and these are the interesting ones:
+  - every number in the worked result matches exp_lr_width_result.json to the
+    digit - control mean 0.1495 and range [0.1471, 0.1507], treatment 0.1056 and
+    [0.1016, 0.1099], gap +0.0439, no overlap, PASS, 5 seeds. All seven figures
+    re-derived from control_losses/treatment_losses rather than trusted.
+  - the quoted "bar 0.020" IS the success_bar written in prereg_lr_width.json,
+    which is the whole preregistration claim - checked, not asserted.
+  - the fast profile's verdict string is quoted verbatim, and its 800 steps /
+    4-LR grid / 5 seeds match its artifact.
+  - "Nothing leaves your computer" is now ENFORCED: no published file imports or
+    calls a network module. 15 files scanned.
+  - "Dependencies: PyTorch and Tk" holds against sys.stdlib_module_names.
+  - model.py really is 145 lines against a claimed ~145.
+  - "No resume-from-checkpoint yet" is still TRUE, and the check would fail if
+    train.py ever grew a resume path while that limit stayed on the page.
+    checkpoint.py loads a model for SAMPLING; that is not resuming training, and
+    conflating the two would have been an easy way to quietly overclaim.
+
+THE FIRST RUN FAILED 3 OF 18. ONE was a real README defect: checkpoint.py, added
+in section 78, was never added to the file table - the README had gone stale
+within a day of my own change. THE OTHER TWO WERE BUGS IN MY CHECKER, and both
+are the class this project keeps paying for:
+
+  - my stdlib allowlist was HAND-TYPED and omitted `multiprocessing`, so it
+    reported a stdlib import as a third-party dependency and would have had me
+    "fix" a README claim that was correct. Now it reads
+    sys.stdlib_module_names - the interpreter's own list. Section 62's rule
+    about generated-not-typed coverage lists, arriving again in a new costume.
+  - the "nothing phones home" scan matched bare WORDS, so it flagged
+    verify_claims.py itself for containing the string "socket" inside its own
+    regex. Fixed by matching imports and calls - NOT by exempting the scanner.
+    Exempting a file from a safety scan is how the thing it guards gets in.
+
+AND A DISPLAY BUG WORTH MORE THAN IT LOOKS: check() printed the failure message
+beside PASSING rows, so three [ok] lines read "no torch.Generator found" and
+"train.py appears to support resuming". A green check that reads like a red one
+is worse than no check, because the next person believes the text over the mark.
+Pass and fail details are separate arguments now.
+
+RED WITNESS FOR THE CHECKER ITSELF, because a claim-checker that cannot fail is
+decoration:
+  edit README "gap +0.0439" -> "gap +0.0999"
+  [FAIL] worked result: every quoted number matches the artifact
+         gap: README 0.0999 vs artifact 0.0439
+  restore -> 18/18, exit 0
+
+SCOPE, in the script's docstring and repeated on the README so a reader sees it:
+it cannot check the roadmap (not falsifiable), cannot check hardware timings on
+someone else's machine, cannot click the GUI, and is a FIXED LIST rather than a
+general fact-checker - a newly added sentence is not caught automatically.
+Flashlight, not fence. The README now says that about itself.
+
+PUBLISHED, through the sanctioned path both times:
+  84a4c36  the checkpoint fix + tests
+  37a4fde  verify_claims.py + the README corrections
+sync_public.py --check clean on both; whitelist extended for checkpoint.py,
+test_checkpoint.py and verify_claims.py. That last one HAS to ship: a
+claim-checker only the author can run is just another promise.
+
+NOT DONE: the DPO track's own public README (publish/dpo_README.md) has NOT been
+audited the same way. It is published from this repo and makes its own claims,
+and nothing checks them. That is the obvious next instance of this class and it
+is named here rather than done quietly.
+
+standing by
