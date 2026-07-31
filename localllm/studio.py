@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import queue
 import sys
 import threading
@@ -57,6 +58,62 @@ from train import (auto_lr, cosine_lr, enable_fast_math,  # noqa: E402
                    estimate_loss, make_optimizer)
 
 BENCH = HERE / "bench_device_result.json"
+
+# How much of the corpus the ON-SCREEN preview inspects.
+#
+# leakage.scan costs about 0.9 seconds per megabyte, so the full check on a
+# 200 MB corpus does not finish in any time a person will sit through - opening
+# the studio simply hung. The preview is a SAMPLE and is labelled as one on
+# screen. The real check still runs over the real split inside TrainWorker,
+# where it belongs and where waiting is acceptable, so nothing is weakened: what
+# changed is that the UI no longer blocks on it before you have pressed
+# anything.
+SCAN_SAMPLE_BYTES = 2_000_000
+
+# --------------------------------------------------------------------------
+# COLOURS, in one place and per theme.
+#
+# They were scattered as literals through the widgets, which is why the app was
+# light-only: there was no single thing to change. Both palettes are defined
+# here and every widget reads from the active one.
+# --------------------------------------------------------------------------
+THEMES = {
+    "light": dict(
+        bg="#f0f0f0", panel="#f0f0f0", fg="#1a1c20", muted="#666a70",
+        faint="#7a7f87", ok="#2d7d46", warn="#8a6100", bad="#c0392b",
+        field="#ffffff", plot_bg="#14161a", plot_grid="#2a2f38",
+        plot_axis="#8a91a0", learn="#4da3ff", unseen="#ff9f43",
+        guess="#5a6273", log_bg="#14161a", log_fg="#c8d0dc"),
+    "dark": dict(
+        bg="#1b1d21", panel="#22252a", fg="#e6e8ec", muted="#a2a8b2",
+        faint="#8b919b", ok="#5fd08a", warn="#e0b050", bad="#ff6b5e",
+        field="#2a2e34", plot_bg="#101215", plot_grid="#2a2f38",
+        plot_axis="#8a91a0", learn="#5fb0ff", unseen="#ffb066",
+        guess="#6b7280", log_bg="#101215", log_fg="#c8d0dc"),
+}
+
+
+def system_wants_dark() -> bool:
+    """Follow the operating system's own light/dark setting.
+
+    Windows records it in the registry as AppsUseLightTheme (0 = dark). There is
+    no Tk API for this, so it is read directly and every failure falls back to
+    light - a wrong guess about a colour scheme should never stop the app
+    opening. LOCALLLM_THEME=dark|light overrides, which is also how the check
+    is tested without touching anyone's settings.
+    """
+    forced = os.environ.get("LOCALLLM_THEME", "").strip().lower()
+    if forced in ("dark", "light"):
+        return forced == "dark"
+    try:
+        import winreg
+        key = winreg.OpenKey(
+            winreg.HKEY_CURRENT_USER,
+            r"SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\Personalize")
+        with key:
+            return winreg.QueryValueEx(key, "AppsUseLightTheme")[0] == 0
+    except Exception:                                    # noqa: BLE001
+        return False
 
 
 # --------------------------------------------------------------------------
@@ -158,13 +215,14 @@ class LearningPlot(tk.Canvas):
     still depends on nothing but torch and tkinter.
     """
 
-    BG = "#14161a"
-    GRID = "#2a2f38"
-    LEARN = "#4da3ff"
-    UNSEEN = "#ff9f43"
-    GUESS = "#5a6273"
-
-    def __init__(self, parent, **kw):
+    def __init__(self, parent, palette: dict, **kw):
+        self.C = palette
+        self.BG = palette["plot_bg"]
+        self.GRID = palette["plot_grid"]
+        self.AXIS = palette["plot_axis"]
+        self.LEARN = palette["learn"]
+        self.UNSEEN = palette["unseen"]
+        self.GUESS = palette["guess"]
         super().__init__(parent, bg=self.BG, highlightthickness=0, **kw)
         self.learn_pts: list[tuple[int, float]] = []
         self.unseen_pts: list[tuple[int, float]] = []
@@ -209,14 +267,14 @@ class LearningPlot(tk.Canvas):
         for i in range(5):
             y = y0 + (y1 - y0) * i / 4
             self.create_line(x0, y, x1, y, fill=self.GRID)
-            self.create_text(x0 - 8, y, anchor="e", fill="#8a91a0",
+            self.create_text(x0 - 8, y, anchor="e", fill=self.AXIS,
                              font=("Segoe UI", 8),
                              text=f"{hi - (hi - lo) * i / 4:.0f}")
 
         self.create_text(14, (y0 + y1) / 2, anchor="center", angle=90,
-                         fill="#8a91a0", font=("Segoe UI", 8),
+                         fill=self.AXIS, font=("Segoe UI", 8),
                          text="characters it's choosing between  (lower = smarter)")
-        self.create_text((x0 + x1) / 2, h - 9, fill="#8a91a0",
+        self.create_text((x0 + x1) / 2, h - 9, fill=self.AXIS,
                          font=("Segoe UI", 8), text="training progress →")
 
         def to_xy(step, val):
@@ -248,7 +306,7 @@ class LearningPlot(tk.Canvas):
             self.create_text(x1 - 6, y0 + 4 + i * 15, anchor="ne", fill=colour,
                              font=("Segoe UI", 9), text=label)
         if not self.unseen_ok and self.learn_pts:
-            self.create_text(x1 - 6, y0 + 4 + 15, anchor="ne", fill="#6b7280",
+            self.create_text(x1 - 6, y0 + 4 + 15, anchor="ne", fill=self.GUESS,
                              font=("Segoe UI", 8),
                              text="(can't score unseen text with this file)")
 
@@ -405,6 +463,9 @@ class Studio(ttk.Frame):
         self.tok = None
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.vocab = 0
+        self.dark = system_wants_dark()
+        self.C = THEMES["dark" if self.dark else "light"]
+        self._apply_theme()
         self.speeds = load_speeds()
         self.advanced_open = False
         self.val_ok = True
@@ -423,10 +484,81 @@ class Studio(ttk.Frame):
         self._load_saved(quiet=True)
         self.after(100, self._drain)
 
+    def _apply_theme(self):
+        """Restyle ttk for the active palette.
+
+        On Windows the default 'vista' theme draws its widgets from native
+        bitmaps and IGNORES background colour, so a dark palette produced light
+        grey boxes with pale text on them - unreadable, and worse than not
+        offering dark mode at all. 'clam' is drawn by Tk itself and does honour
+        the colours, so dark mode switches theme as well as palette. Light mode
+        keeps 'vista' because it should look like the rest of Windows.
+        """
+        C = self.C
+        style = ttk.Style()
+        try:
+            style.theme_use("clam" if self.dark else "vista")
+        except tk.TclError:
+            pass
+        if not self.dark:
+            return
+        style.configure(".", background=C["bg"], foreground=C["fg"],
+                        fieldbackground=C["field"], bordercolor=C["panel"],
+                        lightcolor=C["panel"], darkcolor=C["panel"])
+        style.configure("TFrame", background=C["bg"])
+        style.configure("TLabel", background=C["bg"], foreground=C["fg"])
+        style.configure("TLabelframe", background=C["bg"], bordercolor="#3a3f47")
+        style.configure("TLabelframe.Label", background=C["bg"],
+                        foreground=C["fg"])
+        style.configure("TRadiobutton", background=C["bg"], foreground=C["fg"])
+        style.configure("TCheckbutton", background=C["bg"], foreground=C["fg"])
+        style.configure("TButton", background=C["panel"], foreground=C["fg"])
+        style.map("TButton",
+                  background=[("active", "#333840"), ("disabled", C["bg"])],
+                  foreground=[("disabled", C["faint"])])
+        style.map("TRadiobutton", background=[("active", C["bg"])])
+        style.configure("TEntry", fieldbackground=C["field"],
+                        foreground=C["fg"], insertcolor=C["fg"])
+        style.configure("TScale", background=C["bg"], troughcolor=C["field"])
+        style.configure("TScrollbar", background=C["panel"],
+                        troughcolor=C["bg"], arrowcolor=C["fg"])
+        self.winfo_toplevel().configure(bg=C["bg"])
+
     # ---------------------------------------------------------------- left
     def _build_left(self):
-        left = ttk.Frame(self)
-        left.grid(row=0, column=0, sticky="nsw", padx=(0, 10))
+        # SCROLLABLE, so the column can never be taller than the screen.
+        # The settings column is the tall part of this window, and on a laptop
+        # or a scaled display it is exactly what runs off the bottom and takes
+        # the Start button with it. A scrollbar that appears only when it is
+        # needed is the difference between "cramped" and "the button is gone".
+        outer = ttk.Frame(self)
+        outer.grid(row=0, column=0, sticky="nsw", padx=(0, 10))
+        outer.rowconfigure(0, weight=1)
+        canvas = tk.Canvas(outer, highlightthickness=0, borderwidth=0,
+                           width=340, bg=self.C["bg"])
+        canvas.grid(row=0, column=0, sticky="nsew")
+        bar = ttk.Scrollbar(outer, orient="vertical", command=canvas.yview)
+        canvas.configure(yscrollcommand=bar.set)
+        left = ttk.Frame(canvas)
+        win = canvas.create_window((0, 0), window=left, anchor="nw")
+        self._left_canvas, self._left_bar, self._left_outer = canvas, bar, outer
+
+        def _fit(_=None):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+            need = left.winfo_reqheight()
+            canvas.configure(width=left.winfo_reqwidth())
+            canvas.itemconfigure(win, width=left.winfo_reqwidth())
+            if need > canvas.winfo_height():
+                bar.grid(row=0, column=1, sticky="ns")
+            else:
+                bar.grid_remove()
+        left.bind("<Configure>", _fit)
+        canvas.bind("<Configure>", _fit)
+        canvas.bind_all(
+            "<MouseWheel>",
+            lambda e: canvas.yview_scroll(int(-e.delta / 120), "units")
+            if str(canvas) in str(e.widget) or self._left_bar.winfo_ismapped()
+            else None)
 
         # --- 1. text
         box = ttk.LabelFrame(left, text=" 1 · What should it learn from? ")
@@ -435,7 +567,7 @@ class Studio(ttk.Frame):
         self.v_data = tk.StringVar(value=str(HERE / "corpus.txt"))
         self.l_file = ttk.Label(box, text="—", font=("Segoe UI", 9, "bold"))
         self.l_file.grid(row=0, column=0, sticky="w", padx=10, pady=(8, 0))
-        self.l_corpus = ttk.Label(box, text="—", foreground="#555",
+        self.l_corpus = ttk.Label(box, text="—", foreground=self.C["muted"],
                                   wraplength=300, justify="left")
         self.l_corpus.grid(row=1, column=0, sticky="w", padx=10, pady=(2, 4))
         brow = ttk.Frame(box)
@@ -457,11 +589,11 @@ class Studio(ttk.Frame):
                             command=self._apply_preset).grid(
                 row=2 * i, column=0, sticky="w", padx=10,
                 pady=(8 if i == 0 else 6, 0))
-            ttk.Label(arch, text=SIZES[name]["blurb"], foreground="#777",
+            ttk.Label(arch, text=SIZES[name]["blurb"], foreground=self.C["faint"],
                       wraplength=280, justify="left").grid(
                 row=2 * i + 1, column=0, sticky="w", padx=(30, 10), pady=(0, 2))
         self.l_params = ttk.Label(arch, text="", font=("Segoe UI", 9, "bold"),
-                                  foreground="#2d7d46", wraplength=300,
+                                  foreground=self.C["ok"], wraplength=300,
                                   justify="left")
         self.l_params.grid(row=2 * len(SIZES), column=0, sticky="w",
                            padx=10, pady=(6, 9))
@@ -474,7 +606,7 @@ class Studio(ttk.Frame):
             ttk.Radiobutton(tr, text=name, value=name, variable=self.length_name,
                             command=self._apply_preset).grid(
                 row=i, column=0, sticky="w", padx=10, pady=(6 if i == 0 else 2, 0))
-        self.l_time = ttk.Label(tr, text="", foreground="#555", wraplength=300,
+        self.l_time = ttk.Label(tr, text="", foreground=self.C["muted"], wraplength=300,
                                 justify="left")
         self.l_time.grid(row=len(LENGTHS), column=0, sticky="w", padx=10, pady=(4, 9))
 
@@ -560,11 +692,11 @@ class Studio(ttk.Frame):
             font=("Segoe UI", 12, "bold"), wraplength=640, justify="left")
         self.l_headline.grid(row=0, column=0, sticky="w", pady=(0, 6))
 
-        self.plot = LearningPlot(right, height=250)
+        self.plot = LearningPlot(right, self.C, height=190)
         self.plot.grid(row=1, column=0, sticky="nsew")
 
         self.l_explain = ttk.Label(
-            right, foreground="#666", wraplength=640, justify="left",
+            right, foreground=self.C["muted"], wraplength=640, justify="left",
             text="The blue line is how well it predicts the text you gave it. "
                  "The orange line is text it was never shown — if orange stops "
                  "falling while blue keeps going, it has started memorising "
@@ -585,8 +717,8 @@ class Studio(ttk.Frame):
         logbox.grid(row=3, column=0, sticky="nsew")
         logbox.columnconfigure(0, weight=1)
         logbox.rowconfigure(0, weight=1)
-        self.log = tk.Text(logbox, height=8, bg="#14161a", fg="#c8d0dc",
-                           insertbackground="#c8d0dc", font=("Consolas", 9),
+        self.log = tk.Text(logbox, height=5, bg=self.C["log_bg"], fg=self.C["log_fg"],
+                           insertbackground=self.C["log_fg"], font=("Consolas", 9),
                            wrap="word", relief="flat")
         self.log.grid(row=0, column=0, sticky="nsew", padx=4, pady=4)
         sb = ttk.Scrollbar(logbox, command=self.log.yview)
@@ -613,7 +745,7 @@ class Studio(ttk.Frame):
                   variable=self.style_idx,
                   command=lambda *_: self._style_label()).grid(
             row=0, column=0, sticky="ew")
-        self.l_style = ttk.Label(srow, text="", width=16, foreground="#555")
+        self.l_style = ttk.Label(srow, text="", width=16, foreground=self.C["muted"])
         self.l_style.grid(row=0, column=1, padx=(8, 0))
 
         ttk.Label(gen, text="How much text?").grid(
@@ -625,7 +757,7 @@ class Studio(ttk.Frame):
                   variable=self.sample_len,
                   command=lambda *_: self._len_label()).grid(
             row=0, column=0, sticky="ew")
-        self.l_len = ttk.Label(lrow, text="", width=16, foreground="#555")
+        self.l_len = ttk.Label(lrow, text="", width=16, foreground=self.C["muted"])
         self.l_len.grid(row=0, column=1, padx=(8, 0))
 
         self.b_gen = ttk.Button(gen, text="Write something",
@@ -633,7 +765,7 @@ class Studio(ttk.Frame):
         self.b_gen.grid(row=3, column=0, columnspan=2, sticky="ew",
                         padx=10, pady=(0, 10), ipady=4)
 
-        self.status = ttk.Label(self, text="", foreground="#555")
+        self.status = ttk.Label(self, text="", foreground=self.C["muted"])
         self.status.grid(row=1, column=0, columnspan=2, sticky="w", pady=(8, 0))
         self._style_label()
         self._len_label()
@@ -695,7 +827,7 @@ class Studio(ttk.Frame):
         n = param_count(max(self.vocab, 1), s["block_size"], s["n_layer"],
                         s["n_head"], s["n_embd"])
         self.l_params.config(
-            text=f"{n:,} numbers to learn, all starting random", foreground="#2d7d46")
+            text=f"{n:,} numbers to learn, all starting random", foreground=self.C["ok"])
         self._preset_values = {"layers": self.v_layer.get(), "heads": self.v_head.get(),
                                "embd": self.v_embd.get(), "block": self.v_block.get(),
                                "steps": self.v_steps.get(), "batch": self.v_batch.get()}
@@ -743,14 +875,14 @@ class Studio(ttk.Frame):
                      "books": "Classic books"}.get(name, name)
             ttk.Radiobutton(win, text=label, value=name, variable=choice).grid(
                 row=1 + 2 * i, column=0, sticky="w", padx=14)
-            ttk.Label(win, text=s["best_for"], foreground="#777",
+            ttk.Label(win, text=s["best_for"], foreground=self.C["faint"],
                       wraplength=430, justify="left").grid(
                 row=2 + 2 * i, column=0, sticky="w", padx=(36, 14), pady=(0, 8))
 
         size_row = ttk.Frame(win)
         size_row.grid(row=9, column=0, sticky="ew", padx=14, pady=(4, 2))
         ttk.Label(size_row, text="How much?").grid(row=0, column=0)
-        l_mb = ttk.Label(size_row, text="", width=22, foreground="#555")
+        l_mb = ttk.Label(size_row, text="", width=22, foreground=self.C["muted"])
         ttk.Scale(size_row, from_=20, to=600, orient="horizontal", variable=mb,
                   length=250,
                   command=lambda *_: l_mb.config(
@@ -759,7 +891,7 @@ class Studio(ttk.Frame):
         l_mb.grid(row=0, column=2)
         l_mb.config(text="200 MB  (~200M characters)")
 
-        ttk.Label(win, wraplength=430, justify="left", foreground="#777",
+        ttk.Label(win, wraplength=430, justify="left", foreground=self.C["faint"],
                   text="Downloaded once and kept, so this is a one-time wait. "
                        "Only plain text is fetched — the model itself is always "
                        "built from scratch on this computer.").grid(
@@ -806,30 +938,36 @@ class Studio(ttk.Frame):
         self.l_file.config(text=p.name)
         if not p.is_file():
             self.l_corpus.config(text="That file is not there any more.",
-                                 foreground="#c0392b")
+                                 foreground=self.C["bad"])
             self.vocab = 0
             return
         text = p.read_text(encoding="utf-8", errors="ignore")
         self.vocab = len(set(text))
+        sampled = len(text) > SCAN_SAMPLE_BYTES
+        sample = text[:SCAN_SAMPLE_BYTES] if sampled else text
         try:
-            tr_txt, va_txt = group_split(text)
+            tr_txt, va_txt = group_split(sample)
             rep = leakage_scan(tr_txt, va_txt)
-            health = split_health(text)
-            colour = {"CLEAN": "#2d7d46", "SUSPECT": "#b8860b",
-                      "CONTAMINATED": "#c0392b"}[rep.verdict]
+            health = split_health(sample)
+            colour = {"CLEAN": self.C["ok"], "SUSPECT": self.C["warn"],
+                      "CONTAMINATED": self.C["bad"]}[rep.verdict]
             note = {"CLEAN": "Looks fine to train on.",
                     "SUSPECT": "Some passages repeat — the fairness test may be weak.",
                     "CONTAMINATED": "Heavy repetition — the fairness test will not "
                                     "mean much."}[rep.verdict]
             if rep.trustworthy and health["achieved_val_frac"] < health["achievable_val_frac"]:
-                colour = "#b8860b"
+                colour = self.C["warn"]
                 note = ("Only a sliver could be held back for testing — more, "
                         "smaller files would help.")
         except Exception:                       # never let the scan block training
-            colour, note, rep = "#2d7d46", "", None
+            colour, note, rep = self.C["ok"], "", None
+        docs = len(documents(sample))
         self.l_corpus.config(
-            text=f"{len(text):,} characters · {self.vocab} different characters · "
-                 f"{len(documents(text)):,} document(s)\n{note}",
+            text=f"{len(text):,} characters · {self.vocab} different characters"
+                 + (f" · {docs:,} document(s)\n{note}" if not sampled else
+                    f"\n{note}  (checked the first "
+                    f"{SCAN_SAMPLE_BYTES // 1_000_000} MB; the full check runs "
+                    f"when training starts)"),
             foreground=colour)
         # Show the "pure guessing" baseline as soon as a file is chosen, not only
         # once training starts. Before this the chart opened as an empty 1-10 box
@@ -890,22 +1028,53 @@ class Studio(ttk.Frame):
         self.b_stop.config(state="disabled")
         self._set_status("Stopping after this step…")
 
+    def _find_trained_models(self) -> list[Path]:
+        """Every folder here that holds a usable model, newest first.
+
+        The save folder is an ADVANCED setting, so a beginner who trains once and
+        reopens the studio should not have to know its name to get their model
+        back. Without this, a model trained into any folder but the default was
+        simply unreachable from the main screen.
+        """
+        found = []
+        for p in HERE.iterdir():
+            if p.is_dir() and (p / "ckpt.pt").is_file() and (p / "tokenizer.json").is_file():
+                found.append(p)
+        return sorted(found, key=lambda p: (p / "ckpt.pt").stat().st_mtime, reverse=True)
+
     def _load_saved(self, quiet: bool = False) -> bool:
+        # NEWEST FIRST, not the save folder first. "save to" says where the NEXT
+        # run is written; it is not a statement about which model you want back.
+        # Preferring it meant that after training a better model into another
+        # folder, reopening the studio silently loaded the older one and the
+        # user had no way to tell which they were sampling.
         out = self.v_out.get().strip() or "out"
-        try:
-            model, tok, cfg = checkpoint.load_checkpoint(out, self.device)
-        except (FileNotFoundError, ValueError) as e:
+        found = [p.name for p in self._find_trained_models()]
+        candidates = found + ([out] if out not in found else [])
+        model = None
+        for name in candidates:
+            try:
+                model, tok, cfg = checkpoint.load_checkpoint(name, self.device)
+                out = name
+                break
+            except (FileNotFoundError, ValueError):
+                continue
+            except Exception:
+                if not quiet:
+                    messagebox.showerror("Could not load model",
+                                         traceback.format_exc())
+                return False
+        if model is None:
             if not quiet:
-                messagebox.showerror("No model to load", str(e))
-            return False
-        except Exception:
-            if not quiet:
-                messagebox.showerror("Could not load model", traceback.format_exc())
+                messagebox.showerror(
+                    "No model to load",
+                    f"No trained model found in '{out}/' or any other folder here.")
             return False
         self.model, self.tok = model, tok
         self.vocab = len(tok.chars)
         self.b_gen.config(state="normal")
-        self._write(f"Found a model you trained earlier in '{out}/'. "
+        self._write(f"Found a model you trained earlier in '{out}/' "
+                    f"({model.num_params():,} numbers, {self.vocab} characters). "
                     f"You can press “Write something” straight away.")
         self._set_status("Earlier model loaded — ready to write.")
         return True
@@ -1032,14 +1201,54 @@ def main():
     except tk.TclError:
         pass
     root.title("Train My AI — built from scratch on this computer")
-    root.geometry("1180x820")
-    root.minsize(980, 700)
     try:
         ttk.Style().theme_use("vista")
     except tk.TclError:
         pass
     Studio(root)
+    fit_to_screen(root, want=(1180, 820))
     root.mainloop()
+
+
+def fit_to_screen(root: tk.Tk, want: tuple[int, int]) -> None:
+    """Size and place the window so it cannot open off-screen or clipped.
+
+    Three things went wrong before, and all three are the same mistake -- a
+    pixel size written down in advance by someone who could not see the screen
+    it would open on:
+
+      * a fixed 1180x820 is bigger than the usable area on a 1366x768 laptop,
+        so the bottom of the window - which is where the buttons are - was
+        simply not reachable;
+      * turning on DPI awareness scales every font by the display factor (1.5
+        here) while leaving that pixel count alone, so the content grew and the
+        window did not, and the right-hand column was cut off mid-sentence;
+      * a window remembered at a position from a second monitor opens off the
+        edge of a single-monitor machine.
+
+    So: ask the layout how big it actually wants to be, scale the preference by
+    the same factor the fonts were scaled by, clamp both to the work area, and
+    centre it. The minimum is clamped too, because a minsize larger than the
+    screen is unrecoverable - the user cannot resize their way out of it.
+    """
+    root.update_idletasks()
+    try:
+        scale = root.winfo_fpixels("1i") / 72.0
+    except tk.TclError:
+        scale = 1.0
+
+    # Leave room for the taskbar and window chrome rather than assuming none.
+    avail_w = max(640, root.winfo_screenwidth() - int(80 * scale))
+    avail_h = max(480, root.winfo_screenheight() - int(100 * scale))
+
+    need_w = max(root.winfo_reqwidth(), int(want[0] * scale))
+    need_h = max(root.winfo_reqheight(), int(want[1] * scale))
+    w, h = min(need_w, avail_w), min(need_h, avail_h)
+
+    x = max(0, (root.winfo_screenwidth() - w) // 2)
+    y = max(0, (root.winfo_screenheight() - h) // 3)
+    root.geometry(f"{w}x{h}+{x}+{y}")
+    root.minsize(min(int(760 * scale), avail_w), min(int(560 * scale), avail_h))
 
 
 if __name__ == "__main__":
