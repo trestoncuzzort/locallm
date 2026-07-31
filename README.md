@@ -37,7 +37,7 @@ A small, readable, from-scratch GPT and a GUI so you don't need a terminal to us
 | `train.py` | The training loop. Random init → your weights. Cosine schedule, warmup, gradient clipping, bf16 autocast when your GPU supports it. |
 | `generate.py` | Sample from a model you trained. |
 | `checkpoint.py` | Loads a saved model back off disk and samples from it. One implementation, shared by `generate.py` and the GUI so they cannot drift apart. |
-| `make_corpus.py` | Point it at a folder; it builds `corpus.txt` from your files. |
+| `make_corpus.py` | Point it at a folder; it builds `corpus.txt` from your files. Accepts any file whose **content** is text, refuses binaries by their bytes, and warns when your vocabulary gets expensive. |
 | `studio.py` | The GUI. Build the architecture, train it, watch the loss curve, sample from it. |
 | `leakage.py` | Finds training text hiding in your validation set, and says so. |
 | `bench_device.py` | Times a real training step on your hardware and tells you what it can handle. |
@@ -51,8 +51,15 @@ Dependencies: **PyTorch and Tk.** That's it. Tk ships with Python.
 
 ## Quick start
 
-Put your own `.txt`, `.md` or `.py` files in `training_data/`, then run
-`python start_studio.py`. It rebuilds the corpus from your text and opens the studio.
+Put **any text files you have** in `training_data/` — `.txt`, `.md`, `.py`, but also
+`.csv`, `.jsonl`, `.log`, `.tsv`, `.yaml`, `.sql`, or files with no extension at all —
+then run `python start_studio.py`. It rebuilds the corpus and opens the studio.
+
+Files are accepted on **content, not extension**: anything whose bytes are text gets
+in, anything binary is refused and says so. That is deliberate — the point is to train
+on the data you actually have, not on the three file types this project happened to
+guess. Machine logs, sensor exports and query dumps are all just text to a
+character-level model.
 
 On Windows, double click `Train My AI.bat` instead, or make a desktop shortcut to it, and
 you never need a terminal at all.
