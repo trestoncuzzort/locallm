@@ -13057,3 +13057,138 @@ WHAT I AM NOT CLAIMING
     ADEQUACY on the Python side (section 83 F5 - the mutation-testing probe, the
     largest unmeasured term in the instrument), and the council dispatch race all
     remain open.
+
+--------------------------------------------------------------------------------
+86. EXECUTOR LOG  (2026-07-31 - the two MEASUREMENTS council #18 ranked above
+    more building, taken from banked data and from the verifier itself. No
+    generation, no GPU, no training. Section number taken at the append: 85 was
+    the tail.)
+--------------------------------------------------------------------------------
+Section 83 said to order these BEFORE the second domain and I built the domain
+first. Both are cheap and both were worth having earlier; recording that the
+ordering advice was right.
+
+================================================================================
+1. VERIFIER ADEQUACY - THE BIG UNMEASURED TERM NOW HAS A NUMBER
+================================================================================
+The complaint (section 83, F5) was exact and it stung: the instrument is precise
+about the small error term and silent about the big one. Sections 61-80 spent
+most of this project's measurement budget pinning a ~3pp SAMPLER noise floor to
+four decimals with a CI over 40 replicates, while "how often do the tests call a
+WRONG solution right" had never been measured at all. EvalPlus (arXiv 2305.01210)
+extended HumanEval's tests ~80x and measured pass@k dropping up to 19.3-28.9%;
+forge.SEED_TASKS carries 4-8 asserts per task, which is HumanEval's density.
+
+MEASURED, by mutation testing (measure_test_adequacy.py). Take solutions that
+ALREADY PASS -- real model outputs from data/dpo_pairs.jsonl `chosen`, so this
+judges the verifier against the exact population it actually judges -- break each
+one on purpose with a single small mutation, and count how many the tests still
+wave through. Verifier: .venv-train 3.11.9, pinned away from the 3.14.6 launcher.
+
+    578 mutants over 13 tasks, 3 banked solutions each, 5 operators
+    (int off-by-one, comparison swap, arithmetic swap, boolean swap, negated if)
+
+    task              asserts  mutants  killed  survived  SURVIVAL
+    roman                   6       18      13         5    27.8%
+    next_permutation        5       69      53        16    23.2%
+    three_sum               4      116      91        25    21.6%
+    spiral                  5       33      27         6    18.2%
+    lps                     5       49      42         7    14.3%
+    word_break              5       10       9         1    10.0%
+    atoi                    8       64      59         5     7.8%
+    multiply_strings        5       57      53         4     7.0%
+    decode_ways             6       78      75         3     3.8%
+    balanced                6       15      15         0     0.0%
+    merge_intervals         5       38      38         0     0.0%
+    simplify_path           5       24      24         0     0.0%
+    two_sum                 4        7       7         0     0.0%
+
+    OVERALL SURVIVAL 12.5%  (72 of 578).  Per-task mean 10.3%.
+
+THE HONEST READING, AND IT IS AN UPPER BOUND. Equivalent mutants -- changes that
+alter the source without changing behaviour on any input -- survive every
+possible test suite, and detecting them is undecidable in general. No attempt is
+made. So 12.5% bounds inadequacy from above; it is not a count of proven holes.
+
+WHICH IS WHY THE EXHIBIT MATTERS MORE THAN THE RATE, and I checked one to the
+bytes rather than reporting a percentage and stopping. `roman`'s two top
+survivors are `int 500 -> 501` and `int 400 -> 401` -- the D and CD entries of
+the numeral value table. The task's six asserts are:
+
+    to_roman(1) == "I"          to_roman(58)   == "LVIII"
+    to_roman(4) == "IV"         to_roman(1994) == "MCMXCIV"
+    to_roman(9) == "IX"         to_roman(3999) == "MMMCMXCIX"
+
+NOT ONE OF THEM CONTAINS A D OR A CD. 1994 is MCMXCIV and 3999 is MMMCMXCIX --
+both skip the 400-899 range entirely. So a solution whose value table says D=501
+passes all six asserts and is WRONG FOR EVERY INPUT FROM 400 TO 899. That is not
+an equivalent mutant and it is not a hypothetical: it is a wrong program this
+project's reward scores as correct and hands to DPO as a `chosen`.
+
+WHAT THIS DOES AND DOES NOT LICENSE:
+  - It does NOT invalidate the ruler work. The ruler is 31 oss tasks with their
+    own tests; these 13 are SEED_TASKS. Nothing here was measured on the ruler,
+    because no passing completions are banked for those tids (screen_results
+    stores rates, not code). The same probe on the ruler needs a generation run.
+  - It does NOT make the 3pp noise floor wrong. It makes it PRECISE ABOUT A
+    QUANTITY THAT ALSO CARRIES AN UP-TO-12.5% BIAS, which is a different and
+    worse problem than an imprecise measurement.
+  - The strict-return-type guard (forge.py:458-475) remains good work and is
+    unaffected. It closes one specific reward hack. Closing one known hack is
+    not test adequacy, which is exactly what section 83 said.
+
+AND IT RETIRES A NOTE THIS REPO WROTE AGAINST ITSELF. forge.py:64-65 disables
+EMIT_CONCISENESS with the comment "off until a robustness signal (mutation tests)
+exists". The mutation signal now exists -- but section 83 is right that it was
+scoped to the wrong problem. This is not a conciseness fix. It is a GROUND TRUTH
+fix, and the conciseness channel stays off on its own merits.
+
+================================================================================
+2. THE GRADIENT ACCOUNTING - 66% OF TASK ATTEMPTS TEACH NOTHING
+================================================================================
+Section 83 F2, framed with a number as it asked. One pass over
+data/round_stats.jsonl, 284 banked rounds:
+
+    task attempts                         3,644
+      solved (>=1 candidate passed)       3,252   89.2%
+      all-fail (0/K, -> curriculum)         392   10.8%
+    preference pairs emitted              1,232   33.8% of attempts
+
+    TASKS THAT EMITTED NO PAIR AT ALL     2,412   66.2%
+      because 0/K passed                    392   10.8%
+      because K/K passed / no failing
+      candidate to pair against           2,020   55.4%
+
+    generations paid for (K=4)           14,576
+    generations that reached a pair       2,464   16.9%
+
+The ceiling is 50% by construction -- a pair consumes 2 of the 4 candidates -- so
+against its own best case the pipeline runs at 33.8% efficiency. Either way, two
+thirds of every task attempt produces nothing, and the dominant cause is not
+failure but SUCCESS: 55.4% of attempts are tasks the model already solves K/K,
+which have zero variance and therefore zero advantage.
+
+That is precisely the condition DAPO's dynamic sampling exists to avoid (arXiv
+2503.14476: "if all outputs of a particular prompt are correct and receive the
+same reward 1, the resulting advantage for this group is zero"). This pipeline
+reaches the same conclusion and pays the other price: DAPO oversamples until the
+batch is full of gradient-bearing prompts, this drops the task.
+
+NOT A DECISION, A NUMBER. Whether the answer is dynamic sampling, a harder task
+pool, or moving to online GRPO is the offline-vs-online question (section 83 F2)
+and it is not mine to settle. What was missing was the size of the prize, and it
+is 66.2%.
+
+================================================================================
+NOT CLAIMED
+================================================================================
+  - The 12.5% is an UPPER BOUND on inadequacy, measured on SEED_TASKS only, with
+    5 mutation operators and at most 3 solutions and 40 mutants per solution. A
+    different operator set gives a different number.
+  - Four tasks scored 0.0% survival. That is not proof their tests are adequate;
+    it is proof these five operators could not break them, and two of those four
+    (two_sum 7 mutants, balanced 15) had very few mutation sites at all.
+  - Nothing here measures the RULER, which is the instrument the efficacy run
+    would use. That needs banked completions for the 31 oss tids and they do not
+    exist yet.
+  - No fix is proposed for either finding in this section. Both are measurements.
