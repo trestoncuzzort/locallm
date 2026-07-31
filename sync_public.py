@@ -48,7 +48,7 @@ PUBLISH = [
     # `import checkpoint`. It exists because the GUI could previously only sample
     # a model it had trained in the same session (nothing loaded ckpt.pt), and
     # the fix had to live in one place rather than being copied into both callers.
-    "checkpoint.py", "test_checkpoint.py",
+    "checkpoint.py", "test_checkpoint.py", "test_ingest.py",
     # verify_claims.py re-derives the README's factual claims from the repo.
     # It has to SHIP: a claim-checker that only the author can run is a
     # promise, and the point of it is that a reader can settle the claims
