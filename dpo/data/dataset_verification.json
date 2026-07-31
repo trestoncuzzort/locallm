@@ -1,5 +1,5 @@
 {
-  "schema": 3,
+  "schema": 4,
   "total_pairs": 1269,
   "total_rows_across_files": 2190,
   "violations": 0,
@@ -76,7 +76,8 @@
     }
   },
   "verifier": {
-    "forge.py": "a00ca6607f1e29243af0be7008dbbb033ccefcc880ba3996264e3cabe26a0ecc"
+    "forge.py": "823c6c9a2f00f97080d0d48d5dbbd7e4eacd2a7acf89fda56f5f5910ea9896f1",
+    "interpreter": "python 3.11.9"
   },
   "known_hard": [],
   "reconcile_contradictions": {}

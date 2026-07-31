@@ -47,6 +47,7 @@ from pathlib import Path
 import requests
 
 import config
+import dataset_gate
 
 # ---------------------------------------------------------------------------
 # Config
@@ -59,6 +60,7 @@ NUM_CANDIDATES = 4          # samples per task; more = better pairs, more time
 GEN_TEMP     = 0.8          # diversity matters for preference pairs
 KEEP_ALIVE   = "5m"         # keep model warm between tasks; released on exit
 CAND_TIMEOUT = 8            # seconds per candidate execution
+
 EMIT_CONCISENESS = False    # length-preference is a reward-hack;
                             # off until a robustness signal (mutation tests) exists
 OUT_DIR      = Path(__file__).with_name("data")
@@ -76,6 +78,62 @@ BANNED = re.compile(
     r"|__import__|open\s*\(|eval\s*\(|exec\s*\()",
     re.IGNORECASE,
 )
+
+
+# ---------------------------------------------------------------------------
+# THE VERIFIER'S INTERPRETER IS PINNED, NOT INHERITED.
+#
+# verify() used to launch [sys.executable, "-I", path], so ground truth -- the
+# one objective signal this whole project rests on -- depended on which script
+# happened to call it. That is not hypothetical: screen_tasks.py and
+# build_ruler.py go through venv_guard, and system Python has no pyarrow, so
+# they ALWAYS re-exec under .venv-train (3.11). eval.py, ruler_noise.py and
+# forge.py have no guard and run under system Python (3.14). The screen that
+# admitted the ruler and the eval that scores it were verifying against
+# different Pythons.
+#
+# RED WITNESS (section 71): 310 completions banked once, then replayed through
+# verify() under both interpreters -- identical code bytes, identical tasks.
+#   3.14: 172/310 = 0.5548     3.11: 154/310 = 0.4968
+# 18 disagreements, ALL ONE WAY (3.14 passes, 3.11 fails), on 6 of 31 tasks.
+# Cause is PEP 649/749 deferred annotation evaluation: `def f(x: List[int])`
+# with no `from typing import List` raises NameError at def time on 3.11 and is
+# harmless on 3.14. Minimal probe:
+#     def f(x: List[int]) -> Tuple[int, int]: return (1, 2)
+#   3.11 -> NameError: name 'List' is not defined      3.14 -> DEFINED_OK
+# Consequence measured: 5 ruler tasks that sit at 0.60-0.80 under 3.11 become
+# DEAD CHANNELS at 1.000 under 3.14, and tasks outside the [0.2,0.8] band go
+# from 2/31 to 7/31. The permissive reading destroys the instrument.
+#
+# WHY .venv-train IS THE DEFAULT rather than system Python. Not because it
+# preserves the ruler -- that would be reasoning that conveniently saves work.
+# Because (a) unimported typing annotations genuinely do not run on any Python
+# before 3.14, so accepting them rewards code that is broken nearly everywhere,
+# and (b) .venv-train is the interpreter the training stack itself runs on, so
+# it is what the model is being trained to write for. It is version-pinned and
+# lives in the repo, which is what makes it a pin rather than a coincidence.
+#
+# THIS RE-DEFINES GROUND TRUTH for artifacts verified under 3.14 -- data/
+# dpo_pairs*.jsonl and data/eval_history.jsonl were built by unguarded scripts.
+# Nothing here re-runs or overwrites them; the fingerprint below exists so a
+# cross-interpreter comparison is detectable instead of silent. Override with
+# SRLM_VERIFY_PY to re-pin deliberately.
+# ---------------------------------------------------------------------------
+# The resolution itself lives in dataset_gate, which is stdlib-only and already
+# imported by BOTH interpreters (verify side and training side). One definition,
+# imported -- not a copy per caller, which is the failure venv_guard.py was
+# written to end. dataset_gate imports nothing from forge, so there is no cycle.
+VERIFY_PY = dataset_gate.verify_py()
+
+
+def verifier_interpreter() -> dict:
+    """What the verifier ACTUALLY is, asked of the interpreter rather than
+    assumed. Recorded into result artifacts so two numbers produced under
+    different ground truth can never be silently compared."""
+    ver = dataset_gate.interpreter_fingerprint()["interpreter"].split()[-1]
+    return {"executable": VERIFY_PY, "version": ver,
+            "pinned_away_from_launcher": VERIFY_PY != sys.executable,
+            "launcher_version": sys.version.split()[0]}
 
 
 # ---------------------------------------------------------------------------
@@ -360,6 +418,12 @@ class Result:
     runtime: float = 0.0
     error: str = ""
     timed_out: bool = False  # distinct from "wrong": we do not know if it is wrong
+    # The completion exactly as the model emitted it, fences and all. `code` is
+    # extract_code(raw) and is what the verifier executes; `raw` is what the
+    # policy actually produced and is what a preference target must be, or the
+    # trainer optimises toward a string no model ever wrote. Defaults to "" so
+    # every existing Result(code=...) call site keeps working unchanged.
+    raw: str = ""
 
     @property
     def score(self) -> tuple:
@@ -426,7 +490,9 @@ def verify(code: str, task: Task) -> Result:
     t0 = time.perf_counter()
     try:
         proc = subprocess.run(
-            [sys.executable, "-I", path],   # -I: isolated, ignore env/site
+            [VERIFY_PY, "-I", path],        # -I: isolated, ignore env/site
+                                            # VERIFY_PY, not sys.executable: see
+                                            # the pin block above and section 71
             capture_output=True, text=True, timeout=CAND_TIMEOUT,
         )
         res.runtime = time.perf_counter() - t0
@@ -500,7 +566,9 @@ def run_task(actor: Actor, task: Task) -> tuple[dict | None, dict | None, bool]:
         except requests.RequestException as e:
             print(f"  [gen error] {e}")
             continue
-        results.append(verify(extract_code(raw), task))
+        r = verify(extract_code(raw), task)
+        r.raw = raw          # keep the verbatim emission for the preference target
+        results.append(r)
 
     if not results:
         return None, {"tid": task.tid, "prompt": task.prompt,
@@ -538,8 +606,18 @@ def run_task(actor: Actor, task: Task) -> tuple[dict | None, dict | None, bool]:
 
     pair = {
         "prompt": task.prompt,
+        # chosen/rejected stay EXECUTABLE source: clean_dataset.py:26,
+        # verify_dataset.py:82 and both dedup hashes run forge.verify on them.
         "chosen": best.code,
         "rejected": worst.code,
+        # ...and the verbatim completions alongside, because those two facts are
+        # not the same string. extract_code strips the ```python fences that
+        # ACTOR_SYSTEM instructs the model to emit, so training on `chosen`
+        # optimises toward text no policy ever produced. Found by an independent
+        # review pass; red witness recorded in the project log. Additive - every
+        # existing consumer keeps reading the fields it already reads.
+        "chosen_raw": best.raw,
+        "rejected_raw": worst.raw,
         "meta": {
             "tid": task.tid,
             "reason": reason,

@@ -41,6 +41,8 @@ import difflib
 import json
 import shutil
 import subprocess
+
+import venv_guard
 import sys
 from pathlib import Path
 
@@ -56,24 +58,6 @@ AMPLIFY = 50_000.0
 SPOT_PROMPT = "Write a Python function that returns the sum of a list of numbers."
 
 
-def _reexec_in_venv_if_needed() -> None:
-    """This script needs torch/gguf/safetensors, which live in .venv-train, but it
-    is natural to launch it with the system Python like every other script here.
-    Rather than fail on an import three steps in, hand off to the right
-    interpreter immediately. Same lesson as sync_public.py's test gate."""
-    try:
-        import gguf, safetensors, torch  # noqa: F401
-        return
-    except ModuleNotFoundError:
-        pass
-    me = Path(__file__).resolve()
-    if VENV_PY.exists() and Path(sys.executable).resolve() != VENV_PY.resolve():
-        r = subprocess.run([str(VENV_PY), str(me), *sys.argv[1:]])
-        sys.exit(r.returncode)
-    raise SystemExit(
-        "export_adapter.py needs torch, gguf and safetensors.\n"
-        f"  expected interpreter: {VENV_PY}\n"
-        "  install into that venv:  .venv-train\\Scripts\\python -m pip install gguf")
 
 
 def safe(s: str) -> str:
@@ -111,6 +95,38 @@ def adapter_tensor_count(adapter_dir: Path) -> int:
 def gguf_tensor_count(path: Path) -> int:
     import gguf
     return len(gguf.GGUFReader(str(path)).tensors)
+
+
+# Every entry in config.py's _REGISTRY is a -bnb-4bit repo, chosen so QLoRA fits
+# a 16 GB card. That is right for TRAINING and fatal for CONVERSION: the
+# converter reads the base CONFIG, and a quantized repo's config carries a
+# quantization_config key, which sends convert_lora_to_gguf into
+#   NotImplementedError: Quant method is not yet supported: 'bitsandbytes'
+# It does not need the base WEIGHTS - its own --base help says "only config is
+# needed, actual model weights are not required" - so the fix is to hand it the
+# unquantized twin's config, not to download 16 GB.
+#
+# This was invisible until an 8B run because the one export on record used
+# Qwen/Qwen2.5-0.5B-Instruct, which is already full precision and has no suffix
+# to strip. The acceptance evidence was real and aimed at a path production
+# never takes.
+_QUANT_SUFFIXES = ("-unsloth-bnb-4bit", "-bnb-4bit", "-bnb-8bit")
+
+
+def dequantized_twin(base_hf: str | None) -> str | None:
+    """Repo id of the unquantized twin, for config purposes only.
+
+    VERIFIED for unsloth/llama-3-8b-Instruct-bnb-4bit -> unsloth/llama-3-8b-Instruct
+    (ungated, quantization_config=None, LlamaForCausalLM). The same suffix rule is
+    ASSUMED for the other nine registry entries and has NOT been checked; if one
+    of them has no published twin, pass --base-config-id explicitly.
+    """
+    if not base_hf:
+        return None
+    for s in _QUANT_SUFFIXES:
+        if base_hf.endswith(s):
+            return base_hf[: -len(s)]
+    return base_hf
 
 
 def convert(adapter_dir: Path, out: Path, base_hf: str | None) -> subprocess.CompletedProcess:
@@ -169,6 +185,11 @@ def main() -> int:
     ap.add_argument("--name", required=True, help="name for the adapted model")
     ap.add_argument("--outdir", default=None, help="where to put gguf/Modelfiles")
     ap.add_argument("--verify", action="store_true", help="run the 4 acceptance checks")
+    ap.add_argument("--base-config-id", default=None,
+                    help="HF repo id (or local dir) whose CONFIG the converter reads. "
+                         "Defaults to the unquantized twin of the adapter's training "
+                         "base, since a -bnb-4bit config cannot be converted. Weights "
+                         "are never downloaded.")
     args = ap.parse_args()
 
     adapter = Path(args.adapter).resolve()
@@ -178,10 +199,16 @@ def main() -> int:
     outdir.mkdir(parents=True, exist_ok=True)
 
     cfg = json.loads((adapter / "adapter_config.json").read_text())
-    base_hf = cfg.get("base_model_name_or_path")
+    train_base = cfg.get("base_model_name_or_path")
+    base_hf = args.base_config_id or dequantized_twin(train_base)
+    if base_hf != train_base:
+        print(f"[base] trained against {train_base}\n"
+              f"[base] converting against {base_hf} (config only, no weights)")
     null_name = f"{args.name}-null"
     report: dict = {"adapter": str(adapter), "base_tag": args.base_tag,
-                    "base_hf": base_hf, "model": args.name, "null_model": null_name,
+                    "base_hf_train": train_base, "base_hf_config": base_hf,
+                    "base_config_overridden": bool(args.base_config_id),
+                    "model": args.name, "null_model": null_name,
                     "checks": {}}
 
     # ---- 1. convert -------------------------------------------------------
@@ -265,5 +292,6 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    _reexec_in_venv_if_needed()
+    venv_guard.ensure(__file__, "gguf", "safetensors", "torch",
+                      install_hint="install into that venv:  .venv-train\Scripts\python -m pip install gguf")
     sys.exit(main())

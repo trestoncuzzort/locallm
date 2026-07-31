@@ -39,11 +39,16 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 RECEIPT_NAME = "dataset_verification.json"
-SCHEMA = 3          # bump when the `files` or `verifier` entry shape changes
+SCHEMA = 4          # bump when the `files` or `verifier` entry shape changes
+                    # 3 -> 4: `verifier` gained the INTERPRETER, not just the
+                    # file hashes (section 71).
 
 # THE RECEIPT MUST PIN THE VERIFIER, NOT ONLY THE DATA.
 # "0 violations" is a statement about forge.verify() run against forge.SEED_TASKS.
@@ -61,6 +66,77 @@ SCHEMA = 3          # bump when the `files` or `verifier` entry shape changes
 # receipt and forces a re-verify. That is the correct direction to be wrong in.
 VERIFIER_FILES = ("forge.py",)
 
+# ---------------------------------------------------------------------------
+# ...AND THE VERIFIER IS NOT ONLY ITS SOURCE. It is source PLUS the interpreter
+# that executes the candidate. The block above says the failure mode exactly:
+# "every data hash still matches while the *meaning* of 'verified' silently
+# changes". A different Python is precisely that, and section 71 caught it live.
+# forge.verify() launched [sys.executable, ...], so ground truth was inherited
+# from whichever script called it: screen_tasks.py/build_ruler.py re-exec under
+# .venv-train (3.11) via venv_guard, while eval.py/forge.py run under system
+# 3.14. Red witness: 310 completions replayed through verify() under both, same
+# bytes -- 3.14 scored 172/310, 3.11 scored 154/310, all 18 disagreements one
+# way, cause PEP 649 deferred annotations (`def f(x: List[int])` with no import
+# is a NameError on 3.11 and harmless on 3.14).
+#
+# The pin LIVES HERE, in the one module both interpreters already import, so
+# there is a single definition rather than one per caller -- the mistake
+# venv_guard.py exists to prevent. forge.py imports it; it is not re-derived.
+# Stdlib only, as the docstring requires.
+# ---------------------------------------------------------------------------
+_VENV_PY = HERE / ".venv-train" / "Scripts" / "python.exe"
+_INTERP_CACHE: dict[str, str] | None = None
+
+
+def verify_py() -> str:
+    """The interpreter that decides 'correct'. SRLM_VERIFY_PY overrides.
+
+    IT FAILS LOUDLY RATHER THAN FALLING BACK, and that is the whole point. The
+    first version of this function ended `return sys.executable`, which meant
+    that on any machine without .venv-train the verifier silently became the
+    launching interpreter again -- i.e. the exact section 71 defect, restored,
+    with every artifact still recording a fingerprint as if a pin were in force.
+    An independent review pass caught it. Red witness, with _VENV_PY patched to
+    a nonexistent path in-memory:
+        verify_py() -> C:\\Python314\\python.exe   == sys.executable   DEFECT BACK
+    A fallback that reintroduces the bug is worse than no fallback, because it is
+    quiet. Anyone genuinely wanting the launcher must now say so with
+    SRLM_VERIFY_PY and it will be recorded as a deliberate pin.
+    """
+    env = os.environ.get("SRLM_VERIFY_PY")
+    if env:
+        return env
+    if _VENV_PY.exists():
+        return str(_VENV_PY)
+    raise SystemExit(
+        "VERIFIER NOT PINNED. Ground truth would fall back to the launching\n"
+        f"  interpreter ({sys.executable}), which is the defect section 71 fixed:\n"
+        "  guarded and unguarded callers then score against different Pythons.\n"
+        f"  expected: {_VENV_PY}\n"
+        "  fix: create .venv-train, or pin deliberately with\n"
+        "       SRLM_VERIFY_PY=<path-to-python>  (it is recorded in the receipt)")
+
+
+def interpreter_fingerprint() -> dict[str, str]:
+    """Identity of the verifying interpreter, ASKED of it rather than assumed.
+
+    Keyed under a name that cannot collide with a filename in VERIFIER_FILES, so
+    it slots into the same `verifier` dict the gate already compares.
+    """
+    global _INTERP_CACHE
+    if _INTERP_CACHE is None:
+        exe, ver = verify_py(), "unknown"
+        try:
+            p = subprocess.run([exe, "-I", "-c",
+                                "import sys; print(sys.version.split()[0])"],
+                               capture_output=True, text=True, timeout=30)
+            if p.returncode == 0:
+                ver = p.stdout.strip()
+        except (OSError, subprocess.SubprocessError):
+            pass
+        _INTERP_CACHE = {"interpreter": f"python {ver}"}
+    return _INTERP_CACHE
+
 
 def sha256_file(path: str | Path) -> str:
     """Hash a file's exact bytes, streamed (these files run to megabytes)."""
@@ -76,8 +152,11 @@ def receipt_path(data_dir: str | Path) -> Path:
 
 
 def verifier_fingerprint() -> dict[str, str]:
-    """sha256 of every file whose contents define what 'verified' means."""
-    return {name: sha256_file(HERE / name) for name in VERIFIER_FILES}
+    """Everything that defines what 'verified' means: the sha256 of every
+    verifier file, PLUS the interpreter that executes candidates."""
+    fp = {name: sha256_file(HERE / name) for name in VERIFIER_FILES}
+    fp.update(interpreter_fingerprint())
+    return fp
 
 
 def build_file_entries(data_dir: str | Path,

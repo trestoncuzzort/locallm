@@ -22,6 +22,49 @@ from pathlib import Path
 
 import config
 import dataset_gate
+import forge
+
+
+def build_training_prompt(tok, prompt_text: str) -> str:
+    """Render the training prompt exactly as the sampler and the scorer render it.
+
+    THE SEAM THIS CLOSES (found by an independent review pass; red witness
+    recorded in the project log). This function used to build a user-only turn.
+    forge.Actor.generate posts
+    system=ACTOR_SYSTEM + user when it samples every pair, and eval.py reuses that
+    same Actor when it scores. So the trainer was optimising a prompt that was
+    missing a header block present at both generation and evaluation - measured at
+    47 of 98 prompt tokens for a real pair, nearly half.
+
+    The system turn is not decoration here: ACTOR_SYSTEM is what instructs the
+    model to emit a fenced block at all, so dropping it changes what the correct
+    output even looks like.
+    """
+    return tok.apply_chat_template(
+        [{"role": "system", "content": forge.ACTOR_SYSTEM},
+         {"role": "user", "content": prompt_text}],
+        tokenize=False, add_generation_prompt=True)
+
+
+def training_target(ex: dict, field: str) -> str:
+    """The assistant turn to optimise toward, as the policy would have emitted it.
+
+    forge stores `chosen`/`rejected` as extract_code() output - fences stripped -
+    because clean_dataset.py:26, verify_dataset.py:82 and both dedup hashes need
+    executable source. That is correct for the gates and wrong as a DPO target:
+    ACTOR_SYSTEM demands a ```python block, so bare source is a string no policy
+    ever emitted.
+
+    Prefers `<field>_raw`, the verbatim completion, when forge recorded it. For
+    legacy pairs written before that field existed, re-fences the stored code.
+    That is a RECONSTRUCTION, not the original bytes - close, because ACTOR_SYSTEM
+    forbids prose, but not identical. Pairs regenerated after this change carry
+    the real thing.
+    """
+    raw = ex.get(f"{field}_raw")
+    if raw:
+        return raw
+    return f"```python\n{ex[field]}\n```"
 
 HERE = Path(__file__).parent
 M = config.MODEL
@@ -104,16 +147,29 @@ def main() -> None:
         target_modules=M.target_modules, task_type="CAUSAL_LM")
 
     ds = load_dataset("json", data_files=files, split="train")
-    keep = {"prompt", "chosen", "rejected"}
+    # chosen_raw/rejected_raw are the verbatim completions when forge recorded
+    # them; they must survive this projection or training_target() can only ever
+    # see the fence-stripped fallback.
+    keep = {"prompt", "chosen", "rejected", "chosen_raw", "rejected_raw"}
     ds = ds.remove_columns([c for c in ds.column_names if c not in keep])
     if args.limit:
         ds = ds.select(range(min(args.limit, len(ds))))
-    # Wrap the prompt in this model's own chat template (correct across models).
+
+    n_raw = sum(1 for ex in ds if ex.get("chosen_raw"))
+    print(f"[train] {len(ds)} pairs from {[Path(f).name for f in files]}; "
+          f"{n_raw} carry verbatim completions, {len(ds) - n_raw} fall back to "
+          f"re-fenced source")
+
+    # Render prompt and targets the way the sampler and the scorer render them.
+    # See build_training_prompt / training_target for the seam this closes.
     if getattr(tok, "chat_template", None):
-        ds = ds.map(lambda ex: {"prompt": tok.apply_chat_template(
-            [{"role": "user", "content": ex["prompt"]}],
-            tokenize=False, add_generation_prompt=True)})
-    print(f"[train] {len(ds)} pairs from {[Path(f).name for f in files]}")
+        ds = ds.map(lambda ex: {
+            "prompt": build_training_prompt(tok, ex["prompt"]),
+            "chosen": training_target(ex, "chosen"),
+            "rejected": training_target(ex, "rejected"),
+        })
+        ds = ds.remove_columns([c for c in ds.column_names
+                                if c in ("chosen_raw", "rejected_raw")])
 
     cfg = DPOConfig(
         output_dir=args.out,

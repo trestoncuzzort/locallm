@@ -26,10 +26,6 @@ python studio.py
 
 ---
 
-<img width="841" height="594" alt="pythonw_Hy14h035sr" src="https://github.com/user-attachments/assets/5219be91-78ba-42bc-8efc-837dd7e68668" />
-
-<img width="841" height="594" alt="pythonw_0VZckywsL1" src="https://github.com/user-attachments/assets/0b9b4226-ff8b-4bf0-853e-9c51c53d5883" />
-
 ## What this actually is
 
 A small, readable, from-scratch GPT and a GUI so you don't need a terminal to use it.

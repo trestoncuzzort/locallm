@@ -168,12 +168,31 @@ def pass_at_k(n: int, c: int, k: int) -> float:
     return 1.0 - math.comb(n - c, k) / math.comb(n, k)
 
 
-def evaluate(model_tag: str) -> dict | None:
+def evaluate(model_tag: str, tasks: list[forge.Task] | None = None,
+             task_set: str = "held_out") -> dict | None:
+    """Score model_tag. Defaults to the frozen HELD_OUT ruler.
+
+    `tasks` exists for the HELD-IN check: scoring forge.SEED_TASKS - the very
+    tasks training pairs were derived from - so that a null on the held-out set
+    can be attributed rather than merely recorded. A held-in null and a held-out
+    null mean different things: the first says the training did nothing, the
+    second says it did not transfer. Passing SEED_TASKS here does NOT make them
+    a ruler; the result is labelled by `task_set` so the two can never be
+    silently compared or appended into one series.
+    """
+    tasks = HELD_OUT if tasks is None else tasks
     actor = forge.Actor(forge.OLLAMA_URL, model_tag)
     try:
         tags = actor.s.get(f"{forge.OLLAMA_URL}/api/tags", timeout=5).json()
-        if model_tag not in {m["name"] for m in tags.get("models", [])}:
-            print(f"[!] Model '{model_tag}' not pulled.")
+        # /api/tags always reports a tag suffix, so a bare name like
+        # "llama3-forged" never string-matches "llama3-forged:latest" and the
+        # guard reported "not pulled" about a model that was sitting right
+        # there. Ollama itself treats the bare name as ":latest"; match its
+        # behaviour rather than requiring the caller to know the convention.
+        have = {m["name"] for m in tags.get("models", [])}
+        if model_tag not in have and f"{model_tag}:latest" not in have:
+            print(f"[!] Model '{model_tag}' not found in Ollama. Available: "
+                  f"{', '.join(sorted(have)) or '(none)'}")
             return None
     except Exception as e:  # noqa: BLE001 - fail fast with a clear message
         print(f"[!] Ollama not reachable at {forge.OLLAMA_URL} ({e}).")
@@ -186,9 +205,21 @@ def evaluate(model_tag: str) -> dict | None:
     # and scored are now counted separately; the score is over what was actually
     # measured, and a task nothing could be sampled for is EXCLUDED rather than
     # silently counted as zero.
+    # THE GREEDY DRAW IS RECORDED SEPARATELY, and it is not bookkeeping. Sample 0
+    # is taken at temp 0.0, so across repeated runs of the same model it is very
+    # nearly a CONSTANT, contributing ~no run-to-run variance. Any noise-floor
+    # measurement that predicts variance from a binomial on all N_SAMPLES draws
+    # therefore over-predicts, for a reason that has nothing to do with the
+    # per-task independence the prediction is usually blamed on. Keeping `greedy`
+    # apart from `sampled` is what lets those two causes be told apart from the
+    # data instead of argued about. Additive only: the sampling, its order, its
+    # temperatures and the scoring are untouched, and `correct` must still equal
+    # greedy + sum(sampled) -- which the analysis asserts rather than trusts.
     per_task = []
-    for t in HELD_OUT:
+    for t in tasks:
         c = scored = errors = 0
+        greedy: int | None = None
+        sampled: list[int] = []
         for i in range(N_SAMPLES):
             temp = 0.0 if i == 0 else TEMP  # one greedy anchor + diverse rest
             try:
@@ -198,10 +229,15 @@ def evaluate(model_tag: str) -> dict | None:
                 print(f"  [{t.tid}] gen error: {e}")
                 continue
             scored += 1
-            if forge.verify(forge.extract_code(raw), t).ok:
-                c += 1
+            ok = 1 if forge.verify(forge.extract_code(raw), t).ok else 0
+            c += ok
+            if i == 0:
+                greedy = ok
+            else:
+                sampled.append(ok)
         per_task.append({"tid": t.tid, "correct": c, "n": scored,
-                         "requested": N_SAMPLES, "gen_errors": errors})
+                         "requested": N_SAMPLES, "gen_errors": errors,
+                         "greedy": greedy, "sampled": sampled})
         marks = "".join("#" if j < c else "." for j in range(scored))
         flag = f"  [{errors} gen error(s), not scored]" if errors else ""
         print(f"  {t.tid:14} {marks} {c}/{scored}{flag}")
@@ -220,9 +256,15 @@ def evaluate(model_tag: str) -> dict | None:
     return {
         "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
         "model": model_tag,
+        "task_set": task_set,
         "n_samples": N_SAMPLES,
         "temp": TEMP,
-        "n_tasks": len(HELD_OUT),
+        # WHICH PYTHON DECIDED "correct". Recorded because it used to be
+        # inherited from the launching script, so rows written by guarded and
+        # unguarded callers were scored against different ground truth (section
+        # 71). A row without this key predates the pin and is not comparable.
+        "verifier": forge.verifier_interpreter(),
+        "n_tasks": len(tasks),
         "aggregate": agg,
         "coverage": coverage,
         "gen_errors_total": sum(p["gen_errors"] for p in per_task),
