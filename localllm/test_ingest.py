@@ -15,7 +15,7 @@ blob.bin), against the old rule:
     sensor.csv    accepted=False      <- text, wrongly refused
 Only 1 of 4 text files got in.
 
-WHAT THIS FILE IS ALLOWED TO CLAIM, corrected by council #18 (section 83, F8).
+WHAT THIS FILE IS ALLOWED TO CLAIM, narrowed after review.
 The claim shipped as "acceptance is decided on CONTENT" and that over-reaches.
 `BINARY_EXTS` short-circuits on the file's NAME at is_trainable_file():87,
 before a single byte is read, so a .bin holding pure text is still refused for
@@ -29,7 +29,7 @@ That is the claim these tests pin, and it is the one the industrial case needed
 (.csv, .jsonl, .log, .tsv, no extension at all). The old wording is deleted
 rather than softened.
 
-SECOND RED WITNESS (council #18, sections 82 F1 and 83 F8) — the probe window.
+SECOND RED WITNESS — the probe window.
 `is_trainable_file` decides a whole-file property from the first 8192 bytes,
 and that produced two separate refusals of ordinary text:
 
@@ -234,8 +234,7 @@ def test_the_two_callers_share_one_rule():
     """start_studio's double-click path must actually find a .csv.
 
     This used to assert the string 'EXTS = {".txt"' was absent from the source.
-    Council #18 (section 82, F7) called that what it is: a search for one exact
-    15-character spelling. `EXTS = {'.txt'`, `EXTS={".txt"`, `ALLOWED = {...}`
+    That is what it was: a search for one exact 15-character spelling. `EXTS = {'.txt'`, `EXTS={".txt"`, `ALLOWED = {...}`
     or a tuple would all have passed it. Behaviour is checked instead.
     """
     import start_studio
@@ -255,7 +254,7 @@ def test_the_two_callers_share_one_rule():
 
 
 def test_the_user_facing_prose_does_not_advertise_the_old_allowlist():
-    """User-visible strings are claims too (council #18, section 82 F7).
+    """User-visible strings are claims too.
 
     The code will ingest a folder of .csv; the double-click path was still
     telling the user, twice, to supply .txt/.md/.py. A user reading that

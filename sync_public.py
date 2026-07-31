@@ -49,6 +49,14 @@ PUBLISH = [
     # a model it had trained in the same session (nothing loaded ckpt.pt), and
     # the fix had to live in one place rather than being copied into both callers.
     "checkpoint.py", "test_checkpoint.py", "test_ingest.py",
+    # get_corpus.py is REQUIRED, not optional, for the same reason checkpoint.py
+    # is: studio.py imports it for the "Get better text..." button and
+    # verify_claims.py names it as the one file allowed to touch the network.
+    # Omitting it publishes a studio whose corpus button raises ImportError.
+    # It is also the thing that makes the product usable at all - without it a
+    # new user trains on whatever small file they happen to have and concludes
+    # the model does not work.
+    "get_corpus.py", "test_get_corpus.py", "test_studio.py",
     # verify_claims.py re-derives the README's factual claims from the repo.
     # It has to SHIP: a claim-checker that only the author can run is a
     # promise, and the point of it is that a reader can settle the claims
