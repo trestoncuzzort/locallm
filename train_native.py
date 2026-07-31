@@ -28,8 +28,9 @@ import forge
 def build_training_prompt(tok, prompt_text: str) -> str:
     """Render the training prompt exactly as the sampler and the scorer render it.
 
-    THE SEAM THIS CLOSES (council section 62, finding 2, red witness in section
-    63). This function used to build a user-only turn. forge.Actor.generate posts
+    THE SEAM THIS CLOSES (found by an independent review pass; red witness
+    recorded in the project log). This function used to build a user-only turn.
+    forge.Actor.generate posts
     system=ACTOR_SYSTEM + user when it samples every pair, and eval.py reuses that
     same Actor when it scores. So the trainer was optimising a prompt that was
     missing a header block present at both generation and evaluation - measured at
