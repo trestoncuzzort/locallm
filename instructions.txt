@@ -13597,3 +13597,102 @@ NOT CLAIMED
     6,200 banked generations stand. The `sampler` key added to cmd_freeze in
     843557c still has not been written to data/ruler_frozen.json, which needs a
     --force re-freeze and remains the proprietor's call.
+
+--------------------------------------------------------------------------------
+90. EXECUTOR LOG  (2026-07-31 - the ruler RE-FROZEN with --force on the
+    proprietor's authorisation, and the generation slider retuned against a
+    measurement. Section number taken at the append: 89 was the tail.)
+--------------------------------------------------------------------------------
+
+================================================================================
+1. THE RULER WAS RE-FROZEN. ANNOUNCED HERE, AS build_ruler REQUIRES.
+================================================================================
+`python build_ruler.py freeze --force`, run to write the sampler pin added in
+843557c into data/ruler_frozen.json. cmd_freeze refuses to replace a frozen
+ruler without --force and its message says to say so in the channel; this is
+that.
+
+WHAT CHANGED: one key.
+
+    "sampler": {"temperature": 0.8, "confirm_n": 60}
+
+WHAT DID NOT CHANGE, checked rather than assumed. The pre-freeze file was copied
+to data/ruler_frozen.BEFORE_REFREEZE.json and compared field by field:
+
+    ruler_set_sha256 unchanged : True
+      74560a4c514587c1ab9094a15cbce960d0838759bc4b481aae2b01f637e8413d
+    all 31 task hashes match   : True  (31/31)
+    n_ruler / n_training_pool  : unchanged (31 / 43)
+    confirmed_rates            : unchanged, all 31
+    frozen_at                  : 2026-07-30T04:18:58 -> 2026-07-31T18:17:12
+
+So the RULER'S IDENTITY IS THE SAME OBJECT. That is the whole reason this was
+safe to do: ruler_set_sha256 is computed over task hashes only, and `sampler` is
+top-level provenance that no hash covers. The 40 banked replicates - 31 tasks x
+5 samples x 40 = 6,200 generations - remain replicates of the same instrument
+and were not spent.
+
+build_ruler.verify_frozen() passes on the new file, and tests/test_freeze_guard.py
+is 6/6. The freeze also printed no "ruler_noise.jsonl absent" warning, which is
+the section-84 fix behaving correctly on a real run rather than only in a
+fixture.
+
+Every rate in the frozen artifact is now interpretable without reference to any
+other file: it says which model, which band, which sampler, and which tasks.
+
+================================================================================
+2. THE "WILD" SLIDER STOP WAS PAST THE CLIFF. MEASURED, THEN MOVED.
+================================================================================
+Proprietor's report, on the trained stories model: "the write me a story actually
+works. its really wonky at wild settings and 400 words but it actually works."
+
+Both halves are correct and the second half is measurable. Counting words that
+appear NOWHERE in 20 MB of the training corpus (11,122 distinct real words), on
+the 3.18M model, samples of 700 characters:
+
+    temp 0.35  top_k  10     0.0%  invented words
+    temp 0.60  top_k  25     0.2%
+    temp 0.80  top_k  40     0.9%
+    temp 1.05  top_k  80     0.9 - 1.6%
+    temp 1.10  top_k 100     1.7%
+    temp 1.15  top_k 120     1.9%
+    temp 1.20  top_k 150     2.1%
+    temp 1.30  top_k 200     6.6 - 7.8%     <- the shipped top stop
+
+Degradation is GRADUAL to 1.20 and then TRIPLES at 1.30. That is not a matter of
+taste, it is a cliff, and the shipped slider put its last stop on the far side of
+it. Sample at 1.30, verbatim:
+
+    "the puppy needed to walk in the regular dtest. The drum bowed on too fast
+     plate becauset he found the wunny and let Sam draw some flowers. Then Sam
+     snawhered..."
+
+DECIDED: the top stop moves 1.30/200 -> 1.20/150. Still visibly loose - 2.1% is
+more than double Balanced - without the 3x jump into non-words. The five stops
+and their names are unchanged.
+
+AND THE SLIDER NOW SAYS WHAT EACH STOP COSTS. A stop labelled "Wild" tells a
+non-programmer nothing about what they will get, which is the same complaint the
+loss curve had. Each stop now shows its consequence in words - the loosest one
+reads "expect invented words and wandering sentences" - so the choice is
+informed rather than a dare. A test fails if any stop has no description, or if
+the loosest one stops warning.
+
+The percentages are NOT printed in the UI, deliberately. They belong to this
+model and this corpus and would be a stale claim on anyone else's; they live in
+a comment next to the table they justify.
+
+================================================================================
+NOT CLAIMED
+================================================================================
+  - The invented-word rate is a proxy for "wonky", not a definition of it. It
+    counts words absent from the training corpus; it says nothing about whether
+    the sentences mean anything, and at every setting this model still wanders
+    across paragraphs.
+  - Measured on ONE model (3.18M, stories corpus, 44,100 steps) with 3-4 samples
+    per setting. A larger model or a different corpus will have a different
+    cliff, and the top stop was chosen for this one.
+  - The re-freeze does NOT re-measure anything. confirmed_rate is still the
+    number cmd_confirm produced at n=60; nothing was re-run against the model.
+  - Still open and still the proprietor's: whether to run the next efficacy arm
+    now that eval.py is greedy-free on both arms.

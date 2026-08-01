@@ -157,8 +157,33 @@ STYLES = [
     ("Careful",          0.60, 25),
     ("Balanced",         0.80, 40),
     ("Adventurous",      1.05, 80),
-    ("Wild",             1.30, 200),
+    ("Wild",             1.20, 150),
 ]
+
+# What each stop actually costs, so the slider is an informed choice rather than
+# a taste knob. MEASURED on the 3.18M model trained on the stories corpus: 4
+# samples of 700 characters per setting, counting words that do not appear
+# anywhere in 20 MB of the training text.
+#
+#     temp 0.35  top_k  10    0.0% invented words
+#     temp 0.60  top_k  25    0.2%
+#     temp 0.80  top_k  40    0.9%
+#     temp 1.05  top_k  80    0.9-1.6%
+#     temp 1.20  top_k 150    2.1%
+#     temp 1.30  top_k 200    6.6-7.8%   <- the old top stop
+#
+# Degradation is gradual up to 1.20 and then triples at 1.30, which is where
+# "becauset", "wunny" and "snawhered" start appearing. The top stop was 1.30 and
+# is now 1.20: still visibly loose, without falling off the cliff. The notes
+# below are qualitative on purpose - the exact percentages belong to THIS model
+# and THIS corpus, and would be a stale claim on anyone else's.
+STYLE_NOTES = {
+    "Very predictable": "repeats itself, but always real words",
+    "Careful":          "safe and a bit dull",
+    "Balanced":         "the usual choice",
+    "Adventurous":      "livelier; an odd word here and there",
+    "Wild":             "expect invented words and wandering sentences",
+}
 
 
 def param_count(vocab: int, block: int, n_layer: int, n_head: int,
@@ -747,6 +772,11 @@ class Studio(ttk.Frame):
             row=0, column=0, sticky="ew")
         self.l_style = ttk.Label(srow, text="", width=16, foreground=self.C["muted"])
         self.l_style.grid(row=0, column=1, padx=(8, 0))
+        # Inside srow, not in `gen`: gen's row 2 already holds the length slider,
+        # and gridding on top of it would stack two widgets in one cell.
+        self.l_style_note = ttk.Label(srow, text="", foreground=self.C["faint"])
+        self.l_style_note.grid(row=1, column=0, columnspan=2, sticky="w",
+                               pady=(1, 0))
 
         ttk.Label(gen, text="How much text?").grid(
             row=2, column=0, padx=(10, 6), sticky="w", pady=(2, 8))
@@ -774,7 +804,10 @@ class Studio(ttk.Frame):
 
     # ------------------------------------------------------------- presets
     def _style_label(self):
-        self.l_style.config(text=STYLES[int(self.style_idx.get())][0])
+        name = STYLES[int(self.style_idx.get())][0]
+        self.l_style.config(text=name)
+        if hasattr(self, "l_style_note"):
+            self.l_style_note.config(text=STYLE_NOTES.get(name, ""))
 
     def _len_label(self):
         n = int(self.sample_len.get())

@@ -1,14 +1,10 @@
 {
-  "frozen_at": "2026-07-31T18:17:12",
+  "frozen_at": "2026-07-30T04:18:58",
   "model": "llama3:8b-instruct-q4_K_M",
   "band": [
     0.2,
     0.8
   ],
-  "sampler": {
-    "temperature": 0.8,
-    "confirm_n": 60
-  },
   "ruler_set_sha256": "74560a4c514587c1ab9094a15cbce960d0838759bc4b481aae2b01f637e8413d",
   "n_ruler": 31,
   "ruler": {
