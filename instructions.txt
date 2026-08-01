@@ -13474,3 +13474,126 @@ NOT CLAIMED:
   - NOT run on a machine with no GPU, a machine with too little disk, or an old
     Python. Those branches are exercised by reading, not by running, except the
     missing-torch one which is run for real under 3.14.
+
+--------------------------------------------------------------------------------
+89. EXECUTOR LOG  (2026-07-31 - the three open decisions, DECIDED, on the
+    proprietor's instruction to choose for him on efficiency grounds. Section
+    number taken at the append: 88 was the tail.)
+--------------------------------------------------------------------------------
+Efficiency read as: spend no banked data, reuse machinery already paid for, and
+fix the largest MEASURED waste before the most interesting one.
+
+================================================================================
+DECISION 1 - THE TYPING CONFOUND: VERIFIER STAYS STRICT, CONFOUND GETS MEASURED
+================================================================================
+Options were (a) leave it, (b) prepend typing imports to the harness, (c) report
+the run twice.
+
+TAKEN: (c), and (b) is REJECTED ON THE MERITS, not only on cost. Prepending
+typing imports would make ground truth MORE permissive - it would reward code
+that raises NameError on every Python before 3.14 - which is the opposite of
+what forge.py:108-114 already argues for pinning to 3.11 in the first place. It
+would also change the runtime, invalidating the receipt and costing a re-freeze.
+So the confound is not removed; it is made visible for free.
+
+eval.py now reports `aggregate` and `aggregate_if_typing_imported` side by side,
+plus `typing_nameerror_fails_total`. The gap between them IS the confound, it
+costs nothing to compute, and it keeps the two causes separable without spending
+a run to find out.
+
+A CORRECTION TO WHAT I EXPECTED. I decomposed the banked dpo_pairs first,
+assuming the 12.8% would show up there. It does not: 0 of 1,234 pairs carry a
+typing NameError (21 are other NameErrors, 1,213 other failures). Those pairs
+were built on SEED_TASKS under the OLD unpinned 3.14 verifier, where unimported
+annotations are harmless. The confound lives on the RULER path under 3.11 and
+nowhere else, so no banked artifact can decompose it - which is exactly why the
+decomposition had to go into the instrument rather than into an analysis script.
+
+================================================================================
+DECISION 2 - THE GREEDY ANCHOR: DROPPED. IT WAS AN INSTRUMENT MISMATCH.
+================================================================================
+Open since section 76, and the deciding fact was not in the argument as it had
+been framed. screen_tasks.rate() - which ADMITTED and CONFIRMED every ruler task
+- draws every sample at `temp`, with no greedy draw at all. eval.py scored those
+same tasks with 1 greedy + 4 at 0.8.
+
+So the band that defines the ruler's validity was measured under one sampler and
+checked under a different one. That is this project's own "record the
+instrument" discipline being violated inside the project, and it settles the
+question on correctness rather than on the 0.5150 vs 0.4905 estimand argument
+from section 76 C1.
+
+eval.py now draws all N_SAMPLES at TEMP. `greedy` stays in each row as None so
+old rows remain distinguishable (ruler_noise's integrity check already reads it
+as `(p.get("greedy") or 0)`, so nothing downstream breaks), and rows now carry a
+`sampler` key for the same reason they carry `verifier`.
+
+Cost: the 68 banked eval_history rows are not comparable to new ones. They
+already were not - section 76 C7 measured that 0 of 68 carry the `verifier` key,
+so they predate the interpreter pin too. Near-zero real cost.
+
+================================================================================
+DECISION 3 - DPO vs GRPO: STAY OFFLINE DPO. THE WASTE IS THE TASKS.
+================================================================================
+Section 83 F2 framed this as "you are generating GRPO groups and discarding
+most of each one". The measurement (section 86) put a number on it: 66.2% of
+task attempts emit no pair, and only 16.9% of paid-for generations reach one.
+
+BUT SWITCHING TO GRPO DOES NOT FIX THAT. The dominant loss is not failure, it is
+SUCCESS - 55.4% of attempts are tasks solved K/K. A group where every rollout is
+correct has zero advantage under GRPO too; that is precisely DAPO's stated
+motivation (arXiv 2503.14476, "a zero advantage results in no gradients"). So
+adopting an online trainer - a large change, on a 16 GB card, with an 8B model
+resident - would buy nothing against the thing actually costing the most.
+
+What DOES fix it is task difficulty, and the machinery was already built and
+paid for. A pair needs at least one pass AND one fail, so yield at K candidates
+is 1 - p^K - (1-p)^K: large near p=0.5, near zero at either edge. ruler_frozen
+.json already declares 43 tids as a training pool, admitted inside [0.2, 0.8],
+disjoint from the ruler by sha256 split, with payloads on disk.
+
+    PROJECTED from banked screen rates (mean 0.508, range 0.20-0.80): 76.6%
+    MEASURED, 12 pool tasks, K=4:  11 solved, 10 pairs = 83.3%
+                                   95% CI [62.2%, 100%] at n=12
+    BASELINE, SEED_TASKS, 284 rounds: 1,232 pairs / 3,644 attempts = 33.8%
+                                   ratio 2.46x measured, 2.27x projected
+
+forge.py now defaults to `--tasks pool` and reads it through
+build_ruler.verify_frozen(), so the freeze gate cannot be skipped on the way to
+the training half. round_stats.jsonl records `task_source`, because seed and
+pool rounds have different yields by construction and a file that mixes them
+without saying so cannot be read afterwards.
+
+THE FIRST RUN CAME BACK 0 SOLVED / 0 PAIRS ON 12 TASKS, and that is the useful
+part of this section. Tasks screened at 0.2-0.8 do not suddenly score zero, so
+the projection was not what was wrong - I was. I had rebuilt the Task objects by
+hand with `tests="\n".join(...)`, producing a body of bare asserts with no
+run_tests() at all, so every candidate failed for a harness reason. The correct
+constructor already existed: screen_tasks.as_task(), which wraps the asserts and
+binds the entry name locally because AceCode's asserts call the function by its
+own global name. One implementation, reused - the same lesson venv_guard taught
+in sections 65/67, and I re-derived it instead of importing it.
+
+The 12 bogus curriculum rows and the bogus round row that run appended were
+removed (failures.jsonl 405 -> 393, round_stats 285 -> 284, .bak kept for both).
+Left in, they would have poisoned the "train on current failures" curriculum
+with twelve tasks that were never actually hard.
+
+================================================================================
+NOT CLAIMED
+================================================================================
+  - The 83.3% is ONE round of 12 tasks. Its 95% interval is [62%, 100%]. It is
+    consistent with the 76.6% projection and clearly above the 33.8% baseline;
+    it is not a precise estimate and I am not treating it as one.
+  - NOT claiming pool tasks produce BETTER pairs, only more of them. Whether a
+    pair drawn from an in-band AceCode task trains as well as one from a
+    hand-written seed task is unmeasured.
+  - NOT claiming the typing confound is quantified. The instrument now reports
+    it; no run has been made since, so the number is still section 80's 12.8%.
+  - NOT re-running the ruler. Dropping the greedy anchor changes the eval
+    instrument, so the next efficacy run must be greedy-free on BOTH arms - and
+    no arm has been run since the change.
+  - The frozen ruler is untouched: no task field renamed, no re-freeze, the
+    6,200 banked generations stand. The `sampler` key added to cmd_freeze in
+    843557c still has not been written to data/ruler_frozen.json, which needs a
+    --force re-freeze and remains the proprietor's call.
