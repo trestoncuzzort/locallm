@@ -191,6 +191,32 @@ def test_the_slider_moves_temperature_and_topk_together():
     assert temps[0] < 0.5 and temps[-1] > 1.0
 
 
+def test_the_top_stop_stays_below_the_measured_cliff():
+    """Measured on the 3.18M stories model: invented words run 0.9-2.1% up to
+    temperature 1.20 and then TRIPLE to 6.6-7.8% at 1.30. The loosest setting
+    should be loose, not broken."""
+    assert max(t for _, t, _ in studio.STYLES) <= 1.20, \
+        "the top stop is back over the cliff measured at temp 1.30"
+
+
+def test_every_stop_says_what_it_costs():
+    """A slider stop named "Wild" tells you nothing about what you will get."""
+    for name, _, _ in studio.STYLES:
+        assert studio.STYLE_NOTES.get(name), f"{name} has no description"
+    root, s = _studio()
+    try:
+        for i, (name, _, _) in enumerate(studio.STYLES):
+            s.style_idx.set(i)
+            s._style_label()
+            assert s.l_style_note.cget("text") == studio.STYLE_NOTES[name]
+        s.style_idx.set(len(studio.STYLES) - 1)
+        s._style_label()
+        assert "invented" in s.l_style_note.cget("text").lower(), \
+            "the loosest setting does not warn that words will be made up"
+    finally:
+        root.destroy()
+
+
 def test_the_length_slider_speaks_in_words():
     root, s = _studio()
     try:
