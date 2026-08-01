@@ -28,6 +28,7 @@ benchmark artifacts.
 """
 from __future__ import annotations
 
+import ast
 import json
 import pathlib
 import re
@@ -97,10 +98,28 @@ def check_dependencies():
     allowed = stdlib_ok | local | {"torch", "tkinter"}
     third_party = set()
     for p in HERE.glob("*.py"):
-        for mod in re.findall(r"^\s*(?:import|from)\s+([a-zA-Z_][\w]*)",
-                              p.read_text(encoding="utf-8"), re.M):
-            if mod not in allowed:
-                third_party.add(f"{mod} ({p.name})")
+        # PARSED, not pattern-matched. The regex version read any line beginning
+        # "import x" or "from x", including inside docstrings and comments, and
+        # a sentence that happened to start "from someone else's machine" was
+        # reported as a third-party dependency called `someone`. That is the
+        # second time a scanner here has tripped over English prose about code
+        # (the network check did it first), so this one is fixed by asking
+        # Python what the imports ARE instead of guessing from text.
+        try:
+            tree = ast.parse(p.read_text(encoding="utf-8"))
+        except SyntaxError:
+            third_party.add(f"UNPARSEABLE ({p.name})")
+            continue
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                mods = [a.name.split(".")[0] for a in node.names]
+            elif isinstance(node, ast.ImportFrom):
+                mods = [(node.module or "").split(".")[0]] if node.level == 0 else []
+            else:
+                continue
+            for mod in mods:
+                if mod and mod not in allowed:
+                    third_party.add(f"{mod} ({p.name})")
     check("dependencies really are torch + Tk + stdlib", not third_party,
           f"unexpected imports: {sorted(third_party)}" if third_party else "")
 

@@ -57,6 +57,12 @@ PUBLISH = [
     # new user trains on whatever small file they happen to have and concludes
     # the model does not work.
     "get_corpus.py", "test_get_corpus.py", "test_studio.py",
+    # The install check. It is the first thing a new user should run: it is the
+    # only file that can say "torch is missing, here is the command" instead of
+    # dying with a traceback, and it produces bench_device_result.json, without
+    # which the studio's size presets honestly refuse to estimate a time.
+    "check_my_computer.py", "test_check_my_computer.py",
+    "Check My Computer.bat",
     # verify_claims.py re-derives the README's factual claims from the repo.
     # It has to SHIP: a claim-checker that only the author can run is a
     # promise, and the point of it is that a reader can settle the claims

@@ -3,48 +3,49 @@
   "gpu": "NVIDIA GeForce RTX 4080",
   "torch": "2.5.1+cu121",
   "full_run_steps": 2000,
+  "measured_by": "check_my_computer.py (synthetic text, short runs)",
   "results": {
     "cpu/small": {
-      "params": 409216,
-      "ms_per_step": 31.37,
-      "tokens_per_s": 130579,
-      "full_2000_step_s": 62.7,
-      "measured_over_steps": 25
+      "params": 400896,
+      "ms_per_step": 30.11,
+      "tokens_per_s": 136033,
+      "full_2000_step_s": 60.2,
+      "measured_over_steps": 8
     },
     "cpu/default": {
-      "params": 3184384,
-      "ms_per_step": 162.09,
-      "tokens_per_s": 25270,
-      "full_2000_step_s": 324.2,
-      "measured_over_steps": 25
+      "params": 3167744,
+      "ms_per_step": 164.14,
+      "tokens_per_s": 24955,
+      "full_2000_step_s": 328.3,
+      "measured_over_steps": 8
     },
     "cpu/large": {
-      "params": 18964992,
-      "ms_per_step": 1705.54,
-      "tokens_per_s": 4803,
-      "full_2000_step_s": 3411.1,
-      "measured_over_steps": 25
+      "params": 18931712,
+      "ms_per_step": 1894.44,
+      "tokens_per_s": 4324,
+      "full_2000_step_s": 3788.9,
+      "measured_over_steps": 8
     },
     "cuda/small": {
-      "params": 409216,
-      "ms_per_step": 4.21,
-      "tokens_per_s": 972028,
-      "full_2000_step_s": 8.4,
-      "measured_over_steps": 200
+      "params": 400896,
+      "ms_per_step": 3.95,
+      "tokens_per_s": 1036645,
+      "full_2000_step_s": 7.9,
+      "measured_over_steps": 40
     },
     "cuda/default": {
-      "params": 3184384,
-      "ms_per_step": 6.81,
-      "tokens_per_s": 601079,
-      "full_2000_step_s": 13.6,
-      "measured_over_steps": 200
+      "params": 3167744,
+      "ms_per_step": 6.61,
+      "tokens_per_s": 619307,
+      "full_2000_step_s": 13.2,
+      "measured_over_steps": 40
     },
     "cuda/large": {
-      "params": 18964992,
-      "ms_per_step": 20.08,
-      "tokens_per_s": 407908,
-      "full_2000_step_s": 40.2,
-      "measured_over_steps": 200
+      "params": 18931712,
+      "ms_per_step": 19.66,
+      "tokens_per_s": 416668,
+      "full_2000_step_s": 39.3,
+      "measured_over_steps": 40
     }
   }
 }

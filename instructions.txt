@@ -13378,3 +13378,99 @@ NOT CLAIMED
     bench_device.py already measures this machine and the GUI already degrades
     honestly when its result file is missing, so the remaining work is running
     it at install time and nothing else. Open.
+
+--------------------------------------------------------------------------------
+88. EXECUTOR LOG  (2026-07-31 - TRACK B: the install-time hardware check, the
+    last item the proprietor named. Section number taken at the append: 87 was
+    the tail. Published as 42a92fb.)
+--------------------------------------------------------------------------------
+check_my_computer.py. Run it once after installing; it checks what you have,
+times a real training step on it, and says in plain words what you can train.
+
+WHY IT IS NOT JUST bench_device.py, which already times this machine. Two things
+only appear at INSTALL time, and both make that file the wrong tool:
+
+  1. bench_device.py does `import torch` at module scope. On the one machine
+     that most needs a clear answer - the one where torch is not installed - it
+     dies with a traceback instead of saying which command to run.
+  2. bench_device.py times against corpus.txt, and a fresh install has no
+     corpus. Timing does not depend on what the text SAYS, only on tensor
+     shapes, so the check builds a small synthetic text and says so in the file
+     it writes ("measured_by": "check_my_computer.py (synthetic text, short
+     runs)").
+
+The timing itself is bench_device.time_steps, IMPORTED not copied, and a test
+fails if the training step is ever pasted in instead. Two implementations of
+"how fast is a step" would drift, and this repo has paid for a duplicated helper
+twice already.
+
+It writes the same schema and the same keys bench_device.py writes, because
+studio.load_speeds() reads that file to turn its size presets into real minutes.
+A second schema would be a second thing to keep in step.
+
+RUN, on this machine:
+    [ok]  Python 3.11.9
+    [ok]  Graphical window support (Tk)
+    [ok]  Memory 16 GB
+    [ok]  Free disk space 206 GB
+    [ok]  PyTorch 2.5.1+cu121
+    [ok]  Graphics card NVIDIA GeForce RTX 4080   17.2 GB
+
+    Small    0.40M numbers    5 minutes of training = 75,949 practice steps
+    Medium   3.17M numbers    5 minutes of training = 45,385 practice steps
+    Large   18.93M numbers    5 minutes of training = 15,259 practice steps
+    Small   your graphics card is 8x faster than your processor
+    Medium  your graphics card is 25x faster than your processor
+    Large   your graphics card is 96x faster than your processor
+
+45,385 steps for five minutes of Medium against the 44,100 the full benchmark
+implies - a 3% difference from measuring over 40 steps instead of 200, which is
+the honest cost of a check someone is waiting on and is why measured_over_steps
+is recorded next to every number.
+
+AND THE PATH THAT MATTERS, run under system Python 3.14, which has no torch:
+    [!!]  PyTorch   not installed
+    CANNOT TRAIN YET
+    PyTorch is what actually does the training. Install it with:
+        pip install torch
+Exit code 1, no traceback. That is the entire reason this file exists separately.
+
+================================================================================
+A SCANNER TRIPPED OVER PROSE ABOUT ITSELF. SECOND TIME. FIXED AS A CLASS.
+================================================================================
+verify_claims.py's dependency check reported a third-party dependency called
+`someone`. The cause: it matched `^\s*(?:import|from)\s+(\w+)` against raw file
+text, and check_my_computer.py's docstring contains a line beginning "from
+someone else's machine".
+
+This is the SECOND time a scanner in this file has fired on English prose about
+code - check_nothing_phones_home did it first, and its own comment records the
+lesson ("the fix is a more precise pattern, not an exemption for the scanner").
+A more precise regex would have been the third instance waiting to happen, so
+the dependency check now PARSES the file with `ast` and collects real Import and
+ImportFrom nodes. Text inside a docstring cannot be an import node, so the class
+is closed rather than the instance patched.
+
+My own test made the same mistake in the same hour: test_torch_is_imported_late
+searched for the substring "import torch" before main() and fired on the
+docstring explaining why torch is imported late. Fixed the same way - match a
+statement, not the words.
+
+================================================================================
+PUBLISHED
+================================================================================
+Whitelisted and pushed as 42a92fb. 19/19 README claims verified. The README now
+tells a new user to run Check My Computer first, and points at get_corpus.py for
+text worth training on.
+
+NOT CLAIMED:
+  - NOT claiming the numbers are right on any machine but this one. Everything
+    above is measured here; the point of the tool is that it re-measures there.
+  - NOT claiming the checks are complete. It looks at Python version, Tk,
+    memory, free disk, torch and CUDA. It does not check driver versions, disk
+    SPEED, thermal throttling, or whether an integrated GPU would be used.
+  - Memory is read through the Windows API and reports nothing on other systems
+    rather than guessing.
+  - NOT run on a machine with no GPU, a machine with too little disk, or an old
+    Python. Those branches are exercised by reading, not by running, except the
+    missing-torch one which is run for real under 3.14.
