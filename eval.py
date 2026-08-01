@@ -27,6 +27,7 @@ Run:  python eval.py                       # scores forge.MODEL_NAME
 from __future__ import annotations
 
 import json
+import re
 import math
 import sys
 import time
@@ -35,7 +36,27 @@ from pathlib import Path
 import forge  # reuse Task, Actor, verify, extract_code, ACTOR_SYSTEM
 
 N_SAMPLES = 5          # completions per task; must be >= max k reported
-TEMP = 0.8             # sampling temperature for the non-greedy draws
+TEMP = 0.8             # every draw is taken at this temperature (no greedy anchor)
+
+# Names that come from `typing` and are commonly annotated without being
+# imported. Under PEP 649/749 that is harmless on 3.14 and a NameError at
+# definition time on 3.11, which is the interpreter the verifier is pinned to.
+# A fixed list, not a general "is this a typing name" test: it covers the names
+# that actually appeared, and a name outside it is simply counted as an ordinary
+# failure rather than silently forgiven.
+TYPING_NAMES = {
+    "List", "Dict", "Tuple", "Set", "FrozenSet", "Optional", "Union", "Any",
+    "Callable", "Iterable", "Iterator", "Sequence", "Mapping", "MutableMapping",
+    "Deque", "DefaultDict", "Counter", "Type", "Generator", "Awaitable",
+    "Coroutine", "Literal", "TypeVar", "NamedTuple", "TypedDict",
+}
+_NAMEERROR = re.compile(r"NameError: name '(\w+)' is not defined")
+
+
+def is_typing_nameerror(error: str) -> bool:
+    """Did this failure come from an un-imported typing name, and nothing else?"""
+    m = _NAMEERROR.search(error or "")
+    return bool(m and m.group(1) in TYPING_NAMES)
 KS = (1, 3)            # report pass@1 and pass@3
 OUT = Path(__file__).with_name("data")
 
@@ -215,29 +236,42 @@ def evaluate(model_tag: str, tasks: list[forge.Task] | None = None,
     # data instead of argued about. Additive only: the sampling, its order, its
     # temperatures and the scoring are untouched, and `correct` must still equal
     # greedy + sum(sampled) -- which the analysis asserts rather than trusts.
+    # THE GREEDY ANCHOR IS GONE. Decided on the instrument, not on the band.
+    # The ruler was ADMITTED and CONFIRMED by screen_tasks.rate(), which draws
+    # every sample at `temp` with no greedy draw at all. Scoring it here with
+    # 1 greedy + 4 sampled meant the band that defines the ruler's validity was
+    # measured under one sampler and checked under a different one - the exact
+    # "record the instrument" discipline this project built, violated inside it.
+    # Sampling purely at TEMP makes the two agree, and makes every per-task rate
+    # a clean Bernoulli p_i, which is what the Wilson intervals, the replicate
+    # count and the MDE table all already assume.
+    #
+    # `greedy` stays in the row as None so old rows remain distinguishable from
+    # new ones; ruler_noise's integrity check already reads it as
+    # (p.get("greedy") or 0), so all draws simply live in `sampled` now.
     per_task = []
     for t in tasks:
-        c = scored = errors = 0
+        c = scored = errors = typing_fails = 0
         greedy: int | None = None
         sampled: list[int] = []
-        for i in range(N_SAMPLES):
-            temp = 0.0 if i == 0 else TEMP  # one greedy anchor + diverse rest
+        for _ in range(N_SAMPLES):
             try:
-                raw = actor.generate(t.prompt, forge.ACTOR_SYSTEM, temp)
+                raw = actor.generate(t.prompt, forge.ACTOR_SYSTEM, TEMP)
             except Exception as e:  # noqa: BLE001
                 errors += 1
                 print(f"  [{t.tid}] gen error: {e}")
                 continue
             scored += 1
-            ok = 1 if forge.verify(forge.extract_code(raw), t).ok else 0
+            res = forge.verify(forge.extract_code(raw), t)
+            ok = 1 if res.ok else 0
             c += ok
-            if i == 0:
-                greedy = ok
-            else:
-                sampled.append(ok)
+            if not res.ok and is_typing_nameerror(res.error):
+                typing_fails += 1
+            sampled.append(ok)
         per_task.append({"tid": t.tid, "correct": c, "n": scored,
                          "requested": N_SAMPLES, "gen_errors": errors,
-                         "greedy": greedy, "sampled": sampled})
+                         "greedy": greedy, "sampled": sampled,
+                         "typing_nameerror_fails": typing_fails})
         marks = "".join("#" if j < c else "." for j in range(scored))
         flag = f"  [{errors} gen error(s), not scored]" if errors else ""
         print(f"  {t.tid:14} {marks} {c}/{scored}{flag}")
@@ -245,11 +279,30 @@ def evaluate(model_tag: str, tasks: list[forge.Task] | None = None,
 
     # pass@k is undefined when fewer than k samples were actually scored, so those
     # tasks drop out of that k rather than being counted as failures.
-    agg, coverage = {}, {}
+    agg, coverage, agg_no_typing = {}, {}, {}
     for k in KS:
         usable = [p for p in per_task if p["n"] >= k]
         agg[f"pass@{k}"] = round(
             sum(pass_at_k(p["n"], p["correct"], k) for p in usable) / len(usable), 4
+        ) if usable else None
+        # THE SAME RUN, REPORTED TWICE. The verifier is pinned to .venv-train
+        # 3.11, where `def f(x: List[int])` with no `from typing import List`
+        # raises NameError at definition time; on 3.14 it is harmless. Section 80
+        # measured that at 12.8% of ruler failures and the choice of what to do
+        # about it was left open.
+        #
+        # DECIDED: the verifier stays strict. Prepending typing imports to the
+        # harness would make ground truth MORE permissive - rewarding code that
+        # is broken on every Python before 3.14 - and it would change the runtime,
+        # which invalidates the receipt and costs a re-freeze. So the confound is
+        # not removed, it is MEASURED: this second number is the pass rate if
+        # unimported-typing failures were not counted as failures. It is an UPPER
+        # BOUND on what the strict verifier costs, it is free to compute, and it
+        # keeps the two causes separable without spending a run to find out.
+        agg_no_typing[f"pass@{k}"] = round(
+            sum(pass_at_k(p["n"], min(p["correct"] + p.get("typing_nameerror_fails", 0),
+                                      p["n"]), k)
+                for p in usable) / len(usable), 4
         ) if usable else None
         coverage[f"pass@{k}"] = {"tasks_scored": len(usable), "tasks_total": len(per_task)}
 
@@ -259,6 +312,12 @@ def evaluate(model_tag: str, tasks: list[forge.Task] | None = None,
         "task_set": task_set,
         "n_samples": N_SAMPLES,
         "temp": TEMP,
+        # WHICH SAMPLER produced these rates. A row without this key was scored
+        # with the old 1-greedy + 4-sampled instrument and is not comparable to
+        # one scored purely at TEMP, for the same reason a row without
+        # `verifier` is not comparable across the interpreter pin.
+        "sampler": {"greedy_anchor": False, "temperature": TEMP,
+                    "draws_per_task": N_SAMPLES},
         # WHICH PYTHON DECIDED "correct". Recorded because it used to be
         # inherited from the launching script, so rows written by guarded and
         # unguarded callers were scored against different ground truth (section
@@ -266,6 +325,11 @@ def evaluate(model_tag: str, tasks: list[forge.Task] | None = None,
         "verifier": forge.verifier_interpreter(),
         "n_tasks": len(tasks),
         "aggregate": agg,
+        # Upper bound: the same run with unimported-typing NameErrors not counted
+        # as failures. The gap between this and `aggregate` IS the confound.
+        "aggregate_if_typing_imported": agg_no_typing,
+        "typing_nameerror_fails_total": sum(
+            p.get("typing_nameerror_fails", 0) for p in per_task),
         "coverage": coverage,
         "gen_errors_total": sum(p["gen_errors"] for p in per_task),
         "per_task": per_task,
