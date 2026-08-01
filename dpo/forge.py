@@ -629,7 +629,15 @@ def run_task(actor: Actor, task: Task) -> tuple[dict | None, dict | None, bool]:
     return pair, None, True
 
 
-def main(tasks: list[Task]) -> None:
+def main(tasks: list[Task], source: str = "unspecified") -> None:
+    """`source` names WHICH task bank these rounds drew from.
+
+    round_stats.jsonl is the file the pair-yield numbers are computed from, and
+    seed tasks and band-screened pool tasks have very different yields by
+    construction (33.8% measured vs 76.6% expected). Appending both without
+    saying which is which would make the file's own history uninterpretable -
+    the same mistake as an eval row that does not record its sampler.
+    """
     OUT_DIR.mkdir(exist_ok=True)
     dpo_path = OUT_DIR / "dpo_pairs.jsonl"
     fail_path = OUT_DIR / "failures.jsonl"
@@ -698,6 +706,7 @@ def main(tasks: list[Task]) -> None:
     summary = {
         "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
         "model": MODEL_NAME,
+        "task_source": source,
         "tasks": stats.tasks,
         "solved": stats.solved,
         "pairs": stats.pairs,
@@ -717,5 +726,90 @@ def main(tasks: list[Task]) -> None:
     print(f"Round log : {OUT_DIR / 'round_stats.jsonl'}")
 
 
+def training_pool_tasks() -> list[Task]:
+    """The band-screened prompts the frozen ruler reserves for training.
+
+    WHY THIS EXISTS, and it is an efficiency decision made on a measured number.
+    Running on SEED_TASKS, 284 banked rounds produced a preference pair on 33.8%
+    of task attempts. The dominant loss is not failure - it is SUCCESS: 55.4% of
+    attempts were tasks the model already solves K/K, which have no failing
+    candidate to pair against and therefore no gradient (the condition DAPO's
+    dynamic sampling exists to avoid, arXiv 2503.14476).
+
+    A pair needs at least one pass AND at least one fail, so the yield at K
+    candidates is 1 - p^K - (1-p)^K, maximised at p = 0.5 and near zero at either
+    edge. The 43 tids in ruler_frozen.json's training_pool were admitted with a
+    base pass rate inside [0.2, 0.8] - which is exactly the region where that
+    expression is large. From their banked screen rates:
+
+        mean screen pass rate          0.508   (range 0.20 - 0.80)
+        expected pair yield at K=4     76.6%
+        measured yield on SEED_TASKS   33.8%
+                                       2.27x more pairs per generation
+
+    Nothing here is new machinery. These tasks were screened, their payloads are
+    stored, and the frozen ruler already declares them disjoint from the ruler
+    and reserved for exactly this. The efficient move was to use what was already
+    paid for rather than to change the training algorithm.
+
+    THE GATE IS NOT OPTIONAL. The pool is read through build_ruler.verify_frozen(),
+    which re-hashes every ruler task from its stored payload and raises if the
+    ruler on disk is not the ruler that was frozen. Drawing training prompts from
+    a file whose ruler half has been edited is how a held-out set stops being
+    held out, so the check runs even though only the training half is used here.
+    """
+    # Local imports: both modules import forge, so importing them at module
+    # scope would cycle.
+    import build_ruler
+    import screen_tasks
+
+    spec = build_ruler.verify_frozen()
+    wanted = set(spec["training_pool"])
+    ruler = set(spec["ruler"])
+
+    payloads = {}
+    for line in build_ruler.SCREEN.open(encoding="utf-8"):
+        r = json.loads(line)
+        if r["tid"] in wanted and r.get("task"):
+            payloads[r["tid"]] = r["task"]
+
+    missing = sorted(wanted - payloads.keys())
+    if missing:
+        raise SystemExit(
+            f"{len(missing)} training-pool tids have no stored payload "
+            f"(e.g. {missing[:3]}). The pool cannot be rebuilt from disk.")
+
+    # screen_tasks.as_task, NOT a Task() built here. AceCode's asserts call the
+    # function by its own global name while this harness passes the entry point
+    # into run_tests(_f), so the payload's test lines have to be wrapped and the
+    # name bound locally. Building the Task by hand instead produced a `tests`
+    # body of bare asserts with no run_tests at all, and the first real run came
+    # back 0 solved / 0 pairs on 12 tasks screened at 0.2-0.8 - every candidate
+    # failing for a harness reason rather than a wrong answer. One constructor,
+    # reused.
+    tasks = [screen_tasks.as_task(payloads[tid]) for tid in sorted(payloads)]
+    # Belt and braces: the frozen file says these sides are disjoint, and this
+    # is the one place that would quietly turn the ruler into training data.
+    overlap = {t.tid for t in tasks} & ruler
+    if overlap:
+        raise SystemExit(f"training pool overlaps the RULER on {sorted(overlap)}")
+    return tasks
+
+
 if __name__ == "__main__":
-    main(SEED_TASKS)
+    import argparse
+
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--tasks", choices=("pool", "seed"), default="pool",
+                    help="'pool' = the band-screened training pool (default, "
+                         "~2.3x the pair yield); 'seed' = the 13 hand-written "
+                         "SEED_TASKS, which the model mostly already solves")
+    ap.add_argument("--limit", type=int, default=0,
+                    help="use only the first N tasks (0 = all)")
+    args = ap.parse_args()
+
+    chosen = SEED_TASKS if args.tasks == "seed" else training_pool_tasks()
+    if args.limit:
+        chosen = chosen[:args.limit]
+    print(f"task source: {args.tasks} ({len(chosen)} tasks)\n")
+    main(chosen, source=args.tasks)
