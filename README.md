@@ -46,6 +46,7 @@ A small, readable, from-scratch GPT and a GUI so you don't need a terminal to us
 | `studio.py` | The GUI. Pick a size and a practice length from presets, train, watch how many characters it is still choosing between, and write something with it. Advanced settings hold every original knob. |
 | `leakage.py` | Finds training text hiding in your validation set, and says so. |
 | `bench_device.py` | Times a real training step on your hardware and tells you what it can handle. |
+| `check_my_computer.py` | Run this first. Checks Python, Tk, memory, disk and graphics card, times a real training step, and says in plain words what you can train and how long it takes. Writes the file the studio reads to show real minutes instead of "not timed yet". |
 | `test_detectors.py` | Tests for the leakage detector. `python test_detectors.py`, no framework. |
 | `runlog.py` | Append only record of every run. `python runlog.py` to see them all. |
 | `start_studio.py` | Double click entry point: rebuilds the corpus from your files, opens the studio. |
@@ -68,6 +69,16 @@ character-level model.
 
 On Windows, double click `Train My AI.bat` instead, or make a desktop shortcut to it, and
 you never need a terminal at all.
+
+**Run `Check My Computer` first.** It takes about a minute, checks that everything it
+needs is installed, times a real training step on your hardware, and tells you what you
+can train and how long it will take — measured here, not copied from someone else's
+machine. Until you do, the studio will not guess at times; it will say so.
+
+Have no text of your own, or want output that actually reads like English?
+`python get_corpus.py stories` downloads simple short stories written for exactly this
+size of model. On a 3M-parameter model that is the difference between word salad and
+*"Once upon a time, there was a little boy named Timmy."*
 
 The longer form, if you want the pieces separately:
 

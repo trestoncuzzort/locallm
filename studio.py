@@ -818,9 +818,10 @@ class Studio(ttk.Frame):
         else:
             steps = 2000
             self.l_time.config(
-                text=f"{steps:,} practice steps. This machine has not been timed "
-                     f"yet, so there is no honest estimate of how long that takes — "
-                     f"run bench_device.py to get one.")
+                text=f"{steps:,} practice steps. This computer has not been timed "
+                     f"yet, so there is no honest estimate of how long that takes. "
+                     f"Run “Check My Computer” once and this will show real "
+                     f"minutes.")
         self.v_steps.set(str(steps))
         self.v_eval.set(str(max(10, steps // 25)))
 
