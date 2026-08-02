@@ -31,13 +31,81 @@ from pathlib import Path
 
 import dataset_gate
 import forge
+import screen_tasks
 
 DATA = forge.OUT_DIR
 # dpo_pairs_capped.jsonl is the run-1 training input (build_training_set.py).
 FILES = {"dpo_pairs.jsonl": "forge",
          "dpo_pairs_capped.jsonl": "train",
          "repair_pairs.jsonl": "repair"}
-TASKS = {t.tid: t for t in forge.SEED_TASKS}
+
+
+def load_tasks() -> dict[str, forge.Task]:
+    """Every task a pair in these files could name — seed tasks AND screened ones.
+
+    THE BUG THIS CLOSES (section 91). `TASKS` was `{t.tid: t for t in
+    forge.SEED_TASKS}`, so the gate could only verify pairs drawn from the
+    hand-written seed tasks. Section 89 measured pair yield on the AceCode
+    TRAINING POOL and appended its 10 `ace_oss_*` pairs to dpo_pairs.jsonl, and
+    from that commit on the file was UNVERIFIABLE: every one of those pairs came
+    back `no_matching_task`, and re-running the gate could not clear it because
+    the definitions were never in the lookup. The gate correctly refused the
+    `--uncapped` training path, but its remediation line said "re-run
+    verify_dataset.py", which reproduced the same 10 violations forever.
+
+    The pool is not an edge case. Section 89's own finding is that pool tasks
+    yield 2.46x more pairs per generation than SEED_TASKS, i.e. they are meant to
+    become the MAIN source of pairs — a verifier that cannot see them is a hole
+    that reopens on the next generation run, not a one-off.
+
+    WHERE THE DEFINITIONS LIVE: data/screen_results.jsonl carries the full task
+    payload (tid / entry / prompt / tests) for every screened candidate.
+    data/ruler_frozen.json does NOT — it stores hashes plus a `training_pool`
+    list of bare tid strings, by design, so it cannot be the source here.
+
+    The harness is built by screen_tasks.as_task(), the same function that built
+    these tasks when they were screened and confirmed. Rebuilding it here would
+    be a second implementation of the entry-point binding, and two of those agree
+    only with each other.
+    """
+    tasks: dict[str, forge.Task] = {t.tid: t for t in forge.SEED_TASKS}
+    seeded = set(tasks)
+
+    payloads: dict[str, dict] = {}
+    path = DATA / "screen_results.jsonl"
+    if path.exists():
+        with open(path, encoding="utf-8") as fh:
+            for i, line in enumerate(fh):
+                line = line.strip()
+                if not line:
+                    continue
+                rec = json.loads(line)
+                payload = rec.get("task")
+                if not payload or "tid" not in payload:
+                    continue
+                tid = payload["tid"]
+                # A tid re-screened with DIFFERENT bytes would make "verified"
+                # depend on which row won the loop. Refuse rather than pick.
+                prev = payloads.get(tid)
+                if prev is not None and prev != payload:
+                    raise SystemExit(
+                        f"GATE: {path.name}:{i} redefines task {tid} with "
+                        f"different bytes than an earlier row. Verification "
+                        f"would depend on row order; refusing to guess.")
+                payloads[tid] = payload
+
+    for tid, payload in payloads.items():
+        # A screened tid shadowing a seed tid would silently swap the tests a
+        # pair is judged against. Neither precedence is safe, so neither is taken.
+        if tid in seeded:
+            raise SystemExit(
+                f"GATE: task id {tid} is defined BOTH in forge.SEED_TASKS and "
+                f"in {path.name}. One pair, two possible test suites; refusing.")
+        tasks[tid] = screen_tasks.as_task(payload)
+    return tasks
+
+
+TASKS = load_tasks()
 
 
 def signature(d: dict) -> str:

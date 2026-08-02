@@ -1,7 +1,7 @@
 {
-  "schema": 4,
-  "total_pairs": 1269,
-  "total_rows_across_files": 2190,
+  "schema": 5,
+  "total_pairs": 1279,
+  "total_rows_across_files": 2200,
   "violations": 0,
   "violation_detail": [],
   "per_tid": {
@@ -56,12 +56,52 @@
     "roman": {
       "n": 5,
       "bad": 0
+    },
+    "ace_oss_11981": {
+      "n": 1,
+      "bad": 0
+    },
+    "ace_oss_1282": {
+      "n": 1,
+      "bad": 0
+    },
+    "ace_oss_1286": {
+      "n": 1,
+      "bad": 0
+    },
+    "ace_oss_1346": {
+      "n": 1,
+      "bad": 0
+    },
+    "ace_oss_1382": {
+      "n": 1,
+      "bad": 0
+    },
+    "ace_oss_1794": {
+      "n": 1,
+      "bad": 0
+    },
+    "ace_oss_19275": {
+      "n": 1,
+      "bad": 0
+    },
+    "ace_oss_2064": {
+      "n": 1,
+      "bad": 0
+    },
+    "ace_oss_20873": {
+      "n": 1,
+      "bad": 0
+    },
+    "ace_oss_21397": {
+      "n": 1,
+      "bad": 0
     }
   },
   "files": {
     "dpo_pairs.jsonl": {
-      "sha256": "ff78db763a773336c16ccfec23f3d4a68ab132a9723b0874f5cf5f3ca30811a5",
-      "pairs": 1234,
+      "sha256": "45440e7dfb2d89926b0d16437c697a409f07ad5a562ba6cff42048133ca5ac9d",
+      "pairs": 1244,
       "violations": 0
     },
     "dpo_pairs_capped.jsonl": {
@@ -76,7 +116,9 @@
     }
   },
   "verifier": {
-    "forge.py": "823c6c9a2f00f97080d0d48d5dbbd7e4eacd2a7acf89fda56f5f5910ea9896f1",
+    "forge.py": "cb263e9e2351646f890b1c9cc05a265a35126cfb26277cbc73c992e73b3dea7a",
+    "screen_tasks.py": "2e9b49fab641d4b004dc69f9c2c5ea5f7d6fa2daaba6537ba5dda50e870cbc3d",
+    "data/screen_results.jsonl": "cd83ba8a53f5d43e244e4b91c81127baf133b4ab994ea2c8c7a5fd81e0cf53bc",
     "interpreter": "python 3.11.9"
   },
   "known_hard": [],
