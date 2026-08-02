@@ -1,4 +1,4 @@
-// Bootstrap.cs - source for "Install Train My AI.exe".
+// Bootstrap.cs - source for "Install locallm.exe".
 //
 // WHAT IT IS. The single file a new user downloads. It fetches the app from
 // GitHub, finds a Python, and hands over to install.py, which does the
@@ -26,7 +26,11 @@ class Bootstrap
 {
     const string ZipUrl =
         "https://github.com/jonhhjackson-a11y/locallm/archive/refs/heads/main.zip";
-    const string AppFolderName = "Train My AI";
+    // Matches the project name, so the installed folder is recognisable as the
+    // thing that was downloaded. The Desktop shortcut is still called
+    // "Train My AI" -- that is the friendly name of the thing you double-click
+    // to RUN, and it is the name of the launcher file that ships in the repo.
+    const string AppFolderName = "locallm";
 
     static void Say(string s) { Console.WriteLine(s); }
 
@@ -83,7 +87,7 @@ class Bootstrap
     static int Main(string[] argv)
     {
         Say("====================================================================");
-        Say("  TRAIN MY AI - INSTALLER");
+        Say("  LOCALLM - INSTALLER");
         Say("====================================================================");
         Say("");
 

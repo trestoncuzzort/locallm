@@ -4,7 +4,7 @@
 
 No pretrained weights. No API. No account. Nothing leaves your computer.
 
-You can optionally **download plain text to train on** (`get_corpus.py`) — never weights.
+You can optionally **download plain text to train on** (`get_corpus.py`), never weights.
 The model is always built from random numbers on your machine; what you download is
 something to read, not something that already knows how to write.
 
@@ -21,12 +21,15 @@ python studio.py
 > models today and the results below are real, but interfaces will change, features are
 > missing, and the limits section further down is not modesty. It is accurate.
 >
-> **Where this is going: a single all in one `.exe` installer. Double click, point it at
-> your text, train. No terminal, no Python install, no `pip`, no command line, ever.**
+> **There is now a one-click installer.** Download `Install locallm.exe` from the
+> [latest release](../../releases), run it, and it fetches the app, works out what your
+> graphics card can do, installs the matching build of PyTorch and puts a shortcut on
+> your Desktop. No `pip`, no virtualenv, no command line.
 >
-> The commands in Quick Start are the *current* state, not the destination. Right now you
-> do need Python and a terminal to get started. Removing that requirement entirely is a
-> primary goal, not a nice to have. See [Roadmap](#roadmap).
+> **One requirement is not gone yet: you still need Python installed** (3.10 or newer,
+> and not the very newest, see below). The installer checks, and tells you exactly what
+> to get if it is missing. Bundling the Python runtime so that step disappears too is
+> still the goal. See [Roadmap](#roadmap).
 
 ---
 
@@ -42,7 +45,7 @@ A small, readable, from-scratch GPT and a GUI so you don't need a terminal to us
 | `generate.py` | Sample from a model you trained. |
 | `checkpoint.py` | Loads a saved model back off disk and samples from it. One implementation, shared by `generate.py` and the GUI so they cannot drift apart. |
 | `make_corpus.py` | Point it at a folder; it builds `corpus.txt` from your files. Accepts any file whose **content** is text, refuses binaries by their bytes, and warns when your vocabulary gets expensive. |
-| `get_corpus.py` | Downloads text worth training a small model on — simple stories, or public-domain books. Text only; weights are never downloaded. The one file here that opens a network connection. |
+| `get_corpus.py` | Downloads text worth training a small model on: simple stories, or public-domain books. Text only; weights are never downloaded. The one file here that opens a network connection. |
 | `studio.py` | The GUI. Pick a size and a practice length from presets, train, watch how many characters it is still choosing between, and write something with it. Advanced settings hold every original knob. |
 | `leakage.py` | Finds training text hiding in your validation set, and says so. |
 | `bench_device.py` | Times a real training step on your hardware and tells you what it can handle. |
@@ -56,14 +59,39 @@ A small, readable, from-scratch GPT and a GUI so you don't need a terminal to us
 
 Dependencies: **PyTorch and Tk.** That's it. Tk ships with Python.
 
+## Install
+
+**The easy way.** Download `Install locallm.exe` from the
+[latest release](../../releases) and run it. It downloads the app to
+`C:\Users\<you>\locallm`, picks the right PyTorch for your machine, checks the
+result, and adds a Desktop shortcut called **Train My AI**. It needs no administrator rights and writes
+nothing outside that folder and the shortcut.
+
+**Already have the files?** Run `INSTALL.bat` in this folder. It does the same setup
+without the download step.
+
+**What "picks the right PyTorch" means.** It asks `nvidia-smi` whether you have an
+NVIDIA card and installs the CUDA build if you do and the processor-only build if you
+don't. Both train; the CPU one is slower (there is a measured table in
+[Roadmap](#roadmap)).
+
+**About your Python version.** PyTorch does not publish a build for the newest Python
+for some months after it comes out, so the newest Python is usually the one version
+that cannot work. The installer does not guess at this: it looks at every Python on
+your computer, asks PyTorch's own package index which of them it supports, and uses
+the newest that works. If none do, it says so and tells you what to install rather
+than failing part-way through with a wall of red text.
+
+Undoing all of it is deleting the folder and the shortcut.
+
 ## Quick start
 
-Put **any text files you have** in `training_data/` — `.txt`, `.md`, `.py`, but also
-`.csv`, `.jsonl`, `.log`, `.tsv`, `.yaml`, `.sql`, or files with no extension at all —
+Put **any text files you have** in `training_data/`: `.txt`, `.md`, `.py`, but also
+`.csv`, `.jsonl`, `.log`, `.tsv`, `.yaml`, `.sql`, or files with no extension at all,
 then run `python start_studio.py`. It rebuilds the corpus and opens the studio.
 
 Files are accepted on **content, not extension**: anything whose bytes are text gets
-in, anything binary is refused and says so. That is deliberate — the point is to train
+in, anything binary is refused and says so. That is deliberate. The point is to train
 on the data you actually have, not on the three file types this project happened to
 guess. Machine logs, sensor exports and query dumps are all just text to a
 character-level model.
@@ -73,7 +101,7 @@ you never need a terminal at all.
 
 **Run `Check My Computer` first.** It takes about a minute, checks that everything it
 needs is installed, times a real training step on your hardware, and tells you what you
-can train and how long it will take — measured here, not copied from someone else's
+can train and how long it will take, measured here, not copied from someone else's
 machine. Until you do, the studio will not guess at times; it will say so.
 
 Have no text of your own, or want output that actually reads like English?
@@ -108,7 +136,7 @@ This one is built to stop you fooling yourself:
   you believe the number. Splitting is by whole document, after de-duplication, so
   repeated material cannot land on both sides.
 - **The learning rate follows your architecture.** A fixed `3e-4` is a GPT-2-scale constant
-  (width 768–1600) and is badly wrong at the widths this trains. `auto_lr(n_embd)` scales
+  (width 768 to 1600) and is badly wrong at the widths this trains. `auto_lr(n_embd)` scales
   with width, and the GUI retargets it when you change the model but never overwrites a
   value you typed yourself.
 - **Experiments are preregistered.** `prereg_lr_width.json` fixes the success bar, the arm
@@ -133,7 +161,7 @@ This one is built to stop you fooling yourself:
   the listed files exist, that `model.py` really is ~145 lines, that the dependency
   claim holds (against the interpreter's own stdlib list, not a hand-written one), that
   nothing imports a network module, and that **every number in the worked result below
-  matches `exp_lr_width_result.json` to the digit** — means, ranges, gap, overlap and
+  matches `exp_lr_width_result.json` to the digit**: means, ranges, gap, overlap and
   verdict. Its limits are stated in its own docstring: it cannot check the roadmap, it
   cannot check hardware timings on your machine, and it is a fixed list of checks rather
   than a general fact-checker, so a newly added sentence is not caught automatically.
@@ -211,12 +239,23 @@ Read this part before you expect too much.
 
 In order. The training core gets sharpened before anything expands.
 
-**1. One click installer, the headline goal.**
-A single `.exe`: no Python, no `pip`, no virtualenv, no terminal, no command line. Double
-click, choose your text, press train. The honest obstacle is that PyTorch with CUDA is
-roughly 2.5 GB, which no amount of packaging polish makes friendly. The plan is a CPU
-capable default with the GPU build as an opt in, and the Python runtime bundled so the
+**1. One click installer, the headline goal. MOSTLY DONE, one requirement left.**
+`Install locallm.exe` ships now: download it, run it, and it fetches the app, detects
+your graphics card, installs the matching PyTorch, verifies the result and makes a
+shortcut. `pip`, virtualenvs and the command line are gone from the user's path.
+
+**What is left: the Python runtime itself.** The installer still requires Python to be
+on the machine, and that is the last piece of "no terminal, ever" that has not landed.
+It is also the awkward one. Bundling a Python runtime is easy, but PyTorch with CUDA is
+roughly 2.5 GB, which no amount of packaging polish makes friendly. The plan is unchanged:
+a CPU capable default with the GPU build as an opt in, and the runtime bundled so the
 user never sees it.
+
+The version trap this already solves is worth naming, because it is the one that bites
+hardest: PyTorch publishes no wheels for the newest Python for some months after release,
+so a user who installs Python today gets the one version that cannot work, and the failure
+is an unreadable resolver error. The installer asks the package index which versions are
+supported instead of carrying a hardcoded list that would go stale.
 
 That plan rests on CPU training being tolerable, which is a measurable claim, so it was
 measured rather than assumed. Run `python bench_device.py` to get the same table for your
@@ -312,6 +351,6 @@ It is small. It is yours. It is honest about what it is.
 
 ## License
 
-MIT — see [LICENSE](LICENSE). Copyright (c) 2026 Treston Malachi Cuzzort.
+MIT, see [LICENSE](LICENSE). Copyright (c) 2026 Treston Malachi Cuzzort.
 
 Use it, change it, ship it, sell it. Keep the copyright notice.

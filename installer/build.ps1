@@ -1,5 +1,5 @@
 <#
-build.ps1 - compile "Install Train My AI.exe" from Bootstrap.cs.
+build.ps1 - compile "Install locallm.exe" from Bootstrap.cs.
 
 Uses csc.exe from the .NET Framework that ships with Windows, so a release can
 be built on any Windows machine with nothing installed. The output is a single
@@ -11,7 +11,7 @@ $ErrorActionPreference = 'Stop'
 
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $src  = Join-Path $here 'Bootstrap.cs'
-$out  = Join-Path $here 'Install Train My AI.exe'
+$out  = Join-Path $here 'Install locallm.exe'
 
 # Newest installed Framework compiler. Pinning a version would break on a
 # machine that has a different one, and this file exists so a build needs
