@@ -11,7 +11,7 @@ $ErrorActionPreference = 'Stop'
 
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $src  = Join-Path $here 'Bootstrap.cs'
-$out  = Join-Path $here 'Install locallm.exe'
+$out  = Join-Path $here 'Install_locallm.exe'
 
 # Newest installed Framework compiler. Pinning a version would break on a
 # machine that has a different one, and this file exists so a build needs

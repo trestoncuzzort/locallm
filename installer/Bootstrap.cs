@@ -1,4 +1,4 @@
-// Bootstrap.cs - source for "Install locallm.exe".
+// Bootstrap.cs - source for "Install_locallm.exe".
 //
 // WHAT IT IS. The single file a new user downloads. It fetches the app from
 // GitHub, finds a Python, and hands over to install.py, which does the
