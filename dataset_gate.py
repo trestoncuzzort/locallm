@@ -46,9 +46,10 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 RECEIPT_NAME = "dataset_verification.json"
-SCHEMA = 4          # bump when the `files` or `verifier` entry shape changes
+SCHEMA = 5          # bump when the `files` or `verifier` entry shape changes
                     # 3 -> 4: `verifier` gained the INTERPRETER, not just the
                     # file hashes (section 71).
+                    # 4 -> 5: `verifier` gained the TASK SOURCE (section 91).
 
 # THE RECEIPT MUST PIN THE VERIFIER, NOT ONLY THE DATA.
 # "0 violations" is a statement about forge.verify() run against forge.SEED_TASKS.
@@ -65,6 +66,23 @@ SCHEMA = 4          # bump when the `files` or `verifier` entry shape changes
 # The price is real and accepted: editing a comment in forge.py invalidates the
 # receipt and forces a re-verify. That is the correct direction to be wrong in.
 VERIFIER_FILES = ("forge.py",)
+
+# ...AND THE VERIFIER IS NOT ONLY forge.py EITHER. "0 violations" is a statement
+# about verify() run against A SET OF TASKS, so whatever supplies those tasks is
+# part of what "verified" means. Until section 91 the task set was SEED_TASKS,
+# a literal inside forge.py, and the forge.py hash therefore covered it for free.
+# It no longer does: verify_dataset.load_tasks() now also builds tasks from the
+# SCREENED payloads, so the definitions live in a data file and the harness that
+# binds their entry point lives in screen_tasks.py. Change either and the tests a
+# pair is judged against change while every hash in the old fingerprint still
+# matches — the exact silent-weakening failure the block above exists to stop.
+#
+# Whole files again, for the reason given above: hashing "just the payloads we
+# used" would mean hand-picking which bytes are semantic, and that is the
+# invented-scope mistake this project keeps paying for. The price is the same one
+# already accepted — screening a new task invalidates the receipt and forces a
+# re-verify. That is the correct direction to be wrong in.
+TASK_SOURCE_FILES = ("screen_tasks.py", "data/screen_results.jsonl")
 
 # ---------------------------------------------------------------------------
 # ...AND THE VERIFIER IS NOT ONLY ITS SOURCE. It is source PLUS the interpreter
@@ -153,8 +171,10 @@ def receipt_path(data_dir: str | Path) -> Path:
 
 def verifier_fingerprint() -> dict[str, str]:
     """Everything that defines what 'verified' means: the sha256 of every
-    verifier file, PLUS the interpreter that executes candidates."""
-    fp = {name: sha256_file(HERE / name) for name in VERIFIER_FILES}
+    verifier file, PLUS the task source those tasks are built from, PLUS the
+    interpreter that executes candidates."""
+    fp = {name: sha256_file(HERE / name)
+          for name in VERIFIER_FILES + TASK_SOURCE_FILES}
     fp.update(interpreter_fingerprint())
     return fp
 
