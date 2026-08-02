@@ -21,7 +21,7 @@ python studio.py
 > models today and the results below are real, but interfaces will change, features are
 > missing, and the limits section further down is not modesty. It is accurate.
 >
-> **There is now a one-click installer.** Download `Install locallm.exe` from the
+> **There is now a one-click installer.** Download `Install_locallm.exe` from the
 > [latest release](../../releases), run it, and it fetches the app, works out what your
 > graphics card can do, installs the matching build of PyTorch and puts a shortcut on
 > your Desktop. No `pip`, no virtualenv, no command line.
@@ -61,7 +61,7 @@ Dependencies: **PyTorch and Tk.** That's it. Tk ships with Python.
 
 ## Install
 
-**The easy way.** Download `Install locallm.exe` from the
+**The easy way.** Download `Install_locallm.exe` from the
 [latest release](../../releases) and run it. It downloads the app to
 `C:\Users\<you>\locallm`, picks the right PyTorch for your machine, checks the
 result, and adds a Desktop shortcut called **Train My AI**. It needs no administrator rights and writes
@@ -240,7 +240,7 @@ Read this part before you expect too much.
 In order. The training core gets sharpened before anything expands.
 
 **1. One click installer, the headline goal. MOSTLY DONE, one requirement left.**
-`Install locallm.exe` ships now: download it, run it, and it fetches the app, detects
+`Install_locallm.exe` ships now: download it, run it, and it fetches the app, detects
 your graphics card, installs the matching PyTorch, verifies the result and makes a
 shortcut. `pip`, virtualenvs and the command line are gone from the user's path.
 
