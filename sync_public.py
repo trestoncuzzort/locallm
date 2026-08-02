@@ -74,6 +74,11 @@ PUBLISH = [
     "prereg_lr_width_fast.json", "exp_lr_width_result_fast.json",
     "README.md", "LICENSE", ".gitattributes", "requirements.txt",
     "Train My AI.bat", "training_data/README.txt",
+    # Setup. install.py is REQUIRED, not optional: the launchers now tell a new
+    # user to run INSTALL.bat, so publishing them without it ships an
+    # instruction pointing at a file that is not there. It is stdlib-only so it
+    # runs on a computer where nothing has been installed yet.
+    "install.py", "INSTALL.bat",
 ]
 
 # Files a published script may legitimately reference without shipping: things
