@@ -757,11 +757,28 @@ def training_pool_tasks() -> list[Task]:
     ruler on disk is not the ruler that was frozen. Drawing training prompts from
     a file whose ruler half has been edited is how a held-out set stops being
     held out, so the check runs even though only the training half is used here.
+
+    NOT IN THIS REPOSITORY. `build_ruler.py`, `screen_tasks.py` and
+    `data/ruler_frozen.json` were never published, so this path cannot run from a
+    clone. It was also the DEFAULT of `--tasks`, which meant a plain
+    `python forge.py` died on `ModuleNotFoundError: build_ruler` — a gate the
+    docstring above calls mandatory, failing as if it were a typo. The default is
+    now `seed`, which runs on what is here, and the guard below names exactly what
+    is missing instead of leaking an import error.
     """
     # Local imports: both modules import forge, so importing them at module
     # scope would cycle.
-    import build_ruler
-    import screen_tasks
+    try:
+        import build_ruler
+        import screen_tasks
+    except ModuleNotFoundError as e:
+        raise SystemExit(
+            f"--tasks pool needs the frozen-ruler machinery, which is not in this "
+            f"repository (missing: {e.name}).\n"
+            f"It requires build_ruler.py, screen_tasks.py and data/ruler_frozen.json.\n"
+            f"Without them the ruler-integrity check cannot run, and drawing training\n"
+            f"prompts from an unverified pool is exactly what that check prevents.\n"
+            f"Use --tasks seed to run on the 13 SEED_TASKS that ARE published.") from e
 
     spec = build_ruler.verify_frozen()
     wanted = set(spec["training_pool"])
@@ -800,10 +817,11 @@ if __name__ == "__main__":
     import argparse
 
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--tasks", choices=("pool", "seed"), default="pool",
-                    help="'pool' = the band-screened training pool (default, "
-                         "~2.3x the pair yield); 'seed' = the 13 hand-written "
-                         "SEED_TASKS, which the model mostly already solves")
+    ap.add_argument("--tasks", choices=("pool", "seed"), default="seed",
+                    help="'seed' = the 13 hand-written SEED_TASKS (default; the "
+                         "only source published here); 'pool' = the band-screened "
+                         "training pool (~2.3x the pair yield, but needs the "
+                         "frozen-ruler files, which are not in this repository)")
     ap.add_argument("--limit", type=int, default=0,
                     help="use only the first N tasks (0 = all)")
     args = ap.parse_args()
