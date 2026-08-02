@@ -161,6 +161,60 @@ def split_health(text: str, val_frac: float = 0.1, seed: int = 1337) -> dict:
     }
 
 
+# How close to the requested split counts as "close enough". A holdout that
+# reaches 80% of what was asked for measures the same thing as one that reaches
+# 100%; the difference does not change what the number means, and warning about
+# it trains the user to ignore the warning.
+#
+# The number is not decoration. Both ratios below are subset-sum and greedy
+# results bounded BELOW the request, so an exact `<` comparison is true on
+# almost every healthy corpus: measured here, 100 uniform documents report
+# achieved == achievable to four digits and still fail an exact `<`, and a
+# 200-document corpus failed BOTH exact tests. Three callers each rolled their
+# own subset of this test against those raw ratios; two of them dropped the
+# corpus arm entirely. The result was a check that cried wolf on good corpora
+# and stayed silent on the one shape it exists to catch — a single document
+# holding most of the text. One function now, so the three cannot drift again.
+SPLIT_CLOSE_ENOUGH = 0.8
+
+# Both ratios are computed, not measured, so a threshold comparison lands on
+# float artefacts: 0.1 * 0.8 is 0.08000000000000002, which makes an achievable
+# fraction of exactly 0.08 - the documented cutoff - compare as BELOW it. One
+# epsilon, applied once, at the only place the threshold is used.
+_SPLIT_EPS = 1e-9
+
+
+def split_verdict(h: dict) -> str | None:
+    """Why this split cannot carry a validation claim, or None if it can.
+
+    Takes a split_health() dict. Returns:
+
+      "empty"    - nothing was held back at all; there is no validation number
+      "corpus"   - the shortfall is the corpus's: no whole-document split of it
+                   could get near the request. Remedy: more, smaller documents
+      "splitter" - the shortfall is this split's: the corpus could have reached
+                   the request. Remedy: another seed
+      None       - the holdout is close enough to what was asked for
+
+    ONE question is asked against the REQUEST — "is the holdout that was actually
+    produced close enough to the one that was asked for?" — and only then is the
+    blame assigned. Testing the second ratio against `achievable` instead would
+    compound the tolerance: at 0.8 each, a holdout of 0.64x the requested size
+    passes both tests and is silently trusted, which is not what the constant
+    above says. The blame arm decides the REMEDY; it does not get a second,
+    looser say in whether there is a problem at all.
+    """
+    if h["val_chars"] == 0:
+        return "empty"
+    floor = h["requested_val_frac"] * SPLIT_CLOSE_ENOUGH
+    if h["achieved_val_frac"] >= floor - _SPLIT_EPS:
+        return None
+    # It fell short. Could ANY whole-document split of this corpus have made it?
+    if h["achievable_val_frac"] < floor - _SPLIT_EPS:
+        return "corpus"
+    return "splitter"
+
+
 class CharTokenizer:
     def __init__(self, chars):
         self.chars = list(chars)
