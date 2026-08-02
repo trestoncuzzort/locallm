@@ -39,7 +39,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import runlog
-from data import documents, group_split, split_health
+from data import documents, group_split, split_health, split_verdict
 
 SHINGLE = 50          # characters per k-gram
 WINDOW = 25           # winnowing window, in k-grams. Guarantees that any shared
@@ -278,19 +278,22 @@ def main() -> None:
     if args.split == "grouped":
         h = split_health(text, args.val_frac, args.seed)
         # Two ratios, two different failures, two different remedies - which the
-        # single boolean this replaced could not tell apart.
-        corpus_cannot = h["achievable_val_frac"] < h["requested_val_frac"]
-        splitter_missed = h["achieved_val_frac"] < h["achievable_val_frac"]
-        if h["val_chars"] == 0 or corpus_cannot or splitter_missed:
+        # single boolean this replaced could not tell apart. The comparison
+        # itself lives in data.split_verdict so this file, the GUI and the
+        # double-click launcher cannot answer the same question differently.
+        verdict = split_verdict(h)
+        if verdict:
             print(f"\n  WARNING: asked for a {h['requested_val_frac']:.0%} validation "
                   f"split, got {h['achieved_val_frac']:.1%}; the best any whole-document "
                   f"split could reach is {h['achievable_val_frac']:.1%}.")
             print(f"  {h['unique_documents']} unique document(s) after de-duplication, "
                   f"largest is {h['largest_unique_doc_frac']:.0%} of them.")
-            if corpus_cannot:
+            if verdict == "empty":
+                print("  Nothing was held back at all: there is no validation number.")
+            elif verdict == "corpus":
                 print("  The CORPUS cannot support the request: it needs more, smaller "
                       "documents.")
-            elif splitter_missed:
+            elif verdict == "splitter":
                 print("  The corpus could support it but this SPLIT fell short: try "
                       "another seed.")
             print("  Prefer train loss until then.")

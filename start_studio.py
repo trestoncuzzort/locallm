@@ -67,16 +67,32 @@ def main() -> int:
     if CORPUS.is_file():
         try:
             sys.path.insert(0, str(HERE))
-            from data import documents, split_health
+            from data import documents, split_health, split_verdict
             text = CORPUS.read_text(encoding="utf-8", errors="ignore")
             docs = len(documents(text))
             h = split_health(text)
             print(f"corpus: {len(text):,} characters, {docs} document(s), "
                   f"{len(set(text))} distinct characters")
-            if h["val_chars"] == 0 or h["achieved_val_frac"] < h["achievable_val_frac"]:
-                print(f"  NOTE: {h['unique_documents']} unique document(s), largest is "
-                      f"{h['largest_unique_doc_frac']:.0%} of them. Validation loss")
+            # Same verdict the studio and leakage.py use. This path used to test
+            # only whether the splitter fell short, which says nothing when one
+            # document is most of the corpus - the case where the splitter is
+            # doing its best and its best is not a holdout.
+            verdict = split_verdict(h)
+            if verdict == "corpus":
+                print(f"  NOTE: at most {h['achievable_val_frac']:.1%} of this text can be "
+                      f"held back, against the {h['requested_val_frac']:.0%} a fair")
+                print(f"  test needs ({h['unique_documents']} unique document(s), largest "
+                      f"{h['largest_unique_doc_frac']:.0%} of them). Validation loss")
                 print("  will not mean much until there are more, smaller files.")
+                print("  Judge runs on TRAINING loss for now.")
+            elif verdict == "splitter":
+                print(f"  NOTE: only {h['achieved_val_frac']:.1%} was held back, though this "
+                      f"text could support {h['achievable_val_frac']:.1%}.")
+                print("  Another seed would split it better.")
+                print("  Judge runs on TRAINING loss for now.")
+            elif verdict:
+                print("  NOTE: none of this text could be held back for testing, so there")
+                print("  is no validation loss to read.")
                 print("  Judge runs on TRAINING loss for now.")
         except Exception:                        # noqa: BLE001
             pass                                 # never block the studio on a summary
