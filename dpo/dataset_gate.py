@@ -172,7 +172,30 @@ def receipt_path(data_dir: str | Path) -> Path:
 def verifier_fingerprint() -> dict[str, str]:
     """Everything that defines what 'verified' means: the sha256 of every
     verifier file, PLUS the task source those tasks are built from, PLUS the
-    interpreter that executes candidates."""
+    interpreter that executes candidates.
+
+    A MISSING TASK-SOURCE FILE IS A REFUSAL, NOT A CRASH. Two of these files —
+    screen_tasks.py and data/screen_results.jsonl — are not published in this
+    repository, so on a clone `sha256_file` raised a bare FileNotFoundError from
+    inside the fingerprint. Every caller downstream of it, including the trainers'
+    `require_verified`, died on a traceback that named an open() call rather than
+    the gate's own decision, so a mandatory gate failed as though it were a typo.
+
+    The gate still fails closed — that is the point — but it now says which files
+    define 'verified' and which of them are absent. Do NOT "fix" this by dropping
+    the missing names from TASK_SOURCE_FILES: hashing only the files that happen
+    to be present is the hand-picked-scope defect the comment at the top of this
+    module refuses.
+    """
+    missing = [name for name in VERIFIER_FILES + TASK_SOURCE_FILES
+               if not (HERE / name).exists()]
+    if missing:
+        raise SystemExit(
+            f"GATE: cannot compute what 'verified' means — "
+            f"{len(missing)} file(s) that define it are not in this repository:\n"
+            + "".join(f"  {name}\n" for name in missing)
+            + "A receipt cannot be checked against a verifier that is not here.\n"
+              "Publish these files, or re-verify from a tree that has them.")
     fp = {name: sha256_file(HERE / name)
           for name in VERIFIER_FILES + TASK_SOURCE_FILES}
     fp.update(interpreter_fingerprint())

@@ -31,8 +31,18 @@ from pathlib import Path
 
 import dataset_gate
 import forge
-import screen_tasks
 
+# screen_tasks is imported lazily, inside load_tasks(), NOT here.
+#
+# It is not published in this repository, and at module scope it took the whole
+# gate down with `ModuleNotFoundError: screen_tasks` — on import, before a single
+# pair was checked. A gate the README calls mandatory failed as though it were a
+# typo, and `train_native.py` could not even reach the receipt check that is
+# supposed to stop training. It is only needed to rebuild SCREENED task payloads,
+# which a clone does not have either (data/screen_results.jsonl is unpublished),
+# so the import belongs where that work happens. With it moved, the gate runs and
+# reports the true state of a clone: every screened pair comes back
+# `no_matching_task` and the run fails honestly instead of crashing.
 DATA = forge.OUT_DIR
 # dpo_pairs_capped.jsonl is the run-1 training input (build_training_set.py).
 FILES = {"dpo_pairs.jsonl": "forge",
@@ -101,8 +111,25 @@ def load_tasks() -> dict[str, forge.Task]:
             raise SystemExit(
                 f"GATE: task id {tid} is defined BOTH in forge.SEED_TASKS and "
                 f"in {path.name}. One pair, two possible test suites; refusing.")
-        tasks[tid] = screen_tasks.as_task(payload)
+        tasks[tid] = _screen_tasks().as_task(payload)
     return tasks
+
+
+def _screen_tasks():
+    """Import screen_tasks at the point of use, with a message that names it.
+
+    Reached only when screen_results.jsonl exists and carries payloads, i.e. not
+    on a clone. See the note beside the imports at the top of this file.
+    """
+    try:
+        import screen_tasks
+    except ModuleNotFoundError as e:
+        raise SystemExit(
+            f"data/screen_results.jsonl carries screened task payloads, but "
+            f"{e.name}.py is not in this repository, so they cannot be rebuilt "
+            f"into tasks. Publish screen_tasks.py, or remove the screened rows "
+            f"from screen_results.jsonl.") from e
+    return screen_tasks
 
 
 TASKS = load_tasks()

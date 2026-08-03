@@ -1,4 +1,4 @@
-"""Can a trained model be sampled after the session that trained it ended?
+r"""Can a trained model be sampled after the session that trained it ended?
 
 THE BUG. studio.py assigned `self.model` in exactly one place — the "done"
 message at the end of a training run — and created the Sample button with
@@ -20,22 +20,76 @@ These tests are the executable half: the load-from-disk path now exists, round
 trips, and produces text. They do NOT drive the GUI — they cover the logic the
 GUI delegates to, plus source-level assertions that the silent return is gone.
 """
+import atexit
 import pathlib
+import shutil
 import subprocess
 import sys
+import tempfile
 
 HERE = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
-import checkpoint  # noqa: E402
+import torch  # noqa: E402
 
-OUT = HERE / "out_gui"
+import checkpoint  # noqa: E402
+from data import CharTokenizer  # noqa: E402
+from model import GPT, GPTConfig  # noqa: E402
+
 STUDIO = (HERE / "studio.py").read_text(encoding="utf-8")
 
 
+def _build_checkpoint() -> pathlib.Path:
+    """Write a real, tiny checkpoint to a temp directory.
+
+    These tests used to read `out_gui/`, which is whatever the author last
+    trained and is not in the repository. On a fresh clone all five of them
+    failed with FileNotFoundError before asserting anything — a red suite that
+    says nothing about the code, which is worse than no test, because the next
+    person learns to expect red.
+
+    Untrained weights are the right fixture here: every test below is about the
+    LOAD-AND-SAMPLE PATH, not about output quality. Random weights exercise the
+    same save format train.py writes (`{"model": state_dict, "config":
+    cfg.__dict__}` plus the tokenizer's own json), and they make the suite run
+    in about a second with no GPU and no corpus.
+    """
+    out = pathlib.Path(tempfile.mkdtemp(prefix="locallm_ckpt_"))
+    atexit.register(shutil.rmtree, out, True)
+
+    # A vocabulary that contains the prompts the tests use, so encode/decode
+    # round-trips them the way a real corpus-built tokenizer would.
+    tok = CharTokenizer(sorted(set("abcdefghijklmnopqrstuvwxyz \n():=_")))
+    cfg = GPTConfig(vocab_size=len(tok.chars), block_size=16,
+                    n_layer=1, n_head=1, n_embd=16, dropout=0.0)
+    model = GPT(cfg)
+    torch.save({"model": model.state_dict(), "config": cfg.__dict__}, out / "ckpt.pt")
+    tok.save(out / "tokenizer.json")
+    return out
+
+
+OUT = _build_checkpoint()
+
+
 def test_checkpoint_exists_needs_both_files():
+    """BOTH, which is the whole point of the name.
+
+    Asserting only "a full directory is true, a missing directory is false"
+    leaves the requirement untested: `(out/"ckpt.pt").exists() OR
+    (out/"tokenizer.json").exists()` passes both of those. The half-checkpoints
+    below are the cases that separate AND from OR — and a ckpt.pt with no
+    tokenizer is the realistic one, being what an interrupted save leaves
+    behind. A model that cannot decode what it generates is not a checkpoint.
+    """
     assert checkpoint.checkpoint_exists(OUT), f"no trained model in {OUT}"
     assert not checkpoint.checkpoint_exists(HERE / "definitely_not_a_dir")
+
+    for keep in ("ckpt.pt", "tokenizer.json"):
+        half = pathlib.Path(tempfile.mkdtemp(prefix=f"locallm_half_{keep}_"))
+        atexit.register(shutil.rmtree, half, True)
+        shutil.copy(OUT / keep, half / keep)
+        assert not checkpoint.checkpoint_exists(half), \
+            f"a directory holding only {keep} was reported as a checkpoint"
 
 
 def test_load_and_sample_round_trips():
@@ -100,7 +154,7 @@ def test_studio_and_cli_share_one_sampler():
 def test_cli_still_works():
     """Regression: the refactor must not break the documented CLI."""
     p = subprocess.run([sys.executable, str(HERE / "generate.py"),
-                        "--out", "out_gui", "--prompt", "def ", "--tokens", "30"],
+                        "--out", str(OUT), "--prompt", "def ", "--tokens", "30"],
                        capture_output=True, text=True, timeout=600, cwd=str(HERE))
     assert p.returncode == 0, f"generate.py failed: {p.stderr[-400:]}"
     assert len(p.stdout.strip()) > 10, f"generate.py printed nothing: {p.stdout!r}"
