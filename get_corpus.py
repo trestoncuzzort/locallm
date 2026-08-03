@@ -231,8 +231,16 @@ def main() -> None:
     print(f"  {len(vocab)} distinct characters (was {before_vocab} before folding)")
     print(f"  vocabulary: {''.join(c for c in vocab if c.isprintable())[:96]}")
     reads = 44100 * 32 * 128
+    # passes = how many times training crosses the corpus, i.e. reads PER
+    # character of it. The ratio was the other way up, which inverted the
+    # meaning: a 20 MB corpus under a 181M-character run printed "seen about
+    # 0.11 times" directly above the note warning about SEVERAL passes. Both
+    # cannot be true, and 0.11 is the reassuring one - it reads as "barely
+    # touched" when the truth is nine crossings, which is the memorising risk
+    # the note is there to raise.
+    passes = reads / max(len(text), 1)
     print(f"\nThe GUI's Normal preset reads about {reads/1e6:.0f}M characters while "
-          f"training,\nso this corpus is seen about {len(text)/reads:.2f} times in a "
+          f"training,\nso this corpus is seen about {passes:.2f} times in a "
           f"full run.")
     if len(text) < reads * 0.2:
         print("  NOTE: that is several passes over the same text, which invites "
