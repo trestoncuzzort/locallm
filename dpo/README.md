@@ -59,18 +59,30 @@ There is no bypass flag.
 
 > **What a clone of this repository can and cannot re-verify.** Running the gate
 > here does not reproduce the receipt in `data/dataset_verification.json`, and the
-> reason is a publishing gap rather than a disagreement. A pair is verified by
-> re-running *its own task's tests*, and those definitions live in
-> `data/screen_results.jsonl`, which is **not published**. All 1,244 rows of
-> `data/dpo_pairs.jsonl` name screened tasks (23 task ids, none of them among the
-> 13 hand-written `SEED_TASKS`), so from a clone every one of them returns
-> `no_matching_task` and the gate fails — correctly, because unverifiable is what
-> they are here. `build_ruler.py`, `screen_tasks.py`, `ruler_noise.py` and
-> `data/ruler_frozen.json` are unpublished for the same reason, which is why
-> `--tasks pool` refuses instead of running. The gate mechanism is real and you
-> can read it; the claim that *this* dataset passed it is, from a clone, exactly
-> as unreproducible as the `eval_history.jsonl` figures further down — and is
-> flagged here for the same reason.
+> reason is a publishing gap rather than a disagreement about the data.
+>
+> The pairs themselves are mostly reproducible. Of the 1,244 rows in
+> `data/dpo_pairs.jsonl`, **1,234 name the 13 hand-written `SEED_TASKS`, whose
+> prompts and tests are published in `forge.py`.** Only **10** name screened
+> `ace_oss_*` tasks whose definitions live in `data/screen_results.jsonl`, which is
+> not published; those ten are the rows a clone cannot re-execute, and the gate
+> reports them as `no_matching_task`.
+>
+> What a clone cannot do is run the gate at all. `verifier_fingerprint()` hashes
+> everything that defines "verified" — and that set deliberately includes
+> `screen_tasks.py` and `data/screen_results.jsonl`, neither of which is published.
+> The gate therefore refuses before it checks a single pair. That refusal is
+> correct (a receipt cannot be checked against a verifier that is not here) and it
+> is not narrowable: hashing only the files that happen to be present is exactly
+> the hand-picked-scope defect this module refuses by design.
+>
+> `build_ruler.py`, `ruler_noise.py` and `data/ruler_frozen.json` are unpublished
+> for the same reason, which is why `--tasks pool` refuses instead of running.
+>
+> So: the gate mechanism is real and you can read it; the pairs are 99.2%
+> re-derivable in principle; and the claim that *this* dataset passed *this* gate
+> is, from a clone, as unreproducible as the `eval_history.jsonl` figures further
+> down — flagged here for the same reason.
 
 **The receipt pins the verifier, and the Python interpreter, not just the data.**
 "0 violations" is a statement about specific code executed by a specific Python,
