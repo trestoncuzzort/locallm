@@ -1,0 +1,57 @@
+{
+  "experiment": "exp2_steps_vs_quality",
+  "written": "2026-08-02",
+  "written_before_any_run": true,
+
+  "question": "Does training longer actually produce a better model, by enough to beat the run-to-run luck of a different random start?",
+
+  "why_this_is_worth_asking": [
+    "The studio offers three practice lengths and tells the user longer is better.",
+    "Nothing in the repository has ever measured whether that is true on this corpus,",
+    "or by how much, or whether the difference survives changing the random seed.",
+    "A preset that promises 'better results, if you can wait' is a claim, and it has",
+    "never been checked."
+  ],
+
+  "fixed_across_every_run": {
+    "corpus": "corpus.txt (TinyStories, 19,986,068 chars, vocab 83)",
+    "split": "group_split defaults (val_frac 0.1, seed 1337) - IDENTICAL holdout for every run, so arms are compared on the same text",
+    "architecture": "Medium preset: n_layer 4, n_head 4, n_embd 256, block_size 128, batch_size 32",
+    "dropout": 0.1,
+    "lr": "auto_lr(256), the width-scaled default the GUI uses",
+    "eval": "estimate_loss on the dedicated eval RNG (EVAL_SEED 12345), so evaluation cannot perturb training",
+    "device": "cuda"
+  },
+
+  "arms": {
+    "steps": [500, 1500, 5000, 10000],
+    "seeds": [0, 1, 2, 3, 4],
+    "total_runs": 20,
+    "note_on_seed": "The seed varies model initialisation and the training batch stream. It does NOT vary the split - Corpus takes a hardcoded split seed - which is what we want here: every arm is scored on the same held-out text."
+  },
+
+  "primary_outcome": "final validation loss (nats/char) on the fixed holdout",
+
+  "secondary_outcome": "closed_fraction - how much of the distance the trigram lookup table could NOT cover the model covered. Reported because validation loss alone cannot say whether a number is good.",
+
+  "noise_floor_definition": "For each arm, the spread (max - min) of the 5 seeds. This is how much the answer moves for reasons that have nothing to do with the thing being tested.",
+
+  "success_bar": {
+    "primary": "A step-count increase counts as a REAL improvement only if the gap between the two arms' MEANS is larger than the WIDER of the two arms' seed spreads.",
+    "rationale": "If changing the random seed moves the answer more than changing the training length does, then the training length is not what is being measured.",
+    "declared_before_running": true
+  },
+
+  "prespecified_outcomes": {
+    "if_gaps_beat_noise": "Report that longer training measurably helps on this corpus, with the measured gap and the measured noise, and the preset wording is supported.",
+    "if_gaps_are_inside_noise": "Report that on this corpus, at these sizes, the difference between practice lengths is not distinguishable from run-to-run luck - and say so plainly rather than quietly not mentioning it.",
+    "either_way": "Both outcomes get published. A null result here is a real finding about the preset."
+  },
+
+  "not_claimed": [
+    "That these numbers transfer to another corpus, another architecture, or another vocabulary.",
+    "That validation loss is a proxy for whether the generated text is any good.",
+    "That 5 seeds is enough to detect a small effect; it is enough to detect an effect larger than the spread it measures.",
+    "That the trigram baseline is the strongest possible baseline - it is deliberately weak, see baselines.py."
+  ]
+}
