@@ -50,6 +50,7 @@ import requests
 
 import config
 import dataset_gate
+import traces as trace
 
 # ---------------------------------------------------------------------------
 # Config
@@ -604,7 +605,33 @@ def run_task(actor: Actor, task: Task) -> tuple[dict | None, dict | None, bool]:
             continue
         r = verify(extract_code(raw), task)
         r.raw = raw          # keep the verbatim emission for the preference target
+        r.temp = temp        # the draw that produced it, not the default
         results.append(r)
+
+    # THE TRACE IS WRITTEN FIRST, AND FOR EVERY CANDIDATE.
+    # What follows this line emits at most ONE pair and discards the rest --
+    # and on a task where every candidate passed it discards ALL of them and
+    # returns "solved, no signal". Section 86 counted that as 66% of attempts
+    # teaching nothing. Those are verified-correct programs; they teach nothing
+    # only to DPO. Recording them here first means SFT and KTO views can be
+    # derived later without paying for the generations again. See trace.py.
+    try:
+        trace.append([
+            trace.TraceRow(
+                schema=trace.SCHEMA, tid=task.tid, prompt=task.prompt,
+                entry=task.entry, raw=getattr(r, "raw", "") or "",
+                code=r.code or "", ok=bool(r.ok),
+                reward=1.0 if r.ok else 0.0, error=(r.error or "")[:400],
+                runtime_ms=round(getattr(r, "runtime", 0.0) * 1000, 2),
+                timed_out=bool(getattr(r, "timed_out", False)),
+                temp=getattr(r, "temp", GEN_TEMP), model=MODEL_NAME,
+                verifier=verifier_interpreter(),
+                ts=time.strftime("%Y-%m-%dT%H:%M:%S"),
+            ) for r in results])
+    except OSError as e:
+        # A trace that cannot be written must not silently cost a run that was
+        # already paid for in generations. Say so and carry on.
+        print(f"  [trace] NOT WRITTEN: {e}")
 
     if not results:
         return None, {"tid": task.tid, "prompt": task.prompt,
