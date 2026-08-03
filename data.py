@@ -260,6 +260,23 @@ class Corpus:
             data = torch.tensor(tokenizer.encode(text), dtype=torch.int32)
             n = int(len(data) * (1 - val_frac))
             train_ids, val_ids = data[:n], data[n:]
+            train_text = val_text = None
+
+        # THE SPLIT THIS RUN ACTUALLY TRAINED ON, kept rather than discarded.
+        # Anything that wants to describe the holdout — a baseline, a leakage
+        # verdict, a split manifest — must read it from here. The alternative is
+        # calling group_split() again at the point of use, which agrees only
+        # while every caller happens to pass the same val_frac and seed and
+        # silently describes a DIFFERENT holdout the moment one does not. That
+        # is a latent-correctness trap, not a hypothetical: the defaults are the
+        # only reason the existing callers agree today.
+        #
+        # None on the ungrouped path: that split is positional over tokens, and
+        # it exists only so leakage.py can show what the naive cut costs. A
+        # consumer that needs the text must skip the ungrouped case rather than
+        # reconstruct it.
+        self.train_text = train_text
+        self.val_text = val_text
 
         self.device = device
         # Keep the corpus resident on the training device. Batches are then cut

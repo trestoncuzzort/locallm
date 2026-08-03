@@ -47,6 +47,7 @@ if str(HERE) not in sys.path:
 
 import torch  # noqa: E402
 
+import baselines  # noqa: E402
 import checkpoint  # noqa: E402
 import runlog  # noqa: E402
 
@@ -485,6 +486,21 @@ class TrainWorker(threading.Thread):
         # week of experimenting leaves a reviewable trail.
         wall = time.time() - t0
         final = estimate_loss(model, corpus, c["batch_size"], c["block_size"])
+
+        # The comparison that makes the loss mean something. Only shown when the
+        # holdout is eligible: if the same text sits on both sides of the split,
+        # or the split could never support a holdout, then the model's val loss
+        # and the baseline's are wrong in the same direction and comparing them
+        # says nothing. Better silence than a confident-looking ratio.
+        base = None
+        if self.val_ok and corpus.train_text is not None and corpus.val_text:
+            base = baselines.compare(corpus.train_text, corpus.val_text,
+                                     tok.vocab_size, model_val_nats=final["val"])
+            self.log("")
+            self.log("How does that compare to something that cannot learn?")
+            for line in baselines.summary_lines(base):
+                self.log(line)
+
         runlog.record("train", device=device, out=str(out), source="studio",
                       corpus=runlog.corpus_fingerprint(text),
                       config={k: c[k] for k in ("n_layer", "n_head", "n_embd",
@@ -494,6 +510,7 @@ class TrainWorker(threading.Thread):
                                "wall_s": wall,
                                "ms_per_step": wall / max(c["steps"], 1) * 1000,
                                "params": model.num_params()},
+                      baselines=base,
                       leakage={"verdict": rep.verdict,
                                "content_frac": rep.shingle_frac})
         self.q.put(("done", {"model": model, "tok": tok, "device": device,
