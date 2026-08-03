@@ -47,12 +47,13 @@ if str(HERE) not in sys.path:
 
 import torch  # noqa: E402
 
+import baselines  # noqa: E402
 import checkpoint  # noqa: E402
 import runlog  # noqa: E402
 
 from model import GPT, GPTConfig  # noqa: E402
 from data import (CharTokenizer, Corpus, documents, group_split,  # noqa: E402
-                  split_health)
+                  split_health, split_verdict)
 from leakage import scan as leakage_scan  # noqa: E402
 from train import (auto_lr, cosine_lr, enable_fast_math,  # noqa: E402
                    estimate_loss, make_optimizer)
@@ -148,6 +149,16 @@ LENGTHS = {
     "Normal":      dict(seconds=300,  blurb="A sensible default."),
     "Thorough":    dict(seconds=900,  blurb="Better results, if you can wait."),
 }
+
+# What "Normal" means on a machine that has never been timed. The three lengths
+# are then scaled from it in proportion to their wall-clock targets.
+#
+# This exists because the untimed path used to hand back a flat 2000 steps for
+# ALL THREE lengths: picking "Thorough" over "Quick look" changed the label and
+# nothing else, and the only hint was a note about not being able to estimate
+# MINUTES - which is a different claim from "these three are identical". The
+# proportions do not need a benchmark. Only turning them into minutes does.
+UNTIMED_NORMAL_STEPS = 2000
 
 # Slider stops for generation. The user moves one slider; temperature and top-k
 # move together, because they are not two independent ideas to a person who just
@@ -377,20 +388,39 @@ class TrainWorker(threading.Thread):
         tr_txt, va_txt = group_split(text)
         rep = leakage_scan(tr_txt, va_txt)
         health = split_health(text)
-        thin = (health["achievable_val_frac"] > 0
-                and health["achieved_val_frac"] < health["achievable_val_frac"])
-        self.val_ok = rep.trustworthy and health["val_chars"] > 0
+        # data.split_verdict, not a local comparison: this used to test only
+        # "did the splitter fall short", which is silent on the one corpus shape
+        # that matters most - a single document holding nearly all the text,
+        # where the splitter does the best that is possible and the best that is
+        # possible is still not a holdout. That corpus drew an orange line and
+        # called it a fair test.
+        verdict = split_verdict(health)
+        self.val_ok = rep.trustworthy and verdict is None
         self.log(f"Checked your text for overlap: {rep.summary()}")
         if not rep.trustworthy:
             self.log("  !! The same passages appear in both halves of your text, so "
                      "the orange line is not a fair test. Judge this run on the blue line.")
-        elif health["val_chars"] == 0 or thin:
-            self.log(f"  !! Only {health['achieved_val_frac']:.1%} of your text could be "
-                     f"held back for testing (the most possible here is "
-                     f"{health['achievable_val_frac']:.1%}, because you have "
-                     f"{health['unique_documents']} document(s) and the largest is "
-                     f"{health['largest_unique_doc_frac']:.0%} of everything). "
-                     f"More, smaller files would fix this. Judge on the blue line.")
+        elif verdict == "corpus":
+            # Report the measured numbers, not a story about them. "One file is
+            # most of your text" is the COMMON cause, not the only one: fourteen
+            # equal files also cap the achievable split below the request, and
+            # naming a cause that is not there sends the user hunting for it.
+            self.log(f"  !! Your text cannot be split into a fair test: the most any "
+                     f"split could hold back is {health['achievable_val_frac']:.1%}, "
+                     f"against the {health['requested_val_frac']:.0%} a fair test needs. "
+                     f"You have {health['unique_documents']} document(s), the largest "
+                     f"{health['largest_unique_doc_frac']:.0%} of them. More, smaller "
+                     f"files would fix this. Judge this run on the blue line.")
+        elif verdict == "splitter":
+            # Different failure, different remedy. This corpus COULD support the
+            # split; this particular one landed badly.
+            self.log(f"  !! Only {health['achieved_val_frac']:.1%} of your text was held "
+                     f"back for testing, though this text could support "
+                     f"{health['achievable_val_frac']:.1%}. A different seed would "
+                     f"probably split it better. Judge this run on the blue line.")
+        elif verdict:
+            self.log("  !! None of your text could be held back for testing, so there "
+                     "is no orange line to judge. Judge this run on the blue line.")
         self.q.put(("valtrust", self.val_ok))
 
         if len(corpus.train) <= c["block_size"]:
@@ -456,6 +486,21 @@ class TrainWorker(threading.Thread):
         # week of experimenting leaves a reviewable trail.
         wall = time.time() - t0
         final = estimate_loss(model, corpus, c["batch_size"], c["block_size"])
+
+        # The comparison that makes the loss mean something. Only shown when the
+        # holdout is eligible: if the same text sits on both sides of the split,
+        # or the split could never support a holdout, then the model's val loss
+        # and the baseline's are wrong in the same direction and comparing them
+        # says nothing. Better silence than a confident-looking ratio.
+        base = None
+        if self.val_ok and corpus.train_text is not None and corpus.val_text:
+            base = baselines.compare(corpus.train_text, corpus.val_text,
+                                     tok.vocab_size, model_val_nats=final["val"])
+            self.log("")
+            self.log("How does that compare to something that cannot learn?")
+            for line in baselines.summary_lines(base):
+                self.log(line)
+
         runlog.record("train", device=device, out=str(out), source="studio",
                       corpus=runlog.corpus_fingerprint(text),
                       config={k: c[k] for k in ("n_layer", "n_head", "n_embd",
@@ -465,6 +510,7 @@ class TrainWorker(threading.Thread):
                                "wall_s": wall,
                                "ms_per_step": wall / max(c["steps"], 1) * 1000,
                                "params": model.num_params()},
+                      baselines=base,
                       leakage={"verdict": rep.verdict,
                                "content_frac": rep.shingle_frac})
         self.q.put(("done", {"model": model, "tok": tok, "device": device,
@@ -849,12 +895,13 @@ class Studio(ttk.Frame):
                      f"({steps:,} practice steps).  "
                      f"{LENGTHS[self.length_name.get()]['blurb']}")
         else:
-            steps = 2000
+            ref = LENGTHS["Normal"]["seconds"]
+            steps = max(200, int(round(UNTIMED_NORMAL_STEPS * target / ref / 100) * 100))
             self.l_time.config(
                 text=f"{steps:,} practice steps. This computer has not been timed "
-                     f"yet, so there is no honest estimate of how long that takes. "
-                     f"Run “Check My Computer” once and this will show real "
-                     f"minutes.")
+                     f"yet, so there is no honest estimate of how long that takes "
+                     f"— but the three lengths do differ. Run “Check My Computer” "
+                     f"once and this will show real minutes.")
         self.v_steps.set(str(steps))
         self.v_eval.set(str(max(10, steps // 25)))
 
@@ -989,10 +1036,19 @@ class Studio(ttk.Frame):
                     "SUSPECT": "Some passages repeat — the fairness test may be weak.",
                     "CONTAMINATED": "Heavy repetition — the fairness test will not "
                                     "mean much."}[rep.verdict]
-            if rep.trustworthy and health["achieved_val_frac"] < health["achievable_val_frac"]:
+            verdict = split_verdict(health)
+            if rep.trustworthy and verdict == "corpus":
                 colour = self.C["warn"]
-                note = ("Only a sliver could be held back for testing — more, "
-                        "smaller files would help.")
+                note = (f"This text cannot be split into a fair test — at most "
+                        f"{health['achievable_val_frac']:.1%} can be held back. More, "
+                        f"smaller files would help.")
+            elif rep.trustworthy and verdict == "splitter":
+                colour = self.C["warn"]
+                note = ("Only a sliver was held back for testing, though this text "
+                        "could support more — another seed would split it better.")
+            elif rep.trustworthy and verdict:
+                colour = self.C["warn"]
+                note = "Nothing could be held back for testing."
         except Exception:                       # never let the scan block training
             colour, note, rep = self.C["ok"], "", None
         docs = len(documents(sample))

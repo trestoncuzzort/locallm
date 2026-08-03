@@ -15,6 +15,7 @@ from pathlib import Path
 
 import torch
 
+import baselines
 import runlog
 from model import GPT, GPTConfig
 from data import CharTokenizer, Corpus
@@ -187,6 +188,20 @@ def main():
     # about what produced it a week later; the log does.
     wall = time.time() - t0
     final = estimate_loss(model, corpus, args.batch_size, args.block_size)
+
+    # What a lookup table scores on the SAME held-out text. Without this, a loss
+    # can only be compared to uniform guessing, which anything beats — see
+    # baselines.py. Scored on corpus.train/corpus.val rather than a fresh split,
+    # so the baseline cannot describe a different holdout than the model was
+    # scored on. ~2.4s on a 20MB corpus, so it runs unconditionally.
+    base = None
+    if corpus.train_text is not None and corpus.val_text:
+        base = baselines.compare(corpus.train_text, corpus.val_text,
+                                 tok.vocab_size, model_val_nats=final["val"])
+        print("\n--- how does that compare to a model that cannot learn? ---")
+        for line in baselines.summary_lines(base):
+            print(line)
+
     runlog.record("train", device=device, out=args.out, source="cli",
                   corpus=runlog.corpus_fingerprint(text),
                   config={"n_layer": args.n_layer, "n_head": args.n_head,
@@ -198,6 +213,7 @@ def main():
                            "wall_s": wall,
                            "ms_per_step": wall / max(args.steps, 1) * 1000,
                            "params": model.num_params()},
+                  baselines=base,
                   leakage=_leak_of(text))
     print(f"recorded to {runlog.LOG.name}  (python runlog.py to review)")
 
