@@ -173,6 +173,23 @@ def verifier_fingerprint() -> dict[str, str]:
     """Everything that defines what 'verified' means: the sha256 of every
     verifier file, PLUS the task source those tasks are built from, PLUS the
     interpreter that executes candidates."""
+    # REFUSE AND SAY WHY, rather than dying inside a hashing helper. These files
+    # are part of what "verified" means, so a missing one is not recoverable --
+    # but a bare FileNotFoundError raised from sha256_file names a path with no
+    # explanation of why this file was wanted, and that is a miserable thing to
+    # debug from a clean clone. Found in review of the published copy: the task
+    # source is deliberately withheld from the product whitelist, so the gate
+    # crashed at import-time for anyone who cloned it, looking like broken code
+    # when it was a boundary artifact.
+    missing = [n for n in VERIFIER_FILES + TASK_SOURCE_FILES
+               if not (HERE / n).exists()]
+    if missing:
+        raise SystemExit(
+            "GATE: cannot fingerprint the verifier -- these files are absent:\n"
+            + "".join(f"  - {n}\n" for n in missing)
+            + "  They define what 'verified' means, so a receipt cannot be\n"
+            "  written or checked without them. If this is a partial copy of\n"
+            "  the repository, the pipeline cannot run here; use the full one.")
     fp = {name: sha256_file(HERE / name)
           for name in VERIFIER_FILES + TASK_SOURCE_FILES}
     fp.update(interpreter_fingerprint())

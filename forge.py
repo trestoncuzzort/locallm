@@ -36,7 +36,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
+import secrets
 import subprocess
 import sys
 import tempfile
@@ -473,13 +475,43 @@ def verify(code: str, task: Task) -> Result:
         "def _checked(*a, **k):\n"
         "    return _strict(_entry(*a, **k))\n"
     )
+    # THE VERDICT CHANNEL MUST NOT BE WRITABLE BY THE THING BEING JUDGED.
+    #
+    # Red witness, before this: a candidate consisting only of
+    #     print("__PASS__ 0.0"); raise SystemExit(0)
+    # scored ok=True. It never defined the entry point at all. The candidate's
+    # code is placed FIRST in this file, so it runs at module level before the
+    # tests exist and can exit 0 with the sentinel already on stdout. Both halves
+    # of the old check -- returncode 0, "__PASS__" in stdout -- were satisfied by
+    # the candidate itself. "The tests decide, not the model" was false as
+    # implemented, which is the one claim this project cannot afford to get wrong.
+    #
+    # THE FIX: the parent generates a random nonce per run and requires it back.
+    # The prelude runs BEFORE the candidate and POPS the nonce out of the
+    # environment, so candidate code cannot read it there, and the sentinel is
+    # printed only after run_tests() has returned. A candidate that exits early
+    # never reaches that line, and one that guesses must guess 128 bits.
+    #
+    # HONEST RESIDUAL, because this is defense in depth and not a sandbox (see
+    # the note above): the nonce lives in a module global while the candidate
+    # runs in that same namespace, so code written deliberately against THIS
+    # harness could still read it back out. Closing that needs real isolation --
+    # a separate process for the candidate, or a runner it cannot introspect --
+    # not a better string. What this closes is every accidental collision and
+    # every candidate that self-certifies without targeting this file by name.
+    nonce = secrets.token_hex(16)
+    prelude = (
+        "import os as _os\n"
+        "_NONCE = _os.environ.pop('SRLM_VERIFY_NONCE', '')\n"
+    )
     harness = (
+        f"{prelude}"
         f"{code}\n\n{task.tests}\n"
         f"{guard}"
         "import time as _t\n"
         "_start = _t.perf_counter()\n"
         "run_tests(_checked)\n"
-        "print('__PASS__', round((_t.perf_counter()-_start)*1000, 2))\n"
+        "print('__PASS__' + _NONCE, round((_t.perf_counter()-_start)*1000, 2))\n"
     )
     with tempfile.NamedTemporaryFile(
         "w", suffix=".py", delete=False, encoding="utf-8"
@@ -489,14 +521,18 @@ def verify(code: str, task: Task) -> Result:
 
     t0 = time.perf_counter()
     try:
+        # -I implies -E, which makes the interpreter ignore PYTHON* variables
+        # for its own configuration. It does NOT empty os.environ, so the nonce
+        # still arrives -- and the prelude pops it before the candidate runs.
+        env = dict(os.environ, SRLM_VERIFY_NONCE=nonce)
         proc = subprocess.run(
             [VERIFY_PY, "-I", path],        # -I: isolated, ignore env/site
                                             # VERIFY_PY, not sys.executable: see
                                             # the pin block above and section 71
-            capture_output=True, text=True, timeout=CAND_TIMEOUT,
+            capture_output=True, text=True, timeout=CAND_TIMEOUT, env=env,
         )
         res.runtime = time.perf_counter() - t0
-        if proc.returncode == 0 and "__PASS__" in proc.stdout:
+        if proc.returncode == 0 and f"__PASS__{nonce}" in proc.stdout:
             res.ok = True
             res.passed = res.total  # assert-based: all-or-nothing here
         else:
