@@ -43,7 +43,7 @@ timeout with a coarse banned-operation filter (`forge.py`). This is defense in d
 the entry point once and requires the return value to be built from plain builtins,
 checked by exact type (`isinstance` is not enough — a `str` subclass with a custom
 `__eq__` passes it). Both exploits are refused; honest solutions are unaffected, and
-re-verifying all 1,269 existing pairs under the stricter rule produced 0 violations.
+re-verifying all 1,279 existing pairs under the stricter rule produced 0 violations.
 
 **A correctness gap, or no pair at all.** A pair is emitted only when `chosen` passes
 every assertion and `rejected` demonstrably fails. Preferring the *shorter* of two
@@ -79,12 +79,12 @@ python -c "def f(x: List[int]) -> Tuple[int,int]: return (1,2)"
 So `def f(x: List[int])` without `from typing import List` fails on 3.11 and runs
 fine on 3.14, and any verifier that inherits its interpreter silently changes what
 "correct" means. The interpreter is now
-resolved in one place and recorded in every receipt. Re-verifying all 1,269 pairs
+resolved in one place and recorded in every receipt. Re-verifying all 1,279 pairs
 under the pinned interpreter still gives 0 violations, so the stricter reading cost
 this dataset nothing.
 
-Latest gate run: **1,269 unique pairs, 0 violations**, covering 2,190 rows across
-`dpo_pairs.jsonl` (1,234), `dpo_pairs_capped.jsonl` (918 — the training file) and
+Latest gate run: **1,279 unique pairs, 0 violations**, covering 2,200 rows across
+`dpo_pairs.jsonl` (1,244), `dpo_pairs_capped.jsonl` (918 — the training file) and
 `repair_pairs.jsonl` (38). Unique is below the row total because 3 pairs appear in
 two files. All of it is in `data/`, so you can re-run the gate yourself.
 

@@ -13977,3 +13977,126 @@ NOT CLAIMED / PENDING
     needs no administrator rights. That is by construction and by reading, not
     by an audit of what pip does when it installs a package.
   - NOT published. sync_public.py has not been run.
+
+93. EXECUTOR LOG  (2026-08-02 - the forge's real state, found by reading
+    artifacts instead of notes: RUN 1 ALREADY HAPPENED and was scored on a
+    saturated instrument. Prereg signed, template skew measured, re-score in
+    flight. Section number taken at the append: 92 was the tail.)
+--------------------------------------------------------------------------------
+
+================================================================================
+1. THE NOTES WERE WRONG. RUN 1 EXISTS.
+================================================================================
+OPEN-ITEMS.md says "Nothing has run on the real 8B base, no held-out evaluation
+has been scored" and, separately, that export_adapter.py is "only exercised
+against a 0.5B stand-in; the real 8B base is untested on this path".
+
+Both are false, and the artifacts say so:
+
+    dpo_adapter_native/run_meta.json
+      base   : unsloth/llama-3-8b-Instruct-bnb-4bit     <- the real 8B
+      pairs  : 918                                      <- run-1's own input
+      epochs : 1.0   lr 5e-06   beta 0.1   rpo_alpha 1.0
+    adapter_model.safetensors  167 MB, 2026-07-28
+    ollama: llama3-forged, llama3-forged-null, llama3-forged-amplified
+
+A real DPO run on the real base, exported with its null baseline and the
+amplified adapter-is-live control, five days ago.
+
+WHY IT PRODUCED NOTHING. data/eval_history.jsonl, 10 rows, 2026-07-28:
+
+    task_set = held_out    n_tasks = 10    n_samples = 5    temp = 0.8
+    llama3-forged       pass@1: 0.88 0.90 0.88 0.88 0.86   mean 0.880
+    llama3-forged-null  pass@1: 0.90 0.90 0.88 0.88 0.88   mean 0.888
+    pass@3: 0.9 on all ten runs, BOTH arms, without exception
+
+That is the OLD 10-task bank, the one section 64 recorded as saturated
+(pass@20 == pass@3 == 0.9000). Every pass@3 pinned at the ceiling; the trained
+arm fractionally BELOW null on pass@1. The instrument could not resolve a
+difference, so the adapter has never been measured.
+
+So "no efficacy result" is right and "nothing has run" is wrong. The correction
+matters because the two imply completely different next moves: one says train,
+the other says re-score what already exists.
+
+A TRAP AVOIDED, recorded because the next session will meet it too. `python
+eval.py <tag>` scores eval.py's hardcoded HELD_OUT list - the OLD 10 tasks -
+and has no flag for the frozen 31-task ruler. Running it would have repeated
+2026-07-28 exactly. ruler_noise.py is the tool that obtains the ruler through
+build_ruler.verify_frozen().
+
+================================================================================
+2. PREREG SIGNED BEFORE ANYTHING WAS SCORED
+================================================================================
+data/prereg_track_a_run1.json, committed in 809d7ec BEFORE the first replicate.
+Closes the OPEN-ITEMS line "No Track A prereg". Every hash derived from the live
+artifacts, not typed: ruler set 74560a4c, adapter f416f3f9, capped dataset
+85fc0bdc (918 pairs, 0 violations), plus the receipt's verifier fingerprint.
+
+Design: trained llama3-forged vs null llama3-forged-null, 40 replicates per arm,
+greedy-free run-level pass@1, Welch on each arm's own sd, FIXED N, no peeking,
+no early stop on effect. Recorded as what it cannot show: one checkpoint has
+zero training-seed variance by construction, so it cannot support a claim about
+DPO at any k.
+
+================================================================================
+3. TEMPLATE SKEW: MEASURED, AND IT DOES NOT REPRODUCE
+================================================================================
+The sponsor handoff (already ruled on in 73b37f8: items 1-3 adopted, the rest
+declined, the workbench NOT adopted as a second decision record) carries
+research seed 01, whose premise is a real event - the block labelled
+`# file: localllm/train.py` was 86.3% of the old corpus and was this
+generator's candidate stream.
+
+build_training_set.py has always said its cap is "not the fix for template
+skew". Nobody measured the skew. Before scoring an adapter trained on these 918
+pairs, that had to be known: a repetitive bank makes a null result unreadable,
+because it cannot separate "DPO did not work" from "one program renamed nine
+hundred times".
+
+Exact de-duplication cannot see renaming, so identifiers are canonicalised
+before hashing. CONTROL FIRST: the by-task row reproduces build_training_set's
+own published 9.93 effective tasks to the digit.
+
+    chosen structures      273 clusters   effective  90.4   largest  9.8%
+    rejected structures    632 clusters   effective 441.6   largest  4.2%
+    (chosen,rejected)      767 clusters   effective 666.4   largest  1.4%
+
+DPO trains on the CONTRAST, and the contrast is diverse: 767 distinct shapes
+over 918 pairs, largest 1.4%. The chosen side looks concentrated only because 13
+tasks have converging correct solutions, which is what correctness means; the
+variety sits on the rejected side, which is where the signal needs it.
+
+The bank's real limit is the one already named: 13 tasks, effective 9.93. That
+is task BREADTH. It bounds what any result may claim; it does not make one
+unreadable. Section 89's pool work (2.46x pair yield) is the lever for it.
+
+================================================================================
+4. STATUS OF THE RE-SCORE - IN FLIGHT, NOT A RESULT
+================================================================================
+151 seconds per replicate, 155 generations each (31 tasks x 5 samples). First
+launch was KILLED at replicate 29/40 of the trained arm; 28 banked. Nothing was
+lost - ruler_noise appends per replicate and --runs counts banked ones, so the
+resume does only the remainder.
+
+NO AGGREGATE HAS BEEN COMPUTED. The prereg fixed N at 40 per arm with no
+peeking, and a partial-arm mean is precisely what that rule exists to stop.
+The trained arm's mean will not be calculated until both arms are complete.
+
+================================================================================
+NOT CLAIMED
+================================================================================
+  - NOT a result. The re-score is running. Anything about whether the adapter
+    beats its null is unmeasured as of this section.
+  - The concentration probe is a FLASHLIGHT: structural identity misses
+    behavioural duplicates with different shapes and splits one algorithm
+    written two ways. It is a lower bound on repetition, not its full extent.
+    No behavioural probes were built.
+  - NOT claiming the 2026-07-28 adapter is the best recipe. It is the one that
+    exists; nothing has swept lr, beta or rpo_alpha.
+  - The 50 banked base-model replicates are the BASE, not the null arm. They
+    are a free third reference point, not a substitute for llama3-forged-null,
+    which controls for the export path.
+  - Read scope on the handoff package: 00-OPEN-THIS-FIRST.md and research seed
+    01 at the byte, plus the directory listing and the 73b37f8 ruling. The two
+    DoRs, the 53-card workbench and the companions were NOT opened this pass.
