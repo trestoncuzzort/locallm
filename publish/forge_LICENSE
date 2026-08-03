@@ -1,0 +1,45 @@
+Copyright (c) 2026 Treston Malachi Cuzzort
+
+ALL RIGHTS RESERVED.
+
+This software, its source code, its documentation and its accompanying data are
+the property of the copyright holder.
+
+No licence is granted. No permission is given to use, copy, modify, adapt, merge,
+publish, distribute, sublicense, sell, or create derivative works from this
+software or any part of it, whether for commercial or non-commercial purposes,
+without the prior written permission of the copyright holder.
+
+The source is published so that it can be READ, reviewed, evaluated and cited.
+Making it publicly readable is not a grant of any right beyond reading it.
+Nothing here places this work in the public domain, and nothing here is an open
+source licence.
+
+Requests for permission should be directed to the copyright holder.
+
+NO WARRANTY. This software is provided "as is", without warranty of any kind,
+express or implied, including but not limited to the warranties of
+merchantability, fitness for a particular purpose and noninfringement. In no
+event shall the copyright holder be liable for any claim, damages or other
+liability, whether in an action of contract, tort or otherwise, arising from,
+out of or in connection with the software or the use or other dealings in the
+software.
+
+
+THIRD-PARTY MATERIAL
+--------------------
+The terms above apply to the copyright holder's own work. They do not, and
+cannot, alter the licence of third-party material included here, which remains
+governed by its own terms.
+
+Some task data in `data/` is derived from AceCode-89K (TIGER-Lab), which is
+distributed under the MIT Licence and is used here with attribution. Those rows
+remain under their original terms, and this notice does not restrict them.
+
+
+A NOTE ON EARLIER VERSIONS
+--------------------------
+Earlier releases of parts of this work were published under the MIT Licence.
+That grant cannot be withdrawn from copies already obtained under it: anyone who
+received an MIT-licensed version keeps the rights it gave them, for that version.
+The terms in this file govern this version and everything released after it.

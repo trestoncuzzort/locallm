@@ -181,4 +181,9 @@ reward is worth little without the machinery that keeps it honest.
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+**All rights reserved.** See [LICENSE](LICENSE).
+
+This source is published so it can be read, reviewed and cited. That is not a
+grant of any right to use, copy, modify or redistribute it; for anything beyond
+reading, ask. Task data derived from AceCode-89K remains under its own MIT terms
+and is attributed in the licence file.
