@@ -27,7 +27,6 @@ from __future__ import annotations
 import hashlib
 import json
 import subprocess
-import sys
 import tempfile
 import time
 from pathlib import Path
@@ -54,15 +53,31 @@ def sanitized_feedback(code: str, task: forge.Task) -> str:
         "    print('__OK__')\n"
         "except AssertionError:\n"
         "    print('__FB__|returned incorrect output on a hidden test case')\n"
+        # THE CLASS NAME ONLY, NEVER str(e). The exception was raised while the
+        # HIDDEN tests were driving the candidate, so its message can carry the
+        # test's own inputs verbatim: `raise ValueError(x)` on a hidden call
+        # solve("SECRET42") printed `raised ValueError: SECRET42` straight back
+        # into the repair prompt. That is test internals reaching the model,
+        # which is the one thing this function exists to prevent -- and it is
+        # also the anti-hardcode defense, because a model shown the hidden
+        # inputs can special-case them instead of solving the task.
         "except Exception as e:\n"
-        "    print('__FB__|raised ' + type(e).__name__ + ': ' + str(e)[:100])\n"
+        "    print('__FB__|raised ' + type(e).__name__)\n"
     )
     with tempfile.NamedTemporaryFile("w", suffix=".py", delete=False,
                                      encoding="utf-8") as fh:
         fh.write(harness)
         path = fh.name
     try:
-        p = subprocess.run([sys.executable, "-I", path], capture_output=True,
+        # forge.VERIFY_PY, not sys.executable: the failure DESCRIBED to the model
+        # must come from the same interpreter that decides `ok`. Launching the
+        # feedback harness under whatever ran repair.py reintroduces the
+        # section-71 split (forge.py:87-123) inside one function -- verify()
+        # judged the candidate under the pin while this told the model what went
+        # wrong under the launcher, and PEP 649 annotation behaviour alone makes
+        # those two disagree. Read through forge at call time so the pin has one
+        # definition, not a copy per module.
+        p = subprocess.run([forge.VERIFY_PY, "-I", path], capture_output=True,
                            text=True, timeout=forge.CAND_TIMEOUT)
         out = p.stdout
     except subprocess.TimeoutExpired:
@@ -127,7 +142,9 @@ def harvest_task(actor: forge.Actor, task: forge.Task,
         return log, None
 
     # Base probe at forge's budget. A pass here means it isn't a failure now.
-    fails: list[str] = []
+    # The RESULT is kept, not just the code: the verdict carries `timed_out`,
+    # and dropping it here is what let a timeout be treated as a wrong answer.
+    fails: list[forge.Result] = []
     for i in range(forge.NUM_CANDIDATES):
         temp = 0.0 if i == 0 else forge.GEN_TEMP
         try:
@@ -135,14 +152,27 @@ def harvest_task(actor: forge.Actor, task: forge.Task,
                 actor.generate(task.prompt, forge.ACTOR_SYSTEM, temp))
         except Exception:  # noqa: BLE001
             continue
-        if forge.verify(code, task).ok:
+        res = forge.verify(code, task)
+        if res.ok:
             log["status"] = "already_solved"
             return log, None
-        fails.append(code)
+        fails.append(res)
     if not fails:
         log["status"] = "no_output"
         return log, None
-    rejected = fails[0]  # a verified failure (every base attempt failed)
+
+    # A TIMEOUT IS NOT A WRONG ANSWER. Same rule as forge.run_task (forge.py:654):
+    # `rejected` must be demonstrably WRONG, not merely slow or unmeasured. A
+    # candidate that ran out of budget has an UNKNOWN verdict -- it may well be
+    # correct and slow -- so training the model to prefer anything over it
+    # teaches speed under the guise of correctness. This used to keep fails[0]
+    # whatever it was, which on an all-fail task is frequently the greedy
+    # candidate at temp 0.0, i.e. the timeout when the model loops.
+    verified_fails = [r for r in fails if not r.timed_out and r.code.strip()]
+    if not verified_fails:
+        log["status"] = "no_verified_failure"   # every base candidate timed out
+        return log, None
+    rejected = verified_fails[0].code
 
     chosen = best_of_n(actor, task)
     source, steps = "best_of_n", 0
@@ -157,8 +187,13 @@ def harvest_task(actor: forge.Actor, task: forge.Task,
         known_hard.add(task.tid)
         return log, None
 
-    # Invariant: chosen truly passes, rejected truly fails (ground-truth recheck).
-    if not (forge.verify(chosen, task).ok and not forge.verify(rejected, task).ok):
+    # Invariant: chosen truly passes, rejected truly FAILS (ground-truth recheck).
+    # `not ok` alone does not say that: a timeout is also not-ok, so the old form
+    # of this check would have certified a pair the selection above had already
+    # let through. Re-checked here rather than trusted from the base probe
+    # because verification is the thing this file is not allowed to assume.
+    rej = forge.verify(rejected, task)
+    if not (forge.verify(chosen, task).ok and not rej.ok and not rej.timed_out):
         log["status"] = "invariant_failed"
         return log, None
 
