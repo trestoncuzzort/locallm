@@ -144,9 +144,13 @@ DPO_PUBLISH = {
     # fresh published checkout fails on `import forge` (dangling_references()
     # now catches this class for DPO_PUBLISH, not only PUBLISH).
     "traces.py": "traces.py",
-    # verify_dataset.py does `import screen_tasks` at module scope; same class
-    # of gap.
-    "screen_tasks.py": "screen_tasks.py",
+    # verify_dataset.py needs the entry-point-binding harness at module scope.
+    # NOT screen_tasks.py: that file names the private council/STOP path
+    # directly (codex review caught this — `screen_tasks.py` on this map made
+    # BOTH publishers abort on their own forbidden-term scan, every run).
+    # task_bank.py is the extracted, zero-forbidden-term piece that verify_
+    # dataset.py actually imports now.
+    "task_bank.py": "task_bank.py",
     # export_adapter.py and screen_tasks.py both `import venv_guard` at module
     # scope.
     "venv_guard.py": "venv_guard.py",
@@ -174,7 +178,28 @@ DPO_PUBLISH = {
 #     currently carries internal references ("council") that need their own
 #     redaction pass -- out of scope here; tracked as a known gap rather than
 #     silently widening this PR into that file's content.
-DPO_KNOWN_UNPUBLISHED = {"sync_public.py", "build_ruler.py"}
+#   - screen_tasks.py names the private council/STOP path directly (5 forbidden
+#     hits, one of them the executable STOP file location, not just prose) and
+#     cannot ever ship without changing what the overnight loop watches on
+#     disk, which is out of scope for a publish-surface fix. The one function
+#     other modules need from it, `as_task`, now lives in task_bank.py, which
+#     IS on the map. forge.py's function-local pool-building import and
+#     dataset_gate.py's TASK_SOURCE_FILES fingerprint both still name
+#     screen_tasks.py directly; both already have documented, non-crashing
+#     behaviour for a published checkout that lacks it (forge.py: not needed
+#     for `import forge`; dataset_gate.py: verifier_fingerprint() raises an
+#     explicit "partial copy" SystemExit rather than a bare traceback).
+#   - data/screen_results.jsonl carries the full hidden test suite (tid/entry/
+#     prompt/tests) for every screened candidate, INCLUDING the tasks
+#     build_ruler.py holds out as the ruler (see build_ruler.py's own
+#     "POOL DISJOINTNESS" docstring section). Publishing it would hand out the
+#     ruler's hidden tests, which is a different and worse problem than an
+#     import error -- unlike screen_tasks.py/build_ruler.py this is not a
+#     licensing or scope question, it is "shipping the answer key". A
+#     published checkout must regenerate it locally (screen_tasks.py) before
+#     dataset_gate's receipt machinery can run; publish/dpo_README.md says so.
+DPO_KNOWN_UNPUBLISHED = {"sync_public.py", "build_ruler.py", "screen_tasks.py",
+                         "data/screen_results.jsonl"}
 
 # The DPO track carries a DIFFERENT forbidden list, and the difference is the
 # whole point. `srlm` and `dpo_pairs` are forbidden in the product track because
@@ -267,8 +292,18 @@ def dangling_references() -> list[tuple[str, str]]:
     `import forge` / `import verify_dataset`. A checker that only watches one
     of the two tracks it enforces elsewhere is the same omission this function
     exists to catch, aimed at itself.
+
+    THE `ref` PATTERN COVERS NESTED PATHS AND `.jsonl`, NOT JUST BARE
+    FILENAMES. The original pattern's character class had no `/` and its
+    extension group had no `jsonl`, so a quoted reference like
+    `"data/screen_results.jsonl"` (dataset_gate.py's TASK_SOURCE_FILES) was
+    invisible to this function -- it returned a clean [] while a generated
+    public tree would exit inside verifier_fingerprint() the first time
+    something tried to fingerprint the verifier, because that file is
+    genuinely missing. Path separators and `jsonl` are both real shapes this
+    repo's own references take, not hypothetical.
     """
-    ref = re.compile(r"[\"']([A-Za-z0-9_.-]+\.(?:json|txt|py))[\"']")
+    ref = re.compile(r"[\"']([A-Za-z0-9_./-]+\.(?:jsonl|json|txt|py))[\"']")
     # Bare imports matter as much as quoted filenames: `import runlog` slipped
     # past the first version of this guard and shipped a module that only
     # existed on the author's disk. A local sibling module that is imported but
