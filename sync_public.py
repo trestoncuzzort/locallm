@@ -165,6 +165,20 @@ DPO_PUBLISH = {
     "data/export_acceptance_result.json": "data/export_acceptance_result.json",
 }
 
+# WHAT ACTUALLY RUNS FROM A PUBLISHED CHECKOUT, STATED PLAINLY (codex r2,
+# findings 1+2): this map closes IMPORT errors (`import forge` / `import
+# verify_dataset` no longer raise ModuleNotFoundError), not RUNTIME ones. The
+# published tree is a DATA + VERIFICATION artifact -- verify_dpo_claims.py
+# and the shipped dpo_pairs*.jsonl/repair_pairs.jsonl datasets work as
+# published. The generation entry point (`forge.py --tasks pool`) and the
+# training gate's fingerprint (dataset_gate.verifier_fingerprint(), via
+# `python verify_dataset.py`) both require the private task sources below
+# (screen_tasks.py, data/screen_results.jsonl) and DO NOT run from a
+# published checkout -- regenerating those locally is required first. This
+# was true before this branch existed (a published checkout could not even
+# `import forge`); closing the import gap does not make the pipeline
+# runnable, and is not meant to.
+#
 # Files a DPO_PUBLISH file imports/names that are DELIBERATELY not on the map,
 # analogous to GENERATED_LOCALLY above but for reasons dangling_references()
 # cannot infer on its own:
