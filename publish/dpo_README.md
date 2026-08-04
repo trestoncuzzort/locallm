@@ -174,6 +174,17 @@ not at the default path.
 Model choice is not hardcoded: `config.py` resolves an Ollama tag and a Hugging Face
 base from `SRLM_MODEL` / `SRLM_HF_BASE`, with per-architecture LoRA targets.
 
+## What runs from this checkout, what doesn't
+
+This checkout is a **data + verification** artifact. `python verify_claims.py` and
+the shipped datasets (`dpo_pairs.jsonl`, `dpo_pairs_capped.jsonl`,
+`repair_pairs.jsonl`) work as published. The generation entry point
+(`forge.py --tasks pool`) and the training gate's fingerprint (`verify_dataset.py`,
+via `dataset_gate.py`) both require private task sources that are not published
+here — regenerating them locally (screening your own candidate tasks) is required
+first. This is a scoping fact about what ships, not a bug introduced by this
+checkout's structure.
+
 ## Known limitations
 
 - The banned-operation filter is a regex, not a sandbox, and it is **not

@@ -116,8 +116,9 @@
     }
   },
   "verifier": {
-    "forge.py": "b20995a74a5fce49a6f0e48c5d857392b0c80702282fa9aa9fa6f02d45c1be5f",
-    "screen_tasks.py": "2e9b49fab641d4b004dc69f9c2c5ea5f7d6fa2daaba6537ba5dda50e870cbc3d",
+    "forge.py": "13d52d9c004575539f6eb1d0cc9dbe021ef160997e17e7fb7c9b68176cdae504",
+    "screen_tasks.py": "3dfc4e9cf9cd4ef755fa534ce7f41dd0f5f1a73b5202f59324fb9614afb6dcd6",
+    "task_bank.py": "b28a47cb95f1e3488b6e14213032d103ce37646ee1617c34a55700d0430bc736",
     "data/screen_results.jsonl": "cd83ba8a53f5d43e244e4b91c81127baf133b4ab994ea2c8c7a5fd81e0cf53bc",
     "interpreter": "python 3.11.9"
   },
