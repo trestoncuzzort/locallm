@@ -59,6 +59,7 @@ import sys
 import time
 from pathlib import Path
 
+import dataset_gate
 import eval as ev
 import forge
 import screen_tasks
@@ -181,7 +182,83 @@ def ruler_tasks() -> tuple[list[forge.Task], dict[str, float], str]:
 
 
 # ---------------------------------------------------------------------------
+def verifier_drift(baseline: dict, current: dict | None = None) -> dict:
+    """Entries where the verifier on disk no longer matches `baseline`.
+
+    Returns {name: (snapshot_value, disk_value)} for every entry that differs in
+    either direction, including one that only one side has -- a fingerprint that
+    GAINS or LOSES a file has changed what "verified" covers just as much as one
+    whose hash moved. Empty means nothing moved.
+    """
+    cur = dataset_gate.verifier_fingerprint() if current is None else current
+    return {k: (baseline.get(k), cur.get(k))
+            for k in sorted(set(baseline) | set(cur))
+            if baseline.get(k) != cur.get(k)}
+
+
+def replicate_row(res: dict, replicate: int, verifier: dict) -> dict:
+    """The banked row: one evaluate() result, numbered, carrying the WHOLE
+    verifier it was scored by.
+
+    THE INTERPRETER IS ONLY HALF OF "WHAT DECIDED CORRECT". Section 71 pinned the
+    Python and taught eval.evaluate to record it, and the resume/pool rules above
+    refuse to mix replicates whose `verifier["version"]` differs. That closes one
+    way ground truth can move under a 40-replicate series. The other stayed open:
+    forge.verify() is also its own source and its task source, so loosening
+    BANNED, shortening CAND_TIMEOUT, dropping the return-type guard or
+    re-screening a task changes what "correct" means while every row still
+    records the same interpreter -- and the rows scored before and after are then
+    indistinguishable in the file, silently pooled into one sd.
+
+    dataset_gate already owns that scope decision for the dataset receipt
+    (VERIFIER_FILES + TASK_SOURCE_FILES, whole files on purpose) and already
+    computes it. It is IMPORTED here rather than re-derived, for the reason
+    venv_guard.py exists: a second definition of "what the verifier is" would be
+    free to drift from the first, which is the failure this row is meant to make
+    visible.
+
+    ADDITIVE, and deliberately so. The section 71 keys (`version`, `executable`,
+    `pinned_away_from_launcher`, `launcher_version`) are what `measure` and
+    `analyze` partition on, so they are merged LAST and cannot be displaced; the
+    fingerprint's keys are filenames plus `interpreter`, which cannot collide
+    with them. Rows already in the bank keep whatever they had -- they are
+    evidence of the state they were written in, and nothing here rewrites them.
+    Both readers reach the verifier dict through `.get`, so a row without these
+    fields still parses exactly as before.
+
+    THE SNAPSHOT IS PASSED IN, NOT RE-READ HERE, and the difference is the whole
+    point. This function runs AFTER evaluate() has scored the replicate, so
+    hashing the files at this moment records the state of the DISK at banking
+    time -- while the code that actually reached the verdict is the state LOADED
+    at import: forge and screen_tasks stay imported for the entire run, and
+    `tasks` are built once before the loop. Edit forge.py while a 40-replicate
+    run is in flight and a self-hashing builder writes rows claiming the NEW hash
+    for verdicts produced by the OLD bytes. That is worse than the missing
+    fingerprint this replaced, because it is a confident label that is false.
+    Codex review, P1, on the first version of this fix. `measure` therefore takes
+    the fingerprint ONCE before the loop, when it still describes the loaded
+    modules, and hands it down; `verifier_drift` re-reads the disk before each
+    row is banked so a mid-run edit ABORTS instead of mislabelling.
+
+    HONEST RESIDUAL: the modules are imported before cmd_measure runs, so the
+    snapshot is taken microseconds after the bytes that were loaded, not at the
+    instant of loading. An edit landing inside that window is recorded as though
+    it were the loaded state. Closing it would mean hashing at import time in
+    every module; the drift check bounds everything after it.
+    """
+    return dict(res, replicate=replicate,
+                verifier={**verifier, **(res.get("verifier") or {})})
+
+
+# ---------------------------------------------------------------------------
 def cmd_measure(args: argparse.Namespace) -> None:
+    # THE SNAPSHOT OF WHAT WILL SCORE THESE REPLICATES, taken FIRST -- before the
+    # tasks are built and before anything is generated. forge and screen_tasks
+    # were imported at process start and stay loaded for the whole run, so this
+    # is the fingerprint of the code that will actually reach every verdict
+    # below. Every row is stamped with it, and it is re-checked against disk
+    # before each row is banked (see replicate_row / verifier_drift).
+    baseline = dataset_gate.verifier_fingerprint()
     tasks, rates, model = ruler_tasks()
     model = args.model or model
 
@@ -228,7 +305,22 @@ def cmd_measure(args: argparse.Namespace) -> None:
             print("[noise] evaluate() returned None - aborting rather than "
                   "banking a partial replicate.")
             return
-        res["replicate"] = i
+        # THE STRADDLE, CAUGHT INSTEAD OF LABELLED. `tasks` and the imported
+        # forge/screen_tasks are the snapshot's bytes for the whole run, so a
+        # file edited now cannot have scored this replicate. Banking it under
+        # either fingerprint would be a lie in one direction or the other.
+        moved = verifier_drift(baseline)
+        if moved:
+            for name, (was, now) in moved.items():
+                print(f"[noise]   {name}: snapshot {str(was)[:16]}... "
+                      f"on-disk {str(now)[:16]}...")
+            print("[noise] the VERIFIER changed mid-run.")
+            print("[noise] aborting rather than banking a row whose label would "
+                  "not name the code that scored it. Re-run `measure`; the "
+                  "replicates already in the file were scored by the snapshot "
+                  "above and are unaffected.")
+            return
+        res = replicate_row(res, i, baseline)
         with OUT.open("a", encoding="utf-8") as f:
             f.write(json.dumps(res, ensure_ascii=False) + "\n")
         mins = (time.time() - t0) / 60
