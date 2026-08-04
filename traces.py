@@ -122,12 +122,21 @@ def derive_kto(rows: list[dict], dedup: bool = True) -> list[dict]:
     KTO needs a LABEL, not a pair, which is the point of including it: a task
     that produced only failures contributes nothing to DPO and contributes real
     negative signal here. Nothing is discarded for lacking a partner.
+
+    TIMEOUTS ARE STILL DISCARDED, and that is not the same thing. `label=False`
+    is an assertion that the completion is UNDESIRABLE; a timed-out candidate
+    was never judged -- the run hit the budget, so whether the program is
+    correct is unknown, and it may be correct and merely slow. Labelling it
+    False trains against an infrastructure outcome. derive_dpo already refuses
+    timeouts for exactly this reason (see its docstring); a row that is too
+    uncertain to be one method's `rejected` is too uncertain to be another
+    method's negative, and the trace keeps the row either way.
     """
     seen: set[tuple[str, str]] = set()
     out = []
     for r in rows:
         code = (r.get("code") or "").strip()
-        if not code:
+        if not code or r.get("timed_out"):
             continue
         key = (r["tid"], code)
         if dedup and key in seen:
@@ -173,8 +182,21 @@ def derive_dpo(rows: list[dict], per_task_cap: int | None = None) -> list[dict]:
             if code == best["code"].strip() or code in seen:
                 continue
             seen.add(code)
-            out.append({"prompt": best["prompt"], "chosen": best["raw"],
-                        "rejected": f["raw"],
+            # THE FIELD CONTRACT IS forge.run_task's (forge.py:672-683), not a
+            # new one: `chosen`/`rejected` hold EXECUTABLE source, because
+            # verify_dataset.py runs forge.verify on those two fields,
+            # clean_dataset.py reads them as source and both dedup hashes are
+            # taken over them -- fenced text fails all three. The verbatim
+            # emissions are what a preference TARGET must be, so they travel
+            # alongside in `chosen_raw`/`rejected_raw`, where
+            # train_native.training_target() already looks for them; without
+            # those fields it re-fences `chosen`, which on fenced input yields
+            # a doubly-fenced target no policy ever emitted.
+            out.append({"prompt": best["prompt"],
+                        "chosen": best["code"].strip(),
+                        "rejected": code,
+                        "chosen_raw": best.get("raw", ""),
+                        "rejected_raw": f.get("raw", ""),
                         "meta": {"tid": tid, "reason": "correctness",
                                  "source": "dpo"}})
             made += 1
