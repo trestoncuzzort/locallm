@@ -156,6 +156,9 @@ DPO_PUBLISH = {
     "venv_guard.py": "venv_guard.py",
     # The claim-checker ships under the name the published layout expects.
     "verify_dpo_claims.py": "verify_claims.py",
+    # The dependency manifest travels with the code it describes; a public
+    # checkout otherwise has no installable declaration for requests/torch/trl.
+    "requirements.txt": "requirements.txt",
     "data/dpo_pairs.jsonl": "data/dpo_pairs.jsonl",
     "data/dpo_pairs_capped.jsonl": "data/dpo_pairs_capped.jsonl",
     "data/repair_pairs.jsonl": "data/repair_pairs.jsonl",
