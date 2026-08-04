@@ -37,6 +37,32 @@ def main() -> None:
     raw = DATA / "dpo_pairs.raw.jsonl"
     pairs = [json.loads(l) for l in src.open(encoding="utf-8")]
 
+    # FAIL CLOSED ON AN ABSENT TASK DEFINITION. `valid()` cannot tell "this row
+    # is genuinely wrong" from "I have no task to judge it against" -- both
+    # return False, and this loop would then delete both the same way. In a
+    # full checkout the two never collide because TASKS covers everything a
+    # pair could name. In a PUBLISHED checkout, data/screen_results.jsonl is
+    # deliberately absent (it carries the held-out ruler's hidden tests), so
+    # TASKS here holds only the 13 seed tasks and every screened-pool tid --
+    # all 10 ace_oss_* rows shipped in dpo_pairs.jsonl -- resolves to nothing.
+    # Running the cleaner there would score that absence as invalidity and
+    # silently rewrite all ten out, with no error to say why. An unjudgeable
+    # row is not an invalid row; refuse rather than guess.
+    missing_tids = sorted({tid for p in pairs
+                            if (tid := (p.get("meta") or {}).get("tid")) not in TASKS})
+    if missing_tids:
+        raise SystemExit(
+            "CLEAN: refusing to rewrite anything -- no task definition for "
+            f"{len(missing_tids)} tid(s) named in {src.name}:\n"
+            + "".join(f"  - {t}\n" for t in missing_tids)
+            + "  An absent task definition is not evidence a row is invalid, so "
+              "this script cannot judge these rows and will not delete them on "
+              "a guess. This is what a published (partial) checkout looks like: "
+              "data/screen_results.jsonl is not shipped, so TASKS here covers "
+              "only forge.SEED_TASKS.\n"
+              "  Fix: regenerate the screened pool, or run this from the full "
+              "checkout where data/screen_results.jsonl exists.")
+
     with ThreadPoolExecutor(max_workers=8) as ex:
         keep_flags = list(ex.map(valid, pairs))
     kept = [p for p, k in zip(pairs, keep_flags) if k]
