@@ -59,6 +59,7 @@ import sys
 import time
 from pathlib import Path
 
+import dataset_gate
 import eval as ev
 import forge
 import screen_tasks
@@ -181,6 +182,47 @@ def ruler_tasks() -> tuple[list[forge.Task], dict[str, float], str]:
 
 
 # ---------------------------------------------------------------------------
+def replicate_row(res: dict, replicate: int) -> dict:
+    """The banked row: one evaluate() result, numbered, carrying the WHOLE
+    verifier it was scored by.
+
+    THE INTERPRETER IS ONLY HALF OF "WHAT DECIDED CORRECT". Section 71 pinned the
+    Python and taught eval.evaluate to record it, and the resume/pool rules above
+    refuse to mix replicates whose `verifier["version"]` differs. That closes one
+    way ground truth can move under a 40-replicate series. The other stayed open:
+    forge.verify() is also its own source and its task source, so loosening
+    BANNED, shortening CAND_TIMEOUT, dropping the return-type guard or
+    re-screening a task changes what "correct" means while every row still
+    records the same interpreter -- and the rows scored before and after are then
+    indistinguishable in the file, silently pooled into one sd.
+
+    dataset_gate already owns that scope decision for the dataset receipt
+    (VERIFIER_FILES + TASK_SOURCE_FILES, whole files on purpose) and already
+    computes it. It is IMPORTED here rather than re-derived, for the reason
+    venv_guard.py exists: a second definition of "what the verifier is" would be
+    free to drift from the first, which is the failure this row is meant to make
+    visible.
+
+    ADDITIVE, and deliberately so. The section 71 keys (`version`, `executable`,
+    `pinned_away_from_launcher`, `launcher_version`) are what `measure` and
+    `analyze` partition on, so they are merged LAST and cannot be displaced; the
+    fingerprint's keys are filenames plus `interpreter`, which cannot collide
+    with them. Rows already in the bank keep whatever they had -- they are
+    evidence of the state they were written in, and nothing here rewrites them.
+    Both readers reach the verifier dict through `.get`, so a row without these
+    fields still parses exactly as before.
+
+    Computed PER REPLICATE rather than once per run, because a series that
+    straddles an edit to forge.py is precisely the case this exists to catch;
+    hoisting it out of the loop would record the same fingerprint for rows that
+    were not scored the same way.
+    """
+    return dict(res, replicate=replicate,
+                verifier={**dataset_gate.verifier_fingerprint(),
+                          **(res.get("verifier") or {})})
+
+
+# ---------------------------------------------------------------------------
 def cmd_measure(args: argparse.Namespace) -> None:
     tasks, rates, model = ruler_tasks()
     model = args.model or model
@@ -228,7 +270,7 @@ def cmd_measure(args: argparse.Namespace) -> None:
             print("[noise] evaluate() returned None - aborting rather than "
                   "banking a partial replicate.")
             return
-        res["replicate"] = i
+        res = replicate_row(res, i)
         with OUT.open("a", encoding="utf-8") as f:
             f.write(json.dumps(res, ensure_ascii=False) + "\n")
         mins = (time.time() - t0) / 60
