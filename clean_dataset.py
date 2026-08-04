@@ -14,9 +14,15 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import forge
+import verify_dataset
 
 DATA = forge.OUT_DIR
-TASKS = {t.tid: t for t in forge.SEED_TASKS}
+# Resolve tasks the same way the gate does (verify_dataset.load_tasks): seed
+# tasks PLUS the screened pool from data/screen_results.jsonl. `{t.tid: t for
+# t in forge.SEED_TASKS}` alone cannot see ace_oss_* tasks, so every pair drawn
+# from the screened pool looked up as `None` and this script deleted them as
+# "invalid" (10 rows in data/dpo_pairs.jsonl, section 91).
+TASKS = verify_dataset.load_tasks()
 
 
 def valid(pair) -> bool:

@@ -57,25 +57,31 @@ def files_to_publish() -> dict[str, str]:
 
 
 def scan(mapping: dict[str, str]) -> list[str]:
-    """Forbidden-term scan. Returns problems; empty means clean."""
+    """Forbidden-term scan. Returns problems; empty means clean.
+
+    Streams every file line-by-line rather than reading it whole, so this
+    scans data/dpo_pairs.jsonl (~2.3MB) at the same coverage as any other
+    file. A prior version skipped the content scan entirely for any .jsonl/
+    .json file over 2MB -- a forbidden term planted past that size limit would
+    never be seen, and the file it would have hit (dpo_pairs.jsonl) is exactly
+    the kind of file this scan exists to check.
+    """
     problems: list[str] = []
     for src in mapping:
         p = HERE / src
         if not p.exists():
             problems.append(f"{src}: MISSING")
             continue
-        if p.suffix in {".jsonl", ".json"} and p.stat().st_size > 2_000_000:
-            continue                     # data files are scanned by content below
         try:
-            text = p.read_text(encoding="utf-8", errors="replace")
+            with p.open(encoding="utf-8", errors="replace") as fh:
+                for i, line in enumerate(fh, 1):
+                    for m in SP.DPO_PATTERN.finditer(line):
+                        if SP._permitted_copyright_line(line, m.group(0)):
+                            continue
+                        problems.append(f"{src}:{i}: forbidden {m.group(0)!r}")
         except OSError as e:
             problems.append(f"{src}: unreadable ({e})")
             continue
-        for i, line in enumerate(text.splitlines(), 1):
-            for m in SP.DPO_PATTERN.finditer(line):
-                if SP._permitted_copyright_line(line, m.group(0)):
-                    continue
-                problems.append(f"{src}:{i}: forbidden {m.group(0)!r}")
     return problems
 
 

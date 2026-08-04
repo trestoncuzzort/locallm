@@ -140,6 +140,16 @@ DPO_PUBLISH = {
     "repair.py": "repair.py",
     "measure.py": "measure.py",
     "config.py": "config.py",
+    # forge.py does `import traces as trace` at module scope; without this a
+    # fresh published checkout fails on `import forge` (dangling_references()
+    # now catches this class for DPO_PUBLISH, not only PUBLISH).
+    "traces.py": "traces.py",
+    # verify_dataset.py does `import screen_tasks` at module scope; same class
+    # of gap.
+    "screen_tasks.py": "screen_tasks.py",
+    # export_adapter.py and screen_tasks.py both `import venv_guard` at module
+    # scope.
+    "venv_guard.py": "venv_guard.py",
     # The claim-checker ships under the name the published layout expects.
     "verify_dpo_claims.py": "verify_claims.py",
     "data/dpo_pairs.jsonl": "data/dpo_pairs.jsonl",
@@ -150,6 +160,21 @@ DPO_PUBLISH = {
     "data/smoke_rpo_alpha_result.json": "data/smoke_rpo_alpha_result.json",
     "data/export_acceptance_result.json": "data/export_acceptance_result.json",
 }
+
+# Files a DPO_PUBLISH file imports/names that are DELIBERATELY not on the map,
+# analogous to GENERATED_LOCALLY above but for reasons dangling_references()
+# cannot infer on its own:
+#   - sync_public.py is the private-repo publisher itself (this file). It
+#     cannot ever ship: it fails its own forbidden-term scan (46 hits) by
+#     design, since its whole job is naming what must never leave. The one
+#     caller (verify_dpo_claims.py) already guards the import with an
+#     existence check + try/except for exactly this reason.
+#   - build_ruler.py is reached only from forge.py's function-local, optional
+#     pool-building import (not required for `import forge` to succeed) and
+#     currently carries internal references ("council") that need their own
+#     redaction pass -- out of scope here; tracked as a known gap rather than
+#     silently widening this PR into that file's content.
+DPO_KNOWN_UNPUBLISHED = {"sync_public.py", "build_ruler.py"}
 
 # The DPO track carries a DIFFERENT forbidden list, and the difference is the
 # whole point. `srlm` and `dpo_pairs` are forbidden in the product track because
@@ -235,6 +260,13 @@ def dangling_references() -> list[tuple[str, str]]:
     that crashes on a fresh clone. That is exactly how --profile fast went out
     with its preregistration left behind. Catch it here rather than in a bug
     report.
+
+    Covers BOTH published tracks. Originally PUBLISH-only: published forge.py
+    imports traces.py, and published verify_dataset.py imports screen_tasks.py,
+    neither on the DPO_PUBLISH map, so a fresh published DPO checkout could not
+    `import forge` / `import verify_dataset`. A checker that only watches one
+    of the two tracks it enforces elsewhere is the same omission this function
+    exists to catch, aimed at itself.
     """
     ref = re.compile(r"[\"']([A-Za-z0-9_.-]+\.(?:json|txt|py))[\"']")
     # Bare imports matter as much as quoted filenames: `import runlog` slipped
@@ -244,22 +276,27 @@ def dangling_references() -> list[tuple[str, str]]:
     # published.
     imp = re.compile(r"^\s*(?:import\s+([A-Za-z_][\w]*)|from\s+([A-Za-z_][\w]*)\s+import)",
                      re.MULTILINE)
-    published = set(PUBLISH)
     missing = []
-    for name in PUBLISH:
-        if not name.endswith(".py"):
-            continue
-        body = (SRC / name).read_text(encoding="utf-8", errors="ignore")
-        for a, b in imp.findall(body):
-            mod = (a or b) + ".py"
-            if (mod not in published and mod not in GENERATED_LOCALLY
-                    and (SRC / mod).is_file()):
-                missing.append((name, mod))
-        for hit in ref.findall(body):
-            if hit in published or hit in GENERATED_LOCALLY:
+
+    def _scan(names: list[str], src_dir: Path, published: set[str],
+              excused: set[str]) -> None:
+        for name in names:
+            if not name.endswith(".py"):
                 continue
-            if (SRC / hit).is_file():          # exists locally but is not shipped
-                missing.append((name, hit))
+            body = (src_dir / name).read_text(encoding="utf-8", errors="ignore")
+            for a, b in imp.findall(body):
+                mod = (a or b) + ".py"
+                if (mod not in published and mod not in excused
+                        and (src_dir / mod).is_file()):
+                    missing.append((name, mod))
+            for hit in ref.findall(body):
+                if hit in published or hit in excused:
+                    continue
+                if (src_dir / hit).is_file():  # exists locally but is not shipped
+                    missing.append((name, hit))
+
+    _scan(list(PUBLISH), SRC, set(PUBLISH), GENERATED_LOCALLY)
+    _scan(list(DPO_PUBLISH), DPO_SRC, set(DPO_PUBLISH), DPO_KNOWN_UNPUBLISHED)
     return missing
 
 

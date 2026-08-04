@@ -13,7 +13,7 @@ once, plainly, and offer a pointer instead.
 
 ## Rules for this repo
 
-- **The default branch here is `master`, not `main`.** Don't build on it — branch first.
+- **The default branch here is `main`.** Don't build on it — branch first.
 - **Two different things are called "council."** `council/` in this repo is this project's own
   automated output (reports, transcripts, logs). The kit's council is independent AI reviewer
   seats. Don't let one stand in for the other.

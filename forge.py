@@ -709,8 +709,13 @@ def main(tasks: list[Task], source: str = "unspecified") -> None:
     # Fail fast with a clear message if Ollama/model isn't ready.
     try:
         tags = actor.s.get(f"{OLLAMA_URL}/api/tags", timeout=5).json()
+        # /api/tags always reports a tag suffix, so a bare name like
+        # "llama3-forged" never string-matches "llama3-forged:latest" and the
+        # guard reported "not pulled" about a model that was sitting right
+        # there. Ollama itself treats the bare name as ":latest"; match its
+        # behaviour rather than requiring the caller to know the convention.
         have = {m["name"] for m in tags.get("models", [])}
-        if MODEL_NAME not in have:
+        if MODEL_NAME not in have and f"{MODEL_NAME}:latest" not in have:
             print(f"[!] Model '{MODEL_NAME}' not pulled. Have: {sorted(have) or 'none'}")
             print(f"    Run:  ollama pull {MODEL_NAME}")
             return
