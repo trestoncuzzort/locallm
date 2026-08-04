@@ -140,8 +140,25 @@ DPO_PUBLISH = {
     "repair.py": "repair.py",
     "measure.py": "measure.py",
     "config.py": "config.py",
+    # forge.py does `import traces as trace` at module scope; without this a
+    # fresh published checkout fails on `import forge` (dangling_references()
+    # now catches this class for DPO_PUBLISH, not only PUBLISH).
+    "traces.py": "traces.py",
+    # verify_dataset.py needs the entry-point-binding harness at module scope.
+    # NOT screen_tasks.py: that file names the private council/STOP path
+    # directly (codex review caught this — `screen_tasks.py` on this map made
+    # BOTH publishers abort on their own forbidden-term scan, every run).
+    # task_bank.py is the extracted, zero-forbidden-term piece that verify_
+    # dataset.py actually imports now.
+    "task_bank.py": "task_bank.py",
+    # export_adapter.py and screen_tasks.py both `import venv_guard` at module
+    # scope.
+    "venv_guard.py": "venv_guard.py",
     # The claim-checker ships under the name the published layout expects.
     "verify_dpo_claims.py": "verify_claims.py",
+    # The dependency manifest travels with the code it describes; a public
+    # checkout otherwise has no installable declaration for requests/torch/trl.
+    "requirements.txt": "requirements.txt",
     "data/dpo_pairs.jsonl": "data/dpo_pairs.jsonl",
     "data/dpo_pairs_capped.jsonl": "data/dpo_pairs_capped.jsonl",
     "data/repair_pairs.jsonl": "data/repair_pairs.jsonl",
@@ -150,6 +167,56 @@ DPO_PUBLISH = {
     "data/smoke_rpo_alpha_result.json": "data/smoke_rpo_alpha_result.json",
     "data/export_acceptance_result.json": "data/export_acceptance_result.json",
 }
+
+# WHAT ACTUALLY RUNS FROM A PUBLISHED CHECKOUT, STATED PLAINLY (codex r2,
+# findings 1+2): this map closes IMPORT errors (`import forge` / `import
+# verify_dataset` no longer raise ModuleNotFoundError), not RUNTIME ones. The
+# published tree is a DATA + VERIFICATION artifact -- verify_dpo_claims.py
+# and the shipped dpo_pairs*.jsonl/repair_pairs.jsonl datasets work as
+# published. The generation entry point (`forge.py --tasks pool`) and the
+# training gate's fingerprint (dataset_gate.verifier_fingerprint(), via
+# `python verify_dataset.py`) both require the private task sources below
+# (screen_tasks.py, data/screen_results.jsonl) and DO NOT run from a
+# published checkout -- regenerating those locally is required first. This
+# was true before this branch existed (a published checkout could not even
+# `import forge`); closing the import gap does not make the pipeline
+# runnable, and is not meant to.
+#
+# Files a DPO_PUBLISH file imports/names that are DELIBERATELY not on the map,
+# analogous to GENERATED_LOCALLY above but for reasons dangling_references()
+# cannot infer on its own:
+#   - sync_public.py is the private-repo publisher itself (this file). It
+#     cannot ever ship: it fails its own forbidden-term scan (46 hits) by
+#     design, since its whole job is naming what must never leave. The one
+#     caller (verify_dpo_claims.py) already guards the import with an
+#     existence check + try/except for exactly this reason.
+#   - build_ruler.py is reached only from forge.py's function-local, optional
+#     pool-building import (not required for `import forge` to succeed) and
+#     currently carries internal references ("council") that need their own
+#     redaction pass -- out of scope here; tracked as a known gap rather than
+#     silently widening this PR into that file's content.
+#   - screen_tasks.py names the private council/STOP path directly (5 forbidden
+#     hits, one of them the executable STOP file location, not just prose) and
+#     cannot ever ship without changing what the overnight loop watches on
+#     disk, which is out of scope for a publish-surface fix. The one function
+#     other modules need from it, `as_task`, now lives in task_bank.py, which
+#     IS on the map. forge.py's function-local pool-building import and
+#     dataset_gate.py's TASK_SOURCE_FILES fingerprint both still name
+#     screen_tasks.py directly; both already have documented, non-crashing
+#     behaviour for a published checkout that lacks it (forge.py: not needed
+#     for `import forge`; dataset_gate.py: verifier_fingerprint() raises an
+#     explicit "partial copy" SystemExit rather than a bare traceback).
+#   - data/screen_results.jsonl carries the full hidden test suite (tid/entry/
+#     prompt/tests) for every screened candidate, INCLUDING the tasks
+#     build_ruler.py holds out as the ruler (see build_ruler.py's own
+#     "POOL DISJOINTNESS" docstring section). Publishing it would hand out the
+#     ruler's hidden tests, which is a different and worse problem than an
+#     import error -- unlike screen_tasks.py/build_ruler.py this is not a
+#     licensing or scope question, it is "shipping the answer key". A
+#     published checkout must regenerate it locally (screen_tasks.py) before
+#     dataset_gate's receipt machinery can run; publish/dpo_README.md says so.
+DPO_KNOWN_UNPUBLISHED = {"sync_public.py", "build_ruler.py", "screen_tasks.py",
+                         "data/screen_results.jsonl"}
 
 # The DPO track carries a DIFFERENT forbidden list, and the difference is the
 # whole point. `srlm` and `dpo_pairs` are forbidden in the product track because
@@ -235,8 +302,39 @@ def dangling_references() -> list[tuple[str, str]]:
     that crashes on a fresh clone. That is exactly how --profile fast went out
     with its preregistration left behind. Catch it here rather than in a bug
     report.
+
+    Covers BOTH published tracks. Originally PUBLISH-only: published forge.py
+    imports traces.py, and published verify_dataset.py imports screen_tasks.py,
+    neither on the DPO_PUBLISH map, so a fresh published DPO checkout could not
+    `import forge` / `import verify_dataset`. A checker that only watches one
+    of the two tracks it enforces elsewhere is the same omission this function
+    exists to catch, aimed at itself.
+
+    THE `ref` PATTERN COVERS NESTED PATHS AND `.jsonl`, NOT JUST BARE
+    FILENAMES. The original pattern's character class had no `/` and its
+    extension group had no `jsonl`, so a quoted reference like
+    `"data/screen_results.jsonl"` (dataset_gate.py's TASK_SOURCE_FILES) was
+    invisible to this function -- it returned a clean [] while a generated
+    public tree would exit inside verifier_fingerprint() the first time
+    something tried to fingerprint the verifier, because that file is
+    genuinely missing. Path separators and `jsonl` are both real shapes this
+    repo's own references take, not hypothetical.
+
+    "SHIPPED" MEANS A DESTINATION NAME, NOT A SOURCE KEY. DPO_PUBLISH is
+    {source -> destination}; the copy loop in main() writes destination
+    names into the published tree, and a source file's import statements are
+    copied VERBATIM (they still say the SOURCE module's bare name). So an
+    import of `verify_dpo_claims` in a published file was checked against
+    DPO_PUBLISH's KEYS -- which contains "verify_dpo_claims.py" -- and passed,
+    even though the published tree only ever gets "verify_claims.py" on
+    disk (the map's remap for that one entry). The shipped set for the DPO
+    leg has to be `set(DPO_PUBLISH.values())`, not `set(DPO_PUBLISH)`.
+    PUBLISH is a plain list, not a source->dest map -- `main()` copies it as
+    `CLONE / name` for the same `name` it read, so every PUBLISH entry ships
+    under its own name by construction and `set(PUBLISH)` was already
+    correct; checked directly (no remapped entries exist there to get wrong).
     """
-    ref = re.compile(r"[\"']([A-Za-z0-9_.-]+\.(?:json|txt|py))[\"']")
+    ref = re.compile(r"[\"']([A-Za-z0-9_./-]+\.(?:jsonl|json|txt|py))[\"']")
     # Bare imports matter as much as quoted filenames: `import runlog` slipped
     # past the first version of this guard and shipped a module that only
     # existed on the author's disk. A local sibling module that is imported but
@@ -244,22 +342,36 @@ def dangling_references() -> list[tuple[str, str]]:
     # published.
     imp = re.compile(r"^\s*(?:import\s+([A-Za-z_][\w]*)|from\s+([A-Za-z_][\w]*)\s+import)",
                      re.MULTILINE)
-    published = set(PUBLISH)
     missing = []
-    for name in PUBLISH:
-        if not name.endswith(".py"):
-            continue
-        body = (SRC / name).read_text(encoding="utf-8", errors="ignore")
-        for a, b in imp.findall(body):
-            mod = (a or b) + ".py"
-            if (mod not in published and mod not in GENERATED_LOCALLY
-                    and (SRC / mod).is_file()):
-                missing.append((name, mod))
-        for hit in ref.findall(body):
-            if hit in published or hit in GENERATED_LOCALLY:
+
+    def _scan(names: list[str], src_dir: Path, published: set[str],
+              excused: set[str]) -> None:
+        for name in names:
+            if not name.endswith(".py"):
                 continue
-            if (SRC / hit).is_file():          # exists locally but is not shipped
-                missing.append((name, hit))
+            body = (src_dir / name).read_text(encoding="utf-8", errors="ignore")
+            for a, b in imp.findall(body):
+                mod = (a or b) + ".py"
+                if (mod not in published and mod not in excused
+                        and (src_dir / mod).is_file()):
+                    missing.append((name, mod))
+            for hit in ref.findall(body):
+                if hit in published or hit in excused:
+                    continue
+                if (src_dir / hit).is_file():  # exists locally but is not shipped
+                    missing.append((name, hit))
+
+    # PUBLISH is a list, not a source->dest map: `main()` copies each entry as
+    # `CLONE / name`, so the shipped name IS the source name and set(PUBLISH)
+    # is already the correct "what's on disk after publish" set.
+    _scan(list(PUBLISH), SRC, set(PUBLISH), GENERATED_LOCALLY)
+    # DPO_PUBLISH remaps some entries (verify_dpo_claims.py -> verify_claims.py,
+    # publish/dpo_README.md -> README.md): iterate the SOURCE files (`.keys()`,
+    # via list(DPO_PUBLISH)) since that is what is actually on disk here to
+    # read import statements from, but judge "is this shipped?" against the
+    # DESTINATION names (`.values()`), since that is what a published import
+    # or quoted reference is actually checked against on a fresh checkout.
+    _scan(list(DPO_PUBLISH), DPO_SRC, set(DPO_PUBLISH.values()), DPO_KNOWN_UNPUBLISHED)
     return missing
 
 
