@@ -316,6 +316,20 @@ def dangling_references() -> list[tuple[str, str]]:
     something tried to fingerprint the verifier, because that file is
     genuinely missing. Path separators and `jsonl` are both real shapes this
     repo's own references take, not hypothetical.
+
+    "SHIPPED" MEANS A DESTINATION NAME, NOT A SOURCE KEY. DPO_PUBLISH is
+    {source -> destination}; the copy loop in main() writes destination
+    names into the published tree, and a source file's import statements are
+    copied VERBATIM (they still say the SOURCE module's bare name). So an
+    import of `verify_dpo_claims` in a published file was checked against
+    DPO_PUBLISH's KEYS -- which contains "verify_dpo_claims.py" -- and passed,
+    even though the published tree only ever gets "verify_claims.py" on
+    disk (the map's remap for that one entry). The shipped set for the DPO
+    leg has to be `set(DPO_PUBLISH.values())`, not `set(DPO_PUBLISH)`.
+    PUBLISH is a plain list, not a source->dest map -- `main()` copies it as
+    `CLONE / name` for the same `name` it read, so every PUBLISH entry ships
+    under its own name by construction and `set(PUBLISH)` was already
+    correct; checked directly (no remapped entries exist there to get wrong).
     """
     ref = re.compile(r"[\"']([A-Za-z0-9_./-]+\.(?:jsonl|json|txt|py))[\"']")
     # Bare imports matter as much as quoted filenames: `import runlog` slipped
@@ -344,8 +358,17 @@ def dangling_references() -> list[tuple[str, str]]:
                 if (src_dir / hit).is_file():  # exists locally but is not shipped
                     missing.append((name, hit))
 
+    # PUBLISH is a list, not a source->dest map: `main()` copies each entry as
+    # `CLONE / name`, so the shipped name IS the source name and set(PUBLISH)
+    # is already the correct "what's on disk after publish" set.
     _scan(list(PUBLISH), SRC, set(PUBLISH), GENERATED_LOCALLY)
-    _scan(list(DPO_PUBLISH), DPO_SRC, set(DPO_PUBLISH), DPO_KNOWN_UNPUBLISHED)
+    # DPO_PUBLISH remaps some entries (verify_dpo_claims.py -> verify_claims.py,
+    # publish/dpo_README.md -> README.md): iterate the SOURCE files (`.keys()`,
+    # via list(DPO_PUBLISH)) since that is what is actually on disk here to
+    # read import statements from, but judge "is this shipped?" against the
+    # DESTINATION names (`.values()`), since that is what a published import
+    # or quoted reference is actually checked against on a fresh checkout.
+    _scan(list(DPO_PUBLISH), DPO_SRC, set(DPO_PUBLISH.values()), DPO_KNOWN_UNPUBLISHED)
     return missing
 
 
