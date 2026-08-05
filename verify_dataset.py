@@ -31,7 +31,12 @@ from pathlib import Path
 
 import dataset_gate
 import forge
-import screen_tasks
+# task_bank.as_task, not screen_tasks.as_task: this file is published (see
+# sync_public.DPO_PUBLISH), and screen_tasks.py cannot be -- it carries the
+# private overnight-loop STOP-file path and other references that must never
+# leave this machine. task_bank.py is the extracted, publishable piece that
+# holds the one function this module actually needs (codex review fold).
+import task_bank
 
 DATA = forge.OUT_DIR
 # dpo_pairs_capped.jsonl is the run-1 training input (build_training_set.py).
@@ -63,10 +68,12 @@ def load_tasks() -> dict[str, forge.Task]:
     data/ruler_frozen.json does NOT — it stores hashes plus a `training_pool`
     list of bare tid strings, by design, so it cannot be the source here.
 
-    The harness is built by screen_tasks.as_task(), the same function that built
-    these tasks when they were screened and confirmed. Rebuilding it here would
-    be a second implementation of the entry-point binding, and two of those agree
-    only with each other.
+    The harness is built by task_bank.as_task() (moved out of screen_tasks.py in
+    a later fold so this published module does not have to import screen_tasks'
+    private screening loop to get it) — the same function that built these tasks
+    when they were screened and confirmed. Rebuilding it here would be a second
+    implementation of the entry-point binding, and two of those agree only with
+    each other.
     """
     tasks: dict[str, forge.Task] = {t.tid: t for t in forge.SEED_TASKS}
     seeded = set(tasks)
@@ -101,7 +108,7 @@ def load_tasks() -> dict[str, forge.Task]:
             raise SystemExit(
                 f"GATE: task id {tid} is defined BOTH in forge.SEED_TASKS and "
                 f"in {path.name}. One pair, two possible test suites; refusing.")
-        tasks[tid] = screen_tasks.as_task(payload)
+        tasks[tid] = task_bank.as_task(payload)
     return tasks
 
 

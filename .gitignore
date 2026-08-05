@@ -1,7 +1,8 @@
-# Publish safety is enforced by sync_public.py's whitelist, NOT by this file.
-# This repo has no git remote on purpose: nothing here can be pushed anywhere.
-# Do not add council/ or channel files here. They belong in this repo and are
-# kept out of the public one by the whitelist, which cannot be forgotten.
+# Publish safety is enforced by sync_public.py's / sync_forge.py's whitelists,
+# NOT by this file or by the absence of a remote — this repo DOES have a git
+# remote (origin). Do not add council/ or channel files here. They belong in
+# this repo and are kept out of the public one by the whitelist, which cannot
+# be forgotten.
 .venv-train/
 smoke_adapter/
 smoke_adapter_*/
