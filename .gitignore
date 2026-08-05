@@ -34,3 +34,6 @@ localllm/out_gui/
 # The sponsor handoff package is his proprietary guidance. It lives here for
 # reading and never enters version control or any publish whitelist.
 S12-LOCAL-MODEL-HANDOFF-2026-07-28/
+
+# pytest's cache, created by running the suite. Not a result.
+.pytest_cache/
