@@ -52,6 +52,10 @@ from pathlib import Path
 
 import forge
 import venv_guard
+# as_task lives in task_bank.py now (codex review fold): it is the one piece
+# of this file anything outside the screening loop needs, and the split lets
+# it ship without this file's private overnight/STOP-file machinery.
+from task_bank import as_task
 
 HERE = Path(__file__).resolve().parent
 OUT = HERE / "data" / "screen_results.jsonl"
@@ -204,15 +208,6 @@ def candidates(limit: int, seed: int, stratum: str | None = None) -> list[dict]:
         out.append({"tid": tid, "entry": entry, "prompt": r["question"], "tests": tcs})
         taken += 1
     return out
-
-
-def as_task(c: dict) -> forge.Task:
-    """AceCode asserts call the function by its own global name; forge's harness
-    passes the (return-type-guarded) entry point into run_tests. Bind the name
-    locally so the asserts run unchanged against the guarded function."""
-    indented = "\n".join("    " + line.strip() for line in c["tests"])
-    tests = f"def run_tests(_f):\n    {c['entry']} = _f\n{indented}\n"
-    return forge.Task(c["tid"], c["prompt"], c["entry"], tests)
 
 
 def rate(actor: forge.Actor, task: forge.Task, n: int, temp: float) -> tuple[int, int]:

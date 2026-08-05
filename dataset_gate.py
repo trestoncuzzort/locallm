@@ -82,7 +82,18 @@ VERIFIER_FILES = ("forge.py",)
 # invented-scope mistake this project keeps paying for. The price is the same one
 # already accepted — screening a new task invalidates the receipt and forces a
 # re-verify. That is the correct direction to be wrong in.
-TASK_SOURCE_FILES = ("screen_tasks.py", "data/screen_results.jsonl")
+#
+# task_bank.py ADDED (codex review fold, repo-hygiene branch): the entry-point
+# harness (`as_task`) that used to live entirely inside screen_tasks.py was
+# split out so verify_dataset.py's PUBLISHED copy could import it without
+# also importing screen_tasks.py's private overnight/STOP-file machinery
+# (screen_tasks.py cannot ship: it names the private overnight loop's STOP
+# path directly).
+# "0 violations" is still a statement that depends on as_task()'s bytes, so
+# the file that now actually defines it has to be in this tuple too — leaving
+# it out would be exactly the silent-weakening this whole block exists to
+# stop, just relocated one file over.
+TASK_SOURCE_FILES = ("screen_tasks.py", "task_bank.py", "data/screen_results.jsonl")
 
 # ---------------------------------------------------------------------------
 # ...AND THE VERIFIER IS NOT ONLY ITS SOURCE. It is source PLUS the interpreter
