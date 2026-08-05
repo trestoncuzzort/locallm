@@ -512,3 +512,12 @@
     
     [noise] appended to C:\Users\Kingo\source\srlm-forge\data\ruler_noise.jsonl. Run `analyze`.
 [round 40/40] llama3-forged-rep  (+126.8 min)
+    [noise] replicate 40: pass@1=0.4645 (2.2m elapsed)
+    
+    [noise] appended to C:\Users\Kingo\source\srlm-forge\data\ruler_noise.jsonl. Run `analyze`.
+[round 40/40] llama3-forged-null-rep  (+129.0 min)
+    [noise] ruler 31 tasks | model llama3-forged-null-rep
+    [noise] 40 replicate(s) already banked, 0 to go (155 generations each)
+    [noise] nothing to do; run `analyze`
+
+DONE: 40 replicates per arm in 129.0 min
