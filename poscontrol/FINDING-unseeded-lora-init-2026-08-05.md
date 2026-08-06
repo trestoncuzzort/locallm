@@ -98,6 +98,38 @@ that matters, and shows the seeds would need to be set first.
 3. Train N≥3 adapters and evaluate each. Orthogonal weights with equal loss say nothing about whether
    benchmark scores agree; that is a separate measurement and it is the one the null actually needs.
 
-**NOT MEASURED HERE:** whether the two orthogonal adapters score the same on the benchmark. Only
-`adapter_replication` was evaluated (40 replicates, +0.065 pp vs null). `adapter_replication2` has not
-been served or scored.
+**NOT MEASURED AT THE TIME THIS WAS WRITTEN:** whether the orthogonal adapters score the same on the
+benchmark. Neither had been served or scored when this document was first written.
+
+---
+
+## CORRECTION — 2026-08-05, later the same day
+
+**The paragraph above originally read:** *"Only `adapter_replication` was evaluated (40 replicates,
++0.065 pp vs null)."* **That was wrong, and it is corrected here rather than silently edited.**
+
+The +0.065 pp / 40-replicate result belongs to the arm tagged `llama3-forged-rep`, which served **the
+AUTHOR'S delivered adapter**, not `adapter_replication`. Verified at the byte: `poscontrol/served/
+Modelfile.rep` points at `poscontrol/served/adapter.gguf`, whose sha256 is
+`4107cf60ebced937bb7c80bd…` — byte-identical to the GGUF delivered from the author's machine. This
+repository's first retrain exports to a different artifact entirely, sha256 `285a8b6ee540a1ce0cf40850…`,
+and was not served under any tag until it was exported later as `llama3-forged-rep1`.
+
+**Consequence for the claim this document makes: none.** The orthogonality measurement compares
+`adapter_replication` against `adapter_replication2` on disk and never depended on which adapter was
+served during the replication run.
+
+**Consequence for the replication claim elsewhere: none, and it confirms it.** The replication served the
+author's adapter, which is precisely why it replicates the *measurement* and not the *training* — the
+statement made in `REPLICATION-RESULT-2026-08-05.txt`, `START-HERE.md`, and `PAPER-CORRECTIONS`. Three
+artifacts said one thing, this document said another, and this document was the one that was wrong.
+
+**Since superseded by measurement.** All three retrains were subsequently served and scored against a
+pooled null (n=70, three sessions): **+9.658 pp (t=11.94) · +10.950 pp (t=13.64) · +9.938 pp (t=9.63)**,
+statistically indistinguishable from one another despite being mutually orthogonal. The question this
+section listed as open — *do orthogonal adapters score the same?* — is answered: **yes.** See
+`FINAL-SUMMARY-2026-08-05.txt`.
+
+*(Found by the seat drafting the paper revision, which noticed this document contradicting three others
+and refused to write from the majority without flagging it. The contradiction was then resolved at the
+byte rather than by vote.)*
