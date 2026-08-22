@@ -43,3 +43,11 @@ S12-LOCAL-MODEL-HANDOFF-2026-07-28/
 poscontrol/adapter_replication/
 poscontrol/adapter_replication2/
 poscontrol/served/*.gguf
+
+# Positive-control adapter binaries (Aug 20): reproducible from seed+corpus, and the
+# safetensors exceed GitHub's 100MB limit. sha256 manifest committed instead (WEIGHTS-MANIFEST.md).
+dpo_adapter_poscontrol/*.safetensors
+dpo_adapter_poscontrol/export/*.gguf
+dpo_adapter_poscontrol/export/amplified/*.safetensors
+# Claude Code session tooling
+.claude/

@@ -30,7 +30,7 @@ HERE = Path(__file__).resolve().parent
 REPO = HERE.parent
 PY = REPO / ".venv-train" / "Scripts" / "python.exe"
 
-ARMS = ["llama3-forged-rep", "llama3-forged-null-rep"]
+ARMS = ["llama3-forged-rep", "llama3-forged-null-rep"]  # Aug 4/5 default
 
 
 def one(model: str, upto: int) -> int:
@@ -51,11 +51,15 @@ def one(model: str, upto: int) -> int:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--rounds", type=int, default=40)
+    ap.add_argument("--arms", nargs=2, metavar=("POSITIVE", "NULL"), default=None,
+                     help="override the two model tags to interleave; "
+                          f"default is the Aug 4/5 pair {ARMS}")
     args = ap.parse_args()
+    arms = args.arms or ARMS
 
     t0 = time.time()
     for r in range(1, args.rounds + 1):
-        for model in ARMS:
+        for model in arms:
             el = (time.time() - t0) / 60
             print(f"[round {r}/{args.rounds}] {model}  (+{el:.1f} min)", flush=True)
             rc = one(model, r)
