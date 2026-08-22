@@ -120,7 +120,7 @@
     "screen_tasks.py": "3dfc4e9cf9cd4ef755fa534ce7f41dd0f5f1a73b5202f59324fb9614afb6dcd6",
     "task_bank.py": "15770d4d658308d6af19ad9bae2ff8f9dac70161ae6329a2872d493bfb72d8b3",
     "data/screen_results.jsonl": "cd83ba8a53f5d43e244e4b91c81127baf133b4ab994ea2c8c7a5fd81e0cf53bc",
-    "interpreter": "python 3.11.9"
+    "interpreter": "python 3.12.10"
   },
   "known_hard": [],
   "reconcile_contradictions": {}
