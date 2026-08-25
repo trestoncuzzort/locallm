@@ -90,6 +90,13 @@ def main() -> None:
                          "DPOConfig alone does not govern it (see Appendix G).")
     ap.add_argument("--optim", default="adamw_bnb_8bit",
                     help="Optimizer. The F2 ablation varies exactly this flag.")
+    ap.add_argument("--min-8bit-size", type=int, default=None,
+                    help="bitsandbytes 8-bit state threshold (default 4096). F2's\n"
+                         "fourth arm raises it above 229376 -- the element count of\n"
+                         "layers.1.mlp.down_proj.lora_A -- so that tensor's optimizer\n"
+                         "state falls back to 32 bit. transformers 4.46.3 forwards\n"
+                         "optim_args only to RMSprop/AdEMAMix/AnyPrecision, so this\n"
+                         "cannot be a --optim string and has to rebuild the optimizer.")
     ap.add_argument("--out", default=str(HERE / "dpo_adapter_native"))
     ap.add_argument("--raw-pairs", action="store_true",
                     help="train on the uncapped dpo_pairs.jsonl instead of the "
@@ -211,6 +218,30 @@ def main() -> None:
     trainer = DPOTrainer(model=model, args=cfg, train_dataset=ds,
                          processing_class=tok, peft_config=peft_cfg)
     seed_after_wrap = torch.initial_seed()
+
+    # F2 arm 4. The arms must stay ONE PARAMETER apart, so this rebuilds the
+    # optimizer the way Trainer.create_optimizer would have -- same class, same
+    # kwargs from get_optimizer_cls_and_kwargs, same two weight-decay param
+    # groups from get_decay_parameter_names -- and overrides min_8bit_size only.
+    # Assigning trainer.optimizer before train() suppresses create_optimizer,
+    # which only builds one when self.optimizer is None.
+    if args.min_8bit_size is not None:
+        opt_model = trainer.model
+        decay = trainer.get_decay_parameter_names(opt_model)
+        groups = [
+            {"params": [p for n, p in opt_model.named_parameters()
+                        if n in decay and p.requires_grad],
+             "weight_decay": cfg.weight_decay},
+            {"params": [p for n, p in opt_model.named_parameters()
+                        if n not in decay and p.requires_grad],
+             "weight_decay": 0.0},
+        ]
+        opt_cls, opt_kwargs = trainer.get_optimizer_cls_and_kwargs(cfg, opt_model)
+        opt_kwargs = dict(opt_kwargs, min_8bit_size=args.min_8bit_size)
+        trainer.optimizer = opt_cls(groups, **opt_kwargs)
+        print(f"[train] optimizer rebuilt: {opt_cls.__name__} "
+              f"min_8bit_size={args.min_8bit_size} kwargs={opt_kwargs}")
+
     trainer.train()
     trainer.save_model(args.out)
     print(f"[train] adapter saved to {args.out}")
@@ -232,6 +263,7 @@ def main() -> None:
         # Recorded because Failure 7 was a run_meta that did not describe its run.
         "max_steps": args.max_steps,
         "seed_requested": args.seed,
+        "min_8bit_size": args.min_8bit_size,
         "torch_initial_seed_after_wrap": seed_after_wrap,
         "verifier": forge.verifier_interpreter(),
     }, indent=2))
