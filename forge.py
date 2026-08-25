@@ -136,6 +136,7 @@ def verifier_interpreter() -> dict:
     different ground truth can never be silently compared."""
     ver = dataset_gate.interpreter_fingerprint()["interpreter"].split()[-1]
     return {"executable": VERIFY_PY, "version": ver,
+            "platform": sys.platform,
             "pinned_away_from_launcher": VERIFY_PY != sys.executable,
             "launcher_version": sys.version.split()[0]}
 
