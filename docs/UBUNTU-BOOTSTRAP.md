@@ -191,7 +191,8 @@ Empty output means no compute processes are on the card.
     nvidia-smi                 # full view: memory used, utilisation %, process table
     who                        # who is logged in, on what tty/display, since when
     w                          # same plus what each session is running, and load average
-    uptime                     # load average alone: >60 means the 60 cores are busy
+    uptime                     # load: 60 PHYSICAL cores / 120 logical. This box's occupancy
+                               # tooling divides by 120; use 60 for a stricter gate.
     loginctl list-sessions     # systemd sessions, including RDP
 
 Read the result with judgement, not just presence/absence:
