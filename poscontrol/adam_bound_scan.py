@@ -81,6 +81,7 @@ def scan(arm_dir, a0=None, block=256):
     slack = TRUST * S
     out = {"dir": arm_dir, "sigma_lr": S, "slack": slack, "schedule": how,
            "tensors": 0, "over": 0, "per_tensor": {}, "blocks": defaultdict(int),
+           "colblocks": defaultdict(int),
            "max_excess": 0.0, "a0_delta": {}}
     for k, v in sorted(sd.items()):
         if "lora_A" not in k and "lora_B" not in k:
@@ -97,8 +98,16 @@ def scan(arm_dir, a0=None, block=256):
             out["per_tensor"][k] = {"n": n, "bound": bound,
                                     "max_abs": float(a.max()), "numel": int(a.numel())}
             out["max_excess"] = max(out["max_excess"], float(a.max()) - bound)
+            # Two binnings, because the manuscript specifies both and for a
+            # (16, 14336) tensor they coincide only on row 0:
+            #   flat  -- "binned by (layer, module, 256-aligned flat block)"
+            #   col   -- "the observed violating columns ... are [2304, 2558]"
+            # The decision rule's parenthetical is about columns, so `col` is
+            # what the verdict uses; `flat` is reported alongside it.
+            ncol = v.shape[1]
             for idx in mask.nonzero().flatten().tolist():
                 out["blocks"][(k, idx // block)] += 1
+                out["colblocks"][(k, (idx % ncol) // block)] += 1
         if a0 is not None and isA and k in a0:
             d = (v.detach().float() - a0[k].detach().float()).abs().max().item()
             out["a0_delta"][k] = d
@@ -133,10 +142,12 @@ def main():
             print(f"   max excess over bound : {r['max_excess']:.6e}")
             for k, d in sorted(r["per_tensor"].items(), key=lambda x: -x[1]["n"])[:8]:
                 print(f"      {k.split('base_model.model.model.')[-1]:<52} {d['n']:>8} / {d['numel']}  max|w|={d['max_abs']:.4e} bound={d['bound']:.4e}")
-        foc = [(k, b, n) for (k, b), n in r["blocks"].items() if a.focus in k]
-        hit = sum(n for k, b, n in foc if b == a.focus_block)
-        print(f"   preregistered focus: {a.focus} block {a.focus_block} "
-              f"[{a.focus_block*a.block}, {(a.focus_block+1)*a.block-1}] -> {hit} over-bound elements")
+        lo, hi = a.focus_block * a.block, (a.focus_block + 1) * a.block - 1
+        hit_col = sum(n for (k, b), n in r["colblocks"].items() if a.focus in k and b == a.focus_block)
+        hit_flat = sum(n for (k, b), n in r["blocks"].items() if a.focus in k and b == a.focus_block)
+        print(f"   focus {a.focus} [{lo}, {hi}]:")
+        print(f"      columns  [{lo},{hi}] across all rows : {hit_col:>5}   <- the decision rule")
+        print(f"      flat block {a.focus_block} (row 0 only)          : {hit_flat:>5}")
         if r["a0_delta"]:
             mx = max(r["a0_delta"].values())
             within = sum(1 for d in r["a0_delta"].values() if d <= r["slack"])
@@ -155,10 +166,10 @@ def main():
     bnb_arm = next((k for k in results if "f2-adamw_bnb_8bit" in k), None)
     if torch_arm and bnb_arm:
         t_over = results[torch_arm]["over"]
-        b_hit = sum(n for (k, b), n in results[bnb_arm]["blocks"].items()
+        b_hit = sum(n for (k, b), n in results[bnb_arm]["colblocks"].items()
                     if a.focus in k and b == a.focus_block)
         print(f"  adamw_torch      over-bound elements, all tensors : {t_over}   (rule needs 0)")
-        print(f"  adamw_bnb_8bit   over-bound in focus block         : {b_hit}   (rule needs >= 50)")
+        print(f"  adamw_bnb_8bit   over-bound in focus columns       : {b_hit}   (rule needs >= 50)")
         verdict = "CONFIRMED" if (t_over == 0 and b_hit >= 50) else "NOT CONFIRMED"
         print(f"  VERDICT: {verdict}")
         if t_over > 0:
