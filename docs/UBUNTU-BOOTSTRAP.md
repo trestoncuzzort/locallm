@@ -48,7 +48,7 @@ carrying it over.
     cd srlm-forge
     git checkout tool/test-run-dashboard
 
-**Why clone and not rsync/scp/USB:** 243 of 251 committed blobs are already pure LF and all 251
+**Why clone and not rsync/scp/USB:** 247 of 251 committed blobs are pure LF (249 of 251 TEXT blobs; the only CRLF text files are poscontrol/retrain.log and retrain2.log) and all 251
 index entries are mode 100644, so a clone lands clean. A file copy from the Windows or macOS
 tree brings CRLF line endings and 0700 permissions with it, which breaks shebangs
 (`bad interpreter: /usr/bin/env python3^M`) and poisons the file hashes the dataset gate
@@ -78,7 +78,7 @@ These are confirmed, with file:line. Fix them before anything else runs.
    `_VENV_PY = HERE / ".venv-train" / "Scripts" / "python.exe"`.
    On POSIX the interpreter is `.venv-train/bin/python`. `verify_py()` has NO fallback and
    raises SystemExit. `forge.py:130` calls it at MODULE scope (`VERIFY_PY = dataset_gate.verify_py()`),
-   so this fires during `import forge`, before argparse, before `--help`. **19 tracked modules
+   so this fires during `import forge`, before argparse, before `--help`. **20 tracked modules
    import forge** and all of them die. Same hardcoding appears at `venv_guard.py:35`,
    `export_adapter.py:53`, `sync_public.py:40`, `poscontrol/run_interleaved.py:31`,
    `tests/test_verifier_pin.py:39`, `tests/test_replicate_provenance.py:76`.
@@ -95,7 +95,7 @@ These are confirmed, with file:line. Fix them before anything else runs.
 `.gitattributes` currently contains only `data/*.jsonl merge=union`. There is no `text`/`eol`
 policy, so each clone's line endings depend on that machine's `core.autocrlf`. This is open
 residual R-1 / M3, and the repo's own rule is **red witness before any fix, receipt after**.
-The red witnesses are already captured at `docs/port-2026-08-24/RED-WITNESS-{A,B,C}.txt` — read
+The red witnesses are already captured at `docs/port-2026-08-24/RED-WITNESS-A-INTERPRETER.txt`, `-B-GATE-STALE.txt`, `-C-R1-DIALECT.txt` — read
 them rather than re-deriving.
 
 The published digests are **CRLF-dialect**: six of the seven recorded in
@@ -104,9 +104,27 @@ The published digests are **CRLF-dialect**: six of the seven recorded in
 the paper. The intended repair is to hash a **declared canonical form** so the already-published
 values stay valid. Decide this deliberately; it is a paper-visible change.
 
+Note this section was written from the Mac's COPIED (CRLF) tree. On a tree obtained by clone on
+Linux, `git ls-files --eol` already reports `i/lf w/lf` and the renormalize/touch dance below is a
+no-op — verify before running it.
+
 Also note: `git add --renormalize .` fixes only the INDEX. The worktree stays CRLF and the gate
 hashes worktree bytes. Getting LF onto disk needs
 `git ls-files -z | xargs -0 touch` and then `git checkout -- .`.
+
+### Witness A cannot be reproduced on a cloned tree — and that is itself the finding
+
+RED-WITNESS-A requires `.venv-train/Scripts/python.exe` to EXIST as a PE32+ binary: that is what
+makes `verify_py()` return success before the subprocess fails. That state arises only on a tree
+obtained by FILE COPY from Windows. `.venv-train/` is gitignored (`.gitignore:6`), so a clone can
+never produce it — and Step 2 of this document mandates cloning. On a cloned tree `verify_py()`
+raises SystemExit at `dataset_gate.py:140`, the subprocess at `:159` is never reached, and the gate
+fails CLOSED.
+
+So the same guard fails OPEN or CLOSED depending on the provenance of the checkout. That is the
+same shape as the receipt's CRLF dialect: a check whose behaviour is a function of how the tree
+arrived rather than of what it contains. Do not read the closed failure here as evidence that
+Failure 8 is not real; read it as the second half of it.
 
 ## Step 6 — the receipt is stale, independently of all the above
 
@@ -116,9 +134,10 @@ file as it stood 19 days earlier (`c0ffaa5`, 2026-08-03, vs the receipt's `f755d
 The verifier was deliberately changed and disclosed; the receipt was never regenerated. So the
 gate refuses on Windows too — this is not something the port caused.
 
-Regenerate the receipt **on this machine, under 3.12.10**, once steps 3-5 are done:
-
-    .venv-train/bin/python verify_dataset.py
+DO NOT regenerate the receipt. Treston's standing instruction as of 2026-08-25 is that the
+staleness is known, already disclosed in the manuscript, and is NOT to be repaired without an
+explicit decision. An earlier version of this document told you to run `verify_dataset.py` here;
+that instruction is withdrawn. If a run genuinely requires a valid receipt, ask first.
 
 Quote its output. Do not summarise it, and do not claim the dataset is clean unless that run
 just enforced it — repo rule, `CLAUDE.md`.
