@@ -27,6 +27,7 @@ Run:  python eval.py                       # scores forge.MODEL_NAME
 from __future__ import annotations
 
 import json
+import os
 import re
 import math
 import sys
@@ -249,20 +250,83 @@ def evaluate(model_tag: str, tasks: list[forge.Task] | None = None,
     # `greedy` stays in the row as None so old rows remain distinguishable from
     # new ones; ruler_noise's integrity check already reads it as
     # (p.get("greedy") or 0), so all draws simply live in `sampled` now.
+    # GENERATION IS ISSUED CONCURRENTLY; SCORING IS NOT.
+    # The draws are i.i.d. at TEMP, so their order carries no information and
+    # issuing them one at a time was leaving the card almost idle: batch-1
+    # autoregressive decode is memory-bandwidth bound, and measured throughput
+    # rose from ~1.1 to ~8.4 generations/second at 16 concurrent requests.
+    # Nothing about the EXPERIMENT changes - same model, same temperature, same
+    # N_SAMPLES, same verifier, same per-task accounting, and arms are still
+    # interleaved replicate-by-replicate by run_interleaved.py. Only the order in
+    # which independent draws are requested changes.
+    #
+    # forge.Actor holds a requests.Session, which is not thread-safe, so each
+    # worker thread gets its own Actor rather than sharing one.
+    # forge.verify() spawns a subprocess per candidate, so it is left SERIAL:
+    # this is a shared machine and CPU is the contended resource here, not GPU.
+    import threading
+    from concurrent.futures import ThreadPoolExecutor
+
+    _local = threading.local()
+    _actors: list = []
+    _actors_lock = threading.Lock()
+
+    def _actor() -> "forge.Actor":
+        a = getattr(_local, "actor", None)
+        if a is None:
+            a = forge.Actor(forge.OLLAMA_URL, model_tag)
+            _local.actor = a
+            with _actors_lock:
+                _actors.append(a)
+        return a
+
+    def _draw(job):
+        ti, si, t = job
+        try:
+            return ti, si, _actor().generate(t.prompt, forge.ACTOR_SYSTEM, TEMP), None
+        except Exception as e:  # noqa: BLE001
+            return ti, si, None, e
+
+    jobs = [(ti, si, t) for ti, t in enumerate(tasks) for si in range(N_SAMPLES)]
+    raws: dict = {}
+    workers = int(os.environ.get("SRLM_EVAL_WORKERS", "16"))
+    with ThreadPoolExecutor(max_workers=workers) as ex:
+        for ti, si, raw, err in ex.map(_draw, jobs):
+            raws[(ti, si)] = (raw, err)
+
+    # forge.verify() is thread-safe: it writes a NamedTemporaryFile with a unique
+    # name, uses a per-call random nonce, and shells out to its own subprocess with
+    # no shared mutable state. With generation no longer the bottleneck, these
+    # subprocess spawns became it. The pool is deliberately SMALLER than the
+    # generation pool - this is a shared machine and CPU is the contended resource,
+    # unlike GPU 0 which is allotted to this project.
+    vworkers = int(os.environ.get("SRLM_VERIFY_WORKERS", "8"))
+    _vjobs = [(ti, si) for ti in range(len(tasks)) for si in range(N_SAMPLES)
+              if raws[(ti, si)][1] is None]
+
+    def _check(key):
+        ti, si = key
+        raw = raws[key][0]
+        return key, forge.verify(forge.extract_code(raw), tasks[ti])
+
+    verdicts: dict = {}
+    with ThreadPoolExecutor(max_workers=vworkers) as ex:
+        for key, res in ex.map(_check, _vjobs):
+            verdicts[key] = res
+
     per_task = []
-    for t in tasks:
+    for ti, t in enumerate(tasks):
         c = scored = errors = typing_fails = 0
         greedy: int | None = None
         sampled: list[int] = []
-        for _ in range(N_SAMPLES):
-            try:
-                raw = actor.generate(t.prompt, forge.ACTOR_SYSTEM, TEMP)
-            except Exception as e:  # noqa: BLE001
+        for si in range(N_SAMPLES):
+            raw, err = raws[(ti, si)]
+            if err is not None:
                 errors += 1
-                print(f"  [{t.tid}] gen error: {e}")
+                print(f"  [{t.tid}] gen error: {err}")
                 continue
             scored += 1
-            res = forge.verify(forge.extract_code(raw), t)
+            res = verdicts[(ti, si)]
             ok = 1 if res.ok else 0
             c += ok
             if not res.ok and is_typing_nameerror(res.error):
@@ -275,6 +339,11 @@ def evaluate(model_tag: str, tasks: list[forge.Task] | None = None,
         marks = "".join("#" if j < c else "." for j in range(scored))
         flag = f"  [{errors} gen error(s), not scored]" if errors else ""
         print(f"  {t.tid:14} {marks} {c}/{scored}{flag}")
+    for a in _actors:
+        try:
+            a.release()
+        except Exception:  # noqa: BLE001
+            pass
     actor.release()
 
     # pass@k is undefined when fewer than k samples were actually scored, so those
