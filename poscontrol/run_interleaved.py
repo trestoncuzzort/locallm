@@ -21,6 +21,7 @@ straight run.
 from __future__ import annotations
 
 import argparse
+import os
 import subprocess
 import sys
 import time
@@ -28,7 +29,9 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parent
-PY = REPO / ".venv-train" / "Scripts" / "python.exe"
+# Windows layout is Scripts/python.exe, POSIX is bin/python. The hardcoded Windows
+# path made subprocess.Popen raise FileNotFoundError on Linux before any round ran.
+PY = REPO / ".venv-train" / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
 
 ARMS = ["llama3-forged-rep", "llama3-forged-null-rep"]  # Aug 4/5 default
 
@@ -51,8 +54,10 @@ def one(model: str, upto: int) -> int:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--rounds", type=int, default=40)
-    ap.add_argument("--arms", nargs=2, metavar=("POSITIVE", "NULL"), default=None,
-                     help="override the two model tags to interleave; "
+    # F6 scores three arms (null, healthy, random) and optionally a fourth (0.5x random).
+    # nargs=2 refused them outright; the driver loop below already iterates over any number.
+    ap.add_argument("--arms", nargs="+", metavar="TAG", default=None,
+                     help="model tags to interleave, 2 or more; "
                           f"default is the Aug 4/5 pair {ARMS}")
     args = ap.parse_args()
     arms = args.arms or ARMS

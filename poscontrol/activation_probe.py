@@ -69,12 +69,61 @@ PROMPTS = [
 ]
 
 
+def _scan_all(model, tok, torch, a):
+    """Every layer's down_proj input, one prompt, looking for >100-magnitude channels."""
+    text = "Write a Python function two_sum(nums, target) that returns indices."
+    ids = tok(text, return_tensors="pt").to(model.device)
+    grabbed = {}
+
+    def mk(i):
+        def h(mod, inp, out):
+            grabbed[i] = inp[0].detach().float()[0].abs()
+        return h
+
+    hs = [model.model.layers[i].mlp.down_proj.register_forward_hook(mk(i))
+          for i in range(len(model.model.layers))]
+    with torch.no_grad():
+        model(**ids)
+    for h in hs:
+        h.remove()
+
+    print(f"\n{'layer':>5} {'top channel':>12} {'magnitude':>12} {'median':>11} "
+          f"{'ratio':>10} {'256-block':>10}  token")
+    print("-" * 78)
+    toks = tok.convert_ids_to_tokens(ids["input_ids"][0])
+    hits = []
+    for i, A in sorted(grabbed.items()):
+        colmax = A.max(dim=0).values
+        ch = int(colmax.argmax())
+        mag = float(colmax[ch])
+        med = float(A.median())
+        tokpos = int(A[:, ch].argmax())
+        ratio = mag / med if med > 0 else float("inf")
+        blk = ch // BLOCK
+        flag = "  <-- massive" if (mag > 100 and ratio > 1000) else ""
+        print(f"{i:>5} {ch:>12} {mag:>12.1f} {med:>11.4f} {ratio:>10.0f} {blk:>10} "
+              f" {toks[tokpos]}{flag}")
+        if mag > 100 and ratio > 1000:
+            hits.append({"layer": i, "channel": ch, "magnitude": mag, "block": blk,
+                         "token": toks[tokpos], "ratio": ratio})
+    print(f"\nchannels meeting Sun et al.'s criterion (>100 AND >1000x median): {len(hits)}")
+    for h in hits:
+        print(f"  layer {h['layer']:>2}  channel {h['channel']:>6}  "
+              f"magnitude {h['magnitude']:>8.1f}  256-block {h['block']:>4}  at token {h['token']!r}")
+    if a.json:
+        Path(a.json).parent.mkdir(parents=True, exist_ok=True)
+        Path(a.json).write_text(json.dumps({"scan": "all_layers", "hits": hits}, indent=2))
+        print(f"\n[probe] wrote {a.json}")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--json", default=None)
     ap.add_argument("--layer", type=int, default=LAYER)
     ap.add_argument("--top", type=int, default=5, help="top-k channels to report per prompt")
+    ap.add_argument("--scan-all-layers", action="store_true",
+                    help="sweep every layer's down_proj input for massive-activation channels")
     a = ap.parse_args()
 
     if not os.environ.get("SRLM_VERIFY_PY"):
@@ -95,6 +144,10 @@ def main() -> None:
     model = AutoModelForCausalLM.from_pretrained(
         M.hf_base, device_map={"": 0}, torch_dtype=torch.bfloat16)
     model.eval()
+
+    if a.scan_all_layers:
+        _scan_all(model, tok, torch, a)
+        return
 
     dp = model.model.layers[a.layer].mlp.down_proj
     grab: dict = {}
