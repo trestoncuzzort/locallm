@@ -46,6 +46,9 @@ REPO = HERE.parent
 # peft names the LIVE parameter with the adapter name inserted -
 # "...lora_A.default.weight" - while the SAVED safetensors key is "...lora_A.weight".
 # Matching the saved form against named_parameters() silently finds nothing.
+# Parameterised: the whole-model sweep found a SECOND massive-activation channel
+# (layer 31, channel 12111) that corrupts nothing. Its gradient ratio is the datum
+# that decides whether the activation ratio is even the right predictor.
 TENSOR = "layers.1.mlp.down_proj.lora_A."
 BLOCK = 256
 FOCUS_CH = 2427          # the massive-activation channel
@@ -137,7 +140,19 @@ def main() -> None:
     ap.add_argument("--lr", type=float, default=2e-4)
     ap.add_argument("--seed", type=int, default=1234)
     ap.add_argument("--optim", default="adamw_bnb_8bit")
+    ap.add_argument("--layer", type=int, default=1, help="which layer's down_proj lora_A")
+    ap.add_argument("--focus-ch", type=int, default=None, help="override the focus channel")
+    ap.add_argument("--control-ch", type=int, default=None)
     a = ap.parse_args()
+
+    global TENSOR, FOCUS_CH, CONTROL_BLK, FOCUS_BLK, CONTROL_CH
+    TENSOR = f"layers.{a.layer}.mlp.down_proj.lora_A."
+    if a.focus_ch is not None:
+        FOCUS_CH = a.focus_ch
+        FOCUS_BLK = a.focus_ch // BLOCK
+    if a.control_ch is not None:
+        CONTROL_CH = a.control_ch
+        CONTROL_BLK = a.control_ch // BLOCK
 
     if not os.environ.get("SRLM_VERIFY_PY"):
         sys.exit("SRLM_VERIFY_PY must be exported or dataset_gate SystemExits at import.")
@@ -192,8 +207,10 @@ def main() -> None:
         print("\nNO STEP CARRIED A NONZERO dL/dA. The witness discriminates nothing at this")
         print("step count, which is itself the reportable result - see the module docstring.")
     else:
-        hdr = (f"{'step':>4}  {'focus ch2427 sq':>17}  {'blk9 median':>13}  {'ratio':>9}  "
-               f"{'rank':>7}  {'ctrl ch198 sq':>14}  {'blk0 median':>13}  {'ratio':>9}  {'rank':>7}")
+        fl, cl = f"focus ch{FOCUS_CH} sq", f"ctrl ch{CONTROL_CH} sq"
+        fb, cb = f"blk{FOCUS_BLK} median", f"blk{CONTROL_BLK} median"
+        hdr = (f"{'step':>4}  {fl:>17}  {fb:>13}  {'ratio':>9}  "
+               f"{'rank':>7}  {cl:>14}  {cb:>13}  {'ratio':>9}  {'rank':>7}")
         print("\n" + hdr)
         print("-" * len(hdr))
         for r in live:
@@ -209,15 +226,15 @@ def main() -> None:
         print("   of magnitude while channel 198's block shows little or nothing\"")
         f, c = first["focus"], first["control"]
         print(f"\n  at first live step (step {first['step']}):")
-        print(f"    ch2427 / block-9 median : {f['ratio_channel_over_median']:.2f}x   "
+        print(f"    ch{FOCUS_CH} / block-{FOCUS_BLK} median : {f['ratio_channel_over_median']:.2f}x   "
               f"(rank {f['rank_in_block']} of 256)")
-        print(f"    ch198  / block-0 median : {c['ratio_channel_over_median']:.2f}x   "
+        print(f"    ch{CONTROL_CH} / block-{CONTROL_BLK} median : {c['ratio_channel_over_median']:.2f}x   "
               f"(rank {c['rank_in_block']} of 256)")
-        print(f"    block-9 dynamic range   : {f['block_dynamic_range']:.2f}x")
-        print(f"    block-0 dynamic range   : {c['block_dynamic_range']:.2f}x")
+        print(f"    block-{FOCUS_BLK} dynamic range   : {f['block_dynamic_range']:.2f}x")
+        print(f"    block-{CONTROL_BLK} dynamic range   : {c['block_dynamic_range']:.2f}x")
         print(f"    largest column overall  : col {first['argmax_col']} "
               f"(block {first['argmax_block']['block']}, cols {first['argmax_block']['cols']})")
-        oom = f["ratio_channel_over_median"]
+        oom = f["ratio_channel_over_median"]  # labels above are derived, never hardcoded
         print(f"\n  'orders of magnitude' means >= 100x. ch2427 is {oom:.2f}x -> "
               f"{'MET' if oom >= 100 else 'NOT MET as stated'}")
         print("  Reported as measured. Do not restate the threshold to fit the number.")
