@@ -278,7 +278,7 @@ def cmd_measure(args: argparse.Namespace) -> None:
                 continue
             if r.get("model") != model or r.get("task_set") != TASK_SET:
                 continue
-            if (r.get("verifier") or {}).get("version") == fp["version"]:
+            if verifier_key(r) == verifier_key({"verifier": fp}):
                 done += 1
             else:
                 foreign += 1
@@ -408,13 +408,13 @@ def cmd_analyze(args: argparse.Namespace) -> None:
         raise SystemExit(f"replicates span {models}; pass --model to pick one")
 
     # Same rule as `measure`: never pool across verifiers (section 71).
-    vers = {(r.get("verifier") or {}).get("version", "pre-pin/unrecorded")
-            for r in runs}
+    vers = {verifier_key(r) for r in runs}
     if len(vers) > 1:
-        want = args.verifier or forge.verifier_interpreter()["version"]
+        want = ((args.verifier, None) if args.verifier
+                else verifier_key({"verifier": forge.verifier_interpreter()}))
         kept = [r for r in runs
-                if (r.get("verifier") or {}).get("version",
-                                                 "pre-pin/unrecorded") == want]
+                if verifier_key(r) == want
+                or (want[1] is None and verifier_key(r)[0] == want[0])]
         print(f"[!] replicates span {len(vers)} verifiers {sorted(vers)}.")
         print(f"[!] analyzing only the {len(kept)} row(s) scored by {want!r}. "
               f"Pass --verifier to choose another; they are NOT poolable "
@@ -594,6 +594,27 @@ def cmd_selftest(args: argparse.Namespace) -> None:
 
     print(f"\n{'ALL PASS' if not fails else f'{fails} FAILURE(S)'}")
     sys.exit(1 if fails else 0)
+
+
+def verifier_key(rec: dict) -> tuple:
+    """The identity two replicates must share before they may be pooled.
+
+    Section 71 pooled on the interpreter VERSION alone. That is not sufficient:
+    two hosts running the same CPython under different operating systems record
+    the same string and were silently poolable -- see
+    docs/port-2026-08-24/RED-WITNESS-D-POOLING-KEY.txt, where 18 banked rows read
+    3.12.10 from a Windows host and a Linux host would have matched them.
+
+    Rows banked before this change carry no `platform`, so it is backfilled from
+    the recorded executable path: a drive letter or a backslash is unambiguous.
+    """
+    v = rec.get("verifier") or {}
+    ver = v.get("version", "pre-pin/unrecorded")
+    plat = v.get("platform")
+    if plat is None:
+        exe = v.get("executable", "") or ""
+        plat = "win32" if ("\\" in exe or exe[1:3] == ":\\") else "unknown"
+    return (ver, plat)
 
 
 def main() -> None:
