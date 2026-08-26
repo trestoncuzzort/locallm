@@ -35,3 +35,19 @@ localllm/out_gui/
 # The sponsor handoff package is his proprietary guidance. It lives here for
 # reading and never enters version control or any publish whitelist.
 S12-LOCAL-MODEL-HANDOFF-2026-07-28/
+
+# Replication adapters: same convention as dpo_adapter_native/ above -- the
+# weights are reproducible from the code + gated corpus and are hundreds of MB.
+# The ANALYSIS of them (compare_adapters.py, init_vs_training.py, the finding)
+# is committed; the binaries are not.
+poscontrol/adapter_replication/
+poscontrol/adapter_replication2/
+poscontrol/served/*.gguf
+
+# Positive-control adapter binaries (Aug 20): reproducible from seed+corpus, and the
+# safetensors exceed GitHub's 100MB limit. sha256 manifest committed instead (WEIGHTS-MANIFEST.md).
+dpo_adapter_poscontrol/*.safetensors
+dpo_adapter_poscontrol/export/*.gguf
+dpo_adapter_poscontrol/export/amplified/*.safetensors
+# Claude Code session tooling
+.claude/

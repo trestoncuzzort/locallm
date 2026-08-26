@@ -82,6 +82,21 @@ def main() -> None:
     ap.add_argument("--lr", type=float, default=5e-6,
                     help="from the alignment-handbook zephyr QLoRA-DPO recipe; "
                          "replaces an earlier unsourced 8e-6 default")
+    ap.add_argument("--seed", type=int, default=None,
+                    help="Seed the LoRA initialisation. torch.manual_seed is called\n"
+                         "immediately before DPOTrainer(...), because the lora_A draw\n"
+                         "happens inside get_peft_model during the trainer constructor,\n"
+                         "BEFORE Trainer.__init__ reaches set_seed. Passing seed= through\n"
+                         "DPOConfig alone does not govern it (see Appendix G).")
+    ap.add_argument("--optim", default="adamw_bnb_8bit",
+                    help="Optimizer. The F2 ablation varies exactly this flag.")
+    ap.add_argument("--min-8bit-size", type=int, default=None,
+                    help="bitsandbytes 8-bit state threshold (default 4096). F2's\n"
+                         "fourth arm raises it above 229376 -- the element count of\n"
+                         "layers.1.mlp.down_proj.lora_A -- so that tensor's optimizer\n"
+                         "state falls back to 32 bit. transformers 4.46.3 forwards\n"
+                         "optim_args only to RMSprop/AdEMAMix/AnyPrecision, so this\n"
+                         "cannot be a --optim string and has to rebuild the optimizer.")
     ap.add_argument("--out", default=str(HERE / "dpo_adapter_native"))
     ap.add_argument("--raw-pairs", action="store_true",
                     help="train on the uncapped dpo_pairs.jsonl instead of the "
@@ -186,7 +201,7 @@ def main() -> None:
         lr_scheduler_type="cosine",  # cosine, not TRL's default linear
         warmup_ratio=0.1,
         bf16=True,
-        optim="adamw_bnb_8bit",     # NON-paged (paging never fires under the
+        optim=args.optim,           # NON-paged by default (paging never fires under the
                                     # VRAM assert and is the least-tested path here)
         logging_steps=5,
         save_strategy="no",
@@ -194,8 +209,39 @@ def main() -> None:
         max_prompt_length=512,
         report_to="none",
     )
+    # The adapter is initialised inside DPOTrainer.__init__, by get_peft_model,
+    # which runs BEFORE super().__init__() reaches transformers set_seed. So the
+    # only placement that governs lora_A is here, on the default CPU generator.
+    if args.seed is not None:
+        torch.manual_seed(args.seed)
+
     trainer = DPOTrainer(model=model, args=cfg, train_dataset=ds,
                          processing_class=tok, peft_config=peft_cfg)
+    seed_after_wrap = torch.initial_seed()
+
+    # F2 arm 4. The arms must stay ONE PARAMETER apart, so this rebuilds the
+    # optimizer the way Trainer.create_optimizer would have -- same class, same
+    # kwargs from get_optimizer_cls_and_kwargs, same two weight-decay param
+    # groups from get_decay_parameter_names -- and overrides min_8bit_size only.
+    # Assigning trainer.optimizer before train() suppresses create_optimizer,
+    # which only builds one when self.optimizer is None.
+    if args.min_8bit_size is not None:
+        opt_model = trainer.model
+        decay = trainer.get_decay_parameter_names(opt_model)
+        groups = [
+            {"params": [p for n, p in opt_model.named_parameters()
+                        if n in decay and p.requires_grad],
+             "weight_decay": cfg.weight_decay},
+            {"params": [p for n, p in opt_model.named_parameters()
+                        if n not in decay and p.requires_grad],
+             "weight_decay": 0.0},
+        ]
+        opt_cls, opt_kwargs = trainer.get_optimizer_cls_and_kwargs(cfg, opt_model)
+        opt_kwargs = dict(opt_kwargs, min_8bit_size=args.min_8bit_size)
+        trainer.optimizer = opt_cls(groups, **opt_kwargs)
+        print(f"[train] optimizer rebuilt: {opt_cls.__name__} "
+              f"min_8bit_size={args.min_8bit_size} kwargs={opt_kwargs}")
+
     trainer.train()
     trainer.save_model(args.out)
     print(f"[train] adapter saved to {args.out}")
@@ -212,8 +258,14 @@ def main() -> None:
         "include_repair": args.include_repair, "epochs": args.epochs,
         "lr": args.lr, "beta": 0.1, "targets": M.target_modules,
         "rpo_alpha": 1.0, "lr_scheduler_type": "cosine",
-        "optim": "adamw_bnb_8bit", "max_length": 1024, "max_prompt_length": 512,
+        "optim": args.optim, "max_length": 1024, "max_prompt_length": 512,
         "lora_r": 16, "lora_alpha": 32, "lora_dropout": 0.05,
+        # Recorded because Failure 7 was a run_meta that did not describe its run.
+        "max_steps": args.max_steps,
+        "seed_requested": args.seed,
+        "min_8bit_size": args.min_8bit_size,
+        "torch_initial_seed_after_wrap": seed_after_wrap,
+        "verifier": forge.verifier_interpreter(),
     }, indent=2))
 
 

@@ -50,6 +50,7 @@ import requests
 
 import config
 import dataset_gate
+import harness_smells
 import traces as trace
 
 # ---------------------------------------------------------------------------
@@ -135,6 +136,7 @@ def verifier_interpreter() -> dict:
     different ground truth can never be silently compared."""
     ver = dataset_gate.interpreter_fingerprint()["interpreter"].split()[-1]
     return {"executable": VERIFY_PY, "version": ver,
+            "platform": sys.platform,
             "pinned_away_from_launcher": VERIFY_PY != sys.executable,
             "launcher_version": sys.version.split()[0]}
 
@@ -440,6 +442,19 @@ def verify(code: str, task: Task) -> Result:
     res = Result(code=code)
     if not code or BANNED.search(code):
         res.error = "empty or contains banned operation"
+        return res
+
+    # STATIC, BEFORE EXECUTION. The nonce below defends the sentinel dynamically,
+    # but candidate and check share one namespace by construction (see the
+    # HONEST RESIDUAL note ahead of it) -- poscontrol/red_witness_nonce_exploit.py
+    # demonstrates `print('__PASS__' + _NONCE)` is accepted as a full pass by the
+    # nonce alone. harness_smells.scan() closes the demonstrated exploit and its
+    # direct variants by refusing to run code that exhibits the pattern at all.
+    smells = harness_smells.scan(code)
+    if smells:
+        res.error = ("harness smell: " +
+                     "; ".join(f"{s.category} at line {s.lineno} ({s.detail})"
+                               for s in smells))
         return res
 
     # STRICT RETURN TYPES. Every test body compares with `==`, and `==` is not a
