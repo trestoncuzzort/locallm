@@ -1,4 +1,4 @@
-# srlm-forge — private review copy
+# srlm-forge private review copy
 
 **This repository is shared for review, not for release.** It holds the working
 record as well as the code: the full commit history, the run logs, and the
@@ -16,7 +16,7 @@ Two projects share this repository. They share almost no code.
 **The forge** (repository root) is the one that matters. A language model writes
 code; the code is executed against hidden unit tests; whichever candidate
 actually passes becomes `chosen`, a worse one becomes `rejected`, and the pair
-becomes preference-training data. **The model never grades itself** — a program
+becomes preference-training data. **The model never grades itself** a program
 that runs decides.
 
 **The trainer** (`localllm/`) builds a small GPT from random numbers on your own
@@ -24,7 +24,7 @@ text. It is finished enough to use, it has a one-click installer, and it is not
 the priority. It is here because the two grew up together.
 
 The interesting claim about the forge is not the loop, which is not new. It is
-that the domain-specific part is essentially **one function** — the thing that
+that the domain-specific part is essentially **one function** the thing that
 decides whether a candidate is correct. Sample K candidates, score them
 objectively, prefer the winner, emit a pair, route the unsolvable to a
 curriculum: none of that shape is specific to code. Any domain where a machine
@@ -57,7 +57,7 @@ fixed seed, `--max-steps 20`:
 | `adamw_bnb_8bit`, `min_8bit_size` raised | 32-bit fallback | **0** |
 
 Bit width, not paging: the two 8-bit arms produce bit-identical `train_loss`
-(0.3544428050518036). Gradient clipping is excluded as a cause — `grad_norm`
+(0.3544428050518036). Gradient clipping is excluded as a cause `grad_norm`
 averaged 26.7–26.8 across all four arms.
 
 **The mechanism, each link measured on this machine:**
@@ -71,10 +71,10 @@ averaged 26.7–26.8 across all four arms.
 3. **Optimizer state.** Read directly off the live optimizer: channel 2427 sets
    its 256-element block's absmax in **288 of 320** (step, row) cells, and a
    median **98.7%** of its block-mates' second moments are quantized to
-   **exactly zero** — relative error −1.0000, not merely small. With `v̂ = 0`
+   **exactly zero** relative error −1.0000, not merely small. With `v̂ = 0`
    Adam's denominator collapses to `eps`.
 4. **Displacement.** The block-mates inflate 14.9× against the 32-bit arm, while
-   the absmax holder — exactly representable by construction — is the **least**
+   the absmax holder exactly representable by construction is the **least**
    displaced column in its own block, rank 256 of 256.
 
 **A massive activation is necessary but not sufficient, and the model contains
@@ -90,7 +90,7 @@ Layer 31 qualifies as a massive activation and corrupts nothing. Adam's second
 moment squares the gradient, so the ratios square against the 8-bit map's
 representable span (minimum positive value 3.25 × 10⁻⁷ of block absmax): layer
 1 lands about 10⁴ past the floor, layer 31 barely past it. The claim is
-therefore narrower than "massive activations corrupt their block" — the
+therefore narrower than "massive activations corrupt their block" the
 within-block dynamic range has to be large enough, and one of the two cases here
 is not.
 
@@ -100,8 +100,8 @@ was run.** F2 specifies a *one-step* gradient witness. F9 states, correctly, tha
 run on this pipeline takes its single step at learning rate **exactly zero**
 (transformers computes warmup as `ceil(steps × warmup_ratio) = ceil(0.1) = 1`),
 `∂L/∂A` is identically zero and the witness measures nothing. Confirmed
-empirically: steps 0 and 1 record exactly that. F9's step-1 liveness gate —
-"every `lora_B` is nonzero" — cannot pass on this pipeline for the same reason.
+empirically: steps 0 and 1 record exactly that. F9's step-1 liveness gate
+"every `lora_B` is nonzero" cannot pass on this pipeline for the same reason.
 
 That same fact has a useful corollary: **an `--max-steps 1` run is a pure
 initialisation**, `A = A₀` and `B = 0` exactly. Recovering any adapter's `A₀` is
@@ -109,7 +109,7 @@ therefore a 30-second run rather than a reconstruction.
 
 **The seeding patch (F1) is validated with both witnesses.** Two runs at one
 seed: 224 of 224 `lora_A` tensors bitwise identical. Two runs with no `--seed`
-at all: **0 of 224**, mean cosine −0.000121, mean relative difference 1.414295 —
+at all: **0 of 224**, mean cosine −0.000121, mean relative difference 1.414295
 two independent draws. The green witness alone proved nothing; the red one is
 what closes it. Note that F1's own text also requires the F9 step-1 gates to
 pass, which they cannot, so by the letter of its preregistration F1 is not
@@ -122,7 +122,7 @@ the frozen 31-task benchmark. Before any behaviour was measured, the two arms
 were checked for spectral separability and are **indistinguishable**: zero
 intruder dimensions each at every threshold from 0.3 to 0.9, median `max|cos|`
 to the pretrained basis 0.999702 and 0.999663. Amplified controls confirm the
-metric is live rather than merely quiet — `lora_B × 1000` yields 167 of 280.
+metric is live rather than merely quiet `lora_B × 1000` yields 167 of 280.
 
 **F7 is blocked, and not on compute.** It requires the remaining rows be scored
 under committed `forge.py` `f22eede7…` "so that the amendment's fingerprint and
@@ -142,7 +142,7 @@ mechanism below was built because the matching failure actually happened here.**
 
 - **The freeze is enforced.** `build_ruler.verify_frozen()` re-hashes every
   benchmark task before any measurement. An earlier version wrote the hash and
-  nothing ever read it — a freeze nobody checks is a comment.
+  nothing ever read it a freeze nobody checks is a comment.
 - **The data is gated on execution.** `verify_dataset.py` re-runs every pair in
   both directions before training: `chosen` must still pass, `rejected` must
   still fail. Passing writes a receipt of file hashes, and training refuses to
@@ -165,7 +165,7 @@ mechanism below was built because the matching failure actually happened here.**
   never being applied and every other check would still have passed.
 - **One README here is machine-checked, and it is not this one.**
   `localllm/verify_claims.py` re-derives the *trainer's* README claims and exits
-  non-zero when one drifts. The forge's README — this file — has no such
+  non-zero when one drifts. The forge's README this file has no such
   mechanism, so every number above was checked by hand against the artifact it
   describes. An earlier revision of this file asserted the checker covered this
   README; it never has. That is the exact failure this project catalogues, found
@@ -205,7 +205,7 @@ append-only and numbered; the most recent sections are the current state.
 - Not that the loop generalises beyond code. The seam exists in principle; only
   one additional domain has been built, and it is not evidence.
 - Not that the benchmark is unsaturated for the arms now being scored. 27 of 31
-  channels are clearly live and 4 are weak — measured on the base model, not on
+  channels are clearly live and 4 are weak measured on the base model, not on
   these two.
 - Not that the training bank is broad. It is **13 tasks**, effective count
   `9.93`. That is the *training* bank; the benchmark is a separate frozen
@@ -214,9 +214,9 @@ append-only and numbered; the most recent sections are the current state.
   space and a nearly inert one in function space, in a run that succeeded. What
   is claimed is that the class exists and is deterministic, not that it caused
   anything here.
-- Not that the numpy emulator models the magnitude. It reproduces the mechanism —
+- Not that the numpy emulator models the magnitude. It reproduces the mechanism
   second moment alone yields over-bound coordinates, first moment alone yields
-  none, removing the outlier channel yields none — on synthetic Gaussian
+  none, removing the outlier channel yields none on synthetic Gaussian
   gradients, giving 6 coordinates against the real run's 178. It discriminates
   the cause; it does not predict the count.
 - Not that the mechanism is established beyond this model and this optimizer
@@ -232,7 +232,7 @@ append-only and numbered; the most recent sections are the current state.
 ## Open questions where a second opinion would help
 
 1. **Task breadth.** 13 training tasks is the binding limit. Pool-derived tasks
-   yield 2.46x more pairs per generation, which is the obvious lever — is
+   yield 2.46x more pairs per generation, which is the obvious lever is
    widening the bank the right next spend, ahead of any further measurement?
 2. **Whether the data-diversity question is the more publishable one.** Verified
    correctness and data diversity are separate variables, and that is testable
@@ -274,11 +274,11 @@ python poscontrol/quantized_adam_emulator.py        # CPU only, no GPU needed
 ```
 
 Several scripts in this repository execute their whole pipeline **on import**
-and write data files — `measure.py`, `eval*.py`, `analyze_run1.py`, `repair.py`,
+and write data files `measure.py`, `eval*.py`, `analyze_run1.py`, `repair.py`,
 `clean_dataset.py`, `verify_dataset.py`, `traces.py`. Do not import them to
 inspect them. Everything under `poscontrol/` added since 2026-08-25 has a proper
 argparse guard.
 
 `data/` holds the pairs, the frozen ruler, the receipt and the preregistration.
-`council/` holds run logs and analysis output — it is this project's own output
+`council/` holds run logs and analysis output it is this project's own output
 directory, not a review body.
