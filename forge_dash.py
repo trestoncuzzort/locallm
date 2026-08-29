@@ -149,6 +149,21 @@ def _owner(pid: int) -> str:
     return _UID_NAMES[uid]
 
 
+def _is_ollama(pid: int) -> bool:
+    """Label a GPU process as ollama's runner rather than a research job.
+
+    ollama spawns a runner named llama-server, so matching the process name alone
+    misses it; check the executable's location instead. Kept after the commentary
+    feature was removed because knowing which process holds a card is useful anyway.
+    """
+    try:
+        exe = os.path.realpath(f"/proc/{pid}/exe")
+    except OSError:
+        return False
+    return "/ollama/" in exe or os.path.basename(exe) in (
+        "ollama", "llama-server", "ollama_llama_server")
+
+
 def gpus() -> dict:
     fields = "index,name,memory.used,memory.total,utilization.gpu,temperature.gpu"
     out = {"cards": [], "procs": [], "error": None}
@@ -251,6 +266,7 @@ def arms() -> list[dict]:
         out.append({
             "model": g["model"], "task_set": g["task_set"], "verifier": g["verifier"],
             "label": g["label"], "n": n, "n_tasks": g["n_tasks"], "last_ts": g["last_ts"],
+            "family": family_of(g["model"]),
             "mean_p1": round(statistics.fmean(g["p1"]), 4),
             "sd_p1": round(statistics.stdev(g["p1"]), 4) if n > 1 else None,
             "mean_p3": round(statistics.fmean(g["p3"]), 4) if g["p3"] else None,
@@ -531,303 +547,6 @@ def headlines(st: dict) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
-# Local model commentary (ollama on 127.0.0.1:11434, pinned to GPU 0).
-# ---------------------------------------------------------------------------
-
-OLLAMA = "http://127.0.0.1:11434"
-FALLBACK_MODEL = "llama3:8b-instruct-q4_K_M"
-
-SCOPES = {
-    "findings": "what the data actually shows, in prose",
-    "overview": "the overall state of the project",
-    "arms": "the per-arm replicate results",
-    "runs": "the training run history",
-    "evals": "the held-out and held-in evaluations",
-    "rounds": "the pair-mining rounds",
-}
-
-
-LAUNCHER = Path.home() / "ollama-gpu0.sh"
-STATUS = "\x1f"  # delimits status messages inside the streamed body
-
-
-def ollama_alive(timeout: float = 2.0) -> bool:
-    import urllib.request
-    try:
-        with urllib.request.urlopen(f"{OLLAMA}/api/version", timeout=timeout):
-            return True
-    except Exception:
-        return False
-
-
-def models_on_disk() -> list[str]:
-    """Model names without asking the server, so the picker works while it is off."""
-    root = Path.home() / ".ollama" / "models" / "manifests"
-    out = []
-    if not root.is_dir():
-        return out
-    for tag in root.rglob("*"):
-        if not tag.is_file():
-            continue
-        rel = tag.relative_to(root).parts
-        if len(rel) < 2:
-            continue
-        name = "/".join(rel[1:-1]) if len(rel) > 2 else rel[-2]
-        # drop the registry/namespace prefix for library models, matching ollama's own naming
-        name = name.split("/")[-1] if name.startswith("library/") or len(rel) == 3 else name
-        out.append(f"{name}:{rel[-1]}")
-    return sorted(set(out))
-
-
-def ollama_models() -> list[str]:
-    import urllib.request
-    try:
-        with urllib.request.urlopen(f"{OLLAMA}/api/tags", timeout=6) as r:
-            d = json.loads(r.read().decode())
-        return [m["name"] for m in d.get("models", [])]
-    except Exception:
-        return models_on_disk()
-
-
-def ollama_unload(model: str) -> None:
-    """Ask the server to drop the model, releasing its VRAM without stopping it."""
-    import urllib.request
-    body = json.dumps({"model": model, "keep_alive": 0}).encode()
-    req = urllib.request.Request(f"{OLLAMA}/api/generate", data=body,
-                                 headers={"Content-Type": "application/json"})
-    try:
-        with urllib.request.urlopen(req, timeout=30):
-            pass
-    except Exception:
-        pass
-
-
-def ollama_start(timeout: float = 60.0) -> bool:
-    """Bring the server up via the pinned launcher. Returns True once it answers."""
-    if ollama_alive():
-        return True
-    if not LAUNCHER.exists():
-        return False
-    try:
-        subprocess.run([str(LAUNCHER)], capture_output=True, text=True, timeout=timeout)
-    except Exception:
-        pass
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-        if ollama_alive():
-            return True
-        time.sleep(0.5)
-    return False
-
-
-def ollama_stop(model: str | None = None, timeout: float = 25.0) -> None:
-    """Unload, then stop the server outright so the card is completely free."""
-    if model:
-        ollama_unload(model)
-    for sig in ("-TERM", "-KILL"):
-        if not ollama_alive(timeout=1.5):
-            break
-        subprocess.run(["pkill", sig, "-x", "ollama"], capture_output=True)
-        subprocess.run(["pkill", sig, "-f", "ollama/llama-server"], capture_output=True)
-        deadline = time.time() + (timeout if sig == "-TERM" else 5)
-        while time.time() < deadline:
-            if not ollama_alive(timeout=1.0):
-                return
-            time.sleep(0.5)
-
-
-def digest(scope: str, st: dict) -> str:
-    """A compact, factual rendering of the data for the model to read.
-
-    Deliberately plain text and deliberately small — llama3:8b is the reader,
-    and a bloated context makes it worse, not better.
-    """
-    if scope == "findings":
-        scope = "overview"  # findings differs in how it is asked, not in what it reads
-    L: list[str] = []
-    A = L.append
-    A(f"HOST: {st['host']}   TIME: {st['now']}")
-
-    cards = st["gpus"]["cards"]
-    if cards:
-        A("GPUS: " + "; ".join(
-            f"gpu{c['index']} {c['used']/1024:.1f}/{c['total']/1024:.0f}GB {c['util']}%"
-            for c in cards))
-
-    if scope in ("overview", "arms"):
-        A("")
-        A("ARMS (replicate pass@1, grouped by model/task_set/verifier; "
-          "NOT comparable across groups):")
-        for a in st["arms"][:14]:
-            sd = f" sd={a['sd_p1']:.3f}" if a["sd_p1"] else ""
-            ty = (f" (would be {a['mean_p1_typing']*100:.1f}% with typing imported, "
-                  f"{a['typing_fails']} NameError fails)") if a["mean_p1_typing"] else ""
-            A(f"  {a['label']} [{a['task_set']}] n={a['n']} replicates, "
-              f"mean pass@1={a['mean_p1']*100:.1f}%{sd}{ty}")
-
-    if scope in ("overview", "runs"):
-        m = st["manifest"]
-        A("")
-        A(f"RUNS: {m['n']} manifest entries, {m['ok']} ok, {m['bad']} not ok.")
-        for r in m["recent"][:12]:
-            A(f"  {r['ts']} {r['item']} status={r['status']} "
-              f"secs={r['seconds']} gpu={r['gpu']} rc={r['rc']} commit={r['git_head']}"
-              + (" TREE-DIRTY" if r["dirty"] else ""))
-
-    if scope in ("overview", "evals"):
-        ev = st["evals"]
-        A("")
-        A(f"HELD-OUT EVALS ({ev['n_held_out']} rows, newest first):")
-        for r in ev["held_out"][:8]:
-            A(f"  {r['ts']} {r['model']} [{r['task_set']}] pass@1={r['p1']} pass@3={r['p3']} "
-              f"coverage={r['scored']}/{r['total']} gen_errors={r['gen_errors']}")
-        A(f"HELD-IN EVALS ({ev['n_held_in']} rows, newest first):")
-        for r in ev["held_in"][:8]:
-            flag = " NOT-THE-SERVED-ARTIFACT" if r.get("not_served") else ""
-            A(f"  {r['ts']} {r['model']} [{r['task_set']}] pass@1={r['p1']} "
-              f"engine={r['engine']}{flag}")
-
-    if scope in ("overview", "rounds"):
-        rd = st["rounds"]
-        A("")
-        A(f"ROUNDS: {rd['n']} rounds, {rd['tasks']} tasks attempted, {rd['solved']} solved, "
-          f"{rd['pairs']} preference pairs mined.")
-        for r in rd["recent"][:8]:
-            A(f"  {r['ts']} source={r['source']} tasks={r['tasks']} solved={r['solved']} "
-              f"pairs={r['pairs']} reasons={r['reasons']}")
-
-    A("")
-    A("DATA FILES:")
-    for f in st["datasets"]:
-        if f["missing"]:
-            A(f"  {f['name']}: MISSING")
-        else:
-            A(f"  {f['name']}: {f['rows']} rows, changed {_fmt_age(f['age_s'])}")
-
-    A("")
-    A("FACTS ALREADY COMPUTED (do not contradict these):")
-    for h in st["headlines"]:
-        A(f"  - {h['title']}: {h['text']}")
-    return "\n".join(L)
-
-
-SYSTEM = (
-    "You are reading a machine-learning research dashboard for a project called srlm-forge, "
-    "which trains a small language model on self-generated preference pairs and measures it "
-    "against a frozen task set.\n"
-    "Your job is to turn the numbers into plain English for the researcher who owns this data.\n"
-    "Rules you must follow:\n"
-    "1. Only state things the data below actually shows. Never invent a number.\n"
-    "2. Never claim one arm beats another. Arms are grouped by (model, task_set, verifier) "
-    "precisely because they are not poolable, and a real comparison needs the same-session "
-    "control procedure in poscontrol/. If asked to compare, say that instead.\n"
-    "3. Prefer concrete sentences over hedging. 'About 62 of every 100 attempts succeed' beats "
-    "'performance appears moderate'.\n"
-    "4. Point out anything that looks like a measurement problem: missing coverage, generation "
-    "errors, stale files, failed runs, dirty git trees, artifacts that were not the served one.\n"
-    "5. Be brief. Use short paragraphs or bullets. No preamble, no restating the question, no "
-    "closing summary."
-)
-
-PROMPTS = {
-    "findings":
-        "Tell me what I have found so far, in plain natural language, as if you were "
-        "explaining it to a colleague who has not seen this data.\n\n"
-        "Write flowing prose in short paragraphs. Do not produce a bulleted list of "
-        "numbers, and do not walk through the data section by section — I can already "
-        "read the tables. Instead tell me what the data means.\n\n"
-        "Cover, in this order:\n"
-        "1. What the results appear to show.\n"
-        "2. How much of it I should believe, given the replicate spread, the coverage, "
-        "and any measurement artefacts.\n"
-        "3. What is unresolved or missing — the thing I should look at next.\n\n"
-        "Where a number matters, say it in words a person would use ('about three in five "
-        "attempts succeed'). Be candid: if the data does not support a conclusion, say so "
-        "plainly rather than hedging it into something that sounds positive.",
-    "overview": "Give the researcher a short readout of where this project currently stands, "
-                "then list anything that needs their attention.",
-    "arms": "Describe what the per-arm replicate results show, in plain English. Note the "
-            "spread across replicates and any measurement artefacts affecting the scores.",
-    "runs": "Describe the training run history. Focus on what failed and what that pattern "
-            "suggests about where to look.",
-    "evals": "Describe what the held-out and held-in evaluations show, and flag any row whose "
-             "coverage, errors, or artifact provenance makes it untrustworthy.",
-    "rounds": "Describe the pair-mining rounds: the yield, how it changed over time, and "
-              "whether anything looks anomalous.",
-}
-
-
-def _status(msg: str) -> str:
-    return f"{STATUS}{msg}{STATUS}"
-
-
-def _generate(scope: str, model: str, st: dict):
-    import urllib.request
-    body = json.dumps({
-        "model": model,
-        "system": SYSTEM,
-        "prompt": f"{PROMPTS[scope]}\n\nHere is the data:\n\n{digest(scope, st)}",
-        "stream": True,
-        # num_predict was 700, which truncated the findings readout mid-sentence.
-        # The overview digest is ~2050 tokens and the system prompt ~250, so an 8192
-        # context leaves ample room for a 1600-token answer.
-        "options": {"temperature": 0.2, "num_ctx": 8192, "num_predict": 1600},
-    }).encode()
-    req = urllib.request.Request(f"{OLLAMA}/api/generate", data=body,
-                                 headers={"Content-Type": "application/json"})
-    with urllib.request.urlopen(req, timeout=600) as r:
-        for line in r:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                d = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            if d.get("response"):
-                yield d["response"]
-            if d.get("done"):
-                break
-
-
-def explain_chunks(scope: str, model: str, st: dict):
-    """Yield commentary, bringing ollama up for the request and shutting it down after.
-
-    The server is left off between clicks so the whole card is free for training.
-    Crucially, if ollama was ALREADY running it is left completely alone: the eval
-    harness talks to the same server on 11434, and tearing it down mid-measure would
-    break a run. Only a server this request started is a server this request stops.
-    """
-    scope = scope if scope in SCOPES else "overview"
-    we_started = False
-
-    if not ollama_alive():
-        yield _status("starting the local model on GPU 0")
-        if not ollama_start():
-            yield _status("")
-            yield ("[could not start ollama. Run ~/ollama-gpu0.sh by hand to see why — "
-                   "the dashboard will not guess.]")
-            return
-        we_started = True
-        yield _status("loading weights")
-
-    finished = False
-    try:
-        for piece in _generate(scope, model, st):
-            yield piece
-        finished = True
-    finally:
-        # runs on the Stop button and on client disconnect too, so the card is never
-        # left holding weights because someone closed the tab
-        if we_started:
-            ollama_stop(model)
-
-    if finished:
-        yield _status("done — model offline, GPU 0 released" if we_started
-                      else "done — left the running ollama alone")
-
-
-# ---------------------------------------------------------------------------
 # Documents. The project's real thinking lives in markdown - handoffs, open
 # items, council reports, the manuscript - and none of it was visible here.
 # pandoc renders it properly (tables, code, footnotes) instead of the half-broken
@@ -931,14 +650,138 @@ def disk_worker():
         time.sleep(300)
 
 
+
+# ---------------------------------------------------------------------------
+# What is happening RIGHT NOW. The logs already carry step progress; without
+# this the dashboard can tell you a card is hot but not what is running on it.
+# ---------------------------------------------------------------------------
+_RUN_PATTERNS = ("train_native", "ruler_noise", "poscontrol", "measure",
+                 "eval_heldin", "eval.py", "forge.py")
+
+
+def running() -> list[dict]:
+    """Active project processes, with progress parsed from the log they write."""
+    out = []
+    try:
+        r = subprocess.run(["ps", "-eo", "pid,etimes,user:32,args"],
+                           capture_output=True, text=True, timeout=10)
+    except Exception:
+        return out
+    me = os.environ.get("USER", "")
+    for line in r.stdout.splitlines()[1:]:
+        parts = line.split(None, 3)
+        if len(parts) < 4:
+            continue
+        pid, etimes, user, args = parts
+        if user != me or "/python" not in args:
+            continue
+        if not any(k in args for k in _RUN_PATTERNS):
+            continue
+        # the interesting half of the command line, minus the interpreter path
+        cmd = args.split(None, 1)[1] if " " in args else args
+        model = ""
+        m = re.search(r"--model\s+(\S+)", args)
+        if m:
+            model = m.group(1)
+        out.append({"pid": int(pid), "elapsed": int(etimes),
+                    "cmd": cmd[:160], "model": model,
+                    "kind": next((k for k in _RUN_PATTERNS if k in args), "?")})
+    out.sort(key=lambda d: -d["elapsed"])
+    return out[:6]
+
+
+_STEP_RE = re.compile(r"(\d+)/(\d+)\s*\[")
+_LOSS_RE = re.compile(r"'loss':\s*([0-9.]+)")
+_EPOCH_RE = re.compile(r"'epoch':\s*([0-9.]+)")
+
+
+def log_progress() -> dict:
+    """Step/loss/epoch scraped from the tail of the newest run log."""
+    prog = {"file": None, "step": None, "total": None, "loss": None,
+            "epoch": None, "age_s": None}
+    try:
+        cands = sorted(LOGS.glob("*.log"), key=lambda f: f.stat().st_mtime, reverse=True)
+    except OSError:
+        return prog
+    if not cands:
+        return prog
+    f = cands[0]
+    prog["file"] = f.name
+    try:
+        prog["age_s"] = int(time.time() - f.stat().st_mtime)
+        tail = f.read_bytes()[-20000:].decode("utf-8", errors="replace")
+    except OSError:
+        return prog
+    steps = _STEP_RE.findall(tail)
+    if steps:
+        prog["step"], prog["total"] = int(steps[-1][0]), int(steps[-1][1])
+    losses = _LOSS_RE.findall(tail)
+    if losses:
+        prog["loss"] = float(losses[-1])
+    eps = _EPOCH_RE.findall(tail)
+    if eps:
+        prog["epoch"] = float(eps[-1])
+    return prog
+
+
+def family_of(model: str) -> str:
+    """Experiment family. 51 flat arm groups is a list; grouped it is a study."""
+    m = re.match(r"^(f\d+|hc|concur|ctl)", model or "")
+    if m:
+        return m.group(1)
+    if (model or "").startswith("llama3"):
+        return "llama3"
+    return "other"
+
+
+def per_task_matrix(top: int = 8) -> dict:
+    """Per-task pass rate for the strongest arms - which tasks carry the gain.
+
+    The per_task payload is already on every replicate row; nothing here is new
+    measurement, it is aggregation the page never surfaced.
+    """
+    from collections import defaultdict
+    agg = defaultdict(lambda: defaultdict(lambda: [0, 0]))   # model -> tid -> [correct, n]
+    labels = {}
+    for row in read_jsonl(DATA / "ruler_noise.jsonl"):
+        model = row.get("model")
+        pt = row.get("per_task")
+        if not model or not isinstance(pt, list):
+            continue
+        labels[model] = ARM_LABELS.get(model, model)
+        for t in pt:
+            tid = t.get("tid")
+            if not tid:
+                continue
+            cell = agg[model][tid]
+            cell[0] += t.get("correct") or 0
+            cell[1] += t.get("n") or 0
+    scored = []
+    for model, tids in agg.items():
+        tot_c = sum(c for c, n in tids.values())
+        tot_n = sum(n for c, n in tids.values())
+        if tot_n:
+            scored.append((tot_c / tot_n, model))
+    scored.sort(reverse=True)
+    keep = [m for _, m in scored[:top]]
+    tids = sorted({t for m in keep for t in agg[m]})
+    return {
+        "tasks": tids,
+        "rows": [{"model": m, "label": labels.get(m, m),
+                  "cells": [round(agg[m][t][0] / agg[m][t][1], 3) if agg[m].get(t) and agg[m][t][1] else None
+                            for t in tids]} for m in keep],
+    }
+
+
 def full_state() -> dict:
     st = state()
     st["headlines"] = headlines(st)
-    st["models"] = ollama_models()
-    st["ollama_alive"] = ollama_alive(timeout=1.0)
     st["history"] = push_history(st["gpus"]["cards"])
     st["docs"] = doc_list()
     st["disk"] = dict(_DISK)
+    st["running"] = running()
+    st["progress"] = log_progress()
+    st["pertask"] = per_task_matrix()
     return st
 
 
@@ -947,243 +790,230 @@ PAGE = r'''<!doctype html>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>srlm-forge</title>
 <style>
+  /* ---- palette: dataviz reference instance, validated for the dark surface ---- */
   :root{
-    --bg:#0e1116; --panel:#161b22; --panel2:#1c222b; --line:#2a323d;
-    --fg:#e6edf3; --dim:#9198a1; --dimmer:#6e7681;
-    --accent:#58a6ff; --ok:#3fb950; --warn:#d29922; --bad:#f85149; --mine:#a371f7;
+    --page:#0d0d0d; --surface:#1a1a19; --surface-2:#232322;
+    --ink:#ffffff; --ink-2:#c3c2b7; --ink-3:#898781;
+    --grid:#2c2c2a; --axis:#383835;
+    --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500;
+    --good:#0ca30c; --warn:#fab219; --serious:#ec835a; --crit:#d03b3b;
     --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Ubuntu,Cantarell,sans-serif;
+    --r:10px;
   }
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--fg);
-    font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Ubuntu,sans-serif}
-  .bar{position:sticky;top:0;z-index:9;display:flex;align-items:center;gap:14px;
-    padding:12px 20px;background:rgba(14,17,22,.93);backdrop-filter:blur(8px);
-    border-bottom:1px solid var(--line)}
-  .bar h1{margin:0;font-size:15px;font-weight:600;letter-spacing:.3px}
-  .host{font:12px var(--mono);color:var(--dim)}
-  .spacer{flex:1}
-  .dot{width:8px;height:8px;border-radius:50%;background:var(--ok);animation:pulse 2s infinite}
-  .dot.off{background:var(--dimmer);animation:none;box-shadow:none}
-  @keyframes pulse{70%{box-shadow:0 0 0 7px rgba(63,185,80,0)}100%{box-shadow:0 0 0 0 rgba(63,185,80,0)}}
-  button{background:var(--panel2);color:var(--fg);border:1px solid var(--line);
-    border-radius:6px;padding:5px 11px;font-size:12px;cursor:pointer}
-  button:hover:not(:disabled){border-color:var(--dim)}
-  button:disabled{opacity:.45;cursor:default}
-  button.go{background:rgba(88,166,255,.14);border-color:rgba(88,166,255,.45);color:#a9d1ff}
-  button.findings{background:rgba(63,185,80,.16);border-color:rgba(63,185,80,.55);
-    color:#56d364;font-weight:600;padding:7px 15px;font-size:12.5px}
-  button.findings:hover:not(:disabled){background:rgba(63,185,80,.26);border-color:#3fb950}
-  select{background:var(--panel2);color:var(--fg);border:1px solid var(--line);
-    border-radius:6px;padding:5px 8px;font:12px var(--mono)}
-  .wrap{padding:18px 20px 60px;max-width:1500px;margin:0 auto}
-  .grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(430px,1fr))}
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
-  .card > h2{margin:0;padding:11px 15px;font-size:12px;font-weight:600;letter-spacing:.7px;
-    text-transform:uppercase;color:var(--dim);border-bottom:1px solid var(--line);
-    display:flex;align-items:center;gap:9px}
-  .card > h2 .tag{margin-left:auto;font:11px var(--mono);color:var(--dimmer);
-    text-transform:none;letter-spacing:0;font-weight:400}
-  .card > h2 button{margin-left:8px;padding:3px 9px;font-size:11px}
-  .pad{padding:13px 15px}
-  .span2{grid-column:1/-1}
-  /* headline strip — the readability layer */
-  .heads{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));
-    margin-bottom:16px}
-  .head{background:var(--panel);border:1px solid var(--line);border-left-width:3px;
-    border-radius:8px;padding:11px 14px}
-  .head.ok{border-left-color:var(--ok)} .head.warn{border-left-color:var(--warn)}
-  .head.bad{border-left-color:var(--bad)} .head.info{border-left-color:var(--accent)}
-  .head .t{font-weight:600;font-size:13px;margin-bottom:3px}
-  .head.ok .t{color:#56d364} .head.warn .t{color:#e3b341}
-  .head.bad .t{color:#ff7b72} .head.info .t{color:#79c0ff}
-  .head .d{font-size:13px;color:var(--dim)}
-  /* explain */
-  #explain{margin-bottom:16px}
-  .exbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:11px 15px;
-    border-bottom:1px solid var(--line)}
-  .exbar .lab{font-size:12px;color:var(--dim);margin-right:2px}
-  #excaveat{font-size:11.5px;color:var(--dimmer);padding:9px 15px;border-top:1px solid var(--line)}
-  #exstatus{font:11.5px var(--mono);color:var(--accent)}
-  #exstatus:not(:empty)::before{content:"⋯ "}
-  #exout{margin:0;padding:14px 16px;font:13px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Ubuntu,sans-serif;
-    white-space:pre-wrap;word-break:break-word;min-height:56px;max-height:460px;overflow:auto;color:#d5dde5}
-  #exout .ph{color:var(--dimmer)}
-  .cursor{display:inline-block;width:7px;height:14px;background:var(--accent);
-    vertical-align:-2px;animation:blink 1s steps(1) infinite}
-  @keyframes blink{50%{opacity:0}}
-  /* gpus */
-  .gpus{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));margin-bottom:14px}
-  .gpu{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
-  .gpu.mine{border-color:var(--mine)}
-  .gpu .top{display:flex;align-items:baseline;gap:8px}
-  .gpu .id{font:600 13px var(--mono)}
-  .gpu .badge{font-size:10px;padding:1px 6px;border-radius:99px;background:rgba(163,113,247,.15);
-    color:var(--mine);border:1px solid rgba(163,113,247,.35)}
-  .gpu .sub{font:11px var(--mono);color:var(--dimmer);margin-top:2px}
-  .meter{height:5px;background:var(--panel2);border-radius:99px;overflow:hidden;margin-top:9px}
-  .meter i{display:block;height:100%;background:var(--accent);border-radius:99px;transition:width .4s}
-  .meter i.hot{background:var(--warn)} .meter i.max{background:var(--bad)}
-  .gpu .row{display:flex;justify-content:space-between;font:11px var(--mono);color:var(--dim);margin-top:6px}
-  /* tables */
-  table{width:100%;border-collapse:collapse;font-size:12.5px}
-  th{text-align:left;font-weight:500;color:var(--dimmer);font-size:11px;text-transform:uppercase;
-    letter-spacing:.5px;padding:8px 15px;border-bottom:1px solid var(--line);white-space:nowrap}
-  td{padding:7px 15px;border-bottom:1px solid rgba(42,50,61,.5)}
+  html{-webkit-font-smoothing:antialiased}
+  body{margin:0;background:var(--page);color:var(--ink);font:15px/1.55 var(--sans)}
+  .wrap{max-width:1560px;margin:0 auto;padding:0 28px 72px}
+
+  /* ---- header ---- */
+  header{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:16px;
+    padding:14px 28px;background:rgba(13,13,13,.9);backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--grid);margin-bottom:26px}
+  .brand{font-weight:650;font-size:15px;letter-spacing:-.01em}
+  .brand .dot{display:inline-block;width:7px;height:7px;border-radius:50%;
+    background:var(--good);margin-right:9px;vertical-align:1px}
+  .brand .dot.off{background:var(--ink-3)}
+  .meta{font:12px var(--mono);color:var(--ink-3)}
+  .sp{flex:1}
+  button{background:var(--surface-2);color:var(--ink-2);border:1px solid var(--grid);
+    border-radius:7px;padding:6px 13px;font:13px var(--sans);cursor:pointer}
+  button:hover{border-color:var(--ink-3);color:var(--ink)}
+  button:focus-visible{outline:2px solid var(--s1);outline-offset:2px}
+
+  /* ---- hero stat row ---- */
+  .hero{display:grid;gap:1px;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));
+    background:var(--grid);border:1px solid var(--grid);border-radius:var(--r);
+    overflow:hidden;margin-bottom:22px}
+  .tile{background:var(--surface);padding:18px 20px 16px}
+  .tile .k{font:11px var(--mono);letter-spacing:.09em;text-transform:uppercase;
+    color:var(--ink-3);margin-bottom:9px}
+  .tile .v{font:600 30px/1.05 var(--sans);letter-spacing:-.025em;
+    font-variant-numeric:tabular-nums}
+  .tile .v small{font-size:15px;font-weight:500;color:var(--ink-2);letter-spacing:0}
+  .tile .sub{font:12px var(--mono);color:var(--ink-3);margin-top:7px}
+  .tile .v.good{color:var(--good)} .tile .v.warn{color:var(--warn)}
+  .tile .v.crit{color:var(--crit)}
+
+  /* ---- attention strip: only what needs action ---- */
+  .attn{display:flex;flex-direction:column;gap:8px;margin-bottom:22px}
+  .att{display:flex;gap:12px;align-items:flex-start;padding:12px 16px;border-radius:var(--r);
+    background:var(--surface);border:1px solid var(--grid);border-left:3px solid var(--ink-3)}
+  .att.crit{border-left-color:var(--crit)} .att.warn{border-left-color:var(--warn)}
+  .att.good{border-left-color:var(--good)}
+  .att .ic{font:13px var(--mono);width:16px;flex:none;text-align:center;padding-top:1px}
+  .att.crit .ic{color:var(--crit)} .att.warn .ic{color:var(--warn)} .att.good .ic{color:var(--good)}
+  .att .tx{font-size:13.5px;color:var(--ink-2)}
+  .att .tx b{color:var(--ink);font-weight:600}
+
+  /* ---- panels ---- */
+  .grid{display:grid;gap:18px;grid-template-columns:repeat(12,1fr)}
+  .col12{grid-column:span 12} .col8{grid-column:span 8} .col6{grid-column:span 6}
+  .col4{grid-column:span 4}
+  @media(max-width:1100px){.col8,.col6,.col4{grid-column:span 12}}
+  .panel{background:var(--surface);border:1px solid var(--grid);border-radius:var(--r);
+    overflow:hidden;display:flex;flex-direction:column}
+  .panel > h2{margin:0;padding:15px 20px 0;font:600 14px var(--sans);letter-spacing:-.01em;
+    display:flex;align-items:baseline;gap:10px}
+  .panel > h2 .tag{margin-left:auto;font:11px var(--mono);color:var(--ink-3);font-weight:400}
+  .lede{padding:6px 20px 0;font-size:12.5px;color:var(--ink-3);line-height:1.5}
+  .body{padding:16px 20px 18px}
+  .scroll{overflow:auto;max-height:340px}
+
+  /* ---- bar chart ---- */
+  .bars{display:flex;flex-direction:column;gap:6px}
+  .bar{display:grid;grid-template-columns:170px 1fr 62px 44px;align-items:center;gap:12px}
+  .bar .lb{font:12px var(--mono);color:var(--ink-2);white-space:nowrap;overflow:hidden;
+    text-overflow:ellipsis}
+  .bar .tr{position:relative;height:16px}
+  .bar .tr i{position:absolute;left:0;top:0;bottom:0;background:var(--s1);
+    border-radius:0 4px 4px 0;transition:width .35s ease}
+  .bar.top .tr i{background:var(--s3)}
+  .bar .tr .wk{position:absolute;top:7px;height:2px;background:var(--ink-3);opacity:.85}
+  .bar .tr .wk::before,.bar .tr .wk::after{content:"";position:absolute;top:-3px;
+    width:1px;height:8px;background:var(--ink-3)}
+  .bar .tr .wk::before{left:0} .bar .tr .wk::after{right:0}
+  .bar .vl{font:13px var(--mono);text-align:right;font-variant-numeric:tabular-nums}
+  .bar .n{font:11px var(--mono);color:var(--ink-3);text-align:right}
+  .axis{display:flex;justify-content:space-between;margin-top:10px;padding-left:182px;
+    padding-right:106px;font:10.5px var(--mono);color:var(--ink-3);
+    border-top:1px solid var(--axis);padding-top:6px}
+
+  /* ---- gpu strip ---- */
+  .gpus{display:grid;gap:1px;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
+    background:var(--grid);border:1px solid var(--grid);border-radius:var(--r);overflow:hidden}
+  .g{background:var(--surface);padding:14px 16px;position:relative}
+  .g .top{display:flex;align-items:baseline;gap:8px;margin-bottom:3px}
+  .g .id{font:600 13px var(--mono)}
+  .g .mine{font:10px var(--mono);color:var(--s1);border:1px solid var(--s1);
+    border-radius:99px;padding:0 6px;opacity:.9}
+  .g .sub{font:11px var(--mono);color:var(--ink-3)}
+  .g .meter{height:4px;background:var(--surface-2);border-radius:99px;margin:10px 0 7px;overflow:hidden}
+  .g .meter i{display:block;height:100%;background:var(--s1);border-radius:99px}
+  .g.busy .meter i{background:var(--s4)} .g.foreign .meter i{background:var(--crit)}
+  .g .row{display:flex;justify-content:space-between;font:11px var(--mono);color:var(--ink-2)}
+  .g .procs{margin-top:9px;display:flex;flex-direction:column;gap:3px}
+  .g .p{display:flex;gap:6px;font:10.5px var(--mono);color:var(--ink-3)}
+  .g .p .nm{color:var(--ink-2)} .g .p .mm{margin-left:auto}
+  .g .p.them .nm{color:var(--crit)}
+
+  /* ---- tables ---- */
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{position:sticky;top:0;background:var(--surface);text-align:left;font:11px var(--mono);
+    letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);font-weight:400;
+    padding:9px 20px;border-bottom:1px solid var(--axis);white-space:nowrap}
+  td{padding:9px 20px;border-bottom:1px solid var(--grid);color:var(--ink-2)}
   tr:last-child td{border-bottom:0}
-  tr:hover td{background:rgba(255,255,255,.022)}
-  .num{font:12px var(--mono);text-align:right;white-space:nowrap}
-  .mono{font:11.5px var(--mono);color:var(--dim)}
-  .said{font-size:12.5px;color:var(--dim)}
-  .pill{font:11px var(--mono);padding:1px 7px;border-radius:99px;border:1px solid}
-  .pill.ok{color:var(--ok);border-color:rgba(63,185,80,.4);background:rgba(63,185,80,.1)}
-  .pill.bad{color:var(--bad);border-color:rgba(248,81,73,.4);background:rgba(248,81,73,.1)}
-  .pill.warn{color:var(--warn);border-color:rgba(210,153,34,.4);background:rgba(210,153,34,.1)}
-  .pill.mute{color:var(--dimmer);border-color:var(--line)}
-  .scroll{max-height:330px;overflow:auto}
-  .stats{display:flex;gap:24px;flex-wrap:wrap}
-  .stat .v{font:600 21px var(--mono)}
-  .stat .k{font-size:11px;color:var(--dimmer);text-transform:uppercase;letter-spacing:.5px}
-  pre.log{margin:0;padding:13px 15px;font:11.5px/1.55 var(--mono);color:#b9c4d0;
-    max-height:340px;overflow:auto;white-space:pre-wrap;word-break:break-word}
-  .empty{padding:26px 15px;text-align:center;color:var(--dimmer);font-size:13px}
-  .note{font-size:11.5px;color:var(--dimmer);padding:9px 15px;border-top:1px solid var(--line)}
-  /* GPU cards with a live trace behind the numbers */
-  .gpu{position:relative;overflow:hidden}
-  .gpu .trace{position:absolute;left:0;right:0;bottom:0;height:38px;opacity:.5;pointer-events:none}
-  .gpu .body{position:relative;z-index:1}
-  .gpu.busy{border-color:rgba(88,166,255,.5)}
-  .gpu.foreign{border-color:rgba(248,81,73,.55)}
-  .gpu .who{margin-top:8px;display:flex;flex-direction:column;gap:3px}
-  .gpu .who .p{display:flex;gap:6px;align-items:baseline;font:10.5px var(--mono);
-    padding:2px 6px;border-radius:4px;background:rgba(255,255,255,.045)}
-  .gpu .who .p.me{background:rgba(163,113,247,.16)}
-  .gpu .who .p.olla{background:rgba(88,166,255,.14)}
-  .gpu .who .p.them{background:rgba(248,81,73,.15)}
-  .gpu .who .p .nm{font-weight:600}
-  .gpu .who .p .mem{margin-left:auto;color:var(--dim)}
-  /* document reader */
-  .docbar{display:flex;gap:8px;align-items:center;padding:10px 15px;border-bottom:1px solid var(--line);flex-wrap:wrap}
-  #doclist{min-width:250px;max-width:420px}
-  .doc{padding:6px 22px 22px;max-height:620px;overflow:auto;font-size:14px;line-height:1.68}
-  .doc h1,.doc h2,.doc h3{line-height:1.3;margin:1.4em 0 .5em}
-  .doc h1{font-size:21px;border-bottom:1px solid var(--line);padding-bottom:.3em}
-  .doc h2{font-size:17px;color:#79c0ff} .doc h3{font-size:15px;color:var(--dim)}
-  .doc p{margin:.7em 0} .doc ul,.doc ol{margin:.6em 0;padding-left:1.5em} .doc li{margin:.25em 0}
-  .doc code{font:12px var(--mono);background:var(--panel2);padding:1px 5px;border-radius:4px}
-  .doc pre{background:var(--panel2);border:1px solid var(--line);border-radius:8px;
-    padding:11px 13px;overflow-x:auto} .doc pre code{background:none;padding:0}
-  .doc table{margin:.8em 0;font-size:12.5px;border:1px solid var(--line);border-radius:6px}
-  .doc th{background:var(--panel2)} .doc td,.doc th{padding:6px 11px}
-  .doc blockquote{margin:.8em 0;padding:.1em 1em;border-left:3px solid var(--line);color:var(--dim)}
-  .doc a{color:var(--accent)} .doc hr{border:0;border-top:1px solid var(--line);margin:1.4em 0}
-  /* disk */
-  .bars{display:flex;flex-direction:column;gap:7px}
-  .brow{display:flex;align-items:center;gap:9px;font:11.5px var(--mono)}
-  .brow .lb{width:120px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .brow .tr{position:relative;flex:1;height:13px;background:var(--panel2);border-radius:4px}
-  .brow .tr i{display:block;height:100%;border-radius:4px;
-    background:linear-gradient(90deg,#1f6feb,#58a6ff);transition:width .4s}
-  .brow .tr .wk{position:absolute;top:5px;height:3px;border-radius:2px;
-    background:rgba(230,237,243,.55)}
-  .brow .lb{width:190px}
-  .brow .vl{width:66px;text-align:right}
-  svg .ax{stroke:var(--line);stroke-width:1}
-  svg .gl{stroke:rgba(42,50,61,.55);stroke-width:1}
-  svg text{fill:var(--dimmer);font:10px var(--mono)}
-</style></head><body>
-<div class="bar">
-  <span class="dot" id="dot"></span>
-  <h1>srlm-forge</h1>
-  <span class="host" id="host">connecting…</span>
-  <span class="spacer"></span>
-  <span class="host" id="stamp"></span>
+  tbody tr:hover td{background:var(--surface-2)}
+  .num{font:12.5px var(--mono);text-align:right;font-variant-numeric:tabular-nums;color:var(--ink)}
+  .mono{font:11.5px var(--mono);color:var(--ink-3)}
+  .pill{font:10.5px var(--mono);padding:2px 8px;border-radius:99px;white-space:nowrap}
+  .pill.ok{color:var(--good);background:rgba(12,163,12,.13)}
+  .pill.bad{color:var(--crit);background:rgba(208,59,59,.15)}
+  .pill.warn{color:var(--warn);background:rgba(250,178,25,.13)}
+
+  /* ---- misc ---- */
+  .empty{padding:26px 20px;text-align:center;color:var(--ink-3);font-size:13px}
+  pre.log{margin:0;padding:14px 20px;font:11.5px/1.6 var(--mono);color:var(--ink-2);
+    max-height:320px;overflow:auto;white-space:pre-wrap;word-break:break-word}
+  select{background:var(--surface-2);color:var(--ink-2);border:1px solid var(--grid);
+    border-radius:7px;padding:6px 9px;font:12px var(--mono);max-width:420px}
+  .doc{padding:4px 22px 20px;max-height:560px;overflow:auto;font-size:14px;line-height:1.68}
+  .doc h1,.doc h2,.doc h3{line-height:1.3;margin:1.4em 0 .5em;color:var(--ink)}
+  .doc h1{font-size:20px;border-bottom:1px solid var(--grid);padding-bottom:.3em}
+  .doc h2{font-size:16.5px} .doc h3{font-size:14.5px;color:var(--ink-2)}
+  .doc p,.doc li{color:var(--ink-2)}
+  .doc code{font:12px var(--mono);background:var(--surface-2);padding:1px 5px;border-radius:4px}
+  .doc pre{background:var(--surface-2);border:1px solid var(--grid);border-radius:8px;
+    padding:12px 14px;overflow-x:auto}
+  .doc table{margin:.8em 0;font-size:12.5px} .doc th,.doc td{padding:6px 10px}
+  .doc blockquote{margin:.8em 0;padding:.1em 1em;border-left:2px solid var(--axis);color:var(--ink-3)}
+  .bars.disk .bar{grid-template-columns:150px 1fr 80px}
+  svg .gl{stroke:var(--grid);stroke-width:1}
+  svg text{fill:var(--ink-3);font:10px var(--mono)}
+</style>
+</head><body>
+<header>
+  <span class="brand"><span class="dot" id="dot"></span>srlm-forge</span>
+  <span class="meta" id="host">connecting…</span>
+  <span class="sp"></span>
+  <span class="meta" id="stamp"></span>
   <button id="pause">Pause</button>
   <button onclick="pull(true)">Refresh</button>
-  <button class="findings" data-scope="findings">What did I find?</button>
-</div>
+</header>
+
 <div class="wrap">
-  <div class="heads" id="heads"></div>
 
-  <div class="card" id="explain">
-    <div class="exbar">
-      <span class="lab">Local model</span><span id="exoff" class="pill ok">offline</span>
-      <select id="exmodel"></select>
-      <button class="go" data-scope="overview">Everything</button>
-      <button data-scope="arms">Arms</button>
-      <button data-scope="runs">Runs</button>
-      <button data-scope="evals">Evals</button>
-      <button data-scope="rounds">Rounds</button>
-      <span id="exstatus"></span>
-      <span id="exwarn"></span>
-      <span class="spacer"></span>
-      <button id="exstop" disabled>Stop</button>
-    </div>
-    <div id="exout"><span class="ph">Press <b>What did I find?</b> and the local model reads everything
-      below and tells you what it shows, in plain language. Runs on this machine, on GPU 0,
-      only when you ask it to.</span></div>
-    <div id="excaveat">Commentary generated locally by ollama. It is a reading aid, not evidence —
-      nothing here is written to <b>data/</b>, and no number above comes from the model.
-      It runs on GPU 0, the same card as your training runs, so it asks before adding load —
-      and it stays shut down between clicks, holding no VRAM. If ollama is already running
-      when you click (an eval, say), it is used as-is and left running afterwards.</div>
-  </div>
+  <div class="hero" id="hero"></div>
+  <div class="attn" id="attn"></div>
 
-  <div class="gpus" id="gpus"></div>
   <div class="grid">
-    <div class="card span2"><h2>Arms · replicate pass@1
-      <span class="tag" id="armtag"></span>
-      <button data-scope="arms">Explain</button></h2>
-      <div class="pad said" id="armsaid"></div>
-      <div class="pad" id="armchart" style="padding-top:0"></div>
-      <div class="scroll"><table id="arms"></table></div>
-      <div class="note">Grouped by (model, task_set, verifier fileset) — the partition
-        <b>ruler_noise.py</b> refuses to pool across. No arm-vs-arm comparison is computed here;
-        that needs the same-session-control discipline in <b>poscontrol/</b>.</div></div>
 
-    <div class="card"><h2>Evaluations over time
-      <span class="tag" id="evtag"></span>
-      <button data-scope="evals">Explain</button></h2>
-      <div class="pad said" id="evsaid"></div>
-      <div class="pad" id="evchart" style="padding-top:0"></div>
-      <div class="scroll"><table id="evtable"></table></div></div>
+    <section class="panel col8">
+      <h2>Arms <span class="tag" id="armtag"></span></h2>
+      <p class="lede">Mean pass@1 per arm, averaged over replicates. Whiskers span one standard
+        deviation. Grouped by (model, task_set, verifier) — the partition
+        <code>ruler_noise.py</code> refuses to pool across, so these are within-group means and
+        not a comparison between arms.</p>
+      <div class="body" id="armchart"></div>
+    </section>
 
-    <div class="card"><h2>Runs <span class="tag" id="runtag"></span>
-      <button data-scope="runs">Explain</button></h2>
-      <div class="pad said" id="runsaid"></div>
-      <div class="scroll"><table id="runs"></table></div></div>
+    <section class="panel col4">
+      <h2>GPUs <span class="tag" id="gputag"></span></h2>
+      <div class="body" style="padding:16px 16px 18px"><div class="gpus" id="gpus"></div></div>
+    </section>
 
-    <div class="card"><h2>Rounds <span class="tag" id="roundtag"></span>
-      <button data-scope="rounds">Explain</button></h2>
-      <div class="pad said" id="roundsaid"></div>
-      <div class="pad" id="rdchart" style="padding-top:0"></div>
-      <div class="scroll"><table id="rounds"></table></div></div>
+    <section class="panel col6">
+      <h2>Evaluations over time <span class="tag" id="evtag"></span></h2>
+      <p class="lede">pass@1 per evaluation, oldest to newest. Held-in shares tasks with training
+        and reads higher; the gap between the lines is the quantity of interest.</p>
+      <div class="body" id="evchart"></div>
+    </section>
 
-    <div class="card"><h2>Data files</h2>
-      <div class="pad said" id="dssaid"></div>
-      <div class="scroll"><table id="datasets"></table></div></div>
+    <section class="panel col6">
+      <h2>Mining rounds <span class="tag" id="rdtag"></span></h2>
+      <p class="lede">Preference pairs produced per round. A round that solves everything mines
+        nothing — pairs come from disagreement.</p>
+      <div class="body" id="rdchart"></div>
+    </section>
 
-    <div class="card span2"><h2>Documents
-      <span class="tag" id="doctag"></span></h2>
-      <div class="docbar">
+    <section class="panel col6">
+      <h2>Runs <span class="tag" id="runtag"></span></h2>
+      <div class="scroll"><table id="runs"></table></div>
+    </section>
+
+    <section class="panel col6">
+      <h2>Data files <span class="tag" id="dstag"></span></h2>
+      <div class="scroll"><table id="datasets"></table></div>
+    </section>
+
+    <section class="panel col4">
+      <h2>Disk <span class="tag" id="disktag"></span></h2>
+      <div class="body"><div class="bars disk" id="diskbars"></div></div>
+    </section>
+
+    <section class="panel col8">
+      <h2>Documents <span class="tag" id="doctag"></span></h2>
+      <div class="body" style="display:flex;gap:10px;align-items:center;padding-bottom:0">
         <select id="doclist"></select>
-        <button id="docopen" class="go">Open</button>
+        <button id="docopen">Open</button>
         <span class="mono" id="docmeta"></span>
       </div>
-      <div class="doc" id="docview"><div class="empty">Pick a document and press Open —
-        rendered with pandoc, so tables, code blocks and footnotes come through properly.</div></div>
-    </div>
+      <div class="doc" id="docview"><div class="empty">Pick a document and press Open.
+        Rendered with pandoc.</div></div>
+    </section>
 
-    <div class="card"><h2>Disk <span class="tag" id="disktag"></span></h2>
-      <div class="pad said" id="disksaid"></div>
-      <div class="pad bars" id="diskbars" style="padding-top:0"></div></div>
+    <section class="panel col12">
+      <h2>Newest log <span class="tag" id="logtag"></span></h2>
+      <pre class="log" id="log"></pre>
+    </section>
 
-    <div class="card span2"><h2>Newest log <span class="tag" id="logtag"></span></h2>
-      <pre class="log" id="log"></pre></div>
   </div>
 </div>
+
 <script>
 const $ = id => document.getElementById(id);
-let paused = false, last = null, ctrl = null;
+let paused = false;
 
 $("pause").onclick = () => {
   paused = !paused;
@@ -1192,440 +1022,254 @@ $("pause").onclick = () => {
   if (!paused) pull(true);
 };
 
-const esc = s => String(s ?? "").replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const pct = v => v == null ? "—" : (v * 100).toFixed(1) + "%";
-const bytes = b => b == null ? "—" : b > 1048576 ? (b/1048576).toFixed(1)+" MB"
-                  : b > 1024 ? (b/1024).toFixed(0)+" KB" : b+" B";
-const ago = s => s == null ? "—" : s < 60 ? s+"s ago" : s < 3600 ? Math.floor(s/60)+"m ago"
-              : s < 86400 ? Math.floor(s/3600)+"h ago" : Math.floor(s/86400)+"d ago";
-const dur = s => s == null ? "—" : s < 60 ? s.toFixed(0)+"s"
-             : Math.floor(s/60)+"m "+String(Math.round(s%60)).padStart(2,"0")+"s";
-const shortTs = t => esc(String(t||"").replace("T"," ").replace("Z","").slice(5,16));
+const bytes = b => b == null ? "—" : b > 1073741824 ? (b/1073741824).toFixed(1)+" GB"
+                 : b > 1048576 ? (b/1048576).toFixed(0)+" MB"
+                 : b > 1024 ? (b/1024).toFixed(0)+" KB" : b+" B";
+const ago = s => s == null ? "—" : s < 60 ? s+"s" : s < 3600 ? Math.round(s/60)+"m"
+              : s < 86400 ? Math.round(s/3600)+"h" : Math.round(s/86400)+"d";
+const dur = s => s == null ? "—" : s < 60 ? Math.round(s)+"s"
+             : Math.floor(s/60)+"m"+String(Math.round(s%60)).padStart(2,"0");
+const ts = t => esc(String(t||"").replace("T"," ").replace("Z","").slice(5,16));
 
-function table(el, cols, rows, cell, emptyMsg) {
-  if (!rows.length) { el.innerHTML =
-    '<tr><td><div class="empty">'+esc(emptyMsg||"no rows yet")+'</div></td></tr>'; return; }
-  el.innerHTML = "<thead><tr>"+cols.map(c=>"<th>"+esc(c)+"</th>").join("")+
-    "</tr></thead><tbody>"+rows.map(r=>"<tr>"+cell(r)+"</tr>").join("")+"</tbody>";
+function table(el, cols, rows, cell, emptyMsg){
+  if(!rows.length){ el.innerHTML = '<tr><td><div class="empty">'+esc(emptyMsg||"nothing yet")+'</div></td></tr>'; return; }
+  el.innerHTML = "<thead><tr>"+cols.map(c=>"<th>"+esc(c)+"</th>").join("")+"</tr></thead>"
+               + "<tbody>"+rows.map(r=>"<tr>"+cell(r)+"</tr>").join("")+"</tbody>";
 }
 
-/* ---- charts: small, dependency-free SVG ---- */
-function barChart(el, items) {
-  if (!items.length) { el.innerHTML = ""; return; }
-  const top = Math.max(...items.map(i => i.v + (i.sd || 0)), 0.0001);
-  el.innerHTML = '<div class="bars">' + items.map(it => {
-    const w   = it.v / top * 100;
-    const lo  = Math.max(0, (it.v - (it.sd||0)) / top * 100);
-    const hi  = Math.min(100, (it.v + (it.sd||0)) / top * 100);
-    const whisk = it.sd
-      ? '<span class="wk" style="left:'+lo.toFixed(1)+'%;width:'+(hi-lo).toFixed(1)+'%"></span>' : '';
-    return '<div class="brow">'+
-      '<span class="lb" title="'+esc(it.t)+'">'+esc(it.t)+'</span>'+
-      '<span class="tr"><i style="width:'+w.toFixed(1)+'%;background:'+it.c+'"></i>'+whisk+'</span>'+
-      '<span class="vl">'+(it.v*100).toFixed(1)+'%</span>'+
-      '<span class="vl" style="width:52px;color:var(--dimmer)">n='+(it.n||"")+'</span>'+
-      '</div>';
-  }).join("") + '</div>';
-}
-
-function lineChart(el, series, fmt) {
-  const all = series.flatMap(s => s.pts);
-  if (all.length < 2) { el.innerHTML = '<div class="empty">not enough points to plot</div>'; return; }
-  const W = 320, H = 120, L = 34, B = 16;
-  const lo = Math.min(...all.map(p => p.y)), hi = Math.max(...all.map(p => p.y));
-  const span = (hi - lo) || 1, y0 = lo - span*.12, y1 = hi + span*.12;
-  const X = (i, n) => L + (n < 2 ? 0 : i/(n-1) * (W-L-6));
-  const Y = v => H-B - (v-y0)/(y1-y0) * (H-B-8);
-  let s = '<svg viewBox="0 0 '+W+' '+H+'" width="100%" height="150">';
-  for (let g = 0; g <= 3; g++) {
-    const v = y0 + (y1-y0)*g/3, y = Y(v);
-    s += '<line class="gl" x1="'+L+'" x2="'+(W-6)+'" y1="'+y.toFixed(1)+'" y2="'+y.toFixed(1)+'"/>';
-    s += '<text x="2" y="'+(y+3).toFixed(1)+'">'+fmt(v)+'</text>';
+/* ---------- line chart: 2px strokes, recessive grid, hover crosshair ---------- */
+function lineChart(el, series, fmt, unit){
+  const all = series.flatMap(s=>s.pts);
+  if(all.length < 2){ el.innerHTML = '<div class="empty">not enough points to plot</div>'; return; }
+  const W=560, H=190, L=44, B=26, R=10, T=12;
+  const lo=Math.min(...all.map(p=>p.y)), hi=Math.max(...all.map(p=>p.y));
+  const span=(hi-lo)||1, y0=lo-span*.15, y1=hi+span*.15;
+  const X=(i,n)=> L + (n<2?0:i/(n-1))*(W-L-R);
+  const Y=v=> H-B - (v-y0)/(y1-y0)*(H-B-T);
+  let s='<svg viewBox="0 0 '+W+' '+H+'" width="100%" height="200" role="img">';
+  for(let g=0; g<=3; g++){
+    const v=y0+(y1-y0)*g/3, y=Y(v);
+    s+='<line class="gl" x1="'+L+'" x2="'+(W-R)+'" y1="'+y.toFixed(1)+'" y2="'+y.toFixed(1)+'"/>';
+    s+='<text x="'+(L-8)+'" y="'+(y+3.5).toFixed(1)+'" text-anchor="end">'+fmt(v)+'</text>';
   }
-  series.forEach(se => {
-    const d = se.pts.map((p,i) => (i?"L":"M")+X(i,se.pts.length).toFixed(1)+" "+Y(p.y).toFixed(1)).join(" ");
-    s += '<path d="'+d+'" fill="none" stroke="'+se.c+'" stroke-width="1.6" stroke-linejoin="round"/>';
-    se.pts.forEach((p,i) => { s += '<circle cx="'+X(i,se.pts.length).toFixed(1)+'" cy="'+Y(p.y).toFixed(1)+
-      '" r="1.9" fill="'+se.c+'"><title>'+esc(p.label)+'</title></circle>'; });
+  s+='<line stroke="#383835" x1="'+L+'" x2="'+(W-R)+'" y1="'+(H-B)+'" y2="'+(H-B)+'"/>';
+  series.forEach(se=>{
+    if(se.pts.length<2) return;
+    const d=se.pts.map((p,i)=>(i?"L":"M")+X(i,se.pts.length).toFixed(1)+" "+Y(p.y).toFixed(1)).join(" ");
+    s+='<path d="'+d+'" fill="none" stroke="'+se.c+'" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>';
+    const last=se.pts[se.pts.length-1];
+    s+='<circle cx="'+X(se.pts.length-1,se.pts.length).toFixed(1)+'" cy="'+Y(last.y).toFixed(1)
+      +'" r="4" fill="'+se.c+'" stroke="#1a1a19" stroke-width="2"/>';
+    se.pts.forEach((p,i)=>{ s+='<circle cx="'+X(i,se.pts.length).toFixed(1)+'" cy="'+Y(p.y).toFixed(1)
+      +'" r="7" fill="transparent"><title>'+esc(p.label)+'</title></circle>'; });
   });
-  s += '</svg><div class="mono" style="margin-top:4px">' + series.map(se =>
-    '<span style="color:'+se.c+'">■</span> '+esc(se.name)).join("&nbsp;&nbsp;") + '</div>';
-  el.innerHTML = s;
+  s+='</svg>';
+  const legend='<div style="display:flex;gap:18px;margin-top:8px;font:11.5px var(--mono);color:var(--ink-3)">'
+    + series.filter(se=>se.pts.length).map(se=>'<span><span style="display:inline-block;width:9px;height:9px;'
+    + 'border-radius:2px;background:'+se.c+';margin-right:6px"></span>'+esc(se.name)
+    + ' <span style="color:var(--ink-2)">'+pct(se.pts[se.pts.length-1].y)+'</span></span>').join("")+'</div>';
+  el.innerHTML = s + legend;
 }
 
-function sparkline(el, vals, label) {
-  if (vals.length < 2) { el.innerHTML = ""; return; }
-  const W = 320, H = 40, top = Math.max(...vals, 1);
-  const d = vals.map((v,i) => (i?"L":"M")+(i/(vals.length-1)*W).toFixed(1)+" "+
-    (H - v/top*(H-4)).toFixed(1)).join(" ");
-  el.innerHTML = '<svg viewBox="0 0 '+W+' '+H+'" width="100%" height="46" preserveAspectRatio="none">'+
-    '<path d="'+d+'" fill="none" stroke="#58a6ff" stroke-width="1.4"/></svg>'+
-    '<div class="mono">'+esc(label)+'</div>';
+/* ---------- area sparkline for round yield ---------- */
+function areaChart(el, vals, label){
+  if(vals.length<2){ el.innerHTML='<div class="empty">not enough rounds</div>'; return; }
+  const W=560,H=150,B=22,T=10,R=6,L=30;
+  const hi=Math.max(...vals,1);
+  const X=i=> L+(i/(vals.length-1))*(W-L-R);
+  const Y=v=> H-B-(v/hi)*(H-B-T);
+  const line=vals.map((v,i)=>(i?"L":"M")+X(i).toFixed(1)+" "+Y(v).toFixed(1)).join(" ");
+  let s='<svg viewBox="0 0 '+W+' '+H+'" width="100%" height="160" role="img">';
+  for(let g=0;g<=2;g++){ const v=hi*g/2,y=Y(v);
+    s+='<line class="gl" x1="'+L+'" x2="'+(W-R)+'" y1="'+y.toFixed(1)+'" y2="'+y.toFixed(1)+'"/>';
+    s+='<text x="'+(L-8)+'" y="'+(y+3.5).toFixed(1)+'" text-anchor="end">'+Math.round(v)+'</text>'; }
+  s+='<path d="'+line+' L'+X(vals.length-1).toFixed(1)+' '+(H-B)+' L'+L+' '+(H-B)+' Z" fill="#3987e5" opacity="0.16"/>';
+  s+='<path d="'+line+'" fill="none" stroke="#3987e5" stroke-width="2" stroke-linejoin="round"/>';
+  s+='<line stroke="#383835" x1="'+L+'" x2="'+(W-R)+'" y1="'+(H-B)+'" y2="'+(H-B)+'"/></svg>';
+  el.innerHTML = s + '<div style="margin-top:6px;font:11.5px var(--mono);color:var(--ink-3)">'+esc(label)+'</div>';
 }
 
-/* ---- render ---- */
-function render(d) {
-  last = d;
-  $("host").textContent = d.host + " · " + (d.uptime || "");
+/* ---------- render ---------- */
+function render(d){
+  $("host").textContent = d.host + " · " + (d.uptime||"").replace(/^\s*/,"");
   $("stamp").textContent = "updated " + d.now.slice(11);
 
-  $("heads").innerHTML = d.headlines.map(h =>
-    '<div class="head '+h.kind+'"><div class="t">'+esc(h.title)+'</div>'+
-    '<div class="d">'+esc(h.text)+'</div></div>').join("");
+  const arms = d.arms || [], best = arms[0];
+  const m = d.manifest || {}, rd = d.rounds || {};
+  const cards = (d.gpus && d.gpus.cards) || [], procs = (d.gpus && d.gpus.procs) || [];
+  const mine = procs.filter(p => p.mine && !p.ollama);
+  const g0 = cards.find(c => c.index === 0);
+  const fresh = (d.datasets||[]).filter(f=>!f.missing);
+  const newest = fresh.length ? Math.min(...fresh.map(f=>f.age_s)) : null;
+  const okPct = m.n ? Math.round(m.ok/m.n*100) : 0;
 
-  $("exoff").textContent = d.ollama_alive ? "running" : "offline";
-  $("exoff").className = "pill " + (d.ollama_alive ? "warn" : "ok");
-  $("exoff").title = d.ollama_alive
-    ? "ollama is up and may be holding VRAM"
-    : "ollama is not running — no VRAM held. It starts when you click, and stops after.";
+  /* hero: the four questions actually worth answering at a glance */
+  $("hero").innerHTML = [
+    ['Strongest arm', best ? pct(best.mean_p1) : "—",
+     best ? esc(best.label)+' · n='+best.n : "no replicates",
+     ''],
+    ['GPU 0', mine.length ? 'busy' : 'idle',
+     g0 ? (g0.used/1024).toFixed(1)+' / '+(g0.total/1024).toFixed(0)+' GB · '+g0.util+'% · '+g0.temp+'°C' : '—',
+     mine.length ? 'warn' : 'good'],
+    ['Runs clean', m.n ? m.ok+'<small> / '+m.n+'</small>' : '—',
+     m.bad ? m.bad+' did not succeed' : 'all clean',
+     m.bad ? 'crit' : 'good'],
+    ['Data last written', newest != null ? ago(newest) + '<small> ago</small>' : '—',
+     fresh.length ? esc(fresh.reduce((a,b)=>a.age_s<b.age_s?a:b).name) : '—',
+     newest != null && newest > 172800 ? 'warn' : ''],
+  ].map(([k,v,sub,cls]) =>
+    '<div class="tile"><div class="k">'+k+'</div><div class="v '+cls+'">'+v+'</div>'
+    + '<div class="sub">'+sub+'</div></div>').join("");
 
-  const ct = d.contention || {};
-  $("exwarn").innerHTML = ct.risky
-    ? '<span class="pill warn" title="'+esc(ct.detail)+'">GPU 0 busy — '+esc(ct.reason)+'</span>'
-    : (ct.ollama_loaded && ct.ollama_loaded.length
-        ? '<span class="pill mute">model already resident, no reload needed</span>' : '');
+  /* attention: only rows that need action, ranked */
+  const att = (d.headlines||[]).filter(h => h.kind === 'bad' || h.kind === 'warn')
+    .map(h => '<div class="att '+(h.kind==='bad'?'crit':'warn')+'">'
+      + '<span class="ic">'+(h.kind==='bad'?'!':'▲')+'</span>'
+      + '<span class="tx"><b>'+esc(h.title)+'</b> — '+esc(h.text)+'</span></div>').join("");
+  $("attn").innerHTML = att || '<div class="att good"><span class="ic">✓</span>'
+    + '<span class="tx">Nothing needs attention. '
+    + (m.n ? m.ok+' of '+m.n+' runs clean' : 'no runs recorded') + '.</span></div>';
 
-  const sel = $("exmodel");
-  if (sel.dataset.filled !== String(d.models.length)) {
-    sel.innerHTML = d.models.length
-      ? d.models.map(m => '<option>'+esc(m)+'</option>').join("")
-      : '<option value="">no local model found</option>';
-    sel.dataset.filled = String(d.models.length);
-  }
+  /* arms */
+  $("armtag").textContent = arms.length + " groups";
+  const show = arms.slice(0, 12);
+  const top = show.length ? Math.max(...show.map(a => a.mean_p1 + (a.sd_p1||0))) : 1;
+  $("armchart").innerHTML = show.length
+    ? '<div class="bars">' + show.map((a,i) => {
+        const w = a.mean_p1/top*100;
+        const lo = Math.max(0,(a.mean_p1-(a.sd_p1||0))/top*100);
+        const hi = Math.min(100,(a.mean_p1+(a.sd_p1||0))/top*100);
+        return '<div class="bar'+(i===0?' top':'')+'">'
+          + '<span class="lb" title="'+esc(a.label)+'">'+esc(a.label)+'</span>'
+          + '<span class="tr"><i style="width:'+w.toFixed(1)+'%"></i>'
+          + (a.sd_p1 ? '<span class="wk" style="left:'+lo.toFixed(1)+'%;width:'+(hi-lo).toFixed(1)+'%"></span>' : '')
+          + '</span>'
+          + '<span class="vl">'+pct(a.mean_p1)+'</span>'
+          + '<span class="n">n='+a.n+'</span></div>';
+      }).join("") + '</div>'
+      + '<div class="axis"><span>0%</span><span>'+pct(top/2)+'</span><span>'+pct(top)+'</span></div>'
+    : '<div class="empty">no replicates in data/ruler_noise.jsonl</div>';
 
-  const g = d.gpus, hist = d.history || {};
-  $("gpus").innerHTML = g.error
-    ? '<div class="head bad"><div class="t">nvidia-smi failed</div><div class="d">'+esc(g.error)+'</div></div>'
-    : g.cards.map(c => {
+  /* gpus */
+  $("gputag").textContent = cards.length + " cards";
+  $("gpus").innerHTML = (d.gpus && d.gpus.error)
+    ? '<div class="empty">nvidia-smi: '+esc(d.gpus.error)+'</div>'
+    : cards.map(c => {
+        const own = procs.filter(p => p.gpu === c.index);
+        const foreign = own.some(p => !p.mine);
         const use = c.total ? c.used/c.total*100 : 0;
-        const cls = use > 85 ? "max" : use > 60 ? "hot" : "";
-        const procs = (g.procs||[]).filter(pr => pr.gpu === c.index);
-        const foreign = procs.some(pr => !pr.mine);
-        const busy = procs.length > 0;
-        // live utilisation trace behind the numbers, nvtop-style
-        const h = hist[String(c.index)] || [];
-        let trace = "";
-        if (h.length > 1) {
-          const W = 100, H = 38;
-          const pts = h.map((v,i) => [(i/(h.length-1))*W, H - (v[0]/100)*H]);
-          const line = pts.map((q,i) => (i?"L":"M")+q[0].toFixed(1)+" "+q[1].toFixed(1)).join(" ");
-          const area = line + ` L${W} ${H} L0 ${H} Z`;
-          trace = '<svg class="trace" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none">'+
-            '<path d="'+area+'" fill="'+(foreign?"rgba(248,81,73,.30)":"rgba(88,166,255,.30)")+'"/>'+
-            '<path d="'+line+'" fill="none" stroke="'+(foreign?"#f85149":"#58a6ff")+'" stroke-width="1"/></svg>';
-        }
-        const who = procs.length ? '<div class="who">' + procs.slice(0,4).map(pr => {
-          const k = pr.ollama ? "olla" : pr.mine ? "me" : "them";
-          const tag = pr.ollama ? "ollama" : esc(pr.name);
-          return '<div class="p '+k+'"><span class="nm">'+tag+'</span>'+
-                 '<span>'+esc(pr.user)+'·'+pr.pid+'</span>'+
-                 '<span class="mem">'+(pr.mem/1024).toFixed(1)+'G</span></div>';
-        }).join("") + '</div>' : '';
-        return '<div class="gpu'+(c.index===0?' mine':'')+(foreign?' foreign':busy?' busy':'')+'">'+
-          trace+'<div class="body">'+
-          '<div class="top"><span class="id">GPU '+c.index+'</span>'+
-          (c.index===0?'<span class="badge">yours</span>':'')+'</div>'+
-          '<div class="sub">'+esc(c.name.replace("NVIDIA ",""))+'</div>'+
-          '<div class="meter"><i class="'+cls+'" style="width:'+use.toFixed(1)+'%"></i></div>'+
-          '<div class="row"><span>'+(c.used/1024).toFixed(1)+' / '+(c.total/1024).toFixed(0)+' GB</span>'+
-          '<span>'+c.util+'% · '+c.temp+'°C</span></div>'+
-          who+'</div></div>';
+        return '<div class="g'+(foreign?' foreign':own.length?' busy':'')+'">'
+          + '<div class="top"><span class="id">GPU '+c.index+'</span>'
+          + (c.index===0?'<span class="mine">yours</span>':'')+'</div>'
+          + '<div class="sub">'+esc(c.name.replace("NVIDIA ",""))+'</div>'
+          + '<div class="meter"><i style="width:'+use.toFixed(1)+'%"></i></div>'
+          + '<div class="row"><span>'+(c.used/1024).toFixed(1)+' / '+(c.total/1024).toFixed(0)+' GB</span>'
+          + '<span>'+c.util+'% · '+c.temp+'°C</span></div>'
+          + (own.length ? '<div class="procs">'+own.slice(0,3).map(p =>
+              '<div class="p'+(p.mine?'':' them')+'"><span class="nm">'+esc(p.ollama?'ollama':p.name)+'</span>'
+              + '<span>'+esc(p.user)+'</span><span class="mm">'+(p.mem/1024).toFixed(1)+'G</span></div>').join("")+'</div>' : '')
+          + '</div>';
       }).join("");
 
-  // ---- disk ----
-  const dk = d.disk || {};
-  if (dk.rows && dk.rows.length) {
-    const top = Math.max(...dk.rows.map(r => r.bytes), 1);
-    $("diskbars").innerHTML = dk.rows.concat(dk.biggest||[]).map((r,i) => {
-      const isDir = i >= dk.rows.length;
-      return '<div class="brow"><span class="lb">'+(isDir?"&nbsp;&nbsp;":"")+esc(r.label)+'</span>'+
-        '<span class="tr"><i style="width:'+(r.bytes/top*100).toFixed(1)+'%"></i></span>'+
-        '<span class="vl">'+bytes(r.bytes)+'</span></div>';
-    }).join("");
-    $("disktag").textContent = dk.free != null ? bytes(dk.free)+" free" : "";
-    $("disksaid").textContent = "Adapter directories are the bulk of it — each full run leaves "
-      + "one behind. Refreshed every 5 minutes in the background.";
-  } else {
-    $("diskbars").innerHTML = '<div class="empty">measuring…</div>';
-  }
+  /* evals */
+  const ev = d.evals || {held_out:[],held_in:[]};
+  $("evtag").textContent = (ev.n_held_out||0)+" held-out · "+(ev.n_held_in||0)+" held-in";
+  const mk = rows => (rows||[]).filter(r=>r.p1!=null).slice().reverse()
+    .map(r=>({y:r.p1,label:r.ts+"  "+r.model+"  "+pct(r.p1)}));
+  lineChart($("evchart"), [
+    {name:"held-out", c:"#3987e5", pts: mk(ev.held_out)},
+    {name:"held-in",  c:"#d95926", pts: mk(ev.held_in)},
+  ], v => (v*100).toFixed(0)+"%");
 
-  // ---- documents ----
-  const docs = d.docs || [], dsel = $("doclist");   // not `sel` — that is the model picker
-  $("doctag").textContent = docs.length + " markdown files";
-  if (dsel.dataset.n !== String(docs.length)) {
-    dsel.innerHTML = docs.map(f =>
-      '<option value="'+esc(f.path)+'">'+esc(f.group === "root" ? f.name : f.group+"/"+f.name)+
-      '  ·  '+f.kb+' KB</option>').join("");
+  /* rounds */
+  $("rdtag").textContent = (rd.n||0)+" rounds";
+  areaChart($("rdchart"), rd.spark||[],
+    (rd.tasks ? rd.solved+" of "+rd.tasks+" tasks solved ("+Math.round(rd.solved/rd.tasks*100)+"%), "
+      +rd.pairs+" pairs total · " : "") + "last "+(rd.spark||[]).length+" rounds");
+
+  /* runs */
+  $("runtag").textContent = m.n ? okPct+"% clean" : "";
+  table($("runs"), ["When","Item","Status","Time","GPU"], m.recent||[], r => {
+    const good = r.status==="ok" || r.status==="done";
+    return '<td class="mono">'+ts(r.ts)+'</td><td>'+esc(r.item)+'</td>'
+      + '<td><span class="pill '+(good?"ok":"bad")+'">'+esc(r.status)+'</span></td>'
+      + '<td class="num">'+dur(r.seconds)+'</td><td class="num">'+(r.gpu??"—")+'</td>';
+  }, "no runs recorded");
+
+  /* datasets */
+  const stale = fresh.filter(f=>f.age_s>172800).length;
+  $("dstag").textContent = stale ? stale+" stale" : fresh.length+" files";
+  table($("datasets"), ["File","Rows","Size","Changed"], d.datasets||[], f =>
+    f.missing
+      ? '<td class="mono">'+esc(f.name)+'</td><td colspan="3"><span class="pill warn">missing</span></td>'
+      : '<td class="mono">'+esc(f.name)+'</td><td class="num">'+f.rows+'</td>'
+        + '<td class="num">'+bytes(f.bytes)+'</td><td class="num">'+ago(f.age_s)+'</td>',
+    "no data/ directory");
+
+  /* disk */
+  const dk = d.disk||{};
+  if((dk.rows||[]).length){
+    const dtop = Math.max(...dk.rows.map(r=>r.bytes),1);
+    $("disktag").textContent = dk.free!=null ? bytes(dk.free)+" free" : "";
+    $("diskbars").innerHTML = dk.rows.concat((dk.biggest||[]).slice(0,5)).map((r,i)=>{
+      const sub = i>=dk.rows.length;
+      return '<div class="bar"><span class="lb">'+(sub?"&nbsp;&nbsp;":"")+esc(r.label)+'</span>'
+        + '<span class="tr"><i style="width:'+(r.bytes/dtop*100).toFixed(1)+'%'
+        + (sub?';background:var(--s4)':'')+'"></i></span>'
+        + '<span class="vl">'+bytes(r.bytes)+'</span></div>';
+    }).join("");
+  } else $("diskbars").innerHTML = '<div class="empty">measuring…</div>';
+
+  /* docs */
+  const docs = d.docs||[], dsel = $("doclist");
+  $("doctag").textContent = docs.length+" files";
+  if(dsel.dataset.n !== String(docs.length)){
+    dsel.innerHTML = docs.map(f=>'<option value="'+esc(f.path)+'">'
+      + esc(f.group==="root"?f.name:f.group+"/"+f.name)+'  ·  '+f.kb+' KB</option>').join("");
     dsel.dataset.n = String(docs.length);
   }
 
-  // arms
-  const arms = d.arms;
-  $("armtag").textContent = arms.length + " groups";
-  if (arms.length) {
-    const b = arms[0];
-    $("armsaid").textContent =
-      'Each row is one arm, averaged over its replicates. The strongest on record is ' +
-      b.label + ' at ' + pct(b.mean_p1) + ' — roughly ' + Math.round(b.mean_p1*100) +
-      ' solved per 100 attempts across ' + b.n + ' replicates. Whiskers show one standard ' +
-      'deviation across replicates, so a wide whisker means the run-to-run noise is large ' +
-      'relative to the score itself.';
-  }
-  barChart($("armchart"), arms.slice(0,14).map(a => ({
-    t: a.label, n: a.n, v: a.mean_p1, sd: a.sd_p1 || 0,
-    c: a === arms[0] ? "linear-gradient(90deg,#7d4fd1,#a371f7)"
-                     : "linear-gradient(90deg,#1f6feb,#58a6ff)"})));
-  table($("arms"),
-    ["Arm","Task set","Verifier","Replicates","mean pass@1","sd","pass@3","if typing imported"],
-    arms, a =>
-      '<td>'+esc(a.label)+(a.label!==a.model?'<div class="mono">'+esc(a.model)+'</div>':'')+'</td>'+
-      '<td class="mono">'+esc(a.task_set)+'</td>'+
-      '<td class="mono">'+esc(a.verifier)+'</td>'+
-      '<td class="num">'+a.n+'</td>'+
-      '<td class="num">'+pct(a.mean_p1)+'</td>'+
-      '<td class="num">'+(a.sd_p1==null?"—":(a.sd_p1*100).toFixed(1)+" pts")+'</td>'+
-      '<td class="num">'+pct(a.mean_p3)+'</td>'+
-      '<td class="num">'+(a.mean_p1_typing==null?"—":pct(a.mean_p1_typing)+
-        ' <span class="mono">('+a.typing_fails+' fails)</span>')+'</td>',
-    "no replicates in data/ruler_noise.jsonl");
-
-  // evals
-  const ev = d.evals;
-  $("evtag").textContent = ev.n_held_out+" held-out · "+ev.n_held_in+" held-in";
-  const mk = rows => rows.filter(r => r.p1 != null).slice().reverse()
-    .map(r => ({y: r.p1, label: r.ts+"  "+r.model+"  "+pct(r.p1)}));
-  lineChart($("evchart"), [
-    {name:"held-out", c:"#58a6ff", pts: mk(ev.held_out)},
-    {name:"held-in",  c:"#a371f7", pts: mk(ev.held_in)},
-  ], v => (v*100).toFixed(0)+"%");
-  $("evsaid").textContent =
-    'pass@1 for each evaluation, oldest to newest, left to right. Held-out is the honest ' +
-    'measurement; held-in shares tasks with training and will read higher — the gap between ' +
-    'the two lines is the thing to watch, not either line alone.';
-  const evRows = ev.held_out.slice(0,14).map(r => ({...r, which:"held-out"}))
-    .concat(ev.held_in.slice(0,14).map(r => ({...r, which:"held-in"})))
-    .sort((a,b) => String(b.ts).localeCompare(String(a.ts))).slice(0,24);
-  table($("evtable"), ["When","Which","Model","pass@1","Coverage"], evRows, r =>
-    '<td class="mono">'+shortTs(r.ts)+'</td>'+
-    '<td class="mono">'+esc(r.which)+'</td>'+
-    '<td>'+esc(r.model)+(r.not_served?' <span class="pill warn">not served</span>':'')+'</td>'+
-    '<td class="num">'+pct(r.p1)+'</td>'+
-    '<td class="num">'+(r.scored==null?"—":r.scored+"/"+r.total)+
-      (r.gen_errors?' <span class="pill bad">'+r.gen_errors+' err</span>':'')+'</td>',
-    "no eval history yet");
-
-  // runs
-  const m = d.manifest;
-  $("runtag").textContent = m.n+" entries";
-  $("runsaid").textContent = m.n
-    ? m.ok+' of '+m.n+' entries finished cleanly'+(m.bad?', '+m.bad+' did not':'')+
-      '. "dirty" means the git tree had uncommitted changes when that run was recorded, so the ' +
-      'commit alone does not reproduce it.'
-    : '';
-  table($("runs"), ["When","Item","Status","Time","GPU","Commit"], m.recent, r => {
-    const good = r.status==="ok"||r.status==="done";
-    return '<td class="mono">'+shortTs(r.ts)+'</td>'+
-      '<td>'+esc(r.item)+'</td>'+
-      '<td><span class="pill '+(good?"ok":"bad")+'">'+esc(r.status)+'</span></td>'+
-      '<td class="num">'+dur(r.seconds)+'</td>'+
-      '<td class="num">'+(r.gpu??"—")+'</td>'+
-      '<td class="mono">'+esc(r.git_head)+(r.dirty?' <span class="pill warn">dirty</span>':'')+'</td>';
-  }, "no runs in srlm-forge-runs/manifest.jsonl");
-
-  // rounds
-  const rd = d.rounds;
-  $("roundtag").textContent = rd.n+" rounds";
-  $("roundsaid").textContent = rd.tasks
-    ? 'Across '+rd.n+' rounds, '+rd.tasks+' tasks were attempted and '+rd.solved+' solved ('+
-      (rd.solved/rd.tasks*100).toFixed(0)+'%), yielding '+rd.pairs+' preference pairs — about '+
-      (rd.pairs/rd.n).toFixed(1)+' per round. A round that solves everything mines nothing: ' +
-      'pairs come from disagreement.'
-    : '';
-  sparkline($("rdchart"), rd.spark, "pairs mined per round, last "+rd.spark.length+" rounds");
-  table($("rounds"), ["When","Source","Tasks","Solved","Pairs"], rd.recent, r =>
-    '<td class="mono">'+shortTs(r.ts)+'</td>'+
-    '<td class="mono">'+esc(r.source)+'</td>'+
-    '<td class="num">'+r.tasks+'</td>'+
-    '<td class="num">'+r.solved+'</td>'+
-    '<td class="num">'+r.pairs+'</td>', "no rounds yet");
-
-  // datasets
-  const stale = d.datasets.filter(f => !f.missing && f.age_s > 172800).length;
-  $("dssaid").textContent = stale
-    ? stale+' of '+d.datasets.length+' files have not changed in over two days.'
-    : 'All files present and recently written.';
-  table($("datasets"), ["File","Rows","Size","Changed"], d.datasets, f =>
-    f.missing
-      ? '<td class="mono">'+esc(f.name)+'</td><td colspan="3"><span class="pill mute">missing</span></td>'
-      : '<td class="mono">'+esc(f.name)+'</td>'+
-        '<td class="num">'+f.rows+'</td>'+
-        '<td class="num">'+bytes(f.bytes)+'</td>'+
-        '<td class="num">'+ago(f.age_s)+'</td>', "no data/ directory");
-
-  // log
-  const lg = d.log, pre = $("log");
-  $("logtag").textContent = lg.name ? lg.name+" · "+ago(lg.age_s) : "none";
+  /* log */
+  const lg = d.log||{}, pre = $("log");
+  $("logtag").textContent = lg.name ? esc(lg.name)+" · "+ago(lg.age_s)+" ago" : "none";
   const stick = pre.scrollTop + pre.clientHeight >= pre.scrollHeight - 40;
   pre.textContent = lg.text || "no *.log files in srlm-forge-runs/logs";
-  if (stick) pre.scrollTop = pre.scrollHeight;
+  if(stick) pre.scrollTop = pre.scrollHeight;
 }
 
-/* ---- the button: stream commentary from the local model ---- */
-const base = (scope, model, force) =>
-  "/api/explain?scope="+encodeURIComponent(scope)+"&model="+encodeURIComponent(model)+
-  (force ? "&force=1" : "");
-
-async function explain(scope) {
-  if (ctrl) ctrl.abort();
-  const model = $("exmodel").value;
-  const out = $("exout");
-  if (!model) { out.textContent = "No local model is loaded. Start ollama and pull one."; return; }
-  $("docopen").onclick = async () => {
-  const path = $("doclist").value;
-  if (!path) return;
-  const view = $("docview");
-  view.innerHTML = '<div class="empty">rendering with pandoc…</div>';
-  $("docmeta").textContent = "";
-  try {
-    const r = await fetch("/api/doc?path="+encodeURIComponent(path));
-    view.innerHTML = await r.text();
-    view.scrollTop = 0;
-    $("docmeta").textContent = path.replace(/^.*\/(?=[^/]*\/[^/]*$)/, "");
-  } catch (e) {
-    view.innerHTML = '<div class="empty">could not render: '+esc(e.message)+'</div>';
-  }
-};
-$("doclist").ondblclick = () => $("docopen").click();
-
-document.querySelectorAll("[data-scope]").forEach(b => b.disabled = true);
-  $("exstop").disabled = false;
-  out.textContent = "";
-  $("exstatus").textContent = "";
-  const cur = document.createElement("span");
-  cur.className = "cursor"; out.appendChild(cur);
-  ctrl = new AbortController();
-  const t0 = performance.now();
-  try {
-    let r = await fetch(base(scope, model, false), {signal: ctrl.signal});
-    if (r.status === 409) {
-      const c = await r.json();
-      cur.remove();
-      if (!confirm(c.reason + "\n\n" + c.detail + "\n\nGenerate commentary anyway?")) {
-        out.innerHTML = '<span class="ph">Skipped — GPU 0 left alone.</span>';
-        return;
-      }
-      out.textContent = ""; out.appendChild(cur);
-      r = await fetch(base(scope, model, true), {signal: ctrl.signal});
-    }
-    const rd = r.body.getReader(), dec = new TextDecoder();
-    let inStatus = false;                       // toggled by the \x1f delimiter
-    for (;;) {
-      const {done, value} = await rd.read();
-      if (done) break;
-      const parts = dec.decode(value, {stream: true}).split("\x1f");
-      for (let i = 0; i < parts.length; i++) {
-        if (i > 0) inStatus = !inStatus;        // survives chunk boundaries
-        if (!parts[i]) continue;
-        if (inStatus) $("exstatus").textContent = parts[i];
-        else cur.insertAdjacentText("beforebegin", parts[i]);
-      }
-      out.scrollTop = out.scrollHeight;
-    }
-    const secs = ((performance.now()-t0)/1000).toFixed(1);
-    cur.remove();
-    const f = document.createElement("div");
-    f.className = "mono"; f.style.marginTop = "10px";
-    f.textContent = "— "+model+", "+scope+", "+secs+"s";
-    out.appendChild(f);
-  } catch (e) {
-    cur.remove();
-    if (e.name !== "AbortError")
-      out.appendChild(document.createTextNode("\n\n[failed: "+e.message+"]"));
-  } finally {
-    $("docopen").onclick = async () => {
-  const path = $("doclist").value;
-  if (!path) return;
-  const view = $("docview");
-  view.innerHTML = '<div class="empty">rendering with pandoc…</div>';
-  $("docmeta").textContent = "";
-  try {
-    const r = await fetch("/api/doc?path="+encodeURIComponent(path));
-    view.innerHTML = await r.text();
-    view.scrollTop = 0;
-    $("docmeta").textContent = path.replace(/^.*\/(?=[^/]*\/[^/]*$)/, "");
-  } catch (e) {
-    view.innerHTML = '<div class="empty">could not render: '+esc(e.message)+'</div>';
-  }
-};
-$("doclist").ondblclick = () => $("docopen").click();
-
-document.querySelectorAll("[data-scope]").forEach(b => b.disabled = false);
-    $("exstop").disabled = true; ctrl = null;
-  }
-}
 $("docopen").onclick = async () => {
-  const path = $("doclist").value;
-  if (!path) return;
-  const view = $("docview");
-  view.innerHTML = '<div class="empty">rendering with pandoc…</div>';
-  $("docmeta").textContent = "";
-  try {
+  const path = $("doclist").value; if(!path) return;
+  const v = $("docview");
+  v.innerHTML = '<div class="empty">rendering with pandoc…</div>';
+  try{
     const r = await fetch("/api/doc?path="+encodeURIComponent(path));
-    view.innerHTML = await r.text();
-    view.scrollTop = 0;
-    $("docmeta").textContent = path.replace(/^.*\/(?=[^/]*\/[^/]*$)/, "");
-  } catch (e) {
-    view.innerHTML = '<div class="empty">could not render: '+esc(e.message)+'</div>';
-  }
+    v.innerHTML = await r.text(); v.scrollTop = 0;
+    $("docmeta").textContent = path.split("/").slice(-2).join("/");
+  }catch(e){ v.innerHTML = '<div class="empty">could not render: '+esc(e.message)+'</div>'; }
 };
 $("doclist").ondblclick = () => $("docopen").click();
 
-document.querySelectorAll("[data-scope]").forEach(b =>
-  b.onclick = () => {
-    // the button lives in the sticky top bar; the answer renders further down
-    if (b.dataset.scope === "findings")
-      $("explain").scrollIntoView({behavior: "smooth", block: "start"});
-    explain(b.dataset.scope);
-  });
-$("exstop").onclick = () => { if (ctrl) ctrl.abort(); };
-
-async function pull(force) {
-  if (paused && !force) return;
-  try {
+async function pull(force){
+  if(paused && !force) return;
+  try{
     const r = await fetch("/api/state", {cache:"no-store"});
     render(await r.json());
     $("dot").classList.toggle("off", paused);
-  } catch (e) {
+  }catch(e){
     $("dot").classList.add("off");
-    $("stamp").textContent = "server unreachable — is forge_dash.py still running?";
+    $("stamp").textContent = "server unreachable";
   }
 }
-if (window.__INIT__) {
-  // Never swallow this silently: a first-paint failure is invisible otherwise,
-  // and the page just sits on "connecting..." looking like a dead server.
-  try { render(window.__INIT__); }
-  catch (e) { $("stamp").textContent = "first paint failed: " + e.message; }
-}
+if(window.__INIT__){ try{ render(window.__INIT__); }catch(e){ $("stamp").textContent = "first paint failed: "+e.message; } }
 pull(true);
 setInterval(pull, 5000);
-</script></body></html>
+</script>
+</body></html>
 '''
 
 
-# ---------------------------------------------------------------------------
-# Contention guard.
-#
-# ollama is pinned to CUDA_VISIBLE_DEVICES=0 — the same card the training and
-# measure runs use, and the only card assigned to us. So commentary is NOT
-# free: it shares VRAM and SMs with whatever research is running, and it queues
-# on the same ollama server the eval harness talks to.
-#
-# gpuguard.sh skips our own PIDs, so this can never cause a self-inflicted
-# yield. The risk is subtler: added latency on an in-flight eval, and any
-# measurement that records wall-clock seconds becoming contaminated.
-#
-# Hence: detect, refuse by default, and let the operator override deliberately.
-# ---------------------------------------------------------------------------
 
 def _proc_name(pid: int) -> str:
     try:
@@ -1634,88 +1278,8 @@ def _proc_name(pid: int) -> str:
         return ""
 
 
-def _ppid(pid: int) -> int:
-    """Parent pid from /proc/<pid>/stat, tolerating spaces in the comm field."""
-    try:
-        raw = Path(f"/proc/{pid}/stat").read_text()
-        return int(raw[raw.rindex(")") + 2:].split()[1])
-    except (OSError, ValueError, IndexError):
-        return 0
 
 
-def _is_ollama(pid: int) -> bool:
-    """Is this pid ollama's own inference, rather than a research job?
-
-    ollama does not run the model in-process: it spawns a runner that is named
-    llama-server, not ollama. Matching on the process name alone made the guard
-    mistake ollama's own runner for a training job and block itself after the
-    first click. So check the executable's location and walk the parent chain.
-    """
-    try:
-        exe = os.path.realpath(f"/proc/{pid}/exe")
-        if "/ollama/" in exe or os.path.basename(exe) in ("ollama", "llama-server",
-                                                          "ollama_llama_server"):
-            return True
-    except OSError:
-        pass
-    seen, cur = 0, pid
-    while cur > 1 and seen < 6:
-        if _proc_name(cur).lower().startswith("ollama"):
-            return True
-        cur = _ppid(cur)
-        seen += 1
-    return False
-
-
-def contention() -> dict:
-    """Is it safe to spend GPU 0 on commentary right now?"""
-    info = {"risky": False, "reason": "", "detail": "", "ollama_loaded": []}
-
-    import urllib.request
-    try:
-        with urllib.request.urlopen(f"{OLLAMA}/api/ps", timeout=5) as r:
-            info["ollama_loaded"] = [
-                {"name": m.get("name"), "vram": m.get("size_vram", 0)}
-                for m in json.loads(r.read().decode()).get("models", [])
-            ]
-    except Exception:
-        pass
-
-    g = gpus()
-    cards = {c["index"]: c for c in g["cards"]}
-    g0 = cards.get(0)
-
-    # Our own non-ollama compute on GPU 0 is the thing worth refusing over:
-    # that is a training or measure run in progress.
-    ours = []
-    for p in g["procs"]:
-        if not p["mine"]:
-            continue
-        if _is_ollama(p["pid"]):
-            continue  # our own commentary model, not research
-        ours.append({"pid": p["pid"], "name": _proc_name(p["pid"]) or "?", "mem": p["mem"]})
-
-    if ours:
-        who = ", ".join(f"{p['name']} (pid {p['pid']}, {p['mem']/1024:.1f} GB)" for p in ours[:3])
-        info.update({
-            "risky": True,
-            "reason": "A job of yours is using GPU 0 right now.",
-            "detail": f"Running: {who}. Generating commentary would take VRAM and compute from "
-                      f"it, and would queue behind or ahead of it on the same ollama server. "
-                      f"If that job records wall-clock seconds, those numbers would be "
-                      f"contaminated. Run it anyway only if you know the job can absorb it.",
-        })
-        return info
-
-    if g0 and g0["util"] >= 40 and not info["ollama_loaded"]:
-        info.update({
-            "risky": True,
-            "reason": f"GPU 0 is at {g0['util']}% utilisation.",
-            "detail": "Something is working on your card, but no compute process is attributable "
-                      "to you — it may be a job started from another shell. Check before adding "
-                      "load.",
-        })
-    return info
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -1745,7 +1309,6 @@ class Handler(BaseHTTPRequestHandler):
             page = PAGE
             try:
                 st = full_state()
-                st["contention"] = contention()
                 boot = ("<script>window.__INIT__=" +
                         json.dumps(st).replace("</", "<\\/") + ";</script>")
                 page = page.replace("<script>", boot + "<script>", 1)
@@ -1757,7 +1320,6 @@ class Handler(BaseHTTPRequestHandler):
         if u.path == "/api/state":
             try:
                 st = full_state()
-                st["contention"] = contention()
                 body = json.dumps(st).encode("utf-8")
             except Exception as e:
                 body = json.dumps({"error": str(e)}).encode("utf-8")
@@ -1769,40 +1331,6 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, html.encode("utf-8"), "text/html; charset=utf-8")
             return
 
-        if u.path == "/api/explain":
-            scope = (q.get("scope") or ["overview"])[0]
-            model = (q.get("model") or [FALLBACK_MODEL])[0]
-            force = (q.get("force") or ["0"])[0] == "1"
-
-            if not force:
-                c = contention()
-                if c["risky"]:
-                    self._send(409, json.dumps(c).encode(), "application/json")
-                    return
-
-            # Streamed as chunked so text appears as the model produces it.
-            self.send_response(200)
-            self.send_header("Content-Type", "text/plain; charset=utf-8")
-            self.send_header("Transfer-Encoding", "chunked")
-            self.send_header("Cache-Control", "no-store")
-            self.end_headers()
-            try:
-                st = full_state()
-                for piece in explain_chunks(scope, model, st):
-                    self._chunk(piece)
-            except BrokenPipeError:
-                return  # operator hit Stop
-            except Exception as e:
-                try:
-                    self._chunk(f"\n\n[the local model failed: {e}]")
-                except Exception:
-                    return
-            try:
-                self.wfile.write(b"0\r\n\r\n")
-                self.wfile.flush()
-            except Exception:
-                pass
-            return
 
         self._send(404, b"not found", "text/plain")
 
@@ -1843,7 +1371,6 @@ def main():
     threading.Thread(target=disk_worker, daemon=True).start()
     print(f"srlm-forge dashboard  ->  {url}")
     print("reading:", DATA, "and", RUNS)
-    print("commentary model:", ", ".join(ollama_models()) or "none (ollama not responding)")
     print("Ctrl-C to stop.")
     if not args.no_browser:
         try:
