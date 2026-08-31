@@ -51,6 +51,17 @@ failures it reports are documented alongside the code that repaired them.
 | `results/`, `council/` | The run record and the working record, kept because a result file the next run overwrites cannot show you a trend. |
 | [`locallm/`](locallm/) | The local learning model. MIT-licensed, self-contained, beginner-runnable. |
 
+## Where this is going
+
+The forward plan is [`ROADMAP.md`](ROADMAP.md) — eleven workstreams, each one
+adversarially reviewed for feasibility against this repository's actual state before it
+was written down. The short version: extract the shared epistemic core (receipts,
+ledgers, claim-binding, preregistration) into `locallm/methodkit/` as a citable
+artifact; run the statistics, contamination, and manuscript-claim-binding work on the
+laptop this week; run the preregistered re-execution campaign and the library version
+matrix on the GPU box next; fold both into manuscript v16 — and write the methods kit
+up as its own paper. `OPEN-ITEMS.md` stays the ledger of what is parked and why.
+
 ## Honest status
 
 Read the paper for the precise claims; nothing here rounds up. The trained adapter did
