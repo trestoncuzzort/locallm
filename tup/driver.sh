@@ -47,6 +47,8 @@ export RECEIPTS
 # page that reads stdin (createfiles does) would otherwise consume the ORDER
 # list off fd 0 and then run the remaining filenames as commands — measured
 # 2026-08-31: chapter 7 failed with "07-gettext.sh: command not found" x6.
+[ -r "$CHDIR/ORDER" ] || { echo "!!! $CH: no ORDER file at $CHDIR/ORDER — refusing to call an empty run complete"; exit 1; }
+[ -s "$CHDIR/ORDER" ] || { echo "!!! $CH: ORDER is empty — refusing to call an empty run complete"; exit 1; }
 while read -r script <&3; do
   id="$CH/$script"
   grep -qxF "$id" "$STATE" && continue

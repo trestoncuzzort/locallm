@@ -82,11 +82,25 @@ def main() -> int:
         return 1
 
     rows = [json.loads(l) for l in receipts_raw.splitlines() if l.strip()]
-    built = [r for r in rows if "page" in r and r.get("exit") == 0]
-    failed = [r for r in rows if r.get("exit") not in (0, None)]
-    skipped_tests = [r["page"] for r in rows if r.get("tests_skipped")]
-    total = sum(r.get("seconds", 0) for r in rows)
+    # A page that failed and was retried leaves MULTIPLE receipts, and counting
+    # them all reported "158 pages" where the state file held fewer. The last
+    # receipt per page is the page's outcome; earlier ones are its history.
+    # Both are reported, separately, and the count is reconciled against
+    # driver.state so the two sources of truth cannot drift silently.
+    last_by_page: dict = {}
+    for r in rows:
+        if "page" in r:
+            last_by_page[r["page"]] = r
+    built = [r for r in last_by_page.values() if r.get("exit") == 0]
+    failed = [r for r in last_by_page.values() if r.get("exit") not in (0, None)]
+    retries = len([r for r in rows if "page" in r]) - len(last_by_page)
+    skipped_tests = sorted({r["page"] for r in rows if r.get("tests_skipped")})
+    total = sum(r.get("seconds", 0) for r in rows)   # history: every attempt costs time
     by_ch = Counter(r["page"].split("/")[0] for r in built)
+    state_pages = {l.strip() for l in state_raw.splitlines() if "/" in l}
+    receipt_pages = {r["page"] for r in built}
+    only_state = sorted(state_pages - receipt_pages)
+    only_receipts = sorted(receipt_pages - state_pages)
     slowest = sorted(built, key=lambda r: -r.get("seconds", 0))[:10]
     tarballs = [l for l in manifest_raw.splitlines() if l.strip()]
 
@@ -102,6 +116,12 @@ def main() -> int:
     w("not a verified one.")
     w("")
     w("## Totals")
+    w("")
+    w(f"- distinct pages built: **{len(built)}** ({retries} retried attempts recorded besides)")
+    w(f"- reconciliation vs driver.state: {len(state_pages)} state lines, "
+      f"{len(receipt_pages)} receipted pages"
+      + ("" if not only_state and not only_receipts else
+         f" — **MISMATCH**: only-in-state {only_state[:5]}, only-in-receipts {only_receipts[:5]}"))
     w("")
     w(f"- pages completed: **{len(built)}**"
       + (f" (plus {len(failed)} failed page(s), listed below)" if failed else ""))

@@ -1,0 +1,6 @@
+# train layer sources. The wheel set was resolved ONCE against PyTorch's
+# cpu-only index for tup's exact python (cp314, manylinux_2_28_aarch64),
+# downloaded on the build VM, and hashed at fetch into
+# sources/wheels/SHA256SUMS-at-fetch. Page 01 re-verifies every wheel against
+# that record before installing — the chroot never touches a network.
+# (No rows here: nothing else is fetched.)
