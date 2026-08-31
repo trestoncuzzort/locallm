@@ -1,6 +1,6 @@
 # 8.9. Lz4-1.10.0
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter08/lz4.html
-# TUP_PACKAGE=lz4-1.10.0
+# TUP_TARBALL=lz4-1.10.0.tar.gz
 
 make BUILD_STATIC=no PREFIX=/usr
 

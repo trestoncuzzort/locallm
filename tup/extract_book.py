@@ -37,8 +37,32 @@ HERE = Path(__file__).resolve().parent
 BOOK = HERE / "book"
 
 TEST_RE = re.compile(r"\bmake\s+(-k\s+)?(check|test)\b")
-TITLE_PKG_RE = re.compile(r"^\d+\.\d+\.\s+([A-Za-z0-9_+-]+?)-(\d[\w.]*?)"
-                          r"(?:\s+-\s+Pass\s+(\d))?$")
+# The package is found ANYWHERE in the title ("Linux-6.17.3 API Headers",
+# "Libelf from Elfutils-0.193", "GCC-15.2.0 - Pass 2" are all real), names may
+# contain hyphens and colons, and the classification is settled by resolving
+# against the wget-list's ACTUAL filenames — an unresolved package page gets a
+# loud WARNING, never a silent demotion to action-page (the linux-headers
+# failure that taught this cost a chain restart).
+TITLE_PKG_RE = re.compile(r"([A-Za-z][A-Za-z0-9_+:.-]*?)-(\d[\w.-]*\w)")
+NAME_FIXUPS = {"xml::parser": "xml-parser", "flit-core": "flit_core",
+               "d-bus": "dbus", "sqlite": "sqlite-autoconf"}
+
+
+def load_tarballs() -> list[str]:
+    txt = fetch(BASE + "wget-list-sysv")
+    return [u.rsplit("/", 1)[-1] for u in txt.split() if "/" in u]
+
+
+def resolve_pkg(title: str, tarballs: list[str]) -> str:
+    for m in TITLE_PKG_RE.finditer(title):
+        name = NAME_FIXUPS.get(m.group(1).lower(), m.group(1).lower())
+        for stem in (f"{name}-{m.group(2)}".lower(),
+                     f"{name}{m.group(2)}".lower()):   # tcl8.6.17, expect5.45.4
+            for t in tarballs:
+                tl = t.lower()
+                if tl.startswith((stem + ".tar", stem + ".tgz", stem + "-src")):
+                    return t
+    return ""
 
 
 def fetch(url: str) -> str:
@@ -78,6 +102,7 @@ def guard_tests(block: str, pkg: str) -> str:
 
 def main() -> int:
     chapters = [int(a) for a in sys.argv[1:]] or [5, 6, 7, 8, 9, 10]
+    tarballs = load_tarballs()
     for ch in chapters:
         outdir = BOOK / f"ch{ch:02d}"
         outdir.mkdir(parents=True, exist_ok=True)
@@ -86,16 +111,19 @@ def main() -> int:
         for i, p in enumerate(pages, 1):
             title, blocks = extract(fetch(BASE + p))
             name = Path(p).stem
-            m = TITLE_PKG_RE.match(title)
-            pkg = f"{m.group(1).lower()}-{m.group(2)}" if m else ""
+            tarball = resolve_pkg(title, tarballs)
+            if not tarball and TITLE_PKG_RE.search(title):
+                print(f"  WARNING ch{ch:02d}/{name}: title names a package "
+                      f"but no wget-list tarball resolves: {title!r}")
             body = "\n\n".join(guard_tests(b, name) for b in blocks)
             script = (f"# {title}\n# {BASE}{p}\n"
-                      + (f"# TUP_PACKAGE={pkg}\n" if pkg else "# TUP_ACTION_PAGE\n")
+                      + (f"# TUP_TARBALL={tarball}\n" if tarball
+                         else "# TUP_ACTION_PAGE\n")
                       + "\n" + body + "\n")
             (outdir / f"{i:02d}-{name}.sh").write_text(script, encoding="utf-8")
             manifest.append(f"{i:02d}-{name}.sh")
             print(f"  ch{ch:02d}/{i:02d}-{name}.sh  "
-                  f"[{pkg or 'action'}] {len(blocks)} blocks")
+                  f"[{tarball or 'action'}] {len(blocks)} blocks")
         (outdir / "ORDER").write_text("\n".join(manifest) + "\n", encoding="utf-8")
     return 0
 

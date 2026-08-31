@@ -1,6 +1,6 @@
 # 8.80. Procps-ng-4.0.5
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter08/procps-ng.html
-# TUP_PACKAGE=procps-ng-4.0.5
+# TUP_TARBALL=procps-ng-4.0.5.tar.xz
 
 ./configure --prefix=/usr                           \
             --docdir=/usr/share/doc/procps-ng-4.0.5 \

@@ -1,6 +1,6 @@
 # 8.50. Libelf from Elfutils-0.193
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter08/libelf.html
-# TUP_ACTION_PAGE
+# TUP_TARBALL=elfutils-0.193.tar.bz2
 
 ./configure --prefix=/usr        \
             --disable-debuginfod \

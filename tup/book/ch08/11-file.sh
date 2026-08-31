@@ -1,6 +1,6 @@
 # 8.11. File-5.46
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter08/file.html
-# TUP_PACKAGE=file-5.46
+# TUP_TARBALL=file-5.46.tar.gz
 
 ./configure --prefix=/usr
 

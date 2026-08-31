@@ -1,6 +1,6 @@
 # 8.25. Attr-2.5.2
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter08/attr.html
-# TUP_PACKAGE=attr-2.5.2
+# TUP_TARBALL=attr-2.5.2.tar.gz
 
 ./configure --prefix=/usr     \
             --disable-static  \

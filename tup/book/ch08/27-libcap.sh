@@ -1,6 +1,6 @@
 # 8.27. Libcap-2.76
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter08/libcap.html
-# TUP_PACKAGE=libcap-2.76
+# TUP_TARBALL=libcap-2.76.tar.xz
 
 sed -i '/install -m.*STA/d' libcap/Makefile
 

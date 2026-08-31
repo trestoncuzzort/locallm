@@ -1,6 +1,6 @@
 # 8.47. Autoconf-2.72
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter08/autoconf.html
-# TUP_PACKAGE=autoconf-2.72
+# TUP_TARBALL=autoconf-2.72.tar.xz
 
 ./configure --prefix=/usr
 

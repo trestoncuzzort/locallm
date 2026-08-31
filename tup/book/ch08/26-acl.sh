@@ -1,6 +1,6 @@
 # 8.26. Acl-2.3.2
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter08/acl.html
-# TUP_PACKAGE=acl-2.3.2
+# TUP_TARBALL=acl-2.3.2.tar.xz
 
 ./configure --prefix=/usr    \
             --disable-static \

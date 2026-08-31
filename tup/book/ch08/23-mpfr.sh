@@ -1,6 +1,6 @@
 # 8.23. MPFR-4.2.2
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter08/mpfr.html
-# TUP_PACKAGE=mpfr-4.2.2
+# TUP_TARBALL=mpfr-4.2.2.tar.xz
 
 ./configure --prefix=/usr        \
             --disable-static     \

@@ -1,6 +1,6 @@
 # 8.17. Tcl-8.6.17
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter08/tcl.html
-# TUP_PACKAGE=tcl-8.6.17
+# TUP_TARBALL=tcl8.6.17-src.tar.gz
 
 SRCDIR=$(pwd)
 cd unix

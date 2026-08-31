@@ -1,6 +1,6 @@
 # 8.51. Libffi-3.5.2
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter08/libffi.html
-# TUP_PACKAGE=libffi-3.5.2
+# TUP_TARBALL=libffi-3.5.2.tar.gz
 
 ./configure --prefix=/usr    \
             --disable-static \

@@ -1,6 +1,6 @@
 # 8.68. IPRoute2-6.17.0
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter08/iproute2.html
-# TUP_PACKAGE=iproute2-6.17.0
+# TUP_TARBALL=iproute2-6.17.0.tar.xz
 
 sed -i /ARPD/d Makefile
 rm -fv man/man8/arpd.8

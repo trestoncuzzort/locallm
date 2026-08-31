@@ -1,6 +1,6 @@
 # 8.16. Flex-2.6.4
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter08/flex.html
-# TUP_PACKAGE=flex-2.6.4
+# TUP_TARBALL=flex-2.6.4.tar.gz
 
 ./configure --prefix=/usr    \
             --disable-static \

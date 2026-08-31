@@ -1,6 +1,6 @@
 # 8.69. Kbd-2.9.0
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter08/kbd.html
-# TUP_PACKAGE=kbd-2.9.0
+# TUP_TARBALL=kbd-2.9.0.tar.xz
 
 patch -Np1 -i ../kbd-2.9.0-backspace-1.patch
 

@@ -1,6 +1,6 @@
 # 8.29. Shadow-4.18.0
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter08/shadow.html
-# TUP_PACKAGE=shadow-4.18.0
+# TUP_TARBALL=shadow-4.18.0.tar.xz
 
 sed -i 's/groups$(EXEEXT) //' src/Makefile.in
 find man -name Makefile.in -exec sed -i 's/groups\.1 / /'   {} \;

@@ -1,6 +1,6 @@
 # 6.15. Tar-1.35
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter06/tar.html
-# TUP_PACKAGE=tar-1.35
+# TUP_TARBALL=tar-1.35.tar.xz
 
 ./configure --prefix=/usr   \
             --host=$LFS_TGT \

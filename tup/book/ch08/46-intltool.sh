@@ -1,6 +1,6 @@
 # 8.46. Intltool-0.51.0
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter08/intltool.html
-# TUP_PACKAGE=intltool-0.51.0
+# TUP_TARBALL=intltool-0.51.0.tar.gz
 
 sed -i 's:\\\${:\\\$\\{:' intltool-update.in
 

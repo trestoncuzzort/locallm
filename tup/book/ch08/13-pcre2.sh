@@ -1,6 +1,6 @@
 # 8.13. Pcre2-10.46
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter08/pcre2.html
-# TUP_PACKAGE=pcre2-10.46
+# TUP_TARBALL=pcre2-10.46.tar.bz2
 
 ./configure --prefix=/usr                       \
             --docdir=/usr/share/doc/pcre2-10.46 \

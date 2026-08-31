@@ -1,6 +1,6 @@
 # 8.82. E2fsprogs-1.47.3
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter08/e2fsprogs.html
-# TUP_PACKAGE=e2fsprogs-1.47.3
+# TUP_TARBALL=e2fsprogs-1.47.3.tar.gz
 
 mkdir -v build
 cd       build

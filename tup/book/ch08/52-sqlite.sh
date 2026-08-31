@@ -1,6 +1,6 @@
 # 8.52. Sqlite-3500400
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter08/sqlite.html
-# TUP_PACKAGE=sqlite-3500400
+# TUP_TARBALL=sqlite-autoconf-3500400.tar.gz
 
 tar -xf ../sqlite-doc-3500400.tar.xz
 

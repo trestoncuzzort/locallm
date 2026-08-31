@@ -1,6 +1,6 @@
 # 8.58. Ninja-1.13.1
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter08/ninja.html
-# TUP_PACKAGE=ninja-1.13.1
+# TUP_TARBALL=ninja-1.13.1.tar.gz
 
 sed -i '/int Guess/a \
   int   j = 0;\

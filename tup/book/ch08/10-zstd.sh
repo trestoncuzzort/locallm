@@ -1,6 +1,6 @@
 # 8.10. Zstd-1.5.7
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter08/zstd.html
-# TUP_PACKAGE=zstd-1.5.7
+# TUP_TARBALL=zstd-1.5.7.tar.gz
 
 make prefix=/usr
 

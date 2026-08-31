@@ -1,6 +1,6 @@
 # 8.42. Inetutils-2.6
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter08/inetutils.html
-# TUP_PACKAGE=inetutils-2.6
+# TUP_TARBALL=inetutils-2.6.tar.xz
 
 sed -i 's/def HAVE_TERMCAP_TGETENT/ 1/' telnet/telnet.c
 

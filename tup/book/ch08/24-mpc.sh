@@ -1,6 +1,6 @@
 # 8.24. MPC-1.3.1
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter08/mpc.html
-# TUP_PACKAGE=mpc-1.3.1
+# TUP_TARBALL=mpc-1.3.1.tar.gz
 
 ./configure --prefix=/usr    \
             --disable-static \

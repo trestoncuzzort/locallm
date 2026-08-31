@@ -1,6 +1,6 @@
 # 6.5. Coreutils-9.8
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter06/coreutils.html
-# TUP_PACKAGE=coreutils-9.8
+# TUP_TARBALL=coreutils-9.8.tar.xz
 
 ./configure --prefix=/usr                     \
             --host=$LFS_TGT                   \

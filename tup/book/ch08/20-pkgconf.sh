@@ -1,6 +1,6 @@
 # 8.20. Pkgconf-2.5.1
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter08/pkgconf.html
-# TUP_PACKAGE=pkgconf-2.5.1
+# TUP_TARBALL=pkgconf-2.5.1.tar.xz
 
 ./configure --prefix=/usr    \
             --disable-static \

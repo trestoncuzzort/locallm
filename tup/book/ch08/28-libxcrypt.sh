@@ -1,6 +1,6 @@
 # 8.28. Libxcrypt-4.4.38
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter08/libxcrypt.html
-# TUP_PACKAGE=libxcrypt-4.4.38
+# TUP_TARBALL=libxcrypt-4.4.38.tar.xz
 
 ./configure --prefix=/usr                \
             --enable-hashes=strong,glibc \

@@ -1,6 +1,6 @@
 # 8.81. Util-linux-2.41.2
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter08/util-linux.html
-# TUP_PACKAGE=util-linux-2.41.2
+# TUP_TARBALL=util-linux-2.41.2.tar.xz
 
 ./configure --bindir=/usr/bin     \
             --libdir=/usr/lib     \

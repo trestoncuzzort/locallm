@@ -1,6 +1,6 @@
 # 8.37. Bash-5.3
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter08/bash.html
-# TUP_PACKAGE=bash-5.3
+# TUP_TARBALL=bash-5.3.tar.gz
 
 ./configure --prefix=/usr             \
             --without-bash-malloc     \

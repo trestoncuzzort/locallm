@@ -1,6 +1,6 @@
 # 8.41. Expat-2.7.3
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter08/expat.html
-# TUP_PACKAGE=expat-2.7.3
+# TUP_TARBALL=expat-2.7.3.tar.xz
 
 ./configure --prefix=/usr    \
             --disable-static \

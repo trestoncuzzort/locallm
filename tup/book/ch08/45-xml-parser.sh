@@ -1,6 +1,6 @@
 # 8.45. XML::Parser-2.47
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter08/xml-parser.html
-# TUP_ACTION_PAGE
+# TUP_TARBALL=XML-Parser-2.47.tar.gz
 
 perl Makefile.PL
 

@@ -50,18 +50,19 @@ while read -r script; do
   src="$CHDIR/$script"
   [ -x "$TUP_OVERRIDES/$page.sh" ] && src="$TUP_OVERRIDES/$page.sh" \
     && echo ">>> $id (OVERRIDE)" || echo ">>> $id"
-  pkg=$(sed -n 's/^# TUP_PACKAGE=//p' "$CHDIR/$script" | head -1)
+  pkg=$(sed -n 's/^# TUP_TARBALL=//p' "$CHDIR/$script" | head -1)
   plog="$LOG/$CH-$page.log"
   t0=$SECONDS
 
   if [ -n "$pkg" ]; then
-    tarball=$(ls "$LFS"/sources/"$pkg".tar.* 2>/dev/null | head -1)
-    if [ -z "$tarball" ]; then
-      # case drift between title and tarball (e.g. GCC vs gcc handled by
-      # lowercasing in the extractor; anything left is a real absence)
-      echo "!!! $id: no tarball matching $pkg" | tee -a "$plog"; exit 1
+    tarball="$LFS/sources/$pkg"
+    if [ ! -s "$tarball" ]; then
+      echo "!!! $id: tarball absent: $pkg" | tee -a "$plog"; exit 1
     fi
-    dir="$LFS/sources/${tarball##*/}"; dir="${dir%.tar.*}"
+    # the top-level dir comes from the tarball's own listing — filename
+    # surgery guesses wrong on tcl8.6.17-src and friends
+    top=$(tar tf "$tarball" 2>/dev/null | head -1 | cut -d/ -f1)
+    dir="$LFS/sources/$top"
     ( set -e; cd "$LFS/sources"
       rm -rf "$dir"; tar xf "$tarball"; cd "$dir"
       bash -e "$src"

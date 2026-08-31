@@ -1,6 +1,6 @@
 # 5.2. Binutils-2.45 - Pass 1
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter05/binutils-pass1.html
-# TUP_PACKAGE=binutils-2.45
+# TUP_TARBALL=binutils-2.45.tar.xz
 
 mkdir -v build
 cd       build

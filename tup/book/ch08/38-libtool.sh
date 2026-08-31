@@ -1,6 +1,6 @@
 # 8.38. Libtool-2.5.4
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter08/libtool.html
-# TUP_PACKAGE=libtool-2.5.4
+# TUP_TARBALL=libtool-2.5.4.tar.xz
 
 ./configure --prefix=/usr
 

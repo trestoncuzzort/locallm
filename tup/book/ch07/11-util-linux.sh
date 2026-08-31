@@ -1,6 +1,6 @@
 # 7.12. Util-linux-2.41.2
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter07/util-linux.html
-# TUP_PACKAGE=util-linux-2.41.2
+# TUP_TARBALL=util-linux-2.41.2.tar.xz
 
 mkdir -pv /var/lib/hwclock
 

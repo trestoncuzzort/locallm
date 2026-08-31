@@ -1,6 +1,6 @@
 # 8.39. GDBM-1.26
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter08/gdbm.html
-# TUP_PACKAGE=gdbm-1.26
+# TUP_TARBALL=gdbm-1.26.tar.gz
 
 ./configure --prefix=/usr    \
             --disable-static \

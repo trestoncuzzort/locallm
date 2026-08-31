@@ -1,6 +1,6 @@
 # 5.6. Libstdc++ from GCC-15.2.0
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter05/gcc-libstdc++.html
-# TUP_ACTION_PAGE
+# TUP_TARBALL=gcc-15.2.0.tar.xz
 
 mkdir -v build
 cd       build

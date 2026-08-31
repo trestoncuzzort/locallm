@@ -1,6 +1,6 @@
 # 8.22. GMP-6.3.0
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter08/gmp.html
-# TUP_PACKAGE=gmp-6.3.0
+# TUP_TARBALL=gmp-6.3.0.tar.xz
 
 sed -i '/long long t1;/,+1s/()/(...)/' configure
 

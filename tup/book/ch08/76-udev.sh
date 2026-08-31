@@ -1,6 +1,6 @@
 # 8.78. Udev from Systemd-258.1
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter08/udev.html
-# TUP_ACTION_PAGE
+# TUP_TARBALL=systemd-258.1.tar.gz
 
 sed -e 's/GROUP="render"/GROUP="video"/' \
     -e 's/GROUP="sgx", //'               \

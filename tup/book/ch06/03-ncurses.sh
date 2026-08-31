@@ -1,6 +1,6 @@
 # 6.3. Ncurses-6.5-20250809
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter06/ncurses.html
-# TUP_ACTION_PAGE
+# TUP_TARBALL=ncurses-6.5-20250809.tgz
 
 mkdir build
 pushd build

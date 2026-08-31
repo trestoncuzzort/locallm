@@ -1,6 +1,6 @@
 # 8.32. Sed-4.9
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter08/sed.html
-# TUP_PACKAGE=sed-4.9
+# TUP_TARBALL=sed-4.9.tar.xz
 
 ./configure --prefix=/usr
 

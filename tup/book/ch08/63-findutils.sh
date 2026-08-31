@@ -1,6 +1,6 @@
 # 8.64. Findutils-4.10.0
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter08/findutils.html
-# TUP_PACKAGE=findutils-4.10.0
+# TUP_TARBALL=findutils-4.10.0.tar.xz
 
 ./configure --prefix=/usr --localstatedir=/var/lib/locate
 

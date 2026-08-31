@@ -1,6 +1,6 @@
 # 8.40. Gperf-3.3
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter08/gperf.html
-# TUP_PACKAGE=gperf-3.3
+# TUP_TARBALL=gperf-3.3.tar.gz
 
 ./configure --prefix=/usr --docdir=/usr/share/doc/gperf-3.3
 

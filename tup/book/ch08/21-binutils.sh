@@ -1,6 +1,6 @@
 # 8.21. Binutils-2.45
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter08/binutils.html
-# TUP_PACKAGE=binutils-2.45
+# TUP_TARBALL=binutils-2.45.tar.xz
 
 mkdir -v build
 cd       build

@@ -1,6 +1,6 @@
 # 8.43. Less-685
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter08/less.html
-# TUP_PACKAGE=less-685
+# TUP_TARBALL=less-685.tar.gz
 
 ./configure --prefix=/usr --sysconfdir=/etc
 

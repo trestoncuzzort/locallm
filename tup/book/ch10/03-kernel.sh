@@ -1,6 +1,6 @@
 # 10.3. Linux-6.17.3
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter10/kernel.html
-# TUP_PACKAGE=linux-6.17.3
+# TUP_TARBALL=linux-6.17.3.tar.xz
 
 make mrproper
 

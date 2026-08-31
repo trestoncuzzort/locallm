@@ -1,6 +1,6 @@
 # 8.34. Gettext-0.26
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter08/gettext.html
-# TUP_PACKAGE=gettext-0.26
+# TUP_TARBALL=gettext-0.26.tar.xz
 
 ./configure --prefix=/usr    \
             --disable-static \

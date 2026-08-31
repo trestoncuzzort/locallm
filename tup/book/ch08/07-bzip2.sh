@@ -1,6 +1,6 @@
 # 8.7. Bzip2-1.0.8
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter08/bzip2.html
-# TUP_PACKAGE=bzip2-1.0.8
+# TUP_TARBALL=bzip2-1.0.8.tar.gz
 
 patch -Np1 -i ../bzip2-1.0.8-install_docs-1.patch
 

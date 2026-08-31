@@ -1,6 +1,6 @@
 # 8.44. Perl-5.42.0
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter08/perl.html
-# TUP_PACKAGE=perl-5.42.0
+# TUP_TARBALL=perl-5.42.0.tar.xz
 
 export BUILD_ZLIB=False
 export BUILD_BZIP2=0

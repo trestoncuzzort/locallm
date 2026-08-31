@@ -1,6 +1,6 @@
 # 6.18. GCC-15.2.0 - Pass 2
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter06/gcc-pass2.html
-# TUP_PACKAGE=gcc-15.2.0
+# TUP_TARBALL=gcc-15.2.0.tar.xz
 
 tar -xf ../mpfr-4.2.2.tar.xz
 mv -v mpfr-4.2.2 mpfr

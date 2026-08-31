@@ -1,6 +1,6 @@
 # 8.83. Sysklogd-2.7.2
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter08/sysklogd.html
-# TUP_PACKAGE=sysklogd-2.7.2
+# TUP_TARBALL=sysklogd-2.7.2.tar.gz
 
 ./configure --prefix=/usr      \
             --sysconfdir=/etc  \

@@ -1,6 +1,6 @@
 # 8.79. Man-DB-2.13.1
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter08/man-db.html
-# TUP_PACKAGE=man-db-2.13.1
+# TUP_TARBALL=man-db-2.13.1.tar.xz
 
 ./configure --prefix=/usr                         \
             --docdir=/usr/share/doc/man-db-2.13.1 \

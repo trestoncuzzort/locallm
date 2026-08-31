@@ -1,6 +1,6 @@
 # 8.61. Coreutils-9.8
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter08/coreutils.html
-# TUP_PACKAGE=coreutils-9.8
+# TUP_TARBALL=coreutils-9.8.tar.xz
 
 patch -Np1 -i ../coreutils-9.8-i18n-2.patch
 

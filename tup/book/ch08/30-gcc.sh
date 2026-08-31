@@ -1,6 +1,6 @@
 # 8.30. GCC-15.2.0
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter08/gcc.html
-# TUP_PACKAGE=gcc-15.2.0
+# TUP_TARBALL=gcc-15.2.0.tar.xz
 
 sed -e '/lp64=/s/lib64/lib/' \
     -i.orig gcc/config/aarch64/t-aarch64-linux

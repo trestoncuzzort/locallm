@@ -1,6 +1,6 @@
 # 8.74. Texinfo-7.2
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter08/texinfo.html
-# TUP_PACKAGE=texinfo-7.2
+# TUP_TARBALL=texinfo-7.2.tar.xz
 
 sed 's/! $output_file eq/$output_file ne/' -i tp/Texinfo/Convert/*.pm
 

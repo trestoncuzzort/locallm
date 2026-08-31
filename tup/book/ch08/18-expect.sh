@@ -1,6 +1,6 @@
 # 8.18. Expect-5.45.4
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter08/expect.html
-# TUP_PACKAGE=expect-5.45.4
+# TUP_TARBALL=expect5.45.4.tar.gz
 
 python3 -c 'from pty import spawn; spawn(["echo", "ok"])'
 

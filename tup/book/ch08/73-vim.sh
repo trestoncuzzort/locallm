@@ -1,6 +1,6 @@
 # 8.75. Vim-9.1.1806
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter08/vim.html
-# TUP_PACKAGE=vim-9.1.1806
+# TUP_TARBALL=vim-9.1.1806.tar.gz
 
 echo '#define SYS_VIMRC_FILE "/etc/vimrc"' >> src/feature.h
 

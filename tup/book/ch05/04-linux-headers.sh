@@ -1,6 +1,6 @@
 # 5.4. Linux-6.17.3 API Headers
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter05/linux-headers.html
-# TUP_ACTION_PAGE
+# TUP_TARBALL=linux-6.17.3.tar.xz
 
 make mrproper
 

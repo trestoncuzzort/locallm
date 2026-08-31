@@ -1,6 +1,6 @@
 # 5.5. Glibc-2.42
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter05/glibc.html
-# TUP_PACKAGE=glibc-2.42
+# TUP_TARBALL=glibc-2.42.tar.xz
 
 patch -Np1 -i ../glibc-2.42-fhs-1.patch
 

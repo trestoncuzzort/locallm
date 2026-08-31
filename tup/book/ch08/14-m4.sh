@@ -1,6 +1,6 @@
 # 8.14. M4-1.4.20
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter08/m4.html
-# TUP_PACKAGE=m4-1.4.20
+# TUP_TARBALL=m4-1.4.20.tar.xz
 
 ./configure --prefix=/usr
 

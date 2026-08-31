@@ -1,6 +1,6 @@
 # 8.49. OpenSSL-3.6.0
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter08/openssl.html
-# TUP_PACKAGE=openssl-3.6.0
+# TUP_TARBALL=openssl-3.6.0.tar.gz
 
 ./config --prefix=/usr         \
          --openssldir=/etc/ssl \

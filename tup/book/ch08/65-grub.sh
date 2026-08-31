@@ -1,6 +1,6 @@
 # 8.66. GRUB-2.12
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter08/grub.html
-# TUP_PACKAGE=grub-2.12
+# TUP_TARBALL=grub-2.12.tar.xz
 
 unset {C,CPP,CXX,LD}FLAGS
 

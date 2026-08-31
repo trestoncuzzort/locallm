@@ -1,6 +1,6 @@
 # 8.62. Diffutils-3.12
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter08/diffutils.html
-# TUP_PACKAGE=diffutils-3.12
+# TUP_TARBALL=diffutils-3.12.tar.xz
 
 ./configure --prefix=/usr
 

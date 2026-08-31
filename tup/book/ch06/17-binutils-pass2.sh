@@ -1,6 +1,6 @@
 # 6.17. Binutils-2.45 - Pass 2
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter06/binutils-pass2.html
-# TUP_PACKAGE=binutils-2.45
+# TUP_TARBALL=binutils-2.45.tar.xz
 
 sed '6031s/$add_dir//' -i ltmain.sh
 

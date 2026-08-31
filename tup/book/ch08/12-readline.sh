@@ -1,6 +1,6 @@
 # 8.12. Readline-8.3
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter08/readline.html
-# TUP_PACKAGE=readline-8.3
+# TUP_TARBALL=readline-8.3.tar.gz
 
 sed -i '/MV.*old/d' Makefile.in
 sed -i '/{OLDSUFF}/c:' support/shlib-install

@@ -1,6 +1,6 @@
 # 8.8. Xz-5.8.1
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter08/xz.html
-# TUP_PACKAGE=xz-5.8.1
+# TUP_TARBALL=xz-5.8.1.tar.xz
 
 ./configure --prefix=/usr    \
             --disable-static \
