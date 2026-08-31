@@ -1,0 +1,49 @@
+# tup layer: agent — what it added
+# before: INVENTORY-20260831T111449Z.txt
+# after : INVENTORY-20260831T111648Z.txt
+#
+# files added:    36
+# files removed:  0
+# files MODIFIED: 0
+#
+## added
+/opt/node-v24.20.0/bin/claude
+/opt/node-v24.20.0/lib/node_modules/@anthropic-ai/claude-code/LICENSE.md
+/opt/node-v24.20.0/lib/node_modules/@anthropic-ai/claude-code/README.md
+/opt/node-v24.20.0/lib/node_modules/@anthropic-ai/claude-code/bin/claude.exe
+/opt/node-v24.20.0/lib/node_modules/@anthropic-ai/claude-code/cli-wrapper.cjs
+/opt/node-v24.20.0/lib/node_modules/@anthropic-ai/claude-code/install.cjs
+/opt/node-v24.20.0/lib/node_modules/@anthropic-ai/claude-code/node_modules/@anthropic-ai/claude-code-linux-arm64/LICENSE.md
+/opt/node-v24.20.0/lib/node_modules/@anthropic-ai/claude-code/node_modules/@anthropic-ai/claude-code-linux-arm64/README.md
+/opt/node-v24.20.0/lib/node_modules/@anthropic-ai/claude-code/node_modules/@anthropic-ai/claude-code-linux-arm64/claude
+/opt/node-v24.20.0/lib/node_modules/@anthropic-ai/claude-code/node_modules/@anthropic-ai/claude-code-linux-arm64/package.json
+/opt/node-v24.20.0/lib/node_modules/@anthropic-ai/claude-code/package.json
+/opt/node-v24.20.0/lib/node_modules/@anthropic-ai/claude-code/sdk-tools.d.ts
+/root/.npm/_cacache/content-v2/sha512/06/f8/0f1f8ec550417950afbab225e96c15530862420c65bf3445d5d57afdb0a218b340993007980705df3fb26b87e2434c307972aaeb3177d7f6e240227e0c59
+/root/.npm/_cacache/content-v2/sha512/07/9d/be1c268e39a8ceb16831bb82f6bc94acd1af1a7de13d4136b0c0763658c0211dda3336f1087dc9ac5975af107233a6d40f01aa80046325cc25d49067c991
+/root/.npm/_cacache/content-v2/sha512/5f/94/c7ea142765cbfe67fd0519b3319c21a82560074dc09145a7fedd5bbdce9b7fe3b3ef017b5180a41facdc6c98e541f9e717e36436133cfe7fc794056f5058
+/root/.npm/_cacache/content-v2/sha512/78/6f/993cfa56d836e69e7b5fd45cfdfd3f5ec12f08f1229f735b5c5363ea4b099fb5f8d13cfec15cf682c8bb99f24be04dd88f9c98bfdbf2674ef4d189e9de11
+/root/.npm/_cacache/content-v2/sha512/87/81/17472576e7225f7b3e34713228065269b49a9c70ff272033dd0cc3bd4c33d4cd9e9ee58dce3bd020adf74c44081c71a4d1b0a7c97a787b940d83e349f377
+/root/.npm/_cacache/content-v2/sha512/a5/1e/1d32e68eb42c5f984b9a2e03726a5ba953cbf7e220f5a6a322155aaa1077654b9410bb03e1bd8911ae7e1305fa5e20ea540d3433ad8728350d4d6f18bc44
+/root/.npm/_cacache/content-v2/sha512/bb/66/1918a59eb31b983f3637d2e1f4849db17537b7ce465b6cb5193b51208675998e7fde1a64b5d52ff6cd79a889406c31187193819ac4cb979a62a90d43d0f2
+/root/.npm/_cacache/content-v2/sha512/c3/68/cd836141a5702bab943cb152ba2746e9e8675e21be0ca71f371726a86b8977f5d7110617632fd508db59bbc20ab45926e694cd6c098b1b09745e966ad096
+/root/.npm/_cacache/content-v2/sha512/ec/90/72b28498db74dd840f581d058c5e46e50b9cccf7e0369076471e8506698ef6915c5ac647ec171065434e7a45cbe0ea5f12b8685dc4a3a4c4a3eea4fe38dd
+/root/.npm/_cacache/content-v2/sha512/f5/4a/bcfd1f120db1b408072221757f17dda9f811f7b118dc4de097c7aa65d61a904e2874e07945ccdae89c1564bb3ca8211f2f26701e511a236f7279aa0b56fe
+/root/.npm/_cacache/content-v2/sha512/f5/7a/d8fff9d9cda0db5925abe4bc932bfe9c70c5a7a34b7e6e22322a11ad7c6790890df0a0417df847b7820adbb667bdaf4bac9bdc23efa28448cf56c126723e
+/root/.npm/_cacache/index-v5/23/c2/0358876565a484d45a113827b0878c26f9e8a2569e81cee788b21977aef8
+/root/.npm/_cacache/index-v5/36/9e/d27f0d4326a432a7f70ab880544a3b1f4a3d1412ed67ae05058ae14b6b60
+/root/.npm/_cacache/index-v5/38/13/18cb5bd6e40d8f3c82c478c7bfa1b55a623eada6df35945b88ce43fe042b
+/root/.npm/_cacache/index-v5/39/64/9759f919932497d2ba4bb7ef94e1f3d0a7b7745146e365bba5cbb761b17b
+/root/.npm/_cacache/index-v5/41/c5/4270bf1cd1aae004ed6fee83989ac428601f4c060987660e9a1aef9d53b6
+/root/.npm/_cacache/index-v5/82/9a/9dcc9bf7a0e36536bb95629820ae36b62e6711735332256da3a94795cd29
+/root/.npm/_cacache/index-v5/cc/2a/6a2092a36e248e5d4969ffb44e9054fdb4afdb5bf2b04d48e755387a915b
+/root/.npm/_cacache/index-v5/d3/a4/217d21c59484f4edc85af5f0549d026c15388bad78d9ad85ac9a729297bc
+/root/.npm/_cacache/index-v5/da/df/8711f609ada78ac76e1101bc69f44309aa1e518485327ac90d5ed829ab89
+/root/.npm/_cacache/index-v5/e2/64/7a1d3a9a8e90ecace65e69e3b1423f117fc2325bf365c21a7d2e90f053f9
+/root/.npm/_cacache/index-v5/f8/9f/34f0b74c62192636acc41d21c8b7f21559d6c51a9b669fcb377818d370c8
+/root/.npm/_logs/2026-08-31T11_16_43_862Z-debug-0.log
+/usr/bin/claude
+## removed
+
+## modified
+

@@ -58,11 +58,27 @@ mkdir -p "$LFS/tup-build/layers"
 rm -rf "$LFS/tup-build/layers/agent"          # else the second run nests pages/
 cp -r "$HERE/pages" "$LFS/tup-build/layers/agent"
 mountpoint -q "$LFS/proc" || bash -e /home/lfs/book/ch07/03-kernfs.sh >/dev/null 2>&1
+
+# tup's own /etc/resolv.conf names 10.0.2.3 — QEMU's resolver, correct when tup
+# BOOTS under QEMU and meaningless inside this build VM, where npm then fails
+# with EAI_AGAIN. Bind-mount the host's resolver for the chroot's duration and
+# unmount it after. Deliberately NOT a copy: copying would either overwrite
+# tup's real resolv.conf or leave a backup file behind, and either way the
+# layer's inventory diff would report a change that is not part of the layer.
+RESOLV_BOUND=""
+if [ -r /etc/resolv.conf ]; then
+  mount --bind /etc/resolv.conf "$LFS/etc/resolv.conf" 2>/dev/null \
+    && RESOLV_BOUND=1
+fi
+cleanup_resolv() { [ -n "$RESOLV_BOUND" ] && umount "$LFS/etc/resolv.conf" 2>/dev/null; }
+trap cleanup_resolv EXIT
+
 chroot "$LFS" /usr/bin/env -i HOME=/root TERM=xterm \
   PATH=/usr/bin:/usr/sbin:/opt/node-v24.20.0/bin MAKEFLAGS=-j"$(nproc)" LFS= \
   TUP_OVERRIDES=/tup-build/overrides \
   /bin/bash /tup-build/driver.sh /tup-build/layers/agent \
-  || fail "layer install failed; the driver stopped on a named page"
+  || { cleanup_resolv; fail "layer install failed; the driver stopped on a named page"; }
+cleanup_resolv; RESOLV_BOUND=""
 
 # --- 4. inventory AFTER, and the diff that IS the layer -------------------
 echo "=== inventory after the layer"
