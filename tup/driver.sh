@@ -52,8 +52,15 @@ while read -r script <&3; do
   grep -qxF "$id" "$STATE" && continue
   page="${script%.sh}"
   src="$CHDIR/$script"
-  [ -x "$TUP_OVERRIDES/$page.sh" ] && src="$TUP_OVERRIDES/$page.sh" \
-    && echo ">>> $id (OVERRIDE)" || echo ">>> $id"
+  # Chapter-qualified first: 05-glibc.sh names a page in BOTH chapter 5 and
+  # chapter 8, and they are different builds. A flat name would fire the
+  # wrong override on the wrong page, silently.
+  ov=""
+  for cand in "$TUP_OVERRIDES/${CH%%-*}/$page.sh" "$TUP_OVERRIDES/$page.sh"; do
+    [ -x "$cand" ] && { ov="$cand"; break; }
+  done
+  if [ -n "$ov" ]; then src="$ov"; echo ">>> $id (OVERRIDE ${ov##*/overrides/})"
+  else echo ">>> $id"; fi
   pkg=$(sed -n 's/^# TUP_TARBALL=//p' "$CHDIR/$script" | head -1)
   plog="$LOG/$CH-$page.log"
   t0=$SECONDS
