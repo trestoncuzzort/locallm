@@ -4,4 +4,5 @@
 04-dune.sh
 05-zarith.sh
 06-rocq.sh
-07-t.sh
+07-rocq-stdlib.sh
+08-t.sh
