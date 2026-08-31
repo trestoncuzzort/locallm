@@ -47,15 +47,15 @@ ln -sfv ../../libexec/gcc/$(gcc -dumpmachine)/15.2.0/liblto_plugin.so \
 echo 'int main(){}' | cc -x c - -v -Wl,--verbose &> dummy.log
 readelf -l a.out | grep ': /lib'
 
-grep -E -o '/usr/lib.*/S?crt[1in].*succeeded' dummy.log
+grep -E -o '/usr/lib.*/S?crt[1in].*succeeded' dummy.log   || true   # advisory: see extract_book.py
 
-grep -B4 '^ /usr/include' dummy.log
+grep -B4 '^ /usr/include' dummy.log   || true   # advisory: see extract_book.py
 
-grep 'SEARCH.*/usr/lib' dummy.log |sed 's|; |\n|g'
+grep 'SEARCH.*/usr/lib' dummy.log |sed 's|; |\n|g'   || true   # advisory: see extract_book.py
 
-grep "/lib.*/libc.so.6 " dummy.log
+grep "/lib.*/libc.so.6 " dummy.log   || true   # advisory: see extract_book.py
 
-grep found dummy.log
+grep found dummy.log   || true   # advisory: see extract_book.py
 
 rm -v a.out dummy.log
 

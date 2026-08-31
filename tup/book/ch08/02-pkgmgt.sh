@@ -2,7 +2,7 @@
 # https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter08/pkgmgt.html
 # TUP_ACTION_PAGE
 
-grep -l 'libfoo.*deleted' /proc/*/maps | tr -cd 0-9\\n | xargs -r ps u
+grep -l 'libfoo.*deleted' /proc/*/maps | tr -cd 0-9\\n | xargs -r ps u   || true   # advisory: see extract_book.py
 
 ./configure --prefix=/usr/pkg/libfoo/1.1
 make

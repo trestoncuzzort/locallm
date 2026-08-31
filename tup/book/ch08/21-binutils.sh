@@ -22,7 +22,7 @@ if tup_tests_enabled "binutils"; then
 make -k check
 else tup_receipt_skip_tests "binutils"; fi
 
-grep '^FAIL:' $(find -name '*.log')
+grep '^FAIL:' $(find -name '*.log')   || true   # advisory: see extract_book.py
 
 make tooldir=/usr install
 

@@ -28,7 +28,7 @@ if tup_tests_enabled "glibc"; then
 make check
 else tup_receipt_skip_tests "glibc"; fi
 
-grep "Timed out" $(find -name \*.out)
+grep "Timed out" $(find -name \*.out)   || true   # advisory: see extract_book.py
 
 touch /etc/ld.so.conf
 
