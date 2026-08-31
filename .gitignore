@@ -51,3 +51,5 @@ dpo_adapter_poscontrol/export/*.gguf
 dpo_adapter_poscontrol/export/amplified/*.safetensors
 # Claude Code session tooling
 .claude/
+# pytest's cache, created by running the suite. Not a result.
+.pytest_cache/
