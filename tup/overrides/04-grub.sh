@@ -19,6 +19,6 @@ set root=(hd0,2)
 insmod efi_gop
 
 menuentry "tup 0.1 (Linux 6.17.3)" {
-        linux   /boot/vmlinuz-6.17.3-lfs-arm64-r12.4-42 root=/dev/vda2 ro console=ttyAMA0
+        linux   /boot/vmlinuz-6.17.3-lfs-arm64-r12.4-42 root=/dev/vda2 ro console=ttyAMA0 net.ifnames=0
 }
 GRUBEOF

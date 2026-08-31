@@ -108,8 +108,13 @@ def extract(page_html: str) -> tuple[str, list[str]]:
     t = re.search(r"<title>\s*(.*?)\s*</title>", page_html, re.S)
     title = html.unescape(re.sub(r"\s+", " ", t.group(1))) if t else "?"
     title = title.replace(" ", " ")
+    # `userinput` is not the only class the book uses for COMMANDS. ch09's
+    # etcshells page is a single <pre class="root"> block, so extracting only
+    # userinput produced a 140-byte page with no commands at all and /etc/shells
+    # would never have been written. `screen` is deliberately excluded — that
+    # class is sample OUTPUT, and running it would be nonsense.
     blocks = [html.unescape(re.sub(r"<[^>]+>", "", b)).strip()
-              for b in re.findall(r'<pre class="userinput">(.*?)</pre>',
+              for b in re.findall(r'<pre class="(?:userinput|root)">(.*?)</pre>',
                                   page_html, re.S)]
     return title, blocks
 
