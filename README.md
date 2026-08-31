@@ -1,6 +1,6 @@
 # tup
 
-**A Linux distribution built for AI work, where you can account for every byte —
+**A Linux distribution built for AI work, where you can account for every byte
 and `t`, a language whose programs carry machine-checked proofs.**
 
 Most AI development environments are unaccountable piles. Nobody can tell you
@@ -11,14 +11,14 @@ layer says exactly what it added.
 
 **Status: early.** The base system builds and the pieces below are real and
 running, but tup is not yet installable on your laptop. What exists, what does
-not, and what is merely intended are marked as such throughout — that is the
+not, and what is merely intended are marked as such throughout that is the
 habit the whole project is built on.
 
 ---
 
 ## The two halves
 
-### tup — the distribution
+### tup the distribution
 
 Built from source with a receipt on every step. No package manager: the
 filesystem *is* the manifest, which is what makes "we know everything on this
@@ -33,16 +33,16 @@ The intended shape is layered, each layer with its own inventory diff:
 
 | Layer | What it adds | Status |
 |---|---|---|
-| **base** | kernel, libc, toolchain — fully hashed | building |
-| **agent** | Node, Claude Code — AI tooling as a first-class citizen | planned |
-| **train** | `locallm`, PyTorch — train models on the box itself | `locallm/` exists |
+| **base** | kernel, libc, toolchain fully hashed | building |
+| **agent** | Node, Claude Code AI tooling as a first-class citizen | planned |
+| **train** | `locallm`, PyTorch train models on the box itself | `locallm/` exists |
 | **prove** | `t` and its proof kernels | `t/` exists |
 | **infer** | local model serving | planned |
 
-### t — the language
+### t the language
 
-`t` is a **specification interlingua**: write a task once — signature,
-preconditions, postconditions — and lower it mechanically to established
+`t` is a **specification interlingua**: write a task once signature,
+preconditions, postconditions and lower it mechanically to established
 verifiers, whose kernels supply every verdict. t proves nothing itself and is
 trusted for nothing. That is the design, not a weakness.
 
@@ -78,7 +78,7 @@ a verified program on an unaccountable system is a proof about nothing in
 particular, and an accountable system running unverified software is just
 tidy.
 
-The research that produced this discipline is in the repository root — an
+The research that produced this discipline is in the repository root an
 execution-verified DPO pipeline whose real finding was that roughly half of a
 measured benchmark gain came from the measuring instrument rather than the
 model. That work is **scaffolding, not law**: it taught the method, it is
@@ -93,8 +93,8 @@ distro and the language are where the method goes next.
   configured for a virtual machine (virtio drivers, no initramfs). Real devices
   need a generic kernel, an initramfs, firmware, and an installer. None of that
   is written.
-- **tup is arm64 today.** The x86_64 build — the one that matters for CUDA and
-  for training — is the same driver pointed at a different book, and has not
+- **tup is arm64 today.** The x86_64 build the one that matters for CUDA and
+  for training is the same driver pointed at a different book, and has not
   been run.
 - **tup 0.1 is witnessed, not verified.** Nothing here proves the kernel or
   libc correct. It records what was built, from which bytes, in what order.
