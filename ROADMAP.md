@@ -309,71 +309,24 @@ impersonates a plan; nothing here reorders NOW or NEXT.
 
 ---
 
-## WS-8: tup on real hardware — the four gaps, named and costed
+## WS-8: RESCOPED — tup is VM-native by decision (2026-08-31)
 
-tup boots a VM. It does not boot a laptop, and the reasons are four concrete
-absences rather than anything unsolved. None is a research problem; all four
-are standard distribution engineering, and they are written here so the gap
-between "boots QEMU" and "installable" is tracked instead of assumed.
+The four gaps this section used to cost out (generic kernel, initramfs,
+firmware, installer) are **deleted scope, not open work**. tup only ever runs
+virtualized — including on the Dell, where it runs as a KVM guest on Ubuntu —
+so bare-metal engineering had no consumer. The decision and its consequences:
 
-**Sequencing matters more than the individual items.** Build the installer for
-a system that does not boot yet and you debug two things at once. The order is:
-boot witness on the VM → x86_64 build → generic kernel → initramfs → firmware →
-installer. Each step is verifiable before the next begins.
-
-### 8.1 Generic kernel configuration *(1–2 sessions)*
-
-Today: `defconfig` plus virtio/ext4/vfat forced in, sized for a QEMU guest.
-Needed: storage (NVMe, AHCI/SATA, USB mass storage, SD/MMC), input (USB HID),
-common network (e1000e, igb, r8169, iwlwifi), and the filesystems people
-actually have. Method: start from a distribution kernel config (Debian's arm64
-and x86_64 configs are the reference), trim to what tup ships, and record the
-diff — a kernel config is a decision document and belongs in the receipts.
-The honest limit: a config compiles or it does not, but only real hardware
-proves it boots, so this workstream is gated on having a machine to test on.
-
-### 8.2 initramfs *(1 session)*
-
-Today: none, deliberately — drivers are `=y` precisely to avoid needing one.
-That trick does not survive a generic kernel, where storage drivers become
-modules. LFS ships an optional initramfs page; `dracut` is the maintained
-route. This is the piece that turns "the kernel has the driver" into "the
-kernel can reach the root filesystem", and nothing else in the list matters
-without it.
-
-### 8.3 Firmware *(hours, plus a licensing decision)*
-
-`linux-firmware` is a clone-and-install of blobs, mechanically trivial. Two
-things make it a decision rather than a step: it is roughly a gigabyte, which
-is larger than the rest of tup; and its contents carry a spread of licenses,
-many redistributable-but-not-free. tup has a standing rule about not shipping
-what it may not redistribute (see the KodCode entry in OPEN-ITEMS). So:
-install it, record every license, and either ship a curated subset or fetch it
-at install time — decided explicitly, in the open, the way the dataset
-licensing was.
-
-### 8.4 An installer *(2–3 sessions for something real)*
-
-The pieces are unglamorous and well understood: partition, mkfs, unpack a
-rootfs tarball, install GRUB to the target, write fstab with real UUIDs
-(not the `/dev/vda2` the VM override hardcodes), set hostname, create a user,
-set a password that is not `tup`. A shell installer of a few hundred lines is
-how most small distributions do this, and it fits tup's idiom — every action
-receipted, every default stated.
-
-The artifact this produces is a **boot medium**: an image that starts on real
-hardware and runs the installer. x86_64 needs both UEFI and legacy BIOS paths;
-arm64 is UEFI only, which is simpler.
-
-### What "installable on all devices" honestly means after 8.1–8.4
-
-Two architectures (arm64, x86_64) covering laptops, desktops, and servers made
-in the last decade or so. Not phones, not embedded boards without UEFI, not
-anything needing a vendor kernel. That is a real and useful scope, and it is
-worth stating in those words rather than as "all devices", because the
-difference is where the disappointment would live.
-
----
+- A VM-only distro ships a **disk image**, not an ISO with an installer.
+  `tup/release.sh` produces qcow2/vmdk/vdi with hashes, and refuses to ship
+  a qcow2 that has not reached `tup login:` on a serial console.
+- The kernel keeps its compiled-in virtio set plus the SATA/e1000 fallbacks
+  defconfig already gave it; VMware/VirtualBox should boot via those paths but
+  are labeled UNVERIFIED until someone witnesses one.
+- Witnessed so far: QEMU/hvf on macOS (20 s to login), QEMU/TCG on Ubuntu
+  with no KVM at all (40 s) — the worst-case host, measured.
+- Still real from the old list: the **x86_64 build** (same driver, x86 book)
+  for the Dell as pinned verifier/analysis environment. Training stays on the
+  Dell's host OS where CUDA lives.
 
 ## WS-9: going public — the checklist before the switch is flipped
 
