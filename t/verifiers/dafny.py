@@ -30,6 +30,8 @@ WALL_S = 120               # hang backstop only, never the verdict
 
 
 def version() -> str:
+    if not DAFNY:
+        raise SystemExit(_DAFNY_WHY)
     p = subprocess.run([DAFNY, "--version"], capture_output=True, text=True)
     return f"dafny {p.stdout.strip()}"
 

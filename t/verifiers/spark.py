@@ -45,6 +45,8 @@ GPR = "project T_Work is\n   for Source_Dirs use (\".\");\nend T_Work;\n"
 
 
 def version() -> str:
+    if not GNATPROVE:
+        raise SystemExit(_GNATPROVE_WHY)
     p = subprocess.run([str(GNATPROVE), "--version"],
                        capture_output=True, text=True)
     first = p.stdout.strip().splitlines()

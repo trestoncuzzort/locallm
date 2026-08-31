@@ -35,6 +35,8 @@ BANNED = re.compile(r"\b(assume|admit|external_body)\b")
 
 
 def version() -> str:
+    if not VERUS:
+        raise SystemExit(_VERUS_WHY)
     p = subprocess.run([str(VERUS), "--version"], capture_output=True, text=True)
     line = next((l for l in p.stdout.splitlines() if "Version" in l), "?")
     return f"verus {line.split(':', 1)[-1].strip()}"

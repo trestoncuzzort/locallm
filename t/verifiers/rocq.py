@@ -46,6 +46,8 @@ MALFORMED_MARKS = ("Syntax error", "was not found", "Illegal", "Unknown")
 
 
 def version() -> str:
+    if not COQC:
+        raise SystemExit(_COQC_WHY)
     p = subprocess.run([COQC, "--version"], capture_output=True, text=True)
     return p.stdout.strip().splitlines()[0]
 

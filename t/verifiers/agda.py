@@ -46,6 +46,8 @@ VACUOUS_MARKS = ("[SafeFlag",)
 
 
 def version() -> str:
+    if not AGDA:
+        raise SystemExit(_AGDA_WHY)
     p = subprocess.run([str(AGDA), "--version"], capture_output=True, text=True)
     return p.stdout.strip().splitlines()[0]
 

@@ -40,6 +40,8 @@ BANNED = re.compile(r"\badmit\b|\bassumes\b|requires\s+\\false", re.IGNORECASE)
 
 
 def version() -> str:
+    if not FRAMAC:
+        raise SystemExit(_FRAMAC_WHY)
     p = subprocess.run([FRAMAC, "-version"], capture_output=True, text=True)
     return f"frama-c {p.stdout.strip()} / alt-ergo 2.4.3-free"
 

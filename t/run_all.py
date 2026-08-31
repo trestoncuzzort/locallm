@@ -15,6 +15,7 @@ machine is listed as absent, never faked.
 from __future__ import annotations
 
 import importlib
+import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -48,8 +49,12 @@ def main() -> int:
         try:
             backend = importlib.import_module(f"verifiers.{bname}")
             ver = backend.version()
-        except Exception as e:                            # noqa: BLE001
-            cols.append((bname, f"ABSENT ({e})"))
+        except (Exception, SystemExit) as e:              # noqa: BLE001
+            # SystemExit, not just Exception: an adapter whose binary is
+            # missing raises SystemExit carrying the sentence that says where
+            # it looked. Catching only Exception let that kill the whole run
+            # instead of recording one absent kernel.
+            cols.append((bname, f"ABSENT — {e}"))
             continue
         lower = importlib.import_module(lmod).lower
         cols.append((bname, ver))
@@ -70,6 +75,15 @@ def main() -> int:
             print(f"  {task['name']} x {bname}: real={cell[0]} twin={cell[1]}"
                   + ("" if good else "  <-- FINDING"))
 
+    # VACUOUS AGREEMENT IS NOT AGREEMENT. With no kernel installed the loop
+    # above never runs, all_ok stays True, and this printed FULL AGREEMENT —
+    # measured on a fresh Ubuntu box with nothing installed. A tool that
+    # reports success after measuring nothing is the exact failure this
+    # project exists to refuse, so a run with too few kernels is now an
+    # explicit refusal rather than a pass.
+    present = [b for b, v in cols if not v.startswith("ABSENT")]
+    MIN_KERNELS = int(os.environ.get("T_MIN_KERNELS", "2"))
+
     lines = [f"# t cross-kernel agreement — "
              f"{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%MZ')}",
              "",
@@ -85,12 +99,26 @@ def main() -> int:
             row.append("—" if c is None else
                        f"{c[0]} / {c[1]}" + ("" if c[2] else " (FLAKED)"))
         lines.append("| " + " | ".join(row) + " |")
+    lines += ["", f"Kernels present: {len(present)} of {len(cols)} "
+              f"({', '.join(present) if present else 'NONE'})"]
     lines += ["", "Backends:"] + [f"- {b}: {v}" for b, v in cols]
     lines += ["", f"Verdict basis: every source file hashed; e.g. "
               f"`abs.dfy` {sha256_file(harness.OUT / 'abs.dfy')[:16]}…, "
               f"`abs.rs` {sha256_file(harness.OUT / 'abs.rs')[:16]}…"]
     (HERE / "AGREEMENT.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
-    print(f"\n{'FULL AGREEMENT' if all_ok else 'DISAGREEMENT — a finding, see t/AGREEMENT.md'}")
+    if len(present) < MIN_KERNELS:
+        print(f"\nREFUSED: {len(present)} kernel(s) available, {MIN_KERNELS} "
+              f"required. Agreement across fewer than two kernels is not "
+              f"agreement — it is one opinion, or none.")
+        for b, v in cols:
+            if v.startswith("ABSENT"):
+                print(f"  {b}: {v}")
+        return 2
+    if not tasks:
+        print("\nREFUSED: no tasks in t/tasks/ — nothing was verified.")
+        return 2
+    print(f"\n{len(present)} kernels, {len(tasks)} tasks: "
+          f"{'FULL AGREEMENT' if all_ok else 'DISAGREEMENT — a finding, see t/AGREEMENT.md'}")
     return 0 if all_ok else 1
 
 

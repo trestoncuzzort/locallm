@@ -48,6 +48,8 @@ REFUTED_MARKS = ("omega could not prove", "unsolved goals", "failed")
 
 
 def version() -> str:
+    if not LEAN:
+        raise SystemExit(_LEAN_WHY)
     p = subprocess.run([str(LEAN), "--version"], capture_output=True, text=True)
     return p.stdout.strip().split(",")[0]
 
