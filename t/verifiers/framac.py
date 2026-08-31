@@ -30,8 +30,10 @@ import time
 from pathlib import Path
 
 from . import Outcome, Result, sha256_file
+from .discover import find, missing
 
-FRAMAC = os.environ.get("T_FRAMAC", str(Path.home() / ".opam/default/bin/frama-c"))
+FRAMAC = find("T_FRAMAC", ['frama-c'], [".opam/*/bin/frama-c"])
+_FRAMAC_WHY = missing("framac", "T_FRAMAC", ['frama-c'], [".opam/*/bin/frama-c"])
 DEFAULT_STEPS = 20_000
 WALL_S = 240
 BANNED = re.compile(r"\badmit\b|\bassumes\b|requires\s+\\false", re.IGNORECASE)

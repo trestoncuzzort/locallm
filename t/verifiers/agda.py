@@ -34,9 +34,10 @@ import time
 from pathlib import Path
 
 from . import Outcome, Result, sha256_file
+from .discover import find, missing
 
-AGDA = os.environ.get(
-    "T_AGDA", next(iter(Path.home().glob(".local/agda/**/agda")), "agda"))
+AGDA = find("T_AGDA", ['agda'], [".local/agda/**/agda", ".cabal/bin/agda"])
+_AGDA_WHY = missing("agda", "T_AGDA", ['agda'], [".local/agda/**/agda", ".cabal/bin/agda"])
 WALL_S = 180
 BANNED = re.compile(r"\bpostulate\b|\{-#\s*TERMINATING", re.IGNORECASE)
 MALFORMED_MARKS = ("[ParseError]", "[ModuleNameDoesntMatchFileName]",

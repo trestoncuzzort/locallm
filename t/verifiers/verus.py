@@ -25,10 +25,10 @@ import time
 from pathlib import Path
 
 from . import Outcome, Result, sha256_file
+from .discover import find, missing
 
-VERUS = Path(os.environ.get(
-    "T_VERUS_BIN",
-    Path.home() / ".local" / "verus" / "verus-arm64-macos" / "verus"))
+VERUS = find("T_VERUS_BIN", ['verus'], [".local/verus/**/verus"])
+_VERUS_WHY = missing("verus", "T_VERUS_BIN", ['verus'], [".local/verus/**/verus"])
 DEFAULT_RLIMIT = 10
 WALL_S = 120
 BANNED = re.compile(r"\b(assume|admit|external_body)\b")

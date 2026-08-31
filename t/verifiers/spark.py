@@ -33,11 +33,10 @@ import time
 from pathlib import Path
 
 from . import Outcome, Result, sha256_file
+from .discover import find, missing
 
-GNATPROVE = Path(os.environ.get(
-    "T_GNATPROVE",
-    Path.home() / ".local" / "gnatprove" / "gnatprove-aarch64-darwin-16.1.0-1"
-    / "bin" / "gnatprove"))
+GNATPROVE = find("T_GNATPROVE", ['gnatprove'], [".local/gnatprove/**/bin/gnatprove", ".alire/**/bin/gnatprove"])
+_GNATPROVE_WHY = missing("spark", "T_GNATPROVE", ['gnatprove'], [".local/gnatprove/**/bin/gnatprove", ".alire/**/bin/gnatprove"])
 DEFAULT_STEPS = 20_000
 WALL_S = 180
 BANNED = re.compile(r"pragma\s+Assume|SPARK_Mode\s*=>\s*Off|with\s+Import",

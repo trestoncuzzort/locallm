@@ -20,24 +20,28 @@ import time
 from pathlib import Path
 
 from . import Outcome, Result, sha256_file
+from .discover import find, missing
+
+DAFNY = find("T_DAFNY", ["dafny"], [".local/dafny/dafny"])
+_DAFNY_WHY = missing("dafny", "T_DAFNY", ["dafny"], [".local/dafny/dafny"])
 
 DEFAULT_RLIMIT = 500_000   # Z3 resource units; deterministic where seconds are not
 WALL_S = 120               # hang backstop only, never the verdict
 
 
 def version() -> str:
-    p = subprocess.run(["dafny", "--version"], capture_output=True, text=True)
+    p = subprocess.run([DAFNY, "--version"], capture_output=True, text=True)
     return f"dafny {p.stdout.strip()}"
 
 
 def verify(path: Path, budget: int = DEFAULT_RLIMIT) -> Result:
-    if not shutil.which("dafny"):
-        raise SystemExit("t.verifiers.dafny: no dafny on PATH")
+    if not DAFNY:
+        raise SystemExit(_DAFNY_WHY)
     src_hash = sha256_file(path)
     t0 = time.monotonic()
     try:
         p = subprocess.run(
-            ["dafny", "verify", "--resource-limit", str(budget),
+            [DAFNY, "verify", "--resource-limit", str(budget),
              "--warn-contradictory-assumptions", str(path)],
             capture_output=True, text=True, timeout=WALL_S)
     except subprocess.TimeoutExpired:

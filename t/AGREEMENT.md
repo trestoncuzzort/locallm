@@ -1,4 +1,4 @@
-# t cross-kernel agreement — 2026-08-31 07:30Z
+# t cross-kernel agreement — 2026-08-31 12:11Z
 
 Cell = real outcome / twin outcome. Agreement means `verified / refuted` in every present column.
 

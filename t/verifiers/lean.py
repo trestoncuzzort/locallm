@@ -35,8 +35,10 @@ import time
 from pathlib import Path
 
 from . import Outcome, Result, sha256_file
+from .discover import find, missing
 
-LEAN = Path(os.environ.get("T_LEAN_BIN", Path.home() / ".elan" / "bin" / "lean"))
+LEAN = find("T_LEAN_BIN", ['lean'], [".elan/bin/lean"])
+_LEAN_WHY = missing("lean", "T_LEAN_BIN", ['lean'], [".elan/bin/lean"])
 DEFAULT_HEARTBEATS = 400_000
 WALL_S = 180
 BANNED = re.compile(r"\b(sorry|admit|native_decide)\b|^\s*axiom\s"

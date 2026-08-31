@@ -33,8 +33,10 @@ import time
 from pathlib import Path
 
 from . import Outcome, Result, sha256_file
+from .discover import find, missing
 
-COQC = os.environ.get("T_COQC", "coqc")
+COQC = find("T_COQC", ['coqc', 'rocq'], [".opam/*/bin/coqc"])
+_COQC_WHY = missing("rocq", "T_COQC", ['coqc', 'rocq'], [".opam/*/bin/coqc"])
 WALL_S = 180
 BANNED = re.compile(r"\bAdmitted\b|\baxiom\b|^\s*Axiom\s|\badmit\b",
                     re.IGNORECASE | re.MULTILINE)
