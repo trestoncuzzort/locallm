@@ -48,6 +48,7 @@ A small, readable, from-scratch GPT and a GUI so you don't need a terminal to us
 | `get_corpus.py` | Downloads text worth training a small model on: simple stories, or public-domain books. Text only; weights are never downloaded. The one file here that opens a network connection. |
 | `studio.py` | The GUI. Pick a size and a practice length from presets, train, watch how many characters it is still choosing between, and write something with it. Advanced settings hold every original knob. |
 | `leakage.py` | Finds training text hiding in your validation set, and says so. |
+| `baselines.py` | Scores a lookup table on the same held-out text as your model, so "it learned" is a comparison, not a feeling. |
 | `bench_device.py` | Times a real training step on your hardware and tells you what it can handle. |
 | `install.py` | Sets the app up on your computer: builds a private Python environment beside these files, installs the PyTorch build that matches your graphics card, and puts a shortcut on your Desktop. Run it through `INSTALL.bat`. It uses only the standard library, so it works on a computer where nothing is installed yet, and it asks PyTorch which Python versions it supports rather than guessing. |
 | `check_my_computer.py` | Run this first. Checks Python, Tk, memory, disk and graphics card, times a real training step, and says in plain words what you can train and how long it takes. Writes the file the studio reads to show real minutes instead of "not timed yet". |

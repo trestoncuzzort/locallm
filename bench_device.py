@@ -29,7 +29,7 @@ if str(HERE) not in sys.path:
 from model import GPT, GPTConfig          # noqa: E402
 from data import CharTokenizer, Corpus    # noqa: E402
 import runlog                            # noqa: E402
-from train import auto_lr, enable_fast_math, make_optimizer  # noqa: E402
+from train import auto_lr, enable_fast_math, make_optimizer, sync, wants_bf16  # noqa: E402
 
 # Sizes worth knowing about: something a weak machine can hold, the shipped
 # default, and something that needs real hardware.
@@ -48,12 +48,12 @@ def time_steps(corpus, tok, device, cfg_d, steps, warmup):
     model = GPT(cfg).to(device)
     opt = make_optimizer(model, auto_lr(cfg_d["n_embd"]))
     B, T = cfg_d["batch_size"], cfg_d["block_size"]
-    use_bf16 = device == "cuda" and torch.cuda.is_bf16_supported()
+    use_bf16 = wants_bf16(device)
 
     def one():
         x, y = corpus.get_batch("train", B, T)
         if use_bf16:
-            with torch.autocast("cuda", dtype=torch.bfloat16):
+            with torch.autocast(device, dtype=torch.bfloat16):
                 _, loss = model(x, y)
         else:
             _, loss = model(x, y)
@@ -64,13 +64,11 @@ def time_steps(corpus, tok, device, cfg_d, steps, warmup):
 
     for _ in range(warmup):
         one()
-    if device == "cuda":
-        torch.cuda.synchronize()
+    sync(device)
     t0 = time.time()
     for _ in range(steps):
         one()
-    if device == "cuda":
-        torch.cuda.synchronize()
+    sync(device)
     elapsed = time.time() - t0
     return model.num_params(), elapsed / steps * 1000, B * T * steps / elapsed
 
@@ -88,19 +86,28 @@ def main() -> None:
     text = Path(args.data).read_text(encoding="utf-8", errors="ignore")
     tok = CharTokenizer.from_text(text)
 
-    devices = ["cpu"] + (["cuda"] if torch.cuda.is_available() else [])
-    print(f"machine: {platform.processor() or platform.machine()}")
+    devices = ["cpu"]
+    gpu_name = None
     if torch.cuda.is_available():
+        devices.append("cuda")
         p = torch.cuda.get_device_properties(0)
-        print(f"gpu    : {p.name}, {p.total_memory / 1e9:.1f} GB")
-    else:
-        print("gpu    : none detected")
+        gpu_name = p.name
+        gpu_desc = f"{p.name}, {p.total_memory / 1e9:.1f} GB"
+    elif torch.backends.mps.is_available():
+        # Apple gives the GPU no queryable name; the shared-memory budget is
+        # what actually bounds model size here, so report that instead.
+        devices.append("mps")
+        gpu_name = "Apple silicon (MPS)"
+        gpu_desc = (f"Apple silicon via MPS, "
+                    f"{torch.mps.recommended_max_memory() / 1e9:.1f} GB usable")
+    print(f"machine: {platform.processor() or platform.machine()}")
+    print(f"gpu    : {gpu_desc}" if gpu_name else "gpu    : none detected")
     print(f"corpus : {len(text):,} chars, vocab {tok.vocab_size}\n")
 
     rows, results = [], {}
     for device in devices:
         corpus = Corpus(text, tok, device)
-        steps = args.gpu_steps if device == "cuda" else args.cpu_steps
+        steps = args.cpu_steps if device == "cpu" else args.gpu_steps
         for name, cfg_d in SIZES:
             params, ms, tok_s = time_steps(corpus, tok, device, cfg_d, steps,
                                            warmup=5 if device == "cpu" else 20)
@@ -119,11 +126,12 @@ def main() -> None:
         print(f"{device:7} {name:8} {params / 1e6:8.2f}M  {ms:7.2f}  {tok_s:9,.0f}"
               f"  {full_s:>12}")
 
-    if "cuda" in devices:
+    gpu_dev = next((d for d in devices if d != "cpu"), None)
+    if gpu_dev:
         print()
         for name, _ in SIZES:
             c = results[f"cpu/{name}"]["ms_per_step"]
-            g = results[f"cuda/{name}"]["ms_per_step"]
+            g = results[f"{gpu_dev}/{name}"]["ms_per_step"]
             print(f"  {name:8} GPU is {c / g:5.1f}x faster than CPU here")
 
     verdict = []
@@ -141,7 +149,7 @@ def main() -> None:
     out = HERE / "bench_device_result.json"
     out.write_text(json.dumps({
         "machine": platform.processor() or platform.machine(),
-        "gpu": torch.cuda.get_device_name(0) if torch.cuda.is_available() else None,
+        "gpu": gpu_name,
         "torch": torch.__version__, "full_run_steps": FULL_RUN_STEPS,
         "results": results}, indent=2), encoding="utf-8")
     print(f"\nwrote {out.name}")

@@ -33,16 +33,54 @@ def enable_fast_math() -> None:
         torch.backends.cudnn.allow_tf32 = True
 
 
+def pick_device() -> str:
+    """The best device this machine has: CUDA, then Apple's MPS, then CPU.
+
+    One implementation, imported everywhere a device gets chosen (CLI, GUI,
+    benchmark, experiments), so two entry points cannot disagree about what
+    "the graphics card" means on the same machine.
+    """
+    if torch.cuda.is_available():
+        return "cuda"
+    if torch.backends.mps.is_available():
+        return "mps"
+    return "cpu"
+
+
+def wants_bf16(device: str) -> bool:
+    """bf16 autocast, only where it is measured to help.
+
+    CUDA: worth it when the card supports it. MPS: measured on an M5 Pro,
+    default size 26.47 -> 21.49 ms/step, large 238.7 -> 158.7, so it is on.
+    CPU: measured slower at this scale (the casts cost more than the smaller
+    arithmetic saves — see the note in exp_lr_width.py), so it stays off.
+    """
+    if device == "cuda":
+        return torch.cuda.is_bf16_supported()
+    return device == "mps"
+
+
+def sync(device: str) -> None:
+    """Wait for the device's queued work. GPU launches are asynchronous, so a
+    wall clock read without this measures kernel launches, not training."""
+    if device == "cuda":
+        torch.cuda.synchronize()
+    elif device == "mps":
+        torch.mps.synchronize()
+
+
 def make_optimizer(model, lr: float):
-    """AdamW, fused when CUDA allows it.
+    """AdamW, fused where the device offers it.
 
     A small model has many small parameter tensors, so the optimizer step is
     dominated by launch overhead rather than arithmetic. Fusing it into one
-    kernel measured 5.37 -> 4.93 ms/step here.
+    kernel measured 5.37 -> 4.93 ms/step on CUDA here; on MPS it is nearly a
+    wash (21.28 -> 20.96 ms/step on an M5 Pro) but never slower.
     """
     kw = dict(lr=lr, betas=(0.9, 0.95), weight_decay=0.1)
+    dev = next(model.parameters()).device.type
     try:
-        return torch.optim.AdamW(model.parameters(), fused=torch.cuda.is_available(), **kw)
+        return torch.optim.AdamW(model.parameters(), fused=dev in ("cuda", "mps"), **kw)
     except (RuntimeError, TypeError):
         return torch.optim.AdamW(model.parameters(), **kw)
 
@@ -135,7 +173,7 @@ def main():
     ap.add_argument("--seed", type=int, default=1337)
     args = ap.parse_args()
 
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = pick_device()
     torch.manual_seed(args.seed)
 
     if args.lr is None:
@@ -157,8 +195,8 @@ def main():
 
     enable_fast_math()
     opt = make_optimizer(model, args.lr)
-    use_bf16 = device == "cuda" and torch.cuda.is_bf16_supported()
-    amp = (lambda: torch.autocast("cuda", dtype=torch.bfloat16)) if use_bf16 \
+    use_bf16 = wants_bf16(device)
+    amp = (lambda: torch.autocast(device, dtype=torch.bfloat16)) if use_bf16 \
         else (lambda: contextlib.nullcontext())
 
     Path(args.out).mkdir(parents=True, exist_ok=True)
