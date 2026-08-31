@@ -5,7 +5,7 @@
 lean-4.33.1-linux_aarch64.tar.zst f7353a8b2a8741c84558523e450556f9a1c45e3cafcf54399ce68c6a24c55f07 https://github.com/leanprover/lean4/releases/download/v4.33.1/lean-4.33.1-linux_aarch64.tar.zst
 ocaml-4.14.2.tar.gz c2d706432f93ba85bd3383fa451d74543c32a4e84a1afaf3e8ace18f7f097b43 https://github.com/ocaml/ocaml/archive/refs/tags/4.14.2.tar.gz
 findlib-1.9.6.tar.gz 2df996279ae16b606db5ff5879f93dbfade0898db9f1a3e82f7f845faa2930a2 http://download.camlcity.org/download/findlib-1.9.6.tar.gz
-dune-3.16.1.tar.gz 365ef8aa2bf74a6df305183e26ebbe08b83290995582811a0ef521256540d8f2 https://github.com/ocaml/dune/archive/refs/tags/3.16.1.tar.gz
+dune-3.21.0.tar.gz 07c7dbd778579e35f365320b559d6f781cd755c6485b164b802f109fe21ead68 https://github.com/ocaml/dune/archive/refs/tags/3.21.0.tar.gz
 zarith-1.13.tar.gz a5826d33fea0103ad6e66f92583d8e075fb77976de893ffdd73ada0409b3f83b https://github.com/ocaml/Zarith/archive/refs/tags/release-1.13.tar.gz
 rocq-9.2.0.tar.gz a45280ab4fbaac7540b136a6b073b4a6db15739ec1e149bded43fa6f4fc25f20 https://github.com/rocq-prover/rocq/archive/refs/tags/V9.2.0.tar.gz
 rocq-stdlib-9.2.0.tar.gz f2ee1cb0b9af3e7b20625f0e9ec4becb7a27bb453d53b9bc0ea3d67bc8b3142c https://github.com/rocq-prover/stdlib/archive/refs/tags/V9.2.0.tar.gz
