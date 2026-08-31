@@ -372,3 +372,48 @@ in the last decade or so. Not phones, not embedded boards without UEFI, not
 anything needing a vendor kernel. That is a real and useful scope, and it is
 worth stating in those words rather than as "all devices", because the
 difference is where the disappointment would live.
+
+---
+
+## WS-9: going public — the checklist before the switch is flipped
+
+The repository is private today and is intended to go public when the ISOs
+exist. Publication is not reversible in the way people assume: history is
+published too, and a repository that was public for an hour is public
+forever. So this is a checklist, run BEFORE the flip, not after.
+
+**Already clean, verified 2026-08-31 by scanning tracked files and full
+history:** no API keys, tokens, or private keys anywhere; no KodCode-derived
+data tracked (the CC BY-NC set exists only locally, as OPEN-ITEMS requires);
+no collaborator names or institutional email addresses in tracked files.
+
+**Three things that are NOT clean, and what to do about each:**
+
+1. **65 files sit in history that were untracked for a reason** — the 61
+   council reports and transcripts, the operating-protocol brief, the
+   handoffs, the method-kit pointer. Gitignoring them stopped future commits;
+   it did not remove them from past ones. Going public publishes all of it.
+
+2. **One line in history reads badly out of context.** An early note describes
+   "run the loop unattended without elevation prompts" — a
+   throwaway phrasing about an unattended local build loop, but in a public
+   repository belonging to someone doing security research it is a sentence
+   that will be quoted without its context. It is in history, not in the tree.
+
+3. **Fourteen manuscript files are tracked**, v10 through v15 of an
+   unpublished paper. Publishing them is a real decision about priority and
+   preprint norms, not an accident to discover afterward.
+
+**The recommended shape, which matches how this project already works:** do
+not scrub and flip. Publish a NEW repository containing only what tup IS —
+`t/`, `tup/`, `locallm/`, README, ROADMAP — and keep this one private as the
+working record. `sync_public.py` already implements exactly this pattern for
+locallm: a whitelist, a forbidden-term abort, and a refusal to publish
+anything mentioning the channel. Extending it to publish the distro and the
+language is a day of work and it inherits the safety property that a history
+scrub cannot give you: **the private record never had a public commit to
+scrub in the first place.**
+
+The alternative — `git filter-repo` over this history, then flip visibility —
+is possible and is strictly more dangerous, because it depends on having
+enumerated every sensitive path correctly the first time.
