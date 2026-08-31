@@ -9,10 +9,13 @@ agent changed on disk last Tuesday. tup is the one where you can: every package
 is built from hashed sources, every file in the system is inventoried, and every
 layer says exactly what it added.
 
-**Status: early.** The base system builds and the pieces below are real and
-running, but tup is not yet installable on your laptop. What exists, what does
-not, and what is merely intended are marked as such throughout that is the
-habit the whole project is built on.
+**Status: tup 0.1 boots.** From its own disk, under nothing but UEFI firmware
+— no `-kernel`, no `-initrd`, no host help — to a `tup login:` prompt in 20
+seconds, with Claude Code preinstalled and the exact file-level cost of
+installing it recorded. Witnessed on macOS/QEMU, and on Ubuntu under pure TCG
+emulation with no KVM at all. What exists, what does not, and what is merely
+intended are marked as such throughout; that is the habit the whole project is
+built on.
 
 ---
 
@@ -33,11 +36,16 @@ The intended shape is layered, each layer with its own inventory diff:
 
 | Layer | What it adds | Status |
 |---|---|---|
-| **base** | kernel, libc, toolchain fully hashed | building |
-| **agent** | Node, Claude Code AI tooling as a first-class citizen | planned |
-| **train** | `locallm`, PyTorch train models on the box itself | `locallm/` exists |
-| **prove** | `t` and its proof kernels | `t/` exists |
+| **base** | kernel, libc, toolchain fully hashed | **built and boots** — 105 book pages, a receipt each, [boot witness committed](tup/receipts/) |
+| **agent** | Node, Claude Code AI tooling as a first-class citizen | **installed and measured** — [4,844 files added, 1 modified](tup/receipts/LAYER-agent-FULL.md) |
+| **train** | `locallm`, PyTorch train models on the box itself | `locallm/` exists; layer not yet built |
+| **prove** | `t` and its proof kernels | `t/` runs on Ubuntu today; layer not yet built |
 | **infer** | local model serving | planned |
+
+To boot it yourself on any Ubuntu box, VM or not:
+[`tup/RUN-ON-UBUNTU.md`](tup/RUN-ON-UBUNTU.md) — one apt-get, one qemu
+command, measured at 40 seconds to login even without KVM. The image is a
+2.3 GB qcow2 with its sha256 published beside it.
 
 ### t the language
 
@@ -61,6 +69,14 @@ A task counts only on a **measured flip**: the real program verifies *and* a
 deliberately broken twin is refuted. A twin that still verifies means the
 specification is vacuous, and the task is refused. See [`t/`](t/) and
 [`t/AGREEMENT.md`](t/AGREEMENT.md) for the current cross-kernel table.
+
+The same refusal applies to t's own instrument: `run_all.py` will not conclude
+from fewer than two present kernels — on a machine with none installed it
+prints where it looked for each and exits, because agreement measured on
+nothing is one opinion, or none. Kernels are discovered portably (env var,
+then PATH, then known install globs); the repo pulled onto a fresh Ubuntu box
+found an elan-installed Lean with no configuration at all, verified both tasks
+and refuted both twins.
 
 Agda's adapter is measured and landed; its *lowering* is parked, because the
 standard library has no decision procedure for t's arithmetic fragment and
@@ -89,13 +105,14 @@ distro and the language are where the method goes next.
 
 ## What is honestly not true yet
 
-- **tup is not installable on arbitrary hardware.** The current kernel is
-  configured for a virtual machine (virtio drivers, no initramfs). Real devices
-  need a generic kernel, an initramfs, firmware, and an installer. None of that
-  is written.
-- **tup is arm64 today.** The x86_64 build the one that matters for CUDA and
-  for training is the same driver pointed at a different book, and has not
-  been run.
+- **tup is VM-native by decision, not omission.** It runs everywhere a VM
+  runs, which is everywhere it will actually be used; a bare-metal installer
+  is deleted scope, not missing scope. The kernel carries virtio plus
+  SATA/e1000 fallbacks — VMware and VirtualBox should boot it, but nobody has
+  witnessed that yet, so it is not claimed.
+- **tup is arm64 today.** On an x86_64 host it boots under emulation (measured:
+  40 s to login). A native x86_64 build through the same driver and receipts
+  has not been run.
 - **tup 0.1 is witnessed, not verified.** Nothing here proves the kernel or
   libc correct. It records what was built, from which bytes, in what order.
 - **t v0 is small on purpose:** integers, no quantifiers, no loops, one
