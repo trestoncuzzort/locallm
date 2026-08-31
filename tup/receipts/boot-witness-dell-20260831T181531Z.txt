@@ -1,0 +1,73 @@
+tup boot witness — 20260831T181531Z — ubuntu-box (Ubuntu 24.04, x86_64, pure TCG)
+VERDICT: BOOTED — tup login: on serial console at first check, 45 s after launch
+
+disk      : ~/tup-vm/tup-0.1-arm64.qcow2, reassembled from release v0.1-witness
+            parts (cat part-aa part-ab), 2453012480 bytes
+disk sha256 (pre-boot, exactly as assembled): 5bb06ce14e96097fd7c999e5146850b82d5c347bd5484f5c4d6cb1b032343536
+  parts   : part-aa 77ac9834… OK, part-ab ab79b2e7… OK against SHA256SUMS
+
+TWO FINDINGS, one from the release and one from this witness's first draft:
+  1. SHA256SUMS' whole-file line (acd86268…) does not match the concatenated
+     parts (5bb06ce1…). The parts are internally consistent, so the image
+     booted here is byte-exactly what was uploaded; the whole-file digest is
+     stale — from a different byte stream than the one split for upload.
+     The release needs a corrected SHA256SUMS.
+  2. The witnessed boot itself WROTE to the image (rw virtio attach, as
+     RUN-ON-UBUNTU.md's command attaches it): post-boot the file was
+     2453340160 bytes, sha256 1babcf08…. The first draft of this receipt
+     hashed that mutated file and disagreed with its own parts line. The
+     master was reassembled from the pristine parts (hash re-verified
+     5bb06ce1…) and every future boot goes through a qcow2 overlay
+     (work.qcow2) so the master stays byte-identical to the release.
+
+firmware  : ~/.local/opt/qemu-10.1.3/share/qemu/edk2-aarch64-code.fd (sha256 47765fe344818cbc…)
+qemu      : QEMU emulator version 10.1.3
+  provenance: built from source on this box, no sudo — qemu-10.1.3.tar.xz
+  sha256 fbaa7a0d7a9a1deb…, build deps from conda-forge env qemubuild (glib,
+  pixman, meson, ninja). RUN-ON-UBUNTU.md's micromamba route is UNWITNESSABLE:
+  conda-forge ships no qemu-system package for linux-64 (measured today).
+invocation: -machine virt -cpu cortex-a72 -m 2048 -smp 2, UEFI pflash
+            (readonly) + virtio disk only; no -kernel, no -initrd, no
+            -append — tup booted itself. No KVM in the loop.
+
+--- console transcript (last 40 lines) ---
+[    0.924991] Loading compiled-in X.509 certificates
+[    0.942213] Demotion targets for Node 0: null
+[    0.949102] clk: Disabling unused clocks
+[    0.949494] PM: genpd: Disabling unused power domains
+[    0.954838] check access for rdinit=/init failed: -2, ignoring
+[    0.988129] EXT4-fs (vda2): INFO: recovery required on readonly filesystem
+[    0.988314] EXT4-fs (vda2): write access will be enabled during recovery
+[    1.001063] EXT4-fs (vda2): recovery complete
+[    1.005856] EXT4-fs (vda2): mounted filesystem e966505f-6487-4837-bd01-f802ab20f2b3 ro with ordered data mode. Quota mode: none.
+[    1.006472] VFS: Mounted root (ext4 filesystem) readonly on device 254:2.
+[    1.010297] devtmpfs: mounted
+[    1.081035] Freeing unused kernel memory: 3264K
+[    1.082982] Run /sbin/init as init process
+INIT: version 3.14 booting
+      Mounting virtual file systems: [1;36m/run [1;36m/proc [1;36m/sys [1;36m/dev/shm [1;36m/sys/fs/cgroup      [0G[1;32m  *  [0;39m [72G[1;34m[[1;32m  OK  [1;34m][0;39m
+      Create symlinks in /dev targeting /proc: [1;36m/dev/stdin [1;36m/dev/stdout [1;36m/dev/stderr [1;36m/dev/fd      [0G[1;32m  *  [0;39m [72G[1;34m[[1;32m  OK  [1;34m][0;39m
+      Bringing up the loopback interface...      [0G[1;32m  *  [0;39m [72G[1;34m[[1;32m  OK  [1;34m][0;39m
+      Setting hostname to tup...      [0G[1;32m  *  [0;39m [72G[1;34m[[1;32m  OK  [1;34m][0;39m
+      Populating /dev with device nodes... [    3.131872] udevd[181]: Starting systemd-udevd version 258.1
+[    3.239865] udevd[182]: Using default interface naming scheme 'v258'.
+[    9.243976] (udev-worke[197]: Network interface NamePolicy= disabled on kernel command line.
+      [0G[1;32m  *  [0;39m [72G[1;34m[[1;32m  OK  [1;34m][0;39m
+      Activating all swap files/partitions...      [0G[1;32m  *  [0;39m [72G[1;34m[[1;32m  OK  [1;34m][0;39m
+      Mounting root file system in read-only mode... [   11.082743] EXT4-fs (vda2): re-mounted e966505f-6487-4837-bd01-f802ab20f2b3.
+      [0G[1;32m  *  [0;39m [72G[1;34m[[1;32m  OK  [1;34m][0;39m
+      Checking file systems...      [0G[1;32m  *  [0;39m [72G[1;34m[[1;32m  OK  [1;34m][0;39m
+      Remounting root file system in read-write mode...[   11.297591] EXT4-fs (vda2): re-mounted e966505f-6487-4837-bd01-f802ab20f2b3 r/w.
+      [0G[1;32m  *  [0;39m [72G[1;34m[[1;32m  OK  [1;34m][0;39m
+      Mounting remaining file systems...[   11.389647] FAT-fs (vda1): Volume was not properly unmounted. Some data may be corrupt. Please run fsck.
+      [0G[1;32m  *  [0;39m [72G[1;34m[[1;32m  OK  [1;34m][0;39m
+      Cleaning file systems: /tmp      [0G[1;32m  *  [0;39m [72G[1;34m[[1;32m  OK  [1;34m][0;39m
+      Retrying failed uevents, if any...      [0G[1;32m  *  [0;39m [72G[1;34m[[1;32m  OK  [1;34m][0;39m
+      Setting up Linux console...      [0G[1;32m  *  [0;39m [72G[1;34m[[1;32m  OK  [1;34m][0;39m
+INIT: Entering runlevel: 3
+      Starting system log daemon...      [0G[1;32m  *  [0;39m [72G[1;34m[[1;32m  OK  [1;34m][0;39m
+      Bringing up the eth0 interface...      [0G[1;32m  *  [0;39m [72G[1;34m[[1;32m  OK  [1;34m][0;39m
+      Adding IPv4 address 10.0.2.15 to the eth0 interface...      [0G[1;32m  *  [0;39m [72G[1;34m[[1;32m  OK  [1;34m][0;39m
+      Adding default gateway 10.0.2.2 to the eth0 interface...      [0G[1;32m  *  [0;39m [72G[1;34m[[1;32m  OK  [1;34m][0;39m
+
+tup login: 

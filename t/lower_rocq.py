@@ -165,11 +165,17 @@ Ltac t_numeral t :=
   | _ => fail
   end.
 
-(* replace u with v everywhere, provided lia proves them equal, oriented so a
+(* replace u with v everywhere, provided lia proves them equal. Orientation
+   is load-bearing twice over: when one term occurs inside the other the
+   containing term must be the one replaced, or the merge re-creates its own
+   trigger and t_base diverges (measured: merging i with i+1-1 the wrong way
+   grew -1+1 chains without bound — count_matches' 180 s rocq timeout); and a
    numeral is never the term being replaced *)
 Ltac t_merge a b :=
   first
-  [ tryif (t_numeral b) then fail else idtac; replace b with a in * by lia
+  [ lazymatch b with context [a] => idtac end; replace b with a in * by lia
+  | lazymatch a with context [b] => idtac end; replace a with b in * by lia
+  | tryif (t_numeral b) then fail else idtac; replace b with a in * by lia
   | tryif (t_numeral a) then fail else idtac; replace a with b in * by lia
   ].
 

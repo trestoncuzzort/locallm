@@ -24,6 +24,20 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 
+def safe_text(p: Path) -> str:
+    """Decode a source file for regex scanning WITHOUT crashing on non-UTF8.
+
+    Wave-1 audit (2026-08-31) crashed six of seven adapters with an
+    unhandled UnicodeDecodeError: each read the source with
+    `path.read_text(encoding="utf-8")` before invoking its kernel, so a
+    probe of random bytes killed the adapter instead of scoring MALFORMED.
+    errors="replace" keeps every real byte position intact for the ban
+    regexes (a replacement char never spuriously matches a keyword) while
+    guaranteeing a str. The verdict hash still binds to raw bytes via
+    sha256_file — this function is for scanning, never for hashing."""
+    return p.read_bytes().decode("utf-8", errors="replace")
+
+
 class Outcome:
     VERIFIED = "verified"      # a real proof, and only this is ok=True
     VACUOUS = "vacuous"        # accepted, but for the wrong reason — never a win

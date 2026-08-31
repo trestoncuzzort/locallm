@@ -164,6 +164,62 @@ problem, not a typing task. Parked follow-ups: WP countermodel prover naming
 (why3 lists `counterexamples` configs; -wp-prover spelling TBD), and the
 per-goal gave-up-vs-countermodel refinement shared by SPARK and Frama-C.
 
+**STATUS 2026-08-31 (ubuntu-box):** step zero is DONE — all six kernels
+reinstalled no-sudo on the Dell after the machine wipe (pinned, hashed; see
+`t/WITNESS-2026-08-31-dell.md`) and the full suite run there. The Verus
+remeasure is discharged, after a second repair to the MALFORMED classifier:
+the `error[` stderr match was itself vacuous against the bracketless
+crate-name diagnostic, so REFUTED now requires the solver's own nonzero
+errors count. The Rocq v1 lowering, recorded above as unfinished, lowers and
+flips 10 of 11 as landed; its one remaining cell, count_matches, was a
+non-terminating `t_merge` rewrite in the generated prelude (missing occurs
+check, self-retriggering `replace`) and is fixed at the root. `t/run_par.py`
+(cell-parallel driver, adversarially reviewed, cross-checked byte-identical
+against `run_all.py`) cuts a full suite from 27 min to the slowest cell.
+
+**STATUS 2026-08-31 (ubuntu-box, evening): 7 kernels, 77/77 FULL
+AGREEMENT.** F\* is landed as the seventh kernel — SMT-track item 3 done:
+official v2026.08.30 binary, taxonomy measured on the box before the adapter
+was written, full column flips, adversarial skeptic reproduced it from
+scratch and caught `[@@expect_failure]` as a verify-anything hole (now
+banned; fix red-witnessed). WS-8's x86_64 question is answered in
+`tup/X86-FEASIBILITY.md`: GO via KVM guest once the account joins the `kvm`
+group; TCG measured ~14x as the fallback; rootless chroot measured dead.
+
+**STATUS 2026-08-31 (adapter audit — the instrument turned on itself).**
+Seven hostile agents, one per kernel, were told to make a FALSE theorem pass
+through each adapter. They found ~38 holes, every one with a live probe.
+Three classes: (1) acceptance mistaken for proof — empty files,
+comments-only files, `verified==0` runs, and a Lean binary pointed at
+`/bin/true` all returned VERIFIED, which reaches the HONEST pipeline, not
+just adversarial input; (2) evadable lexical bans — word-boundary escapes
+(`sorryAx`, `tadmit`, `assume_specification`), Axiom synonyms (`Parameter`,
+`Conjecture`), pragma-versus-aspect forms, comment-hidden and
+macro-expanded admits, an ACSL `axiomatic` block never banned at all;
+(3) output-parse injection — rocq's closedness gate is a substring search,
+so a decoy `Print Assumptions` on a trivial lemma prints the sentinel while
+the real proof's audit is withheld; Lean falls the same way to
+`#guard_msgs`. Plus six of seven adapters crashed on non-UTF8 input.
+
+The repair inverts the trust model: **stop blocklisting bad mechanisms;
+require positive evidence that the named obligation was discharged.** After
+one hardening wave and an independent re-attack per kernel, **dafny, lean
+and rocq are SOUND** (no probe scores a false VERIFIED; dafny survived 56).
+**verus, spark, framac and fstar remain porous**, and the four survivors
+share one root cause worth stating as a law: *semantic vacuity is not
+detectable by regex.* `requires 1 == 0`, `Pre => (1 = 2)`, a content-free
+`Post => (True)`, and a non-well-founded ACSL logic function all let the
+solver honestly discharge an obligation whose hypothesis is unsatisfiable.
+Dafny is sound precisely BECAUSE its adapter runs a semantic vacuity probe
+(`--warn-contradictory-assumptions`) rather than a word list. The fix for
+the rest is each kernel's own equivalent — `-wp-smoke-tests` for Frama-C
+(already named in 7.4's known-bad-flags list as a default that must not stay
+off), an `assert false` reachability probe for Verus, GNATprove's
+inconsistent-precondition proof warnings for SPARK. F\*'s hole is different:
+its positive-evidence counter greps stdout for `Query-stats`, which a
+`print` in the source can forge, so the count must come from a channel the
+source cannot write to.
+
 The Dafny pipeline (`~/srlm-forge/dafny_verify.py`, `dafny_pairs.py`) is the specification: a five-way measured outcome taxonomy (VERIFIED / REFUTED / MALFORMED / VACUOUS / TIMEOUT), a deterministic resource budget with a hash-pinned toolchain fingerprint, flake-checking before any verdict is trusted, single-hint ablation kept only on a measured verified→refuted flip, spec mutation, permissive-only shipping, and headless no-sudo installs on macOS-arm64 and Ubuntu 24.04. Nine languages were dossiered and every dossier survived a hostile fact-check; all tiers below are post-correction (no tier was overturned, but several load-bearing details were — they are folded in here, not in the dossiers). Limits first: no Ubuntu install below was executed on the actual box except Dafny's; every "proven" claim is macOS-measured plus a verified self-contained Linux artifact, and step zero on the Dell is always to re-run the language's probe matrix there.
 
 ### 7.1 The matrix

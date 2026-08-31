@@ -34,6 +34,7 @@ BACKENDS = [
     ("framac", "lower_framac", "c"),
     ("lean", "lower_lean", "lean"),
     ("rocq", "lower_rocq", "v"),
+    ("fstar", "lower_fstar", "fst"),
     # agda: adapter exists (verifiers/agda.py, taxonomy measured 2026-08-31);
     # the LOWERING is parked — no lia/omega analogue in the stdlib means the
     # proof-synthesis template is a design problem, recorded in ROADMAP.md.

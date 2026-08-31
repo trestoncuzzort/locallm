@@ -11,9 +11,27 @@ measured, not hoped.
 sudo apt-get install qemu-system-arm qemu-efi-aarch64
 ```
 
-No sudo on the box? QEMU also installs user-local via a conda/micromamba
-environment (`micromamba install -c conda-forge qemu`); everything below is
-identical except the firmware path.
+No sudo on the box? The previous revision of this file claimed conda-forge
+ships QEMU; **it does not** (measured 2026-08-31 on the lab Dell: conda-forge
+has no `qemu-system-*` package for linux-64 at all — only user-mode
+`qemu-execve-*`). The witnessed no-sudo route is to build it, which conda-forge
+*can* supply the build deps for:
+
+```sh
+micromamba create -y -n qemubuild -c conda-forge glib pixman meson ninja pkg-config zlib libslirp
+curl -LO https://download.qemu.org/qemu-10.1.3.tar.xz   # sha256 fbaa7a0d7a9a1deb…
+tar xf qemu-10.1.3.tar.xz && cd qemu-10.1.3
+ENV=$(micromamba env list | awk '/qemubuild/{print $NF}')
+micromamba run -n qemubuild env PKG_CONFIG_PATH=$ENV/lib/pkgconfig \
+  ./configure --prefix=$HOME/.local/opt/qemu-10.1.3 --target-list=aarch64-softmmu \
+  --disable-docs --extra-ldflags="-Wl,-rpath,$ENV/lib"
+micromamba run -n qemubuild make -j"$(nproc)" -C build && micromamba run -n qemubuild make -C build install
+```
+
+Everything below is identical except the firmware path, which becomes
+`~/.local/opt/qemu-10.1.3/share/qemu/edk2-aarch64-code.fd` (QEMU bundles its
+own EDK2 blobs). Witnessed on ubuntu-box 2026-08-31:
+`receipts/boot-witness-dell-20260831T181531Z.txt`.
 
 ## 2. Get the image
 
@@ -41,6 +59,17 @@ it emulates, and tup's boot is small enough that this is fine.
 
 Log in as `root` (no password on the witness image; set one). To exit QEMU
 from `-nographic`: `Ctrl-a x`.
+
+**The command above writes to the qcow2** — the guest remounts rw and touches
+the filesystem on every boot, so your image immediately stops matching
+`SHA256SUMS` (measured 2026-08-31: one boot changed the file's size and
+digest). If you care about keeping the verified bytes, boot an overlay and
+leave the master pristine:
+
+```sh
+qemu-img create -f qcow2 -b tup-0.1-arm64.qcow2 -F qcow2 work.qcow2
+# then boot work.qcow2 instead; or add -snapshot to the command above
+```
 
 Note what is *not* in that command: no `-kernel`, no `-initrd`, no `-append`.
 QEMU provides firmware and a disk, nothing else. Everything that executes
