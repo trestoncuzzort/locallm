@@ -74,7 +74,7 @@ cleanup_resolv() { [ -n "$RESOLV_BOUND" ] && umount "$LFS/etc/resolv.conf" 2>/de
 trap cleanup_resolv EXIT
 
 chroot "$LFS" /usr/bin/env -i HOME=/root TERM=xterm \
-  PATH=/usr/bin:/usr/sbin:/opt/node-v24.20.0/bin MAKEFLAGS=-j"$(nproc)" LFS= \
+  PATH=/usr/bin:/usr/sbin:/opt/node-v24.20.0/bin MAKEFLAGS=-j"$(nproc)" LFS=/ \
   TUP_OVERRIDES=/tup-build/overrides \
   /bin/bash /tup-build/driver.sh /tup-build/layers/agent \
   || { cleanup_resolv; fail "layer install failed; the driver stopped on a named page"; }

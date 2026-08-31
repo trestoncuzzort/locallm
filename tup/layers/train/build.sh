@@ -65,7 +65,7 @@ mountpoint -q "$LFS/proc" || bash -e /home/lfs/book/ch07/03-kernfs.sh >/dev/null
 cleanup_resolv() { :; }
 
 chroot "$LFS" /usr/bin/env -i HOME=/root TERM=xterm \
-  PATH=/usr/bin:/usr/sbin:/opt/node-v24.20.0/bin MAKEFLAGS=-j"$(nproc)" LFS= \
+  PATH=/usr/bin:/usr/sbin:/opt/node-v24.20.0/bin MAKEFLAGS=-j"$(nproc)" LFS=/ \
   TUP_OVERRIDES=/tup-build/overrides \
   /bin/bash /tup-build/driver.sh /tup-build/layers/train \
   || { cleanup_resolv; fail "layer install failed; the driver stopped on a named page"; }
