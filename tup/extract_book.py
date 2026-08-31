@@ -85,7 +85,16 @@ def toc_pages(chapter: int) -> list[str]:
     # temporary Python never got built and glibc's configure failed three
     # chapters later with "critical programs are missing: python". Any class
     # that can silently drop a page is a defect; this one now also COUNTS.
-    pat = re.compile(rf'href="(chapter{chapter:02d}/[A-Za-z0-9+.-]+\.html)"')
+    # `href=\s*"` and not `href="`: the book's HTML wraps lines between the
+    # attribute and its value —
+    #     <a href=
+    #     "chapter09/bootscripts.html">
+    # so a contiguous pattern silently dropped every page whose link happened
+    # to wrap. That cost ch08/libpipeline (which broke man-db) and, far worse,
+    # ch09/bootscripts — the page that installs the init scripts. tup would
+    # have built completely, booted, and had no init system.
+    pat = re.compile(
+        rf'href=\s*"(chapter{chapter:02d}/[A-Za-z0-9+.-]+\.html)"')
     seen, out = set(), []
     for m in pat.finditer(idx):
         p = m.group(1)
@@ -164,6 +173,25 @@ def main() -> int:
             print(f"  ch{ch:02d}/{i:02d}-{name}.sh  "
                   f"[{tarball or 'action'}] {len(blocks)} blocks")
         (outdir / "ORDER").write_text("\n".join(manifest) + "\n", encoding="utf-8")
+
+        # COUNT AGAINST THE BOOK'S OWN CHAPTER INDEX. Every page-dropping bug
+        # in this extractor has been invisible in its output and obvious in
+        # its arithmetic; this is the check that makes the arithmetic
+        # automatic instead of something someone remembers to do.
+        try:
+            cidx = fetch(f"{BASE}chapter{ch:02d}/chapter{ch:02d}.html")
+            listed = {m.group(1) for m in re.finditer(
+                r'href=\s*"([a-zA-Z0-9+._-]+\.html)"', cidx)
+                if not m.group(1).startswith("chapter")}
+            got = {p.rsplit("/", 1)[-1] for p in pages}
+            lost = sorted(listed - got)
+            if lost:
+                print(f"  !! ch{ch:02d}: {len(lost)} page(s) in the book's own "
+                      f"index are MISSING from this extraction: {', '.join(lost)}")
+                return 1
+            print(f"  ch{ch:02d}: {len(got)} pages, matches the book's index")
+        except Exception as e:                            # noqa: BLE001
+            print(f"  ch{ch:02d}: could not verify against the chapter index ({e})")
     return 0
 
 

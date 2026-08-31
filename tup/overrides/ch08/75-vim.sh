@@ -5,7 +5,7 @@
 # the page (including the /etc/vimrc heredoc) is the book's own.
 set -e
 PAGE=""
-for c in /tup-build/book/ch08/74-vim.sh /home/lfs/book/ch08/74-vim.sh; do
+for c in /tup-build/book/ch08/75-vim.sh /home/lfs/book/ch08/75-vim.sh; do
   [ -s "$c" ] && { PAGE="$c"; break; }
 done
 [ -n "$PAGE" ] || { echo "override: cannot find the vim page"; exit 1; }

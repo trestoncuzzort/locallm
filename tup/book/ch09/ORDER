@@ -1,8 +1,9 @@
 01-introduction.sh
-02-udev.sh
-03-symlinks.sh
-04-network.sh
-05-usage.sh
-06-locale.sh
-07-inputrc.sh
-08-etcshells.sh
+02-bootscripts.sh
+03-udev.sh
+04-symlinks.sh
+05-network.sh
+06-usage.sh
+07-locale.sh
+08-inputrc.sh
+09-etcshells.sh

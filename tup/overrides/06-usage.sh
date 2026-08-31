@@ -6,7 +6,7 @@
 # is a login prompt on the serial console; this is the line that produces it.
 set -e
 PAGE=""
-for cand in /tup-build/book/ch09/05-usage.sh /home/lfs/book/ch09/05-usage.sh; do
+for cand in /tup-build/book/ch09/06-usage.sh /home/lfs/book/ch09/06-usage.sh; do
   [ -s "$cand" ] && { PAGE="$cand"; break; }
 done
 [ -n "$PAGE" ] || { echo "override: cannot find the usage page"; exit 1; }
