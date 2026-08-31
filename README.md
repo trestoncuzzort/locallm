@@ -1,15 +1,23 @@
 # locallm
 
-**Build and train your own language model from scratch, on your own machine, from your own text.**
+**A local learning model: a small model that learns whatever your machine writes —
+trained from scratch, on your own hardware, from your own data.**
 
 No pretrained weights. No API. No account. Nothing leaves your computer.
+
+The name is not short for "local language model." It is a **local learning model**:
+point it at the text-shaped data your life actually produces — notes, code, machine
+logs, query dumps, sensor exports — and it learns the structure of *that*, where the
+data lives. It is built like a language model because a character-level transformer is
+the simplest honest machine for the job, but conversation is not the product. Learning
+your data, measurably and verifiably, is.
 
 You can optionally **download plain text to train on** (`get_corpus.py`), never weights.
 The model is always built from random numbers on your machine; what you download is
 something to read, not something that already knows how to write.
 
 The model starts as random numbers. The vocabulary is built from exactly the characters
-in the text you give it. You watch it learn.
+in the data you give it. You watch it learn.
 
 ```
 python studio.py
@@ -21,10 +29,10 @@ python studio.py
 > models today and the results below are real, but interfaces will change, features are
 > missing, and the limits section further down is not modesty. It is accurate.
 >
-> **There is now a one-click installer.** Download `Install_locallm.exe` from the
-> [latest release](../../releases), run it, and it fetches the app, works out what your
-> graphics card can do, installs the matching build of PyTorch and puts a shortcut on
-> your Desktop. No `pip`, no virtualenv, no command line.
+> **Setup is one script.** Run `INSTALL.bat` (Windows) and it builds a private Python
+> environment beside these files, installs the PyTorch build that matches your graphics
+> card, and puts a shortcut on your Desktop. The one-click bootstrapper built for the
+> old standalone repository is archived at `releases-archive/v0.1.0/Install_locallm.exe`.
 >
 > **One requirement is not gone yet: you still need Python installed** (3.10 or newer,
 > and not the very newest, see below). The installer checks, and tells you exactly what
@@ -32,6 +40,25 @@ python studio.py
 > still the goal. See [Roadmap](#roadmap).
 
 ---
+
+## One project, two scales
+
+This folder lives inside **srlm-forge**, and that is not packaging — it is the point.
+They were always one project; the split into two repositories was an accident of
+history, now repaired.
+
+The repository root asks: *when a model is trained and a benchmark says it improved,
+how much of that number is real?* It asks at 8-billion-parameter scale, with an
+execution-verified training pipeline, and the answer became a paper ("Automated
+Oracles Are Not Enough") whose main finding is that the measuring instrument, not the
+model, produced roughly half the gain.
+
+This folder is the same question at a scale you can hold in your hand. Every defense
+the research arm had to invent — preregistered bars, leakage gates, noise floors,
+machine-checked claims, an append-only run ledger — exists here too, wrapped around a
+model small enough that a full training run costs under a minute and every claim can be
+re-derived on a laptop. The forge is where the method is stress-tested against a real
+benchmark. locallm is where anyone can run the method themselves.
 
 ## What this actually is
 
@@ -41,7 +68,7 @@ A small, readable, from-scratch GPT and a GUI so you don't need a terminal to us
 |---|---|
 | `model.py` | The transformer. Decoder-only GPT, written out in full: attention, MLP, blocks, weight tying, GPT-2 scaled init. ~145 lines. |
 | `data.py` | A character-level tokenizer built from *your* corpus, plus batching. No external tokenizer, nothing downloaded. |
-| `train.py` | The training loop. Random init → your weights. Cosine schedule, warmup, gradient clipping, bf16 autocast when your GPU supports it. |
+| `train.py` | The training loop. Random init → your weights. Cosine schedule, warmup, gradient clipping, bf16 autocast where it is measured to help (CUDA and Apple-silicon GPUs). |
 | `generate.py` | Sample from a model you trained. |
 | `checkpoint.py` | Loads a saved model back off disk and samples from it. One implementation, shared by `generate.py` and the GUI so they cannot drift apart. |
 | `make_corpus.py` | Point it at a folder; it builds `corpus.txt` from your files. Accepts any file whose **content** is text, refuses binaries by their bytes, and warns when your vocabulary gets expensive. |
@@ -49,7 +76,7 @@ A small, readable, from-scratch GPT and a GUI so you don't need a terminal to us
 | `studio.py` | The GUI. Pick a size and a practice length from presets, train, watch how many characters it is still choosing between, and write something with it. Advanced settings hold every original knob. |
 | `leakage.py` | Finds training text hiding in your validation set, and says so. |
 | `baselines.py` | Scores a lookup table on the same held-out text as your model, so "it learned" is a comparison, not a feeling. |
-| `bench_device.py` | Times a real training step on your hardware and tells you what it can handle. |
+| `bench_device.py` | Times a real training step on your hardware — CPU, CUDA, or Apple-silicon — and tells you what it can handle. |
 | `install.py` | Sets the app up on your computer: builds a private Python environment beside these files, installs the PyTorch build that matches your graphics card, and puts a shortcut on your Desktop. Run it through `INSTALL.bat`. It uses only the standard library, so it works on a computer where nothing is installed yet, and it asks PyTorch which Python versions it supports rather than guessing. |
 | `check_my_computer.py` | Run this first. Checks Python, Tk, memory, disk and graphics card, times a real training step, and says in plain words what you can train and how long it takes. Writes the file the studio reads to show real minutes instead of "not timed yet". |
 | `test_detectors.py` | Tests for the leakage detector. `python test_detectors.py`, no framework. |
@@ -62,18 +89,20 @@ Dependencies: **PyTorch and Tk.** That's it. Tk ships with Python.
 
 ## Install
 
-**The easy way.** Download `Install_locallm.exe` from the
-[latest release](../../releases) and run it. It downloads the app to
-`C:\Users\<you>\locallm`, picks the right PyTorch for your machine, checks the
-result, and adds a Desktop shortcut called **Train My AI**. It needs no administrator rights and writes
-nothing outside that folder and the shortcut.
+**Windows.** Run `INSTALL.bat` in this folder. It builds a private environment, picks
+the right PyTorch for your machine, checks the result, and adds a Desktop shortcut
+called **Train My AI**. It needs no administrator rights and writes nothing outside
+this folder and the shortcut. (The one-click bootstrapper from the standalone-repo era
+is preserved at `releases-archive/v0.1.0/Install_locallm.exe`; it downloaded from a
+release that no longer exists, so use `INSTALL.bat` directly now.)
 
-**Already have the files?** Run `INSTALL.bat` in this folder. It does the same setup
-without the download step.
+**Mac and Linux.** `pip install torch`, then `python studio.py`. Apple-silicon Macs
+train on the GPU automatically — no CUDA, no configuration; the device is picked in
+one place (`train.pick_device`) and the studio, the CLI, and the benchmark all use it.
 
-**What "picks the right PyTorch" means.** It asks `nvidia-smi` whether you have an
-NVIDIA card and installs the CUDA build if you do and the processor-only build if you
-don't. Both train; the CPU one is slower (there is a measured table in
+**What "picks the right PyTorch" means.** The installer asks `nvidia-smi` whether you
+have an NVIDIA card and installs the CUDA build if you do and the processor-only build
+if you don't. Both train; the CPU one is slower (there is a measured table in
 [Roadmap](#roadmap)).
 
 **About your Python version.** PyTorch does not publish a build for the newest Python
@@ -92,10 +121,18 @@ Put **any text files you have** in `training_data/`: `.txt`, `.md`, `.py`, but a
 then run `python start_studio.py`. It rebuilds the corpus and opens the studio.
 
 Files are accepted on **content, not extension**: anything whose bytes are text gets
-in, anything binary is refused and says so. That is deliberate. The point is to train
-on the data you actually have, not on the three file types this project happened to
-guess. Machine logs, sensor exports and query dumps are all just text to a
-character-level model.
+in, anything binary is refused and says so. That is deliberate, and it is the local
+learning model idea in one rule: the point is to learn the data you actually have, not
+the three file types this project happened to guess. Machine logs, sensor exports and
+query dumps are all just structure to a character-level model — a model trained on
+your logs learns your logs' grammar, and that has nothing to do with chat.
+
+A worked example of exactly that: a corpus of 1,947 Dafny files (a formal verification
+language — dense, non-prose, structure everywhere) trains the default model to
+recognizable Dafny in under a minute on an Apple-silicon GPU, and the leakage scanner
+correctly flags that boilerplate test headers straddle the train/validation split
+rather than letting the val loss pass unqualified. The tooling telling you *that* is
+the product working as designed.
 
 On Windows, double click `Train My AI.bat` instead, or make a desktop shortcut to it, and
 you never need a terminal at all.
@@ -129,7 +166,8 @@ Checkpoints are plain `ckpt.pt` + `tokenizer.json` in your output folder. They'r
 ## What makes it different
 
 Most small-model repos show you a loss curve going down and let you feel good about it.
-This one is built to stop you fooling yourself:
+This one is built to stop you fooling yourself — because its sibling project spent
+months learning, at 8B scale, exactly how measurement lies:
 
 - **It refuses to hand you a fake number.** Before training, it checks whether your
   validation text also appears in your training text. If it does, val loss is measuring
@@ -215,8 +253,9 @@ documents land in training. The verdict did not change, the margin did.
 
 Read this part before you expect too much.
 
-- **A small model trained on one person's text produces mediocre text.** This is not ChatGPT
-  and it is not close. That is compute and data scale, not a bug to engineer around.
+- **A small model trained on one person's data produces mediocre output.** This is not
+  ChatGPT and it is not close. That is compute and data scale, not a bug to engineer
+  around. What it learns is the *structure* of your data; what it cannot do is converse.
 - **Character-level tokenizer.** Simple and dependency-free, but less efficient per token
   than BPE.
 - **A tiny corpus, or one dominated by a single huge document, cannot be split cleanly.**
@@ -240,23 +279,20 @@ Read this part before you expect too much.
 
 In order. The training core gets sharpened before anything expands.
 
-**1. One click installer, the headline goal. MOSTLY DONE, one requirement left.**
-`Install_locallm.exe` ships now: download it, run it, and it fetches the app, detects
-your graphics card, installs the matching PyTorch, verifies the result and makes a
-shortcut. `pip`, virtualenvs and the command line are gone from the user's path.
+**1. Setup with no terminal and no Python. PARTLY DONE.**
+`install.py`/`INSTALL.bat` handle the environment, the right PyTorch build, and the
+Desktop shortcut today, with no administrator rights. The remaining piece is the Python
+runtime itself: bundling it so the requirement disappears. Bundling a runtime is easy,
+but PyTorch with CUDA is roughly 2.5 GB, which no amount of packaging polish makes
+friendly. The plan: a CPU-capable default with the GPU build as an opt-in, and the
+runtime bundled so the user never sees it.
 
-**What is left: the Python runtime itself.** The installer still requires Python to be
-on the machine, and that is the last piece of "no terminal, ever" that has not landed.
-It is also the awkward one. Bundling a Python runtime is easy, but PyTorch with CUDA is
-roughly 2.5 GB, which no amount of packaging polish makes friendly. The plan is unchanged:
-a CPU capable default with the GPU build as an opt in, and the runtime bundled so the
-user never sees it.
-
-The version trap this already solves is worth naming, because it is the one that bites
-hardest: PyTorch publishes no wheels for the newest Python for some months after release,
-so a user who installs Python today gets the one version that cannot work, and the failure
-is an unreadable resolver error. The installer asks the package index which versions are
-supported instead of carrying a hardcoded list that would go stale.
+The version trap the installer already solves is worth naming, because it is the one
+that bites hardest: PyTorch publishes no wheels for the newest Python for some months
+after release, so a user who installs Python today gets the one version that cannot
+work, and the failure is an unreadable resolver error. The installer asks the package
+index which versions are supported instead of carrying a hardcoded list that would go
+stale.
 
 That plan rests on CPU training being tolerable, which is a measurable claim, so it was
 measured rather than assumed. Run `python bench_device.py` to get the same table for your
@@ -268,9 +304,18 @@ own machine. On an RTX 4080 with a Ryzen 7000 series CPU, for a full 2000 step r
 | default (4L, 256 wide) | 3.18M | 5.4 min | 14s | 23.8x |
 | large (6L, 512 wide) | 18.96M | 56.9 min | 40s | 84.9x |
 
+And on an Apple M5 Pro (unified memory, MPS backend), same protocol:
+
+| size | params | CPU | GPU (MPS) | GPU speedup |
+|---|---|---|---|---|
+| small (2L, 128 wide) | 0.41M | 38s | 11s | 3.4x |
+| default (4L, 256 wide) | 3.19M | 3.8 min | 42s | 5.4x |
+| large (6L, 512 wide) | 18.98M | 28.6 min | 5.2 min | 5.5x |
+
 So a CPU only install is genuinely fine at the small size, usable at the default, and
-impractical above it. That is the shape the installer should follow: detect the hardware,
-pick a size the machine can actually finish, and say which it chose.
+impractical above it — and an ordinary Apple-silicon laptop with no NVIDIA card at all
+trains every size this ships. That is the shape the installer should follow: detect the
+hardware, pick a size the machine can actually finish, and say which it chose.
 
 **2. Leakage scan and group aware splitting. DONE.**
 Shipped in `leakage.py`, and wired into the GUI and the training loop. Measured on this
@@ -293,6 +338,14 @@ improvement is inside noise, it isn't real" instead of letting you believe it.
 
 **4. Training that resumes and keeps going.**
 Resume from a checkpoint and train for as long as you want, rather than a fixed step count.
+
+**5. Learning that is verified, not just scored.**
+The research arm of this repository (the root) trains against executed tests and studies
+what verified feedback is actually worth; its newest tooling generates verified pairs
+from Dafny, a language whose compiler proves code correct. As that machinery matures,
+the goal is for what it learns about honest verification to flow back into what this
+trainer reports about your model. One method, two scales — see
+[One project, two scales](#one-project-two-scales).
 
 Further out: an assistant layer that can reason and act on your machine. That is a separate
 track, built against whatever local model is strongest, because a small from-scratch model
@@ -317,22 +370,25 @@ nothing needs an account, nothing expires, and no terms of service update can re
 backwards and take it away. Run it in ten years on a disconnected laptop and it behaves
 exactly as it does today, because every part of it is already in your hands.
 
-That is the whole point. Not that a small model trained on your own text will beat a
-frontier model. It will not, and this README says so plainly further down. The point is
+That is the whole point. Not that a small model trained on your own data will beat a
+frontier model. It will not, and this README says so plainly above. The point is
 that it is *yours*, permanently, and that you can see and change every part of how it
 works.
 
 ### The goal
 
-Make training your own language model something an ordinary person can actually do.
+Make training your own model something an ordinary person can actually do — and make
+the numbers it reports mean something.
 
 Not "download someone else's weights and run them locally", which is already a solved
 problem with good tools. This is the other thing: start from random numbers, learn from
-text you chose, on hardware you own, and watch it happen. Understanding how the thing
-works should not require a research group, a cloud account, or a credit card.
+data you chose, on hardware you own, and watch it happen — with tooling that tells you
+when a result is real and when it is an artifact of how it was measured. Understanding
+how the thing works should not require a research group, a cloud account, or a credit
+card.
 
 The direction of travel is a single installer, no terminal, no Python, no configuration
-files. Point it at a folder of your own writing and press train. See the
+files. Point it at a folder of your own data and press train. See the
 [Roadmap](#roadmap) for where that stands.
 
 ### Free for everyone
