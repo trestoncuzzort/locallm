@@ -6,7 +6,7 @@ $ file .venv-train/Scripts/python.exe
 .venv-train/Scripts/python.exe: PE32+ executable (console) x86-64, for MS Windows
 
 $ python3 -c "import dataset_gate as dg; print(dg.verify_py()); print(dg.interpreter_fingerprint())"
-/home/me/Documents/research/user-home/srlm-forge/.venv-train/Scripts/python.exe
+~/Documents/research/user-home/srlm-forge/.venv-train/Scripts/python.exe
 {'interpreter': 'python unknown'}
 
 $ direct exec attempt

@@ -5,8 +5,8 @@ Paste it to the Claude instance on that machine as its first message.
 
 ## Machine etiquette comes first
 
-`ubuntu-box` is shared with two PhD students (two PhD students). Written policy from
-the machine's owner: **PhD experiments always take priority over undergraduate experiments.**
+`ubuntu-box` is shared with two PhD students. Written policy from the machine's
+owner: **PhD experiments always take priority over undergraduate experiments.**
 Before starting GPU work, check whether the card is busy:
 
     nvidia-smi
@@ -134,7 +134,7 @@ file as it stood 19 days earlier (`c0ffaa5`, 2026-08-03, vs the receipt's `f755d
 The verifier was deliberately changed and disclosed; the receipt was never regenerated. So the
 gate refuses on Windows too — this is not something the port caused.
 
-DO NOT regenerate the receipt. the maintainer's standing instruction as of 2026-08-25 is that the
+DO NOT regenerate the receipt. The maintainer's standing instruction as of 2026-08-25 is that the
 staleness is known, already disclosed in the manuscript, and is NOT to be repaired without an
 explicit decision. An earlier version of this document told you to run `verify_dataset.py` here;
 that instruction is withdrawn. If a run genuinely requires a valid receipt, ask first.

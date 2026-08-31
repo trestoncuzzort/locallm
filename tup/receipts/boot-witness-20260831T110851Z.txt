@@ -1,7 +1,7 @@
 tup boot witness — 20260831T110851Z
 VERDICT: BOOTED
 
-disk      : /home/me/.lima/_disks/lfs/datadisk
+disk      : ~/.lima/_disks/lfs/datadisk
 disk bytes: 128849018880
 firmware  : /opt/homebrew/share/qemu/edk2-aarch64-code.fd
 qemu      : QEMU emulator version 11.1.1

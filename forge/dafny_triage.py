@@ -62,7 +62,7 @@ the files that actually have combinatorics to explore.
 
 OUTPUT
 ------
-Two JSONL files under /home/user/dafny-corpus/ (never under srlm-forge —
+Two JSONL files under ~/dafny-corpus/ (never under srlm-forge —
 this is corpus metadata, other stages read it from the corpus dir):
   triage.jsonl     — one record per file actually attempted, full classification.
   seed_rank.jsonl  — the is_seed subset of triage.jsonl, sorted by hint_count
@@ -87,7 +87,7 @@ import dafny_pairs as dp
 
 SCHEMA = 1
 
-CORPUS_ROOT = Path(os.environ.get("DAFNY_CORPUS", "/home/user/dafny-corpus"))
+CORPUS_ROOT = Path(os.environ.get("DAFNY_CORPUS", str(Path.home() / "dafny-corpus")))
 
 # Directory convention specific to dafny-main's own .NET test projects and lit
 # harness. See module docstring for the measured specificity check.
