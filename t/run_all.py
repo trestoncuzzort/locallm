@@ -60,19 +60,46 @@ def main() -> int:
         cols.append((bname, ver))
         for tpath in tasks:
             task = harness.load(tpath)
+            twin_body, op = harness.make_twin(task["body"])
+            if twin_body is None:
+                cell = ("no-twin", "no-twin", True)
+                rows[task["name"]][bname] = cell
+                all_ok = False
+                print(f"  {task['name']} x {bname}: no twin operator applies"
+                      f"  <-- FINDING")
+                continue
+            try:
+                real_src = lower(task, task["body"])
+                twin_src = lower(task, twin_body)
+            except NotImplementedError as e:
+                # An explicit ABSTAIN from the lowering: a recorded absence.
+                cell = ("abstain", "abstain", True)
+                rows[task["name"]][bname] = cell
+                all_ok = False
+                print(f"  {task['name']} x {bname}: ABSTAIN — {e}")
+                continue
+            except Exception as e:                        # noqa: BLE001
+                # The lowering cannot express this task yet and did not say
+                # so on purpose. Recorded, not fatal: one cell's absence must
+                # not silence every other measurement in the run.
+                cell = ("lower-error", "lower-error", True)
+                rows[task["name"]][bname] = cell
+                all_ok = False
+                print(f"  {task['name']} x {bname}: LOWER-ERROR — "
+                      f"{type(e).__name__}: {e}")
+                continue
             real = harness.OUT / f"{task['name']}.{suffix}"
-            real.write_text(lower(task, task["body"]), encoding="utf-8")
-            twin_body, ok_twin = harness.collapse_first_if(task["body"])
-            twin = harness.OUT / f"{task['name']}.twin.{suffix}"
-            twin.write_text(lower(task, twin_body), encoding="utf-8")
+            real.write_text(real_src, encoding="utf-8")
+            twin = harness.OUT / f"{task["name"]}_twin.{suffix}"
+            twin.write_text(twin_src, encoding="utf-8")
             r_real, a1 = flake_check(backend.verify, real)
             r_twin, a2 = flake_check(backend.verify, twin)
-            cell = (r_real.outcome, r_twin.outcome,
-                    a1 and a2 and ok_twin)
+            cell = (r_real.outcome, r_twin.outcome, a1 and a2)
             rows[task["name"]][bname] = cell
             good = cell == (Outcome.VERIFIED, Outcome.REFUTED, True)
             all_ok &= good
-            print(f"  {task['name']} x {bname}: real={cell[0]} twin={cell[1]}"
+            print(f"  {task['name']} x {bname} [{op}]: "
+                  f"real={cell[0]} twin={cell[1]}"
                   + ("" if good else "  <-- FINDING"))
 
     # VACUOUS AGREEMENT IS NOT AGREEMENT. With no kernel installed the loop

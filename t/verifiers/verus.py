@@ -70,6 +70,16 @@ def verify(path: Path, budget: int = DEFAULT_RLIMIT) -> Result:
         outcome = Outcome.VERIFIED
     elif "rlimit" in (p.stdout + p.stderr).lower() and "exceeded" in (p.stdout + p.stderr).lower():
         outcome = Outcome.TIMEOUT
+    elif vr.get("verified", 0) == 0 and "error[" in p.stderr:
+        # rustc refused the file BEFORE verification: zero functions were
+        # verified and a compile diagnostic is present. This is MALFORMED,
+        # never REFUTED. The adversarial audit proved the old fallthrough
+        # vacuous: twins named <name>.twin.rs died on the dotted crate name,
+        # the compile error was scored as a refutation, and byte-identical
+        # correct code flipped verdicts on its filename alone. A refutation
+        # must come from the solver rejecting a proof, not the compiler
+        # rejecting a filename.
+        outcome = Outcome.MALFORMED
     else:
         outcome = Outcome.REFUTED
     return Result("verus", version(), src_hash, outcome,

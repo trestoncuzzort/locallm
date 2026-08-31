@@ -1,12 +1,15 @@
 /*@
+  assigns \nothing;
   ensures (\result >= x);
   ensures (\result >= y);
   ensures ((\result == x) || (\result == y));
 */
 int max_t(int x, int y) {
-  if (x >= y) {
-    return x;
+  int r;
+  if ((x >= y)) {
+    r = x;
   } else {
-    return y;
+    r = y;
   }
+  return r;
 }

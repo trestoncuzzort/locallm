@@ -1,11 +1,14 @@
 /*@
+  assigns \nothing;
   ensures (\result >= 0);
   ensures ((\result == x) || (\result == (-x)));
 */
 int abs_t(int x) {
-  if (x < 0) {
-    return (-x);
+  int r;
+  if ((x < 0)) {
+    r = (-x);
   } else {
-    return x;
+    r = x;
   }
+  return r;
 }

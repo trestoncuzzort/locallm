@@ -1,11 +1,22 @@
-# t cross-kernel agreement — 2026-08-31 12:11Z
+# t cross-kernel agreement — 2026-08-31 12:36Z
 
 Cell = real outcome / twin outcome. Agreement means `verified / refuted` in every present column.
 
 | task | dafny | verus | spark | framac | lean | rocq |
 |---|---|---|---|---|---|---|
 | abs | verified / refuted | verified / refuted | verified / refuted | verified / refuted | verified / refuted | verified / refuted |
+| all_nonneg | lower-error / lower-error | lower-error / lower-error | lower-error / lower-error | lower-error / lower-error | lower-error / lower-error | lower-error / lower-error |
+| contains | lower-error / lower-error | lower-error / lower-error | lower-error / lower-error | lower-error / lower-error | lower-error / lower-error | lower-error / lower-error |
+| count_matches | lower-error / lower-error | lower-error / lower-error | lower-error / lower-error | lower-error / lower-error | lower-error / lower-error | lower-error / lower-error |
+| factorial | lower-error / lower-error | lower-error / lower-error | lower-error / lower-error | lower-error / lower-error | lower-error / lower-error | lower-error / lower-error |
+| fib | lower-error / lower-error | lower-error / lower-error | lower-error / lower-error | lower-error / lower-error | lower-error / lower-error | lower-error / lower-error |
+| gcd | lower-error / lower-error | lower-error / lower-error | lower-error / lower-error | lower-error / lower-error | lower-error / lower-error | lower-error / lower-error |
+| linear_search | lower-error / lower-error | lower-error / lower-error | lower-error / lower-error | lower-error / lower-error | lower-error / lower-error | lower-error / lower-error |
 | max | verified / refuted | verified / refuted | verified / refuted | verified / refuted | verified / refuted | verified / refuted |
+| seq_max | lower-error / lower-error | lower-error / lower-error | lower-error / lower-error | lower-error / lower-error | lower-error / lower-error | lower-error / lower-error |
+| sum_upto | lower-error / lower-error | lower-error / lower-error | lower-error / lower-error | lower-error / lower-error | lower-error / lower-error | lower-error / lower-error |
+
+Kernels present: 6 of 6 (dafny, verus, spark, framac, lean, rocq)
 
 Backends:
 - dafny: dafny 4.11.0
