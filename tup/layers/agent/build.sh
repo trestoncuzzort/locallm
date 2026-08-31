@@ -19,7 +19,7 @@
 # Node is a prebuilt binary and that is stated in its page rather than hidden:
 # it is the one thing in tup this machine did not compile.
 set -u
-LFS=${LFS:-/mnt/lfs}
+export LFS=${LFS:-/mnt/lfs}
 HERE="$(cd "$(dirname "$0")" && pwd)"
 LOG=$LFS/sources/log
 RECEIPTS_DIR="$(cd "$HERE/../../receipts" 2>/dev/null && pwd || echo /tmp)"

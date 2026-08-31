@@ -28,10 +28,27 @@ KEEP="${1:-}"
 [ -f "$FW_CODE" ] || { echo "no UEFI firmware at $FW_CODE (brew install qemu)"; exit 1; }
 command -v qemu-system-aarch64 >/dev/null || { echo "qemu-system-aarch64 not on PATH"; exit 1; }
 
-# The disk cannot be booted while the build VM holds it.
+# The disk cannot be booted while the build VM holds it — but stopping that VM
+# blind would kill a build in progress and lose hours. Check what is running
+# BEFORE taking the machine away from it.
 if limactl list 2>/dev/null | grep -q "^lfs-host.*Running"; then
+  busy=$(limactl shell lfs-host -- bash -c \
+    'pgrep -f "run-ch0|chain-home|driver.sh" >/dev/null && echo BUSY || echo IDLE' \
+    2>/dev/null || echo UNKNOWN)
+  if [ "$busy" = "BUSY" ] && [ "${TUP_FORCE_STOP:-}" != "1" ]; then
+    echo "REFUSING: a build is still running in lfs-host." >&2
+    echo "  Stopping the VM now would discard it. Wait for it to finish, or" >&2
+    echo "  set TUP_FORCE_STOP=1 if you are certain." >&2
+    exit 1
+  fi
   echo "stopping the build VM so tup boots with nothing else attached..."
   limactl stop lfs-host >/dev/null 2>&1
+  for _ in $(seq 1 30); do
+    limactl list 2>/dev/null | grep -q "^lfs-host.*Running" || break
+    sleep 2
+  done
+  limactl list 2>/dev/null | grep -q "^lfs-host.*Running" \
+    && { echo "lfs-host did not stop; refusing to open a disk it still holds" >&2; exit 1; }
 fi
 
 # UEFI needs a writable variable store; a fresh one each run keeps the boot
