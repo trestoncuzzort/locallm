@@ -17,7 +17,7 @@ export OCAMLPATH=$(ocamlfind printconf destdir)
 dune build -p rocq-stdlib -j $(nproc)
 dune install -p rocq-stdlib --prefix /usr
 # the probe that failed before this page existed, now a gate:
-printf 'Require Import ZArith Lia.\nOpen Scope Z_scope.\nGoal forall a b : Z, a <= b -> a <= b + 1. intros. lia. Qed.\n' > /tmp/stdlib-probe.v
-coqc /tmp/stdlib-probe.v
-rm -f /tmp/stdlib-probe.* 
+printf 'Require Import ZArith Lia.\nOpen Scope Z_scope.\nGoal forall a b : Z, a <= b -> a <= b + 1. intros. lia. Qed.\n' > /tmp/stdlib_probe.v
+coqc /tmp/stdlib_probe.v
+rm -f /tmp/stdlib_probe.* 
 echo "stdlib probe: ZArith + lia discharge a goal"
