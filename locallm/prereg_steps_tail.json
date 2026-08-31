@@ -1,0 +1,64 @@
+{
+  "experiment": "exp3_steps_tail",
+  "written": "2026-08-02",
+  "written_before_any_run": true,
+  "continues": "exp2_steps_vs_quality (500/1500/5000/10000, 5 seeds) — same corpus, same split, same architecture, same loop",
+
+  "question": "Past 10,000 steps, does the curve flatten, or does it turn back up? Every extra step re-reads a corpus the model has already seen, so the interesting failure is not 'stops helping' — it is 'starts hurting'.",
+
+  "why_this_is_the_right_question": [
+    "At batch 32 x block 128 the model reads 4,096 characters per step.",
+    "The corpus is 19,986,068 characters, so one crossing is ~4,880 steps.",
+    "160,000 steps is ~33 crossings of the same text.",
+    "A model shown the same text 33 times can improve on text it has memorised",
+    "while getting worse at text it has not seen. That is the whole reason a",
+    "held-out set exists, and nothing in this repository has ever run long",
+    "enough to look for it."
+  ],
+
+  "fixed_across_every_run": {
+    "corpus": "corpus.txt (19,986,068 chars, vocab 83)",
+    "split": "group_split defaults (val_frac 0.1, seed 1337) — identical holdout for every run and identical to exp2",
+    "architecture": "Medium preset: n_layer 4, n_head 4, n_embd 256, block_size 128, batch_size 32",
+    "dropout": 0.1,
+    "lr": "auto_lr(256) with the same warmup and cosine-to-lr/10 schedule train.py uses",
+    "device": "cuda"
+  },
+
+  "arms": {
+    "steps": [20000, 40000, 80000, 160000],
+    "seeds": [0, 1, 2],
+    "total_runs": 12,
+    "note_on_seed_count": "3 seeds, not 5. exp2 measured the seed spread at 5 seeds across four arms and found it stable and small (0.0055-0.0116). 3 seeds is the DoR's routine-comparison count; a claim-bearing rerun would use 5. This is declared here rather than discovered later.",
+    "note_on_separate_runs": "Each arm is its own run with its own cosine schedule, NOT a single long run sampled at checkpoints. The schedule decays to lr/10 at the declared endpoint, so a 160k run at step 20k is at a different learning rate than a 20k run at its end. Sampling one long run would compare arms that never existed."
+  },
+
+  "primary_outcome": "final validation loss on the fixed holdout",
+
+  "secondary_outcomes": [
+    "final training loss",
+    "generalization gap (val - train). This is the memorisation signal: a gap that widens while val stalls or rises means the model is learning the corpus rather than the language.",
+    "corpus crossings (steps * 4096 / corpus_chars), so 'how many times has it seen this text' is on the same table as the losses"
+  ],
+
+  "success_bar": {
+    "flattening": "An arm counts as still improving only if its mean val loss beats the previous arm's by more than the wider of the two seed spreads — the same bar exp2 used.",
+    "turning_up": "The tail is declared FOUND if any arm's mean val loss is HIGHER than a previous arm's by more than the wider seed spread.",
+    "memorising": "Declared if the val-minus-train gap grows across arms by more than the seed spread of the gap, whether or not val itself has turned up yet.",
+    "declared_before_running": true
+  },
+
+  "prespecified_outcomes": {
+    "if_it_turns_up": "Report the step count where more training measurably made the model WORSE on unseen text, and name it as the ceiling this corpus supports at this model size.",
+    "if_it_only_flattens": "Report that within 160,000 steps (~33 crossings) no harm was measurable, give the per-doubling gain at the far end, and say plainly that the turn-up was looked for and not found.",
+    "if_the_gap_widens_without_val_rising": "Report memorisation as detected-but-not-yet-costly, which is the honest reading and the one the notifier would need.",
+    "either_way": "Published. A flat tail is as useful a product fact as a rising one."
+  },
+
+  "not_claimed": [
+    "That these numbers transfer to another corpus, size, or vocabulary.",
+    "That validation loss says anything about whether the generated text reads well.",
+    "That 3 seeds can detect an effect smaller than the spread they measure.",
+    "That the absence of a turn-up below 160,000 steps means none exists further out."
+  ]
+}
