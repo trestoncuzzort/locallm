@@ -23,6 +23,12 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+if str(HERE) not in sys.path:
+    sys.path.insert(0, str(HERE))
+
+from verifiers import Outcome, flake_check          # noqa: E402
+from verifiers import dafny as dafny_backend        # noqa: E402
+
 OUT = HERE / "out"
 
 BIN_OPS = {"==": "==", "!=": "!=", "<": "<", "<=": "<=", ">": ">", ">=": ">=",
@@ -65,20 +71,8 @@ def stmts(body: list, indent: str) -> str:
     return "\n".join(out)
 
 
-def collapse_first_if(body: list) -> tuple[list, bool]:
-    """The twin: the first `if` becomes its then-branch. One operator, always
-    the same one, so 'the twin failed' always means the same thing."""
-    out, done = [], False
-    for s in body:
-        if not done and "if" in s:
-            out.extend(s["if"]["then"])
-            done = True
-        else:
-            out.append(s)
-    return out, done
-
-
 def lower(task: dict, body: list) -> str:
+
     ps = ", ".join(f"{p['name']}: int" for p in task["params"])
     r = task["returns"][0]["name"]
     lines = [f"method {task['name'].capitalize()}({ps}) returns ({r}: int)"]
@@ -92,42 +86,6 @@ def lower(task: dict, body: list) -> str:
     return "\n".join(lines) + "\n"
 
 
-def verify(path: Path) -> int:
-    p = subprocess.run(["dafny", "verify", str(path)],
-                       capture_output=True, text=True, timeout=120)
-    return p.returncode
-
-
-def run_task(path: Path) -> bool:
-    task = json.loads(path.read_text(encoding="utf-8"))
-    assert task.get("t") == 0, f"{path.name}: not a t v0 task"
-    name = task["name"]
-    OUT.mkdir(exist_ok=True)
-
-    real = OUT / f"{name}.dfy"
-    real.write_text(lower(task, task["body"]), encoding="utf-8")
-    twin_body, mutated = collapse_first_if(task["body"])
-    if not mutated:
-        print(f"  {name}: REFUSED — no `if` to collapse, v0 twin undefined")
-        return False
-    twin = OUT / f"{name}.twin.dfy"
-    twin.write_text(lower(task, twin_body), encoding="utf-8")
-
-    rc_real, rc_twin = verify(real), verify(twin)
-    flip = rc_real == 0 and rc_twin == 4
-    tag = ("COUNTS  (real VERIFIED, twin REFUTED)" if flip else
-           f"REFUSED (real exit {rc_real}, twin exit {rc_twin}"
-           + (" — vacuous spec)" if rc_twin == 0 else ")"))
-    print(f"  {name}: {tag}")
-    return flip
-
-
-def main() -> int:
-    want = sys.argv[1:] or sorted(p.stem for p in (HERE / "tasks").glob("*.json"))
-    print(f"t v0 -> dafny {subprocess.run(['dafny','--version'],capture_output=True,text=True).stdout.strip()}")
-    ok = all(run_task(HERE / "tasks" / f"{w}.json") for w in want)
-    return 0 if ok else 1
-
-
 if __name__ == "__main__":
-    raise SystemExit(main())
+    import harness
+    raise SystemExit(harness.run_all(sys.argv[1:], lower, dafny_backend, "dfy"))
