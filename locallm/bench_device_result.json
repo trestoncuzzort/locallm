@@ -1,0 +1,50 @@
+{
+  "machine": "arm",
+  "gpu": "Apple silicon (MPS)",
+  "torch": "2.13.0",
+  "full_run_steps": 2000,
+  "results": {
+    "cpu/small": {
+      "params": 414208,
+      "ms_per_step": 19.18,
+      "tokens_per_s": 213594,
+      "full_2000_step_s": 38.4,
+      "measured_over_steps": 25
+    },
+    "cpu/default": {
+      "params": 3194368,
+      "ms_per_step": 112.77,
+      "tokens_per_s": 36322,
+      "full_2000_step_s": 225.5,
+      "measured_over_steps": 25
+    },
+    "cpu/large": {
+      "params": 18984960,
+      "ms_per_step": 859.16,
+      "tokens_per_s": 9535,
+      "full_2000_step_s": 1718.3,
+      "measured_over_steps": 25
+    },
+    "mps/small": {
+      "params": 414208,
+      "ms_per_step": 5.67,
+      "tokens_per_s": 721922,
+      "full_2000_step_s": 11.3,
+      "measured_over_steps": 200
+    },
+    "mps/default": {
+      "params": 3194368,
+      "ms_per_step": 20.92,
+      "tokens_per_s": 195800,
+      "full_2000_step_s": 41.8,
+      "measured_over_steps": 200
+    },
+    "mps/large": {
+      "params": 18984960,
+      "ms_per_step": 157.27,
+      "tokens_per_s": 52087,
+      "full_2000_step_s": 314.5,
+      "measured_over_steps": 200
+    }
+  }
+}

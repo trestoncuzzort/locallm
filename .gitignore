@@ -53,3 +53,17 @@ dpo_adapter_poscontrol/export/amplified/*.safetensors
 .claude/
 # pytest's cache, created by running the suite. Not a result.
 .pytest_cache/
+
+# --- data and build artifacts, not source -------------------------------
+# Corpora are downloaded or derived (get_corpus.py, make_corpus.py) and one
+# of them is 190MB, past GitHub's limit. Trained checkpoints and generated
+# lowerings are reproducible from the code plus the recorded manifests.
+locallm/corpora/
+locallm/corpus.txt
+locallm/corpus.previous.txt
+locallm/training_data_dafny/
+locallm/out/
+locallm/out-dafny-mps/
+t/out/
+# tup/book/ stays TRACKED: it is generated, but it is the exact bytes that
+# executed, which is evidence a receipt can point at.

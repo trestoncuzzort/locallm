@@ -16,7 +16,7 @@ if tup_tests_enabled "gmp"; then
 make check 2>&1 | tee gmp-check-log
 else tup_receipt_skip_tests "gmp"; fi
 
-awk '/# PASS:/{total+=$3} ; END{print total}' gmp-check-log
+awk '/# PASS:/{total+=$3} ; END{print total}' gmp-check-log   || true   # advisory: see extract_book.py
 
 make install
 make install-html

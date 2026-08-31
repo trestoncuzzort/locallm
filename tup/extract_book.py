@@ -107,7 +107,12 @@ def extract(page_html: str) -> tuple[str, list[str]]:
 # driver prints them and does not gate on them. If a check should GATE, it
 # needs an explicit assertion; the book does not provide one, and neither
 # does this transformation pretend to.
-DIAG_RE = re.compile(r"^grep\b(?!.*\|\|)")
+# `awk` joins `grep` here for the same reason plus one more: gmp's page
+# summarises its test log with awk AFTER the test block, so SKIPPING the
+# tests leaves the summariser reading a file that was never created
+# (measured: "awk: fatal: cannot open file `gmp-check-log`"). A summary of
+# output that does not exist is advisory by definition.
+DIAG_RE = re.compile(r"^(grep|awk)\b(?!.*\|\|)")
 
 
 def guard_diagnostics(block: str) -> str:

@@ -1,81 +1,122 @@
-# srlm-forge
+# tup
 
-**One research program in measurement-integrity engineering for machine learning —
-a local learning model, and the instruments that keep its numbers honest.**
+**A Linux distribution built for AI work, where you can account for every byte —
+and `t`, a language whose programs carry machine-checked proofs.**
 
-This repository is one project at two scales. It used to look like two projects;
-that was an accident of history, and the history is all here.
+Most AI development environments are unaccountable piles. Nobody can tell you
+what is actually inside their container, which weights are loaded, or what an
+agent changed on disk last Tuesday. tup is the one where you can: every package
+is built from hashed sources, every file in the system is inventoried, and every
+layer says exactly what it added.
 
-## The two scales
+**Status: early.** The base system builds and the pieces below are real and
+running, but tup is not yet installable on your laptop. What exists, what does
+not, and what is merely intended are marked as such throughout — that is the
+habit the whole project is built on.
 
-**The forge** (repository root) is the field site. A language model writes code; the
-code is executed against hidden unit tests; whichever candidate actually passes becomes
-`chosen`, a worse one becomes `rejected`, and the pair becomes preference-training data.
-The model never grades itself — a program that runs decides. The interesting output of
-running that loop honestly was not a better model. It was a catalogue of the ways the
-measuring instruments kept emitting well-formed numbers after they stopped measuring,
-and the gates built in response: a hash-receipt dataset gate, a pinned verifier, a
-frozen benchmark, preregistration before every run, red witnesses before every fix.
+---
 
-**The trainer** ([`locallm/`](locallm/)) is the laboratory, and the product. A local
-learning model: a small, readable, from-scratch GPT that learns whatever text-shaped
-data your machine produces — notes, code, logs, query dumps — trained on your own
-hardware with nothing leaving your computer. It carries the same discipline at a scale
-anyone can verify: a machine-checked README, leakage gates on every val loss,
-preregistered experiments with PASS/FAIL verdicts, an append-only run ledger. A full
-training run costs under a minute on an ordinary laptop (CUDA, Apple silicon, or CPU).
-Start there: [`locallm/README.md`](locallm/README.md).
+## The two halves
 
-## The paper
+### tup — the distribution
 
-The first report from the field site is **"Automated Oracles Are Not Enough: An
-Empirical Decomposition of an Execution-Verified Benchmark Gain."** In one paragraph:
-a preregistered DPO evaluation on an 8B model produced a null result that replicated
-across hardware; retraining produced large, consistent gains — and decomposing those
-gains against the verifier attributed roughly half of them to an idiosyncrasy of the
-measuring instrument, not the model. The verdict of an execution-based reward is
-objective; that does not make it trustworthy. The manuscript chain (v10–v15) is at
-[`docs/revision-2026-08-25/`](docs/revision-2026-08-25/), and the measurement-integrity
-failures it reports are documented alongside the code that repaired them.
+Built from source with a receipt on every step. No package manager: the
+filesystem *is* the manifest, which is what makes "we know everything on this
+system" a checkable claim rather than a slogan. Every command comes from the
+Linux From Scratch book verbatim; every deviation is a separate, diffable file
+that states why it exists.
 
-## What is in here
+See [`tup/`](tup/) for the build system, and [`tup/README.md`](tup/README.md)
+for how it works and what it has already caught.
 
-| Where | What |
+The intended shape is layered, each layer with its own inventory diff:
+
+| Layer | What it adds | Status |
+|---|---|---|
+| **base** | kernel, libc, toolchain — fully hashed | building |
+| **agent** | Node, Claude Code — AI tooling as a first-class citizen | planned |
+| **train** | `locallm`, PyTorch — train models on the box itself | `locallm/` exists |
+| **prove** | `t` and its proof kernels | `t/` exists |
+| **infer** | local model serving | planned |
+
+### t — the language
+
+`t` is a **specification interlingua**: write a task once — signature,
+preconditions, postconditions — and lower it mechanically to established
+verifiers, whose kernels supply every verdict. t proves nothing itself and is
+trusted for nothing. That is the design, not a weakness.
+
+**Six independent proof kernels currently agree on every t program:**
+
+| Kernel | Stack |
 |---|---|
-| `forge.py`, `dataset_gate.py`, `verify_dataset.py` | The execution verifier and the hash-receipt gate that decides whether training data may be trusted. `dataset_gate.require_verified` checks; `verify_dataset.py` re-verifies and *writes* the receipt. |
-| `eval.py`, `screen_tasks.py`, `build_ruler.py`, `ruler_noise.py` | The frozen 31-task benchmark, its screening, and its measured noise floor. |
-| `harness_smells.py`, `traces.py`, `test_gate_coverage.py`, `tests/` | Defenses built after each documented failure: verdict-channel smells, provenance traces, coverage that fails if anything bypasses the gate. |
-| `data/` | The verified corpus, receipts, preregistrations, and every banked evaluation row. Append-only where it matters; `data/*.jsonl` merge by union. |
-| `dafny_*.py` | The next instrument: verified-pair generation from Dafny, a language whose compiler proves code correct — the stronger fix the paper points at. |
-| `docs/` | Manuscripts, review dossiers, port witnesses, machine bootstrap notes. |
-| `results/`, `council/` | The run record and the working record, kept because a result file the next run overwrites cannot show you a trend. |
-| [`locallm/`](locallm/) | The local learning model. MIT-licensed, self-contained, beginner-runnable. |
+| Dafny 4.11 | .NET + Z3 |
+| Verus 0.2026.08.30 | Rust + Z3 |
+| GNATprove FSF 16.1 | Ada + Why3 + Z3 |
+| Frama-C 33.0 | C/ACSL + alt-ergo |
+| Lean 4.33.1 | kernel-checked proof terms |
+| Rocq 9.2 | kernel-checked proof terms |
 
-## Where this is going
+A task counts only on a **measured flip**: the real program verifies *and* a
+deliberately broken twin is refuted. A twin that still verifies means the
+specification is vacuous, and the task is refused. See [`t/`](t/) and
+[`t/AGREEMENT.md`](t/AGREEMENT.md) for the current cross-kernel table.
 
-The forward plan is [`ROADMAP.md`](ROADMAP.md) — eleven workstreams, each one
-adversarially reviewed for feasibility against this repository's actual state before it
-was written down. The short version: extract the shared epistemic core (receipts,
-ledgers, claim-binding, preregistration) into `locallm/methodkit/` as a citable
-artifact; run the statistics, contamination, and manuscript-claim-binding work on the
-laptop this week; run the preregistered re-execution campaign and the library version
-matrix on the GPU box next; fold both into manuscript v16 — and write the methods kit
-up as its own paper. `OPEN-ITEMS.md` stays the ledger of what is parked and why.
+Agda's adapter is measured and landed; its *lowering* is parked, because the
+standard library has no decision procedure for t's arithmetic fragment and
+hand-plumbed proofs dressed as automation would be exactly the unwitnessed
+artifact t exists to refuse.
 
-## Honest status
+---
 
-Read the paper for the precise claims; nothing here rounds up. The trained adapter did
-not beat its null baseline on the frozen benchmark. Retrains beat theirs, and about
-half of that gain was the instrument. The mechanism behind the original null — 8-bit
-blockwise Adam state colliding with a massive-activation channel — is measured link by
-link, not inferred. Everything quantitative sits behind a gate or a receipt, and the
-things that are not yet shown are named as limitations rather than implied.
+## Why these two things are one project
+
+A proof is only as good as the machine that checked it, and a machine is only
+as good as your knowledge of what is on it. t makes programs provable; tup
+makes the ground they are proved on accountable. Neither is worth much alone:
+a verified program on an unaccountable system is a proof about nothing in
+particular, and an accountable system running unverified software is just
+tidy.
+
+The research that produced this discipline is in the repository root — an
+execution-verified DPO pipeline whose real finding was that roughly half of a
+measured benchmark gain came from the measuring instrument rather than the
+model. That work is **scaffolding, not law**: it taught the method, it is
+written up in [`docs/revision-2026-08-25/`](docs/revision-2026-08-25/), and the
+distro and the language are where the method goes next.
+
+---
+
+## What is honestly not true yet
+
+- **tup is not installable on arbitrary hardware.** The current kernel is
+  configured for a virtual machine (virtio drivers, no initramfs). Real devices
+  need a generic kernel, an initramfs, firmware, and an installer. None of that
+  is written.
+- **tup is arm64 today.** The x86_64 build — the one that matters for CUDA and
+  for training — is the same driver pointed at a different book, and has not
+  been run.
+- **tup 0.1 is witnessed, not verified.** Nothing here proves the kernel or
+  libc correct. It records what was built, from which bytes, in what order.
+- **t v0 is small on purpose:** integers, no quantifiers, no loops, one
+  mutation operator. Expressiveness gates open with measurements, not
+  intentions.
+
+## Layout
+
+| Path | What |
+|---|---|
+| [`tup/`](tup/) | the distribution's build system, overrides, receipts |
+| [`t/`](t/) | the language, its lowerings, and its verifier adapters |
+| [`locallm/`](locallm/) | train a model from scratch on your own machine (MIT) |
+| [`ROADMAP.md`](ROADMAP.md) | what happens next, adversarially reviewed |
+| repository root | the research pipeline and its instruments |
+| [`docs/`](docs/) | manuscripts, review dossiers, port witnesses |
 
 ## License
 
-[`locallm/`](locallm/) is MIT — use it, change it, ship it, sell it. The repository
-root is the working research record; third-party datasets referenced here keep their
-own licenses (KodCode is CC BY-NC and is never redistributed from this repository;
-AceCode is MIT with attribution).
+[`locallm/`](locallm/) is MIT. The rest is the working research record;
+third-party datasets keep their own licenses (KodCode is CC BY-NC and is never
+redistributed from here; AceCode is MIT with attribution).
 
 Copyright (c) 2026 Treston Malachi Cuzzort.
