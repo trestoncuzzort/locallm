@@ -157,10 +157,17 @@ def main() -> int:
     line(True, f"PyTorch {torch.__version__}")
 
     has_cuda = torch.cuda.is_available()
+    has_mps = torch.backends.mps.is_available()
     if has_cuda:
         p = torch.cuda.get_device_properties(0)
+        gpu_label = p.name
         line(True, f"Graphics card {p.name}", f"{p.total_memory / 1e9:.1f} GB")
+    elif has_mps:
+        gpu_label = "Apple silicon (MPS)"
+        line(True, "Graphics card Apple silicon",
+             f"{torch.mps.recommended_max_memory() / 1e9:.1f} GB usable")
     else:
+        gpu_label = None
         line(None, "Graphics card", "none usable by PyTorch — will use the CPU")
         warnings.append(
             "No graphics card is being used. Training still works on the "
@@ -184,12 +191,12 @@ def main() -> int:
 
     enable_fast_math()
     tok = CharTokenizer.from_text(SYNTHETIC)
-    devices = ["cpu"] + (["cuda"] if has_cuda else [])
+    devices = ["cpu"] + (["cuda"] if has_cuda else (["mps"] if has_mps else []))
     results = {}
     for device in devices:
         corpus = Corpus(SYNTHETIC, tok, device)
-        steps = GPU_STEPS if device == "cuda" else CPU_STEPS
-        warmup = GPU_WARMUP if device == "cuda" else CPU_WARMUP
+        steps = CPU_STEPS if device == "cpu" else GPU_STEPS
+        warmup = CPU_WARMUP if device == "cpu" else GPU_WARMUP
         for name, cfg_d in bench_device.SIZES:
             params, ms, tok_s = bench_device.time_steps(
                 corpus, tok, device, cfg_d, steps, warmup)
@@ -204,14 +211,14 @@ def main() -> int:
     # be a second thing to keep in step.
     RESULT.write_text(json.dumps({
         "machine": platform.processor() or platform.machine(),
-        "gpu": torch.cuda.get_device_name(0) if has_cuda else None,
+        "gpu": gpu_label,
         "torch": torch.__version__,
         "full_run_steps": bench_device.FULL_RUN_STEPS,
         "measured_by": "check_my_computer.py (synthetic text, short runs)",
         "results": results}, indent=2), encoding="utf-8")
 
     # ---- what it means, in words ----------------------------------------
-    device = "cuda" if has_cuda else "cpu"
+    device = "cuda" if has_cuda else ("mps" if has_mps else "cpu")
     print("=" * 68)
     print("  WHAT YOU CAN TRAIN HERE")
     print("=" * 68)
