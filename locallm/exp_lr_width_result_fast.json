@@ -1,0 +1,50 @@
+{
+  "profile": "fast",
+  "prereg_file": "prereg_lr_width_fast.json",
+  "verdict_string": "PASS [fast profile: 800 steps, 4-LR grid, 5 seeds] - claim: reaches lower train loss FASTER; NOT the canonical effect size",
+  "claim": "A width-appropriate learning rate reaches lower train loss FASTER, measured at 800 steps.",
+  "config": {
+    "n_layer": 4,
+    "n_head": 4,
+    "n_embd": 256,
+    "block_size": 128,
+    "batch_size": 32,
+    "steps": 800
+  },
+  "device": "cuda",
+  "quick": false,
+  "sweep": {
+    "0.0003": 0.3003322694450617,
+    "0.001": 0.20835228636860847,
+    "0.003": 0.1938191233202815,
+    "0.01": 1.2615355163812638
+  },
+  "control_lr": 0.0003,
+  "treatment_lr": 0.003,
+  "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "control_losses": [
+    0.29190117567777635,
+    0.2905061855912209,
+    0.30108154863119124,
+    0.2902547221630812,
+    0.29461183659732343
+  ],
+  "treatment_losses": [
+    0.18928535878658295,
+    0.18893662989139556,
+    0.18832207433879375,
+    0.18593878038227557,
+    0.18974944073706865
+  ],
+  "mean_control": 0.29367109373211864,
+  "mean_treatment": 0.1884464568272233,
+  "gap": 0.10522463690489534,
+  "ranges_overlap": false,
+  "passed": true
+}
