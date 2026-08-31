@@ -29,7 +29,8 @@ from verifiers import Outcome, flake_check, sha256_file   # noqa: E402
 BACKENDS = [
     ("dafny", "lower_dafny", "dfy"),
     ("verus", "lower_verus", "rs"),
-    # WS-7 rollout adds rows here: spark/ada, framac/c, lean, rocq, agda
+    ("spark", "lower_spark", "ads"),
+    # WS-7 rollout adds rows here: framac/c, lean, rocq, agda
 ]
 
 

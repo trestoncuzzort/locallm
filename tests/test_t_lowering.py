@@ -93,3 +93,22 @@ def test_flip_on_dafny():
 def test_flip_on_verus():
     from verifiers import verus as backend
     _flip(lower_verus.lower, backend, "rs")
+
+
+@pytest.mark.skipif(
+    not (Path.home() / ".local/gnatprove/gnatprove-aarch64-darwin-16.1.0-1"
+         / "bin/gnatprove").exists(),
+    reason="gnatprove not installed")
+def test_flip_on_spark():
+    import lower_spark
+    from verifiers import spark as backend
+    _flip(lower_spark.lower, backend, "ads")
+
+
+def test_spark_lowering_uses_mathematical_integers():
+    import lower_spark
+    abs_t = task("abs")
+    src = lower_spark.lower(abs_t, abs_t["body"])
+    assert "Big_Integer" in src, \
+        "the SPARK semantic decision (mathematical ints) changed"
+    assert " Integer" not in src.replace("Big_Integer", "")
