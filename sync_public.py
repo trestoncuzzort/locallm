@@ -31,7 +31,10 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-SRC = HERE / "localllm"
+# The product lives at locallm/ since the merge (a git subtree of the old
+# public repo, history included). The public repo is now a downstream publish
+# target of this directory, not a second source.
+SRC = HERE / "locallm"
 REMOTE = "https://github.com/jonhhjackson-a11y/locallm"
 CLONE = HERE.parent / "_locallm_publish"       # sibling of the repo, never inside it
 CHANNEL = HERE / "instructions.txt"
