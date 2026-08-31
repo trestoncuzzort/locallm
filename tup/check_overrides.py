@@ -32,6 +32,8 @@ def main() -> int:
 
     bad, ok = [], []
     for ov in sorted(OVERRIDES.rglob("*.sh")):
+        if ov.name.startswith("lib-"):   # shared helpers, not pages
+            continue
         rel = ov.relative_to(OVERRIDES)
         scoped = rel.parent.name if rel.parent.name else ""
         chapters = pages.get(ov.name, [])
