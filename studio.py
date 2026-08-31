@@ -56,7 +56,7 @@ from data import (CharTokenizer, Corpus, documents, group_split,  # noqa: E402
                   split_health, split_verdict)
 from leakage import scan as leakage_scan  # noqa: E402
 from train import (auto_lr, cosine_lr, enable_fast_math,  # noqa: E402
-                   estimate_loss, make_optimizer)
+                   estimate_loss, make_optimizer, pick_device, wants_bf16)
 
 BENCH = HERE / "bench_device_result.json"
 
@@ -380,7 +380,7 @@ class TrainWorker(threading.Thread):
         corpus = Corpus(text, tok, device)
         self.q.put(("vocab", tok.vocab_size))
         self.log(f"Your text: {len(text):,} characters, {tok.vocab_size} different "
-                 f"characters. Training on {'the graphics card' if device == 'cuda' else 'the CPU'}.")
+                 f"characters. Training on {'the CPU' if device == 'cpu' else 'the graphics card'}.")
 
         # Before reporting a single val number, find out whether it means
         # anything. Validation text that also appears in training measures
@@ -439,7 +439,7 @@ class TrainWorker(threading.Thread):
 
         enable_fast_math()
         opt = make_optimizer(model, c["lr"])
-        use_bf16 = device == "cuda" and torch.cuda.is_bf16_supported()
+        use_bf16 = wants_bf16(device)
 
         steps = c["steps"]
         warmup = max(10, steps // 20)
@@ -466,7 +466,7 @@ class TrainWorker(threading.Thread):
 
             x, y = corpus.get_batch("train", c["batch_size"], c["block_size"])
             if use_bf16:
-                with torch.autocast("cuda", dtype=torch.bfloat16):
+                with torch.autocast(device, dtype=torch.bfloat16):
                     _, loss = model(x, y)
             else:
                 _, loss = model(x, y)
@@ -532,7 +532,7 @@ class Studio(ttk.Frame):
         self.worker: TrainWorker | None = None
         self.model = None
         self.tok = None
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.device = pick_device()
         self.vocab = 0
         self.dark = system_wants_dark()
         self.C = THEMES["dark" if self.dark else "light"]
@@ -846,7 +846,7 @@ class Studio(ttk.Frame):
         self._style_label()
         self._len_label()
         self._set_status(f"Ready. Training will use "
-                         f"{'your graphics card' if self.device == 'cuda' else 'the CPU'}.")
+                         f"{'the CPU' if self.device == 'cpu' else 'your graphics card'}.")
 
     # ------------------------------------------------------------- presets
     def _style_label(self):

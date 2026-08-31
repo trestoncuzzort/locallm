@@ -26,6 +26,7 @@ import torch
 
 from data import CharTokenizer
 from model import GPT, GPTConfig
+from train import pick_device
 
 
 def checkpoint_exists(out_dir: str | Path) -> bool:
@@ -50,7 +51,7 @@ def load_checkpoint(out_dir: str | Path, device: str | None = None):
             f"Train one first, or point at the directory a previous run wrote.")
 
     if device is None:
-        device = "cuda" if torch.cuda.is_available() else "cpu"
+        device = pick_device()
     # weights_only=True: forward-compatible with torch>=2.6 where it becomes the
     # default. The checkpoint is a plain dict of tensors + config primitives.
     ck = torch.load(ckpt, map_location=device, weights_only=True)

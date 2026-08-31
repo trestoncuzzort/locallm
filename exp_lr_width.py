@@ -41,7 +41,7 @@ if str(HERE) not in sys.path:
 from model import GPT, GPTConfig          # noqa: E402
 from data import CharTokenizer, Corpus    # noqa: E402
 import runlog                            # noqa: E402
-from train import cosine_lr, enable_fast_math, make_optimizer  # noqa: E402
+from train import cosine_lr, enable_fast_math, make_optimizer, pick_device, wants_bf16  # noqa: E402
 
 EVAL_SEED = 12345
 EVAL_BATCHES = 40
@@ -127,7 +127,7 @@ def run_one(corpus, tok, lr, seed, cfg_d, device, eval_batches=None):
                     n_embd=cfg_d["n_embd"], dropout=0.0)
     model = GPT(cfg).to(device)
     opt = make_optimizer(model, lr)
-    use_bf16 = USE_AMP and device == "cuda" and torch.cuda.is_bf16_supported()
+    use_bf16 = USE_AMP and wants_bf16(device)
 
     steps = cfg_d["steps"]
     warmup = max(10, steps // 20)
@@ -137,7 +137,7 @@ def run_one(corpus, tok, lr, seed, cfg_d, device, eval_batches=None):
             g["lr"] = cosine_lr(step, warmup, steps, lr, lr / 10)
         x, y = corpus.get_batch("train", cfg_d["batch_size"], cfg_d["block_size"])
         if use_bf16:
-            with torch.autocast("cuda", dtype=torch.bfloat16):
+            with torch.autocast(device, dtype=torch.bfloat16):
                 _, loss = model(x, y)
         else:
             _, loss = model(x, y)
@@ -173,7 +173,7 @@ def main():
     if args.quick:
         C["steps"] = 400
 
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = pick_device()
     corpus_path = HERE / "corpus.txt"
     text = corpus_path.read_text(encoding="utf-8", errors="ignore")
     print(f"device {device} | corpus {len(text):,} chars | workers {args.workers} "

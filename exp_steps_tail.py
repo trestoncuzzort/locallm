@@ -26,7 +26,8 @@ import baselines
 import runlog
 from data import CharTokenizer, Corpus
 from model import GPT, GPTConfig
-from train import auto_lr, cosine_lr, enable_fast_math, estimate_loss, make_optimizer
+from train import (auto_lr, cosine_lr, enable_fast_math, estimate_loss,
+                   make_optimizer, pick_device, wants_bf16)
 
 HERE = Path(__file__).resolve().parent
 PREREG = json.loads((HERE / "prereg_steps_tail.json").read_text(encoding="utf-8"))
@@ -46,8 +47,8 @@ def train_one(corpus, tok, device, steps: int, seed: int) -> dict:
     model = GPT(cfg).to(device)
     lr = auto_lr(ARCH["n_embd"])
     opt = make_optimizer(model, lr)
-    use_bf16 = device == "cuda" and torch.cuda.is_bf16_supported()
-    amp = (lambda: torch.autocast("cuda", dtype=torch.bfloat16)) if use_bf16 \
+    use_bf16 = wants_bf16(device)
+    amp = (lambda: torch.autocast(device, dtype=torch.bfloat16)) if use_bf16 \
         else (lambda: contextlib.nullcontext())
     warmup = max(10, steps // 20)
 
@@ -67,6 +68,8 @@ def train_one(corpus, tok, device, steps: int, seed: int) -> dict:
     del model, opt
     if device == "cuda":
         torch.cuda.empty_cache()
+    elif device == "mps":
+        torch.mps.empty_cache()
     return {"train": float(final["train"]), "val": float(final["val"])}
 
 
@@ -89,7 +92,7 @@ def summarise(rows: list[dict], steps: int, corpus_chars: int,
 
 def main() -> None:
     enable_fast_math()
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = pick_device()
     text = (HERE / "corpus.txt").read_text(encoding="utf-8")
     tok = CharTokenizer.from_text(text)
     corpus = Corpus(text, tok, device)
