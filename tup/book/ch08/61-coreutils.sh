@@ -12,14 +12,18 @@ FORCE_UNSAFE_CONFIGURE=1 ./configure \
 
 make
 
+if tup_tests_enabled "coreutils"; then
 make NON_ROOT_USERNAME=tester check-root
+else tup_receipt_skip_tests "coreutils"; fi
 
 groupadd -g 102 dummy -U tester
 
 chown -R tester .
 
+if tup_tests_enabled "coreutils"; then
 su tester -c "PATH=$PATH make -k RUN_EXPENSIVE_TESTS=yes check" \
    < /dev/null
+else tup_receipt_skip_tests "coreutils"; fi
 
 groupdel dummy
 

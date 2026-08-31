@@ -11,8 +11,10 @@ make
 chown -R tester .
 sed '/test_plugin_glvs/d' -i src/testdir/Make_all.mak
 
+if tup_tests_enabled "vim"; then
 su tester -c "TERM=xterm-256color LANG=en_US.UTF-8 make -j1 test" \
    &> vim-test.log
+else tup_receipt_skip_tests "vim"; fi
 
 make install
 

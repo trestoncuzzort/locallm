@@ -36,7 +36,14 @@ BASE = "https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/"
 HERE = Path(__file__).resolve().parent
 BOOK = HERE / "book"
 
-TEST_RE = re.compile(r"\bmake\s+(-k\s+)?(check|test)\b")
+# Test invocations are not spelled one way. The book writes `make check`,
+# `make -k check`, `make -j1 test`, `make NON_ROOT_USERNAME=tester check-root`,
+# and `su tester -c "... make -j1 test"`. A pattern that only knew the first
+# two let vim's suite run unguarded despite vim not being in TUP_TESTS, and it
+# failed the build 210 seconds in with its output redirected to a file, so the
+# log showed no error at all. Match `make` followed by anything up to the next
+# command separator, then check or test.
+TEST_RE = re.compile(r"\bmake\b[^;&|]*?\b(check|test)\b")
 # The package is found ANYWHERE in the title ("Linux-6.17.3 API Headers",
 # "Libelf from Elfutils-0.193", "GCC-15.2.0 - Pass 2" are all real), names may
 # contain hyphens and colons, and the classification is settled by resolving

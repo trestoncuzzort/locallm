@@ -6,6 +6,8 @@
 
 make
 
+if tup_tests_enabled "automake"; then
 make -j$(($(nproc)>4?$(nproc):4)) check
+else tup_receipt_skip_tests "automake"; fi
 
 make install
