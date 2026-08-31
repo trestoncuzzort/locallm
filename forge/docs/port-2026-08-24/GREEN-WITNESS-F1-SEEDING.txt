@@ -1,7 +1,7 @@
 GREEN WITNESS F1 --- the seed reaches lora_A once manual_seed precedes DPOTrainer
 
 host: ubuntu-box  date: 2026-08-25T11:37:27-05:00
-commit: c4290b4 (+ uncommitted train_native.py patch under test)
+commit: fd90f97 (+ uncommitted train_native.py patch under test)
 
 == run A ==
 $ ~/gpuguard.sh .venv-train/bin/python train_native.py --seed 42 --max-steps 1 --out /tmp/f1_a

@@ -5,7 +5,7 @@ Same commands, same host, same commit, one difference: no --seed flag at all.
 Recorded because a green witness alone is not evidence that a fix did anything.
 
 host: ubuntu-box  date: 2026-08-25T20:20:37Z
-commit: c4290b4 (+ uncommitted train_native.py patch under test)
+commit: fd90f97 (+ uncommitted train_native.py patch under test)
 
 == run A ==
 $ ~/gpuguard.sh -- .venv-train/bin/python train_native.py --max-steps 1 --out /tmp/f1_red_a
