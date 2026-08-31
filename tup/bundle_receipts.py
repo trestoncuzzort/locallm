@@ -1,0 +1,177 @@
+#!/usr/bin/env python3
+"""bundle_receipts.py — turn the build's scattered evidence into one record.
+
+    python3 tup/bundle_receipts.py            # pull from the build VM
+    python3 tup/bundle_receipts.py --local /path/to/log
+
+Collects, from the machine that did the work:
+  * receipts.jsonl   — one line per page: package, seconds, exit, log sha256
+  * SHA256-MANIFEST  — every source tarball as downloaded
+  * driver.state     — the pages that actually completed
+  * the test-policy record — which suites ran and which were skipped, BY NAME
+
+and writes tup/receipts/BUILD-<date>.md: a single file a reader can check the
+build against without trusting this script. Every number here is derived from
+those files, and the files' own hashes are printed so the derivation can be
+re-run.
+
+WHAT THIS IS NOT: a proof the system is correct. It is a record of what was
+built, from which bytes, in what order, with what outcome — provenance, not
+verification. tup 0.1 is a WITNESSED system, not a verified one, and the
+distinction is the whole point of keeping it.
+"""
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import subprocess
+import sys
+from collections import Counter
+from datetime import datetime, timezone
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+OUT = HERE / "receipts"
+VM = "lfs-host"
+REMOTE_LOG = "/mnt/lfs/sources/log"
+REMOTE_SRC = "/mnt/lfs/sources"
+
+
+def vm_read(path: str) -> str:
+    p = subprocess.run(["limactl", "shell", VM, "--", "cat", path],
+                       capture_output=True, text=True)
+    return p.stdout if p.returncode == 0 else ""
+
+
+def sha256_text(s: str) -> str:
+    return hashlib.sha256(s.encode()).hexdigest()
+
+
+def human(sec: float) -> str:
+    if sec < 90:
+        return f"{sec:.0f}s"
+    if sec < 5400:
+        return f"{sec/60:.1f} min"
+    return f"{sec/3600:.2f} h"
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--local", help="read the log dir from a local path instead")
+    args = ap.parse_args()
+
+    def read(name: str, base: str = REMOTE_LOG) -> str:
+        if args.local:
+            p = Path(args.local) / name
+            return p.read_text(encoding="utf-8") if p.exists() else ""
+        return vm_read(f"{base}/{name}")
+
+    receipts_raw = read("receipts.jsonl")
+    state_raw = read("driver.state")
+    manifest_raw = ""
+    if not args.local:
+        ls = subprocess.run(["limactl", "shell", VM, "--", "sh", "-c",
+                             f"cat {REMOTE_SRC}/SHA256-MANIFEST-*.txt"],
+                            capture_output=True, text=True)
+        manifest_raw = ls.stdout
+    prov_note = read("PROVENANCE-NOTE-bootscripts.txt")
+
+    if not receipts_raw.strip():
+        print("no receipts found — is the build VM running?")
+        return 1
+
+    rows = [json.loads(l) for l in receipts_raw.splitlines() if l.strip()]
+    built = [r for r in rows if "page" in r and r.get("exit") == 0]
+    failed = [r for r in rows if r.get("exit") not in (0, None)]
+    skipped_tests = [r["page"] for r in rows if r.get("tests_skipped")]
+    total = sum(r.get("seconds", 0) for r in rows)
+    by_ch = Counter(r["page"].split("/")[0] for r in built)
+    slowest = sorted(built, key=lambda r: -r.get("seconds", 0))[:10]
+    tarballs = [l for l in manifest_raw.splitlines() if l.strip()]
+
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    OUT.mkdir(exist_ok=True)
+    dest = OUT / f"BUILD-{stamp}.md"
+    L: list[str] = []
+    w = L.append
+    w(f"# tup build receipt — {stamp}")
+    w("")
+    w("Provenance, not verification: this records what was built, from which")
+    w("bytes, in what order, with what outcome. tup 0.1 is a WITNESSED system,")
+    w("not a verified one.")
+    w("")
+    w("## Totals")
+    w("")
+    w(f"- pages completed: **{len(built)}**"
+      + (f" (plus {len(failed)} failed page(s), listed below)" if failed else ""))
+    w(f"- machine time in builds: **{human(total)}**")
+    w(f"- source tarballs hashed: **{len(tarballs)}**")
+    w(f"- chapters: " + ", ".join(f"{c} ({n})" for c, n in sorted(by_ch.items())))
+    w("")
+    w("## Test policy, as executed")
+    w("")
+    w("Ruling 2026-08-31: run the suites that are mathematically load-bearing")
+    w("(glibc — the book calls it essential — plus GCC and binutils); record")
+    w("every other suite as skipped BY NAME rather than dropping it silently.")
+    w("")
+    if skipped_tests:
+        w(f"Suites skipped by policy ({len(skipped_tests)}):")
+        w("")
+        for p in skipped_tests:
+            w(f"- `{p}`")
+    else:
+        w("No skip records present in this run's receipts.")
+    w("")
+    if failed:
+        w("## Failed pages")
+        w("")
+        for r in failed:
+            w(f"- `{r['page']}` exit {r['exit']} after {human(r.get('seconds',0))}"
+              f" — log sha256 `{r.get('log_sha256','?')[:16]}…`")
+        w("")
+    w("## Ten slowest pages")
+    w("")
+    w("| page | package | time |")
+    w("|---|---|---|")
+    for r in slowest:
+        w(f"| `{r['page']}` | {r.get('package') or '—'} | {human(r.get('seconds',0))} |")
+    w("")
+    if prov_note.strip():
+        w("## Provenance exceptions")
+        w("")
+        w("```")
+        w(prov_note.strip())
+        w("```")
+        w("")
+    w("## Evidence hashes")
+    w("")
+    w("Every number above derives from these files; hash them on the build")
+    w("machine to confirm this report was generated from them.")
+    w("")
+    w(f"- `receipts.jsonl` sha256 `{sha256_text(receipts_raw)}`"
+      f" ({len(rows)} lines)")
+    w(f"- `driver.state` sha256 `{sha256_text(state_raw)}`"
+      f" ({len(state_raw.splitlines())} lines)")
+    w(f"- `SHA256-MANIFEST` sha256 `{sha256_text(manifest_raw)}`"
+      f" ({len(tarballs)} entries)")
+    w("")
+    w("## Source manifest (first 20 of the tarballs this system was built from)")
+    w("")
+    w("```")
+    for line in tarballs[:20]:
+        w(line)
+    if len(tarballs) > 20:
+        w(f"... {len(tarballs)-20} more")
+    w("```")
+
+    dest.write_text("\n".join(L) + "\n", encoding="utf-8")
+    (OUT / f"receipts-{stamp}.jsonl").write_text(receipts_raw, encoding="utf-8")
+    (OUT / f"SHA256-MANIFEST-{stamp}.txt").write_text(manifest_raw, encoding="utf-8")
+    print(f"wrote {dest.relative_to(HERE.parent)}")
+    print(f"  {len(built)} pages, {human(total)} of builds, {len(tarballs)} tarballs")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
