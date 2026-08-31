@@ -36,7 +36,8 @@ judge_glibc_check() {
   grep -E "^(FAIL|XPASS):" check.out || true
   local nfail npass unexpected
   nfail=$(grep -cE "^FAIL: " check.out || true)
-  npass=$(grep -cE "^PASS: " check.out || true)
+  npass=$(awk '/^[[:space:]]+[0-9]+ PASS$/{print $1; exit}' check.out)
+  npass=${npass:-0}
   unexpected=$(grep -E "^FAIL: " check.out | sed 's/^FAIL: //' | grep -Ev "$ALLOWED" || true)
   echo "{\"page\":\"ch08/05-glibc\",\"tests_run\":true,\"pass\":$npass,\"fail\":$nfail,\"check_exit\":$rc,\"unexpected\":\"$(echo $unexpected | tr '\n' ' ')\"}" \
     >> "${RECEIPTS:-/sources/log/receipts.jsonl}"
@@ -58,7 +59,14 @@ done
 [ -n "$PAGE" ] || { echo "override: cannot find the glibc page"; exit 1; }
 
 # Run the page verbatim, with exactly one line substituted.
-sed 's|^make check$|judge_glibc_check|' "$PAGE" > /tmp/glibc-judged.sh
+# Two substitutions, both line-preserving:
+#   make check            -> judge_glibc_check (the allowlist judgment)
+#   grep "Timed out" ...   -> ... || true
+# The second is not cosmetic: grep exits 1 when it finds nothing, so under
+# `set -e` the GOOD outcome (no test timed out) aborted the page. Measured
+# 2026-08-31: the suite passed judgment and the build died on the next line.
+sed -e 's@^make check$@judge_glibc_check@' \
+    -e 's@^grep "Timed out".*$@& || true@' "$PAGE" > /tmp/glibc-judged.sh
 diff <(grep -c . "$PAGE") <(grep -c . /tmp/glibc-judged.sh) >/dev/null \
   || { echo "override: substitution changed the line count — refusing"; exit 1; }
 . /tmp/glibc-judged.sh
