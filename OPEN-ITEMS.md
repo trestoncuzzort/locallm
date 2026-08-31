@@ -32,7 +32,15 @@ Parked is not done. Prune entries when they close.
   the same trained budget across 2–3 seeds, never pool (Welch from each arm's own
   sd), pair by task, and re-estimate variance mid-run rather than pre-sizing — but
   re-size on the variance, never stop on the effect.
-  *Where:* §76 (council), `council/ruler_noise_analysis_n40.txt`.
+  **MEASURED 2026-08-31** from the banked hc-seed campaign (11 seeds × 40 replicates,
+  frozen ruler, pinned verifier): sigma_seed ≈ 0.0019 vs within-seed 0.0323; the
+  observed sd of seed means (0.0054) sits barely above the replicate-noise
+  prediction (0.0051); the missing slot underestimates se_diff by ~6% at this
+  recipe; 2/55 pairwise Welch rejections at alpha .05 (empirical rate .036). The
+  campaign was unpreregistered, so this SIZES Run 2 — it does not close the item;
+  the confirmatory multi-seed design still belongs to Run 2's prereg.
+  *Where:* `analyze_seed_variance.py`, `council/seed_variance_decomposition.txt`,
+  §76 (council), `council/ruler_noise_analysis_n40.txt`.
 
 - **The measured sd was compared against the wrong null, and the "independence
   holds" reading is WITHDRAWN.** Observed 0.0381 vs the 0.0376 the sizing rows
