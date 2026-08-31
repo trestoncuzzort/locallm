@@ -1,0 +1,8 @@
+01-introduction.sh
+02-udev.sh
+03-symlinks.sh
+04-network.sh
+05-usage.sh
+06-locale.sh
+07-inputrc.sh
+08-etcshells.sh

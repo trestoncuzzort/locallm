@@ -1,0 +1,18 @@
+# 8.23. MPFR-4.2.2
+# https://www.linuxfromscratch.org/~xry111/lfs/view/arm64/chapter08/mpfr.html
+# TUP_PACKAGE=mpfr-4.2.2
+
+./configure --prefix=/usr        \
+            --disable-static     \
+            --enable-thread-safe \
+            --docdir=/usr/share/doc/mpfr-4.2.2
+
+make
+make html
+
+if tup_tests_enabled "mpfr"; then
+make check
+else tup_receipt_skip_tests "mpfr"; fi
+
+make install
+make install-html
