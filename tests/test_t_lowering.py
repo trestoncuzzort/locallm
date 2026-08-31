@@ -112,3 +112,43 @@ def test_spark_lowering_uses_mathematical_integers():
     assert "Big_Integer" in src, \
         "the SPARK semantic decision (mathematical ints) changed"
     assert " Integer" not in src.replace("Big_Integer", "")
+
+
+@pytest.mark.skipif(
+    not (Path.home() / ".opam/default/bin/frama-c").exists(),
+    reason="frama-c not installed")
+def test_flip_on_framac():
+    import lower_framac
+    from verifiers import framac as backend
+    _flip(lower_framac.lower, backend, "c")
+
+
+@pytest.mark.skipif(not (Path.home() / ".elan/bin/lean").exists(),
+                    reason="lean not installed")
+def test_flip_on_lean():
+    import lower_lean
+    from verifiers import lean as backend
+    _flip(lower_lean.lower, backend, "lean")
+
+
+@pytest.mark.skipif(not shutil.which("coqc"), reason="rocq not installed")
+def test_flip_on_rocq():
+    import lower_rocq
+    from verifiers import rocq as backend
+    _flip(lower_rocq.lower, backend, "v")
+
+
+def test_agda_adapter_taxonomy_without_lowering():
+    """The Agda LOWERING is parked; the adapter's measured taxonomy is not.
+    A hand-written true theorem must VERIFY, a postulate must be VACUOUS."""
+    from verifiers import agda as backend, Outcome
+    if not Path(str(backend.AGDA)).exists():
+        pytest.skip("agda not installed")
+    good = HERE / "t" / "out" / "agda_probe_true.agda"
+    good.write_text("open import Agda.Builtin.Nat\n"
+                    "open import Agda.Builtin.Equality\n\n"
+                    "thm : 1 + 1 \u2261 2\nthm = refl\n", encoding="utf-8")
+    assert backend.verify(good).outcome == Outcome.VERIFIED
+    bad = HERE / "t" / "out" / "agda_probe_post.agda"
+    bad.write_text("postulate anything : Set\n", encoding="utf-8")
+    assert backend.verify(bad).outcome == Outcome.VACUOUS

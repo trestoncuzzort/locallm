@@ -30,7 +30,13 @@ BACKENDS = [
     ("dafny", "lower_dafny", "dfy"),
     ("verus", "lower_verus", "rs"),
     ("spark", "lower_spark", "ads"),
-    # WS-7 rollout adds rows here: framac/c, lean, rocq, agda
+    ("framac", "lower_framac", "c"),
+    ("lean", "lower_lean", "lean"),
+    ("rocq", "lower_rocq", "v"),
+    # agda: adapter exists (verifiers/agda.py, taxonomy measured 2026-08-31);
+    # the LOWERING is parked — no lia/omega analogue in the stdlib means the
+    # proof-synthesis template is a design problem, recorded in ROADMAP.md.
+    # It joins this list when lower_agda.py exists and flips honestly.
 ]
 
 

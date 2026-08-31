@@ -153,6 +153,17 @@ Gated on D-1/D-3 reproducing a within-ruler-v1 retrain gain on this stack, and p
 
 ## WS-7: The verifier gauntlet — multi-language verified pairs
 
+**STATUS 2026-08-31 (pre-dawn):** six of seven tier-A kernels are LIVE in
+`t/` — Dafny 4.11.0, Verus 0.2026.08.30, GNATprove FSF 16.1.0, Frama-C 33.0
+(alt-ergo 2.4.3-free), Lean 4.33.1, Rocq 9.2.0 — with `t/run_all.py` showing
+FULL AGREEMENT (real VERIFIED / twin REFUTED, flake-checked) on every task ×
+kernel cell. Agda 2.8.0's ADAPTER is measured and landed (exit 0/42, bracketed
+error names, --safe); its LOWERING is parked: the stdlib has no lia/omega
+analogue, so the proof-synthesis template for the LIA fragment is a design
+problem, not a typing task. Parked follow-ups: WP countermodel prover naming
+(why3 lists `counterexamples` configs; -wp-prover spelling TBD), and the
+per-goal gave-up-vs-countermodel refinement shared by SPARK and Frama-C.
+
 The Dafny pipeline (`/home/me/srlm-forge/dafny_verify.py`, `dafny_pairs.py`) is the specification: a five-way measured outcome taxonomy (VERIFIED / REFUTED / MALFORMED / VACUOUS / TIMEOUT), a deterministic resource budget with a hash-pinned toolchain fingerprint, flake-checking before any verdict is trusted, single-hint ablation kept only on a measured verified→refuted flip, spec mutation, permissive-only shipping, and headless no-sudo installs on macOS-arm64 and Ubuntu 24.04. Nine languages were dossiered and every dossier survived a hostile fact-check; all tiers below are post-correction (no tier was overturned, but several load-bearing details were — they are folded in here, not in the dossiers). Limits first: no Ubuntu install below was executed on the actual box except Dafny's; every "proven" claim is macOS-measured plus a verified self-contained Linux artifact, and step zero on the Dell is always to re-run the language's probe matrix there.
 
 ### 7.1 The matrix
