@@ -1,0 +1,9 @@
+# tup layer: agent — AI tooling as a first-class citizen
+#
+# Every source is named with its upstream URL and the sha256 that must match
+# before it is used. Same rule as the base system: nothing is built from bytes
+# that were not checked first.
+#
+# name                        sha256                                                            url
+node-v24.20.0-linux-arm64.tar.xz  5f4ddab610c1ab2016b3c227cebdbf6d9495161487e4739c7b90090595f465f7  https://nodejs.org/dist/v24.20.0/node-v24.20.0-linux-arm64.tar.xz
+cacert.pem                        SHA256-RECORDED-AT-FETCH                                          https://curl.se/ca/cacert.pem
