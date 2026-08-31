@@ -1,0 +1,71 @@
+tup boot witness — 20260831T110851Z
+VERDICT: BOOTED
+
+disk      : /home/me/.lima/_disks/lfs/datadisk
+disk bytes: 128849018880
+firmware  : /opt/homebrew/share/qemu/edk2-aarch64-code.fd
+qemu      : QEMU emulator version 11.1.1
+invocation: -M virt -cpu host -accel hvf, raw disk + UEFI only;
+            no -kernel, no -initrd, no -append — tup booted itself.
+
+--- console transcript (last 60 lines) ---
+[    0.049518] e1000e: Intel(R) PRO/1000 Network Driver
+[    0.049518] e1000e: Copyright(c) 1999 - 2015 Intel Corporation.
+[    0.049520] igb: Intel(R) Gigabit Ethernet Network Driver
+[    0.049520] igb: Copyright (c) 2007-2014 Intel Corporation.
+[    0.049524] igbvf: Intel(R) Gigabit Virtual Function Network Driver
+[    0.049524] igbvf: Copyright (c) 2009 - 2012 Intel Corporation.
+[    0.049537] sky2: driver version 1.30
+[    0.049661] VFIO - User Level meta-driver version: 0.3
+[    0.049803] usbcore: registered new interface driver usb-storage
+[    0.051837] rtc-efi rtc-efi.0: registered as rtc0
+[    0.051866] rtc-efi rtc-efi.0: setting system clock to 2026-08-31T11:09:04 UTC (1788174544)
+[    0.051919] i2c_dev: i2c /dev entries driver
+[    0.052239] sdhci: Secure Digital Host Controller Interface driver
+[    0.052240] sdhci: Copyright(c) Pierre Ossman
+[    0.052268] Synopsys Designware Multimedia Card Interface Driver
+[    0.052308] sdhci-pltfm: SDHCI platform and OF driver helper
+[    0.052426] pstore: Using crash dump compression: deflate
+[    0.052427] pstore: Registered efi_pstore as persistent store backend
+[    0.052522] usbcore: registered new interface driver usbhid
+      Mounting virtual file systems: [1;36m/run[    0.052523] usbhid: USB HID core driver
+[    0.054708] hw perfevents: enabled with armv8_pmuv3_0 PMU driver, 1 (0,80000000) counters available
+[    0.054893] NET: Registered PF_PACKET protocol family
+[    0.054902] 9pnet: Installing 9P2000 support
+[    0.054909] Key type dns_resolver registered
+[    0.055554] registered taskstats version 1
+[    0.055571] Loading compiled-in X.509 certificates
+[    0.056221] Demotion targets for Node 0: null
+[    0.056337] clk: Disabling unused clocks
+[    0.056338] PM: genpd: Disabling unused power domains
+[    0.057796] check access for rdinit=/init failed: -2, ignoring
+[    0.058688] EXT4-fs (vda2): mounted filesystem e966505f-6487-4837-bd01-f802ab20f2b3 ro with ordered data mode. Quota mode: none.
+[    0.058692] VFS: Mounted root (ext4 filesystem) readonly on device 254:2.
+[    0.059202] devtmpfs: mounted
+[    0.059272] Freeing unused kernel memory: 3264K
+[    0.059282] Run /sbin/init as init process
+ [1;36m/proc [1;36m/sys [1;36m/dev/shm [1;36m/sys/fs/cgroup      [0G[1;32m  *  [0;39m [72G[1;34m[[1;32m  OK  [1;34m][0;39m
+      Create symlinks in /dev targeting /proc: [1;36m/dev/stdin [1;36m/dev/stdout [1;36m/dev/stderr [1;36m/dev/fd      [0G[1;32m  *  [0;39m [72G[1;34m[[1;32m  OK  [1;34m][0;39m
+      Bringing up the loopback interface...      [0G[1;32m  *  [0;39m [72G[1;34m[[1;32m  OK  [1;34m][0;39m
+      Setting hostname to tup...      [0G[1;32m  *  [0;39m [72G[1;34m[[1;32m  OK  [1;34m][0;39m
+      Populating /dev with device nodes... [    0.125880] udevd[191]: Starting systemd-udevd version 258.1
+[    0.130049] udevd[192]: Using default interface naming scheme 'v258'.
+[    0.257529] (udev-worke[203]: Network interface NamePolicy= disabled on kernel command line.
+      [0G[1;32m  *  [0;39m [72G[1;34m[[1;32m  OK  [1;34m][0;39m
+      Activating all swap files/partitions...      [0G[1;32m  *  [0;39m [72G[1;34m[[1;32m  OK  [1;34m][0;39m
+      Mounting root file system in read-only mode... [    1.139367] EXT4-fs (vda2): re-mounted e966505f-6487-4837-bd01-f802ab20f2b3.
+      [0G[1;32m  *  [0;39m [72G[1;34m[[1;32m  OK  [1;34m][0;39m
+      Checking file systems...      [0G[1;32m  *  [0;39m [72G[1;34m[[1;32m  OK  [1;34m][0;39m
+      Remounting root file system in read-write mode...[    1.149906] EXT4-fs (vda2): re-mounted e966505f-6487-4837-bd01-f802ab20f2b3 r/w.
+      [0G[1;32m  *  [0;39m [72G[1;34m[[1;32m  OK  [1;34m][0;39m
+      Mounting remaining file systems...      [0G[1;32m  *  [0;39m [72G[1;34m[[1;32m  OK  [1;34m][0;39m
+      Cleaning file systems: /tmp      [0G[1;32m  *  [0;39m [72G[1;34m[[1;32m  OK  [1;34m][0;39m
+      Retrying failed uevents, if any...      [0G[1;32m  *  [0;39m [72G[1;34m[[1;32m  OK  [1;34m][0;39m
+      Setting up Linux console...      [0G[1;32m  *  [0;39m [72G[1;34m[[1;32m  OK  [1;34m][0;39m
+INIT: Entering runlevel: 3
+      Starting system log daemon...      [0G[1;32m  *  [0;39m [72G[1;34m[[1;32m  OK  [1;34m][0;39m
+      Bringing up the eth0 interface...      [0G[1;32m  *  [0;39m [72G[1;34m[[1;32m  OK  [1;34m][0;39m
+      Adding IPv4 address 10.0.2.15 to the eth0 interface...      [0G[1;32m  *  [0;39m [72G[1;34m[[1;32m  OK  [1;34m][0;39m
+      Adding default gateway 10.0.2.2 to the eth0 interface...      [0G[1;32m  *  [0;39m [72G[1;34m[[1;32m  OK  [1;34m][0;39m
+
+tup login: qemu-system-aarch64: terminating on signal 15 from pid 93489 (<unknown process>)

@@ -32,8 +32,13 @@ command -v qemu-system-aarch64 >/dev/null || { echo "qemu-system-aarch64 not on 
 # blind would kill a build in progress and lose hours. Check what is running
 # BEFORE taking the machine away from it.
 if limactl list 2>/dev/null | grep -q "^lfs-host.*Running"; then
+  # The bracket in [r]un-ch0 keeps this check from matching ITS OWN command
+  # line — pgrep -f sees the shell that is running the pattern and reports a
+  # build that does not exist. Measured 2026-08-31: this refused to boot a
+  # finished system, and the only process it had found was itself. The same
+  # self-match cost a session earlier tonight with pkill.
   busy=$(limactl shell lfs-host -- bash -c \
-    'pgrep -f "run-ch0|chain-home|driver.sh" >/dev/null && echo BUSY || echo IDLE' \
+    'pgrep -f "[r]un-ch0|[c]hain-home|[d]river\\.sh" >/dev/null && echo BUSY || echo IDLE' \
     2>/dev/null || echo UNKNOWN)
   if [ "$busy" = "BUSY" ] && [ "${TUP_FORCE_STOP:-}" != "1" ]; then
     echo "REFUSING: a build is still running in lfs-host." >&2

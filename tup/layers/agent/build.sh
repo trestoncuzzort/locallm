@@ -55,6 +55,7 @@ echo "  $BEFORE"
 
 # --- 3. install the layer through the same driver -------------------------
 mkdir -p "$LFS/tup-build/layers"
+rm -rf "$LFS/tup-build/layers/agent"          # else the second run nests pages/
 cp -r "$HERE/pages" "$LFS/tup-build/layers/agent"
 mountpoint -q "$LFS/proc" || bash -e /home/lfs/book/ch07/03-kernfs.sh >/dev/null 2>&1
 chroot "$LFS" /usr/bin/env -i HOME=/root TERM=xterm \
@@ -73,11 +74,24 @@ DIFF="$RECEIPTS_DIR/LAYER-agent-$(date -u +%Y%m%dT%H%M%SZ).txt"
   echo "# before: $(basename "$BEFORE")"
   echo "# after : $(basename "$AFTER")"
   echo "#"
-  added=$(comm -13 <(grep -v '^#' "$BEFORE" | awk '{print $NF}' | sort) \
-                   <(grep -v '^#' "$AFTER"  | awk '{print $NF}' | sort))
-  echo "# files added: $(printf '%s\n' "$added" | grep -c .)"
+  # Key on hash+path, not path alone. Keying on the filename makes MODIFIED
+  # files invisible, and this layer modifies /etc/profile (pages/01 appends the
+  # CA variables to it) — a diff that cannot see that is not a diff.
+  b=$(mktemp); a=$(mktemp)
+  grep -v '^#' "$BEFORE" | awk 'NF{print $NF"\t"$1}' | sort > "$b"
+  grep -v '^#' "$AFTER"  | awk 'NF{print $NF"\t"$1}' | sort > "$a"
+  added=$(comm -13 <(cut -f1 "$b") <(cut -f1 "$a"))
+  removed=$(comm -23 <(cut -f1 "$b") <(cut -f1 "$a"))
+  modified=$(join -t"$(printf '\t')" "$b" "$a" 2>/dev/null \
+             | awk -F'\t' '$2 != $3 {print $1}')
+  echo "# files added:    $(printf '%s\n' "$added"    | grep -c .)"
+  echo "# files removed:  $(printf '%s\n' "$removed"  | grep -c .)"
+  echo "# files MODIFIED: $(printf '%s\n' "$modified" | grep -c .)"
   echo "#"
-  printf '%s\n' "$added"
+  echo "## added"; printf '%s\n' "$added"
+  echo "## removed"; printf '%s\n' "$removed"
+  echo "## modified"; printf '%s\n' "$modified"
+  rm -f "$b" "$a"
 } > "$DIFF"
 echo
 echo "layer installed. added $(grep -c '^/' "$DIFF" || echo 0) files"
