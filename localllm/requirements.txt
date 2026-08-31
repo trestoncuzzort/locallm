@@ -1,5 +1,0 @@
-# Regenerate pins as needed: pip freeze. Top-level requirements only.
-# torch is the ONLY third-party import across localllm/*.py (verified by
-# scanning every import/from statement in this directory); install.py's own
-# CUDA/CPU index selection handles which build to fetch.
-torch
