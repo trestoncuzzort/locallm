@@ -70,9 +70,9 @@ done
 # `set -e` the GOOD outcome (no test timed out) aborted the page. Measured
 # 2026-08-31: the suite passed judgment and the build died on the next line.
 sed -e 's@^make check$@judge_glibc_check@' \
-    -e 's@^grep "Timed out".*$@& || true@' \\
-    -e 's@^tzselect$@: # tzselect is an interactive menu; tup uses UTC (below)@' \\
-    -e 's@^ln -sfv /usr/share/zoneinfo/<xxx> /etc/localtime$@ln -sfv /usr/share/zoneinfo/UTC /etc/localtime@' \\
+    -e 's@^grep "Timed out".*$@& || true@' \
+    -e 's@^tzselect$@: # tzselect is an interactive menu; tup uses UTC (below)@' \
+    -e 's@^ln -sfv /usr/share/zoneinfo/<xxx> /etc/localtime$@ln -sfv /usr/share/zoneinfo/UTC /etc/localtime@' \
     "$PAGE" > /tmp/glibc-judged.sh
 diff <(grep -c . "$PAGE") <(grep -c . /tmp/glibc-judged.sh) >/dev/null \
   || { echo "override: substitution changed the line count — refusing"; exit 1; }
