@@ -7,6 +7,7 @@
 07-gettext.sh
 08-bison.sh
 09-perl.sh
-10-texinfo.sh
-11-util-linux.sh
-12-cleanup.sh
+10-Python.sh
+11-texinfo.sh
+12-util-linux.sh
+13-cleanup.sh

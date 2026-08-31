@@ -73,7 +73,12 @@ def fetch(url: str) -> str:
 def toc_pages(chapter: int) -> list[str]:
     """Page filenames for a chapter, in book order, from the master TOC."""
     idx = fetch(BASE + "index.html")
-    pat = re.compile(rf'href="(chapter{chapter:02d}/[a-z0-9+-]+\.html)"')
+    # Case-SENSITIVE page names exist: the book ships chapter07/Python.html
+    # with a capital P, and a lowercase-only class silently dropped it — the
+    # temporary Python never got built and glibc's configure failed three
+    # chapters later with "critical programs are missing: python". Any class
+    # that can silently drop a page is a defect; this one now also COUNTS.
+    pat = re.compile(rf'href="(chapter{chapter:02d}/[A-Za-z0-9+.-]+\.html)"')
     seen, out = set(), []
     for m in pat.finditer(idx):
         p = m.group(1)

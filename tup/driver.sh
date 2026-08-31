@@ -43,7 +43,11 @@ tup_receipt_skip_tests() {
 export -f tup_tests_enabled tup_receipt_skip_tests
 export RECEIPTS
 
-while read -r script; do
+# ORDER is read on fd 3, and every page runs with stdin from /dev/null. A book
+# page that reads stdin (createfiles does) would otherwise consume the ORDER
+# list off fd 0 and then run the remaining filenames as commands — measured
+# 2026-08-31: chapter 7 failed with "07-gettext.sh: command not found" x6.
+while read -r script <&3; do
   id="$CH/$script"
   grep -qxF "$id" "$STATE" && continue
   page="${script%.sh}"
@@ -66,11 +70,11 @@ while read -r script; do
     ( set -e; cd "$LFS/sources"
       rm -rf "$dir"; tar xf "$tarball"; cd "$dir"
       bash -e "$src"
-    ) > "$plog" 2>&1
+    ) > "$plog" 2>&1 < /dev/null
     rc=$?
     [ $rc -eq 0 ] && rm -rf "$dir"
   else
-    ( set -e; cd "$LFS/sources"; bash -e "$src" ) > "$plog" 2>&1
+    ( set -e; cd "$LFS/sources"; bash -e "$src" ) > "$plog" 2>&1 < /dev/null
     rc=$?
   fi
 
@@ -84,5 +88,5 @@ while read -r script; do
   fi
   echo "$id" >> "$STATE"
   echo "    ok in ${secs}s"
-done < "$CHDIR/ORDER"
+done 3< "$CHDIR/ORDER"
 echo "=== $CH complete"
