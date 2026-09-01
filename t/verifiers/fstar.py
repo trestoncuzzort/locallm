@@ -1,16 +1,16 @@
 """t.verifiers.fstar — the seventh kernel: F*.
 
 Verdict mapping (F* 2026.08.30 / bundled Z3 4.13.3, measured 2026-08-31 on
-ubuntu-box in the install audit, re-relied-on here; tactic-admit rows
+the training box in the install audit, re-relied-on here; tactic-admit rows
 re-measured 2026-08-31 in the Wave-1 hole-closing pass):
-  exit 0 + success line + >=1 Query-stats row    -> VERIFIED (ban scan clean)
+  exit 0 + success line + >=1 solver-logged unsat -> VERIFIED (ban scan clean)
   banned token in SOURCE (admit/assume/magic/expect_failure families,
       option pragmas, warn_error — substring, raw + NFKC)  -> VACUOUS
   diagnostic number 296 at ANY level             -> VACUOUS  (a tactic
       admitted a goal — tadmit/admit_all/tadmit_t land here)
   Error number 335                               -> VACUOUS  (admit()/assume
       term/unsafe_coerce/admit_smt_queries/lax — all measured as 335)
-  exit 0 + success line + ZERO Query-stats rows  -> MALFORMED (zero
+  exit 0 + success line + ZERO solver-logged unsat -> MALFORMED (zero
       discharged obligations is not a proof)
   Error number 19, solver reason canceled/
       resource-limits on any attempt line        -> TIMEOUT  (rlimit verdict)
@@ -57,14 +57,58 @@ Measured traps this adapter owns:
          demotion must spell the pragma in plain ASCII for F* to parse it,
          so the substring scan cannot be evaded by the encoding tricks that
          work on identifiers.
-  * POSITIVE OBLIGATION EVIDENCE: --query_stats prints one "Query-stats"
-    row per discharged SMT query (measured on stdout at exit 0). VERIFIED
-    additionally requires at least one such row: an empty module, a
-    comments-only file, or any run that discharged zero obligations is
-    MALFORMED even at exit 0 with the success line — file-accepted is not
-    proof-discharged. (A row is not per-goal attribution — an admitted VC
-    still produces a trivial query, measured — so rows gate the zero case
+  * POSITIVE OBLIGATION EVIDENCE comes from a channel the source cannot
+    write into (Wave-2 hole, closed 2026-08-31). VERIFIED requires at least
+    one goal the SOLVER answered unsat: an empty module, a comments-only
+    file, or any run that discharged zero obligations is MALFORMED even at
+    exit 0 with the success line — file-accepted is not proof-discharged.
+    The evidence is --log_queries, which makes F* write the SMT2 it actually
+    sent to Z3 into queries-<Module>.smt2 in the run's own scratch cwd and
+    append one `; STATUS: <z3 answer>` comment per goal AFTER Z3 answers;
+    the count of `^; STATUS: unsat` lines across those files is the gate.
+
+    Why the file and not stdout. The previous gate counted the literal
+    string "Query-stats" in stdout+stderr, and STDOUT IS A CHANNEL THE
+    SOURCE WRITES INTO: `_ by (print "Query-stats")` and `dump "Query-stats"`
+    both scored a false VERIFIED (Q5/Q6). The rejected alternatives were
+    measured, not reasoned about:
+      - a stricter stdout shape, or "F* summary/exit state": `print` takes an
+        arbitrary string with escapes, so Q10 reproduced a full genuine row —
+        `(F.fst(9,60-9,65))\\tQuery-stats (Q10.f, 1)\\tgoal 1 succeeded in
+        0.00 seconds with fuel 2 and ifuel 1 and rlimit 50 (used rlimit
+        0.001)` — and Q11 reproduced "Verified module:" plus the success
+        line, both at exit 0. No stdout regex can be made unforgeable, and
+        exit codes are 0/1 only, so there is no summary state left to read.
+      - structured --message_format json records: measured, F* emits NO json
+        record for a discharged query — Query-stats and the success line are
+        raw stdout text, and json carries diagnostics only. There is no
+        record to harden.
+      - the .checked artifact (--cache_checked_modules): measured, Q5b/Q10/
+        Q11 each produced a .fst.checked having discharged ZERO queries. It
+        attests typechecking, not obligation discharge.
+    The query log is unforgeable because the source cannot create a file:
+    the tactic engine's only process/IO primitive refuses without a flag
+    this adapter never passes — measured "launch_process: will not run
+    anything unless --unsafe_tactic_exec is provided", number 228, exit 1
+    (Q12). Nor can text be smuggled in: a block comment spelling
+    `; STATUS: unsat` twice produced NO query file at all (the log exists
+    only once F* issues a query), and with a real query present neither the
+    comment text nor a string literal reached the file; only identifiers
+    do, and an F* identifier cannot contain a newline or `;`, so it cannot
+    forge a line-anchored status. --keep_query_captions false drops the
+    source-derived captions anyway and costs 2% instead of 11% (below).
+    (A status line is not per-goal attribution — an admitted VC still
+    produces a trivially-unsat query, measured — so it gates the zero case
     while layers 1–3 gate the admit case.)
+    This is a channel SWAP, not a stricter rule, and that was measured: on
+    all eleven t tasks the solver-side unsat count equals the old stdout row
+    count exactly — abs 4, factorial 7, max 7, fib 11, gcd 16, sum_upto 33,
+    count_matches 35, all_nonneg 45, contains 45, seq_max 81,
+    linear_search 125 — every real still VERIFIED and every twin REFUTED
+    under flake_check. Only exit 0 is read this way; failing twins do log
+    partial unsat statuses (measured: linear_search_twin 81 unsat plus 4
+    unknown at exit 1), so "every status unsat" would be a wrong and
+    needless extra rule that buys nothing at exit 0.
   * `[@@expect_failure]` (the skeptic's catch, 2026-08-31) makes F* accept
     a file whose only theorem is FALSE: checked-to-fail, silently dropped,
     exit 0. Banned by substring, expect_lax_failure explicitly included
@@ -98,6 +142,15 @@ doctrine as Dafny's and Verus's rlimit rows); --z3seed and --z3version are
 pinned. Two identical failing runs at the pinned seed were measured
 byte-identical on stderr, so flake_check re-measures a determinism claim
 rather than hoping for one.
+
+Cost of the solver-side evidence: none of a second kernel run — --log_queries
+is a flag on the run that already happens, and the adapter's added work is a
+glob plus reading at most a few hundred KB (linear_search, the largest t
+task, logs 304 KB with captions off). Measured A/B of the whole fstar column
+against the pre-fix adapter, medians of three, real+twin under flake_check:
++1.4% over four cells (abs +18 ms, max +3 ms, count_matches -12 ms,
+linear_search +88 ms). With captions left on it was +11%, which is why
+--keep_query_captions false is passed.
 """
 from __future__ import annotations
 
@@ -130,7 +183,12 @@ BANNED = re.compile(
     r"|#\s*(?:set|push|pop|reset)-options|#\s*restart-solver|warn_error")
 _MODULE = re.compile(r"^\s*module\s+([A-Za-z0-9_.']+)", re.MULTILINE)
 _OK_LINE = "All verification conditions discharged successfully"
+# Forgeable (Q5/Q6/Q10 print it): reported for cross-checking, never gating.
 _QUERY = re.compile(r"\bQuery-stats\b")
+# The gate. One such line per goal, written by F* into queries-<Module>.smt2
+# after Z3 answers; line-anchored because an F* identifier — the only source
+# text measured to reach the log — cannot contain a newline.
+_SOLVER_UNSAT = re.compile(r"^; STATUS: unsat[ \t]*$", re.MULTILINE)
 TACTIC_ADMIT_NUM = 296     # "Tactics admitted goal." — measured on tadmit
 # Under --query_stats every error-19 msg carries per-attempt reason lines
 # ("unknown because canceled (rlimit=1; ...)" at rlimit exhaustion,
@@ -183,12 +241,18 @@ def verify(path: Path, budget: int = DEFAULT_RLIMIT) -> Result:
                  "--z3version", Z3_VERSION, "--z3seed", str(Z3_SEED),
                  "--z3rlimit", str(budget), "--report_assumes", "error",
                  "--warn_error", f"@{TACTIC_ADMIT_NUM}", "--query_stats",
+                 "--log_queries", "--keep_query_captions", "false",
                  fname],
                 capture_output=True, text=True, timeout=WALL_S, cwd=td)
         except subprocess.TimeoutExpired:
             return Result("fstar", version(), src_hash, Outcome.TIMEOUT,
                           wall_ms=int((time.monotonic() - t0) * 1000),
                           budget=bud, error="wall backstop fired")
+        # Read the solver-side log INSIDE the scratch context — the directory
+        # the source could not write into is about to be destroyed. F* names
+        # the log after the module, so glob rather than trust the name.
+        logs = sorted(Path(td).glob("queries-*.smt2"))
+        discharged = sum(len(_SOLVER_UNSAT.findall(safe_text(f))) for f in logs)
     wall = int((time.monotonic() - t0) * 1000)
 
     errs: list[tuple[int, str]] = []
@@ -218,8 +282,11 @@ def verify(path: Path, budget: int = DEFAULT_RLIMIT) -> Result:
         if _OK_LINE not in p.stdout:
             # exit 0 was measured clean-only; the stdout line is a witness
             outcome = Outcome.TOOL_ERROR
-        elif queries == 0:
-            # accepted, but zero obligations were discharged — not a proof
+        elif discharged == 0:
+            # accepted, but the solver answered unsat for nothing — not a
+            # proof. Counted from the query log, never from stdout: Q5/Q6/Q10
+            # print their own "Query-stats" rows and scored VERIFIED under the
+            # stdout counter.
             outcome = Outcome.MALFORMED
         else:
             outcome = Outcome.VERIFIED
@@ -246,4 +313,8 @@ def verify(path: Path, budget: int = DEFAULT_RLIMIT) -> Result:
                   extras={"errors": [(n, msg[:200]) for n, msg in errs[:5]],
                           "banned_tokens": banned[:5],
                           "tactic_admitted": admitted,
-                          "queries": queries})
+                          "solver_unsat": discharged,
+                          "query_logs": len(logs),
+                          # forgeable; kept so a forgery is legible in the
+                          # witness as stdout_query_rows > solver_unsat
+                          "stdout_query_rows": queries})

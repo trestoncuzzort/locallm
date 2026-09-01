@@ -3,8 +3,9 @@
 Verdict mapping (Verus 0.2026.08.30.b432e82, per the WS-7 dossier and
 measured here): exit codes are 0/1 only, so the taxonomy comes from
 --output-json plus the message stream. VERIFIED demands POSITIVE evidence,
-all four at once: verification-results present, errors == 0 with success,
-verified >= 1, and at least one `ensures` clause outside comments/strings.
+all five at once: verification-results present, errors == 0 with success,
+verified >= 1, at least one non-spec fn carrying a real `ensures` clause,
+and — the last gate — a kernel-native vacuity probe that comes back clean.
 The Wave-1 audit (2026-08-31) measured success=true with verified=0 for an
 empty verus!{} block, a spec-only file, and a #[verifier::external] theorem
 — all three scored VERIFIED under the old errors==0 test. verified counts
@@ -12,21 +13,70 @@ only functions whose obligations the solver actually discharged, so
 verified >= 1 is the obligation evidence; the ensures scan closes the
 remaining trivial pass (exec fn with no ensures: verified=1, zero theorems).
 
-Vacuity: `assume`, `admit`, and the external family verify anything at exit
-0 (the dossier's headline hazard). t never emits them; the adapter scans the
-SOURCE anyway — defense against a lowering bug, not against t's own tasks.
-The ban is prefix-matched (`assume\\w*` etc.) because Wave-1's
-\\b-delimited exact words missed assume_specification and
-#[verifier::external] ('_' is a word char, and `external` was not listed) —
-both passed `ensures false` as VERIFIED. `requires false` is the same
-hazard from the other side (measured VERIFIED, Wave-1 h_reqfalse): any
-ensures follows from it, so it is VACUOUS by scan, solver unconsulted.
+VACUITY IS ASKED OF THE KERNEL, NOT OF A REGEX. Two native instruments,
+in order of what they cost:
+
+1. --no-cheating. Verus's own flag for "reject assume, admit,
+   verifier::external_body and assume_specification". It is the kernel
+   deciding, by construct identity rather than by spelling, so it holds
+   against renames and homoglyphs the token scan cannot see: measured
+   2026-08-31, h_assume.rs and h_extbody.rs are refused with
+   "assume/admit not allowed with --no-cheating" at encountered-vir-error,
+   and honest lowerings are byte-for-byte unaffected (count_matches,
+   seq_max: verified 4 and 6, errors 0, with and without the flag).
+
+2. The precondition smoke probe (_probe_vacuity), this adapter's answer to
+   Dafny's --warn-contradictory-assumptions: Verus has no such flag, so the
+   question is put to the solver directly. For every non-spec fn carrying a
+   `requires`, the probe appends to the source a second verus!{} block
+   holding a proof fn with THAT function's parameters and THAT function's
+   requires clauses verbatim, no ensures, and a body of exactly
+   `assert(false);`. If the solver proves it, the precondition is
+   unsatisfiable and every obligation the original function "discharged"
+   under it proved nothing — VACUOUS. Appending rather than rewriting is
+   what makes it robust: the probe fn sees the file's own spec fns, types
+   and imports, so it compiles whenever the original does.
+
+   The probe is PER FUNCTION, which is the point. `verified` is a FILE-WIDE
+   SUM, so one honest proof fn paired with one unsatisfiable-requires fn
+   scores verified=2, errors=0 (measured, n_truepplusvac.rs) while the file
+   contains a function that ensures false. Each probe fn contributes exactly
+   one obligation at a line this adapter generated and therefore knows, so
+   the diagnostic spans name which function is vacuous regardless of what
+   the rest of the file did.
+
+   Self-check, because a probe that silently fails to compile would report
+   every precondition as unsatisfiable: the appended block ends with a
+   canary proof fn with NO requires and the same `assert(false);`. It must
+   come back refuted. If it does not — the probe file did not build, the
+   run timed out, the JSON did not parse — the instrument had no reading,
+   so the file cannot be certified: TOOL_ERROR, never VERIFIED. Same for a
+   function the probe cannot express (generics, a where clause, or a `self`
+   receiver — none of which t emits): refuse the file rather than skip the
+   function.
+
+   Cost, measured 2026-08-31 on this box: the probe is the LAST gate, so it
+   runs only on files that would otherwise be VERIFIED, and not at all on a
+   file where no function has a requires (abs, max: zero extra runs). Where
+   it runs it costs one extra Verus invocation, 318-407 ms against a
+   330-540 ms first run.
+
+The lexical scans stay as a cheap second line, never as the thing the
+soundness claim rests on. The ban is prefix-matched (`assume\\w*` etc.)
+because Wave-1's \\b-delimited exact words missed assume_specification and
+#[verifier::external] ('_' is a word char, and `external` was not listed).
+`requires false` is the same hazard from the other side (measured VERIFIED,
+Wave-1 h_reqfalse). Both are strictly redundant now — --no-cheating and the
+smoke probe catch a superset, including the cases the regexes provably miss:
+`requires 1 == 0` and `requires x < x` carry no `false` token at all, and
+`requires ({ let b = false; b })` hides the token behind a `{` the
+tempered-dot stops at (measured VERIFIED, all three, before the probe).
 The scans are deliberately asymmetric about inert text:
   - ban + requires-false run on the RAW decoded source (a hit in a comment
     or string over-flags to VACUOUS — fails closed; stripping first would
     let a stripper bug hide a live assume behind a `"//"` string);
-  - the positive ensures scan runs on comment/string-STRIPPED source (a
-    stripper bug can only hide a real ensures, which scores MALFORMED —
+  - the positive ensures evidence runs on comment/string-MASKED source (a
+    masking bug can only hide a real ensures, which scores MALFORMED —
     fails closed; raw text would let `// ensures` fake the evidence).
 Ban matching also folds NFKC + common Cyrillic homoglyphs + zero-width
 chars: a look-alike `аssume` is not the Verus builtin (rustc rejects the
@@ -52,6 +102,7 @@ from __future__ import annotations
 import json
 import re
 import subprocess
+import tempfile
 import time
 import unicodedata
 from pathlib import Path
@@ -74,8 +125,9 @@ BANNED = re.compile(r"\b(?:assume|admit|external)\w*")
 # requires-false: scan from `requires` up to the next clause keyword or
 # block/statement delimiter for a bare `false` token. Stops at '{', so a
 # `false` hidden behind an ite inside a requires clause escapes this regex —
-# accepted residual: so does `requires 0 == 1`, and no regex decides
-# satisfiability; the twin flip is the harness-level backstop.
+# as does `requires 0 == 1`, and no regex decides satisfiability. Both are
+# measured evasions (n_reqfalse_brace, n_reqvac); _probe_vacuity is what
+# actually closes them.
 _REQ_FALSE = re.compile(
     r"\brequires\b(?:(?!\bensures\b|\bdecreases\b|\brecommends\b|[{;])[\s\S])*?"
     r"\bfalse\b")
@@ -87,6 +139,10 @@ _ENSURES = re.compile(r"\bensures\b")
 _RLIMIT_DIAG = re.compile(
     r"^(?:error|note)(?:\[[^\]]*\])?: .*Resource limit \(rlimit\) exceeded",
     re.M)
+
+# Verus's own refusal of the cheating constructs, emitted at column 0 with
+# encountered-vir-error and no verified/errors tally at all.
+_NOCHEAT_DIAG = re.compile(r"^error: .*not allowed with --no-cheating", re.M)
 
 # Cyrillic/Greek/Armenian codepoints that render as a-z (the confusables
 # actually seen evading keyword scans; NFKC does not fold these).
@@ -111,38 +167,50 @@ def _ban_hits(text: str) -> list[str]:
     return hits
 
 
-def _strip_inert(s: str) -> str:
-    """Blank out //-comments, nested /* */ comments, "..." strings, and
-    r/r#..# raw strings so the positive `ensures` scan cannot be satisfied
-    from inert text. Mis-lexing fails closed: over-stripping can only hide a
-    real ensures (scores MALFORMED, never VERIFIED). Char literals are not
+def _mask_inert(s: str) -> str:
+    """Blank out //-comments, nested /* */ comments, "..." strings and
+    r/r#..# raw strings, replacing each inert character with a space and
+    keeping every newline, so offsets and line numbers are identical to the
+    input. Mis-lexing fails closed in both consumers: the `ensures` evidence
+    scan can only lose a real ensures (MALFORMED, never VERIFIED), and the
+    signature parser can only lose a function (a lost requires-carrying fn
+    would skip its probe, so the parser is cross-checked by the canary and
+    by the ban/requires-false scans on raw text). Char literals are not
     lexed — one codepoint cannot spell a keyword, and a '"' char literal at
-    worst opens a phantom string, which again only over-strips. t's lowering
+    worst opens a phantom string, which again only over-masks. t's lowering
     emits exactly one comment (`// verus!`) and no string/char literals."""
     out: list[str] = []
     i, n = 0, len(s)
+
+    def blank(seg: str) -> None:
+        out.append("".join(c if c == "\n" else " " for c in seg))
+
     while i < n:
         c = s[i]
         nxt = s[i + 1] if i + 1 < n else ""
         if c == "/" and nxt == "/":
             j = s.find("\n", i)
-            i = n if j < 0 else j
+            j = n if j < 0 else j
+            blank(s[i:j])
+            i = j
         elif c == "/" and nxt == "*":
-            depth, i = 1, i + 2
-            while i < n and depth:
-                if s.startswith("/*", i):
-                    depth, i = depth + 1, i + 2
-                elif s.startswith("*/", i):
-                    depth, i = depth - 1, i + 2
+            depth, j = 1, i + 2
+            while j < n and depth:
+                if s.startswith("/*", j):
+                    depth, j = depth + 1, j + 2
+                elif s.startswith("*/", j):
+                    depth, j = depth - 1, j + 2
                 else:
-                    i += 1
-            out.append(" ")
+                    j += 1
+            blank(s[i:j])
+            i = j
         elif c == '"':
-            i += 1
-            while i < n and s[i] != '"':
-                i += 2 if s[i] == "\\" else 1
-            i += 1
-            out.append(" ")
+            j = i + 1
+            while j < n and s[j] != '"':
+                j += 2 if s[j] == "\\" else 1
+            j = min(j + 1, n)
+            blank(s[i:j])
+            i = j
         elif (c == "r" and nxt in ('"', "#")
               and (i == 0 or not (s[i - 1].isalnum() or s[i - 1] == "_"))):
             j = i + 1
@@ -152,8 +220,9 @@ def _strip_inert(s: str) -> str:
             if j < n and s[j] == '"':
                 close = '"' + "#" * hashes
                 k = s.find(close, j + 1)
-                i = n if k < 0 else k + len(close)
-                out.append(" ")
+                k = n if k < 0 else k + len(close)
+                blank(s[i:k])
+                i = k
             else:
                 out.append(c)
                 i += 1
@@ -161,6 +230,252 @@ def _strip_inert(s: str) -> str:
             out.append(c)
             i += 1
     return "".join(out)
+
+
+# ------------------------------------------ the native vacuity instrument —
+# A Verus fn signature is `[spec|proof|exec] fn NAME [<GEN>] (PARAMS)
+# [-> RET] [where W] CLAUSE* { BODY }`. The parser below needs exactly two
+# things per function: the parameter list and the requires clauses, so it
+# reads signatures only and stops at the body brace.
+
+_CLAUSE_KWS = ("requires", "recommends", "ensures", "default_ensures",
+               "returns", "decreases", "opens_invariants", "no_unwind",
+               "where", "via", "when")
+_CLAUSE_RE = re.compile(r"(?:" + "|".join(_CLAUSE_KWS) + r")\b")
+_FN_HEAD = re.compile(r"\bfn\s+([A-Za-z_]\w*)")
+_MODE_RE = re.compile(r"\b(spec|proof|exec)\s*(?:\([^)]*\)\s*)?$")
+_SELF = re.compile(r"\bself\b")
+
+# `error: <msg>` / `warning: ...` followed (possibly after other lines) by a
+# `  --> file:LINE:COL` span. Parsed pairwise rather than by one regex so a
+# diagnostic without a span cannot swallow the next one's location.
+_DIAG_HEAD = re.compile(r"^(error|warning|note)(?:\[[^\]]*\])?: (.*)$")
+_DIAG_SPAN = re.compile(r"^\s*--> [^\n]*?:(\d+):\d+")
+
+
+def _match_bracket(m: str, i: int, op: str, cl: str) -> int:
+    """i indexes the opening bracket; return the index just past its match,
+    or -1 if unbalanced."""
+    depth = 0
+    while i < len(m):
+        if m[i] == op:
+            depth += 1
+        elif m[i] == cl:
+            depth -= 1
+            if depth == 0:
+                return i + 1
+        i += 1
+    return -1
+
+
+def _fns(text: str) -> list[dict]:
+    """Every `fn` ITEM in text, as {name, mode, generics, params, clauses,
+    line}. Reads the comment/string mask for structure and slices the
+    original for content, so the two always agree on offsets."""
+    m = _mask_inert(text)
+    out: list[dict] = []
+    for hit in _FN_HEAD.finditer(m):
+        pre = _MODE_RE.search(m[:hit.start()].rstrip())
+        mode = pre.group(1) if pre else "exec"
+        i = hit.end()
+        while i < len(m) and m[i].isspace():
+            i += 1
+        gen = ""
+        if i < len(m) and m[i] == "<":
+            depth, j = 0, i
+            while j < len(m):
+                if m[j] == "<":
+                    depth += 1
+                elif m[j] == "-" and j + 1 < len(m) and m[j + 1] == ">":
+                    j += 1                      # a return arrow, not a close
+                elif m[j] == ">":
+                    depth -= 1
+                    if depth == 0:
+                        j += 1
+                        break
+                j += 1
+            gen = text[i:j]
+            i = j
+            while i < len(m) and m[i].isspace():
+                i += 1
+        if i >= len(m) or m[i] != "(":
+            continue                            # `fn(..)` pointer type, not an item
+        j = _match_bracket(m, i, "(", ")")
+        if j < 0:
+            continue
+        params = text[i + 1:j - 1]
+        # Walk the rest of the signature to the body brace, collecting
+        # clauses. A `{` while a clause expression is expected is a block
+        # expression inside that clause (`requires ({ let b = false; b })`
+        # and its unparenthesized form), not the body.
+        k, expect_expr, body = j, False, -1
+        clauses: dict[str, str] = {}
+        cur, cur_start = None, -1
+        while k < len(m):
+            c = m[k]
+            if c in "([":
+                k = _match_bracket(m, k, c, ")" if c == "(" else "]")
+                if k < 0:
+                    break
+                expect_expr = False
+                continue
+            if c == "{":
+                if not expect_expr:
+                    body = k
+                    break
+                k = _match_bracket(m, k, "{", "}")
+                if k < 0:
+                    break
+                expect_expr = False
+                continue
+            if c == ";":
+                break                           # declaration without a body
+            if c == ",":
+                expect_expr = cur is not None
+                k += 1
+                continue
+            cw = _CLAUSE_RE.match(m, k)
+            if cw and not (m[k - 1].isalnum() or m[k - 1] == "_"):
+                if cur:
+                    clauses[cur] = text[cur_start:k]
+                cur, cur_start = cw.group(0), cw.end()
+                expect_expr = True
+                k = cw.end()
+                continue
+            expect_expr = False
+            k += 1
+        if body < 0:
+            continue
+        if cur:
+            clauses[cur] = text[cur_start:body]
+        out.append({"name": hit.group(1), "mode": mode, "generics": gen,
+                    "params": params, "clauses": clauses,
+                    "line": text.count("\n", 0, hit.start()) + 1})
+    return out
+
+
+def _diags(err: str) -> list[tuple[int, str, str]]:
+    """(line, severity, message) for every diagnostic carrying a span."""
+    out, head = [], None
+    for line in err.splitlines():
+        h = _DIAG_HEAD.match(line)
+        if h:
+            head = (h.group(1), h.group(2))
+            continue
+        s = _DIAG_SPAN.match(line)
+        if s and head:
+            out.append((int(s.group(1)), head[0], head[1]))
+            head = None
+    return out
+
+
+def _build_probe(text: str, targets: list[dict]) -> tuple[str, dict[int, str]]:
+    """The probe source and {assert_line: function_name}. The probe is the
+    original file plus one appended verus!{} block, so every name the
+    requires clauses mention is still in scope."""
+    pfx = "t_vac"
+    while pfx in text:
+        pfx += "_"
+    head = text if text.endswith("\n") else text + "\n"
+    blocks = ["\nverus!{\n"]
+    for n, f in enumerate(targets):
+        req = f["clauses"]["requires"].rstrip().rstrip(",")
+        blocks.append(f"proof fn {pfx}_{n}({f['params']})\n"
+                      f"    requires\n{req},\n{{\n    assert(false);\n}}\n")
+    blocks.append(f"proof fn {pfx}_canary()\n{{\n    assert(false);\n}}\n")
+    blocks.append("}\n")
+    lines, off = {}, head.count("\n")
+    for j, blk in enumerate(blocks):
+        for rel, line in enumerate(blk.splitlines()):
+            if line.strip() == "assert(false);":
+                lines[off + rel + 1] = (f"{pfx}_canary" if j == len(blocks) - 2
+                                        else targets[j - 1]["name"])
+        off += blk.count("\n")
+    return head + "".join(blocks), lines
+
+
+def _probe_vacuity(text: str, budget: int) -> tuple[str, dict]:
+    """Ask the solver whether any function's precondition is unsatisfiable.
+
+    Returns (status, detail) with status one of:
+      "clean"    — every precondition has a model, or none exist to probe
+      "vacuous"  — assert(false) was PROVED under some precondition
+      "unusable" — the instrument gave no reading; the caller must refuse
+    """
+    fns = _fns(text)
+    targets = [f for f in fns
+               if f["mode"] != "spec" and "requires" in f["clauses"]]
+    if not targets:
+        return "clean", {"probed": 0, "probe_ms": 0}
+    # A probe fn is a copy of the parameter list, so a receiver or a
+    # type-parameter bound it cannot carry means no reading for that
+    # function. Refuse the file rather than certify it unprobed. (t's
+    # lowerings emit neither; measured on all 11 tasks and their twins.)
+    inexpressible = [f["name"] for f in targets
+                     if f["generics"] or "where" in f["clauses"]
+                     or _SELF.search(f["params"])
+                     or _SELF.search(f["clauses"]["requires"])]
+    if inexpressible:
+        return "unusable", {"probed": 0, "probe_ms": 0,
+                            "why": "no probe expressible for "
+                                   + ", ".join(inexpressible[:5])}
+    src, lines = _build_probe(text, targets)
+    t0 = time.monotonic()
+    with tempfile.TemporaryDirectory() as d:
+        # Fixed basename: Verus derives the crate name from it, and a dot or
+        # dash in the name is a rustc error (measured, the .twin.rs finding).
+        f = Path(d) / "t_vacuity_probe.rs"
+        f.write_text(src, encoding="utf-8")
+        try:
+            p = subprocess.run(
+                [str(VERUS), "--output-json", "--no-cheating",
+                 "--rlimit", str(budget), str(f)],
+                capture_output=True, text=True, timeout=WALL_S)
+        except subprocess.TimeoutExpired:
+            return "unusable", {"probed": len(targets),
+                                "probe_ms": int((time.monotonic() - t0) * 1000),
+                                "why": "probe run hit the wall backstop"}
+    ms = int((time.monotonic() - t0) * 1000)
+    try:
+        vr = json.loads(p.stdout).get("verification-results")
+    except (json.JSONDecodeError, AttributeError):
+        vr = None
+    detail = {"probed": len(targets), "probe_ms": ms}
+    if not isinstance(vr, dict):
+        detail["why"] = "probe run produced no verification-results"
+        return "unusable", detail
+    errs: dict[int, list[str]] = {}
+    for ln, sev, msg in _diags(p.stderr):
+        if sev == "error" and ln in lines:
+            errs.setdefault(ln, []).append(msg)
+    canary = [ln for ln, nm in lines.items() if nm.endswith("_canary")]
+    if not canary or not any("assertion failed" in m
+                             for m in errs.get(canary[0], [])):
+        # The canary asserts false under NO precondition, so the solver must
+        # reject it. Silence means the probe file never reached the solver
+        # (a build error, an unparsed diagnostic stream) and every "proved"
+        # below would be an artifact. No reading.
+        detail["why"] = "probe canary was not refuted: " + p.stderr[-300:]
+        return "unusable", detail
+    proved, undecided = [], []
+    for ln, nm in sorted(lines.items()):
+        if nm.endswith("_canary"):
+            continue
+        msgs = errs.get(ln, [])
+        if not msgs:
+            proved.append(nm)                   # assert(false) DISCHARGED
+        elif not any("assertion failed" in m for m in msgs):
+            undecided.append(f"{nm}: {msgs[0]}")
+    if undecided:
+        # An rlimit or any other error at the probe's own assert is not the
+        # solver saying "this precondition has a model"; it is the solver
+        # saying nothing.
+        detail["why"] = "probe undecided for " + "; ".join(undecided[:3])
+        return "unusable", detail
+    if proved:
+        detail["vacuous_fns"] = proved[:5]
+        return "vacuous", detail
+    return "clean", detail
 
 
 def version() -> str:
@@ -178,11 +493,19 @@ def verify(path: Path, budget: int = DEFAULT_RLIMIT) -> Result:
     text = safe_text(path)
     banned = _ban_hits(text)
     req_false = _REQ_FALSE.search(text) is not None
-    has_theorem = _ENSURES.search(_strip_inert(text)) is not None
+    masked = _mask_inert(text)
+    # Theorem evidence, per function rather than per file: some non-spec fn
+    # must carry a real `ensures` CLAUSE, not merely the word somewhere in
+    # the file. Conjoined with the older file-wide scan so a parser miss can
+    # only withhold evidence (MALFORMED), never manufacture it.
+    has_theorem = (_ENSURES.search(masked) is not None
+                   and any(f["mode"] != "spec" and "ensures" in f["clauses"]
+                           for f in _fns(text)))
     t0 = time.monotonic()
     try:
         p = subprocess.run(
-            [str(VERUS), "--output-json", "--rlimit", str(budget), str(path)],
+            [str(VERUS), "--output-json", "--no-cheating",
+             "--rlimit", str(budget), str(path)],
             capture_output=True, text=True, timeout=WALL_S)
     except subprocess.TimeoutExpired:
         return Result("verus", version(), src_hash, Outcome.TIMEOUT,
@@ -201,7 +524,13 @@ def verify(path: Path, budget: int = DEFAULT_RLIMIT) -> Result:
     if not isinstance(verified, int) or isinstance(verified, bool):
         verified = 0
 
-    if banned:
+    err, probe = "", {}
+    if _NOCHEAT_DIAG.search(p.stderr):
+        # The kernel itself refused an assume/admit/external_body/
+        # assume_specification, by construct rather than by spelling.
+        outcome = Outcome.VACUOUS
+        probe = {"no_cheating_refusal": True}
+    elif banned:
         outcome = Outcome.VACUOUS
     elif req_false:
         outcome = Outcome.VACUOUS
@@ -209,7 +538,17 @@ def verify(path: Path, budget: int = DEFAULT_RLIMIT) -> Result:
         outcome = Outcome.MALFORMED
     elif (vr.get("errors", 1) == 0 and vr.get("success")
           and verified >= 1 and has_theorem):
-        outcome = Outcome.VERIFIED
+        # Everything the solver counts says "proved". The remaining question
+        # is whether it proved anything: ask the kernel (module docstring,
+        # instrument 2).
+        status, probe = _probe_vacuity(text, budget)
+        if status == "vacuous":
+            outcome = Outcome.VACUOUS
+        elif status == "unusable":
+            outcome = Outcome.TOOL_ERROR
+            err = "vacuity probe gave no reading: " + probe.get("why", "?")
+        else:
+            outcome = Outcome.VERIFIED
     elif _RLIMIT_DIAG.search(p.stderr) and errors > 0:
         outcome = Outcome.TIMEOUT
     elif errors > 0:
@@ -230,12 +569,15 @@ def verify(path: Path, budget: int = DEFAULT_RLIMIT) -> Result:
         # flipped verdicts on its filename alone. Classifying from the
         # solver's own counts closes every message-shape variant at once.
         outcome = Outcome.MALFORMED
+    if not err and outcome == Outcome.TOOL_ERROR:
+        err = p.stderr[-400:]
     return Result("verus", version(), src_hash, outcome,
                   ok=outcome == Outcome.VERIFIED, exit_code=p.returncode,
                   wall_ms=wall, budget=f"rlimit={budget}",
-                  error="" if outcome != Outcome.TOOL_ERROR else (p.stderr[-400:]),
+                  error=err,
                   extras={"verification_results": vr,
                           "banned_tokens": banned[:5],
                           "requires_false": req_false,
                           "has_ensures": has_theorem,
-                          "verified_count": verified})
+                          "verified_count": verified,
+                          "vacuity_probe": probe})

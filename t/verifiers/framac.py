@@ -21,7 +21,7 @@ obligations) is a later gate, same as Verus's exec/i64 arm.
 -wp-cache none because a proof cache poisons flake_check — a cached verdict
 re-measures nothing.
 
-THE AUDIT ARCHITECTURE (Wave-2, all points measured 2026-08-31):
+THE AUDIT ARCHITECTURE (Wave-2/3, all points measured 2026-08-31):
 
 * VERIFIED requires the positive line `[wp] Proved goals: N / N` with N >= 1,
   anchored at start-of-line and taken from the LAST occurrence, plus exit 0.
@@ -36,21 +36,79 @@ THE AUDIT ARCHITECTURE (Wave-2, all points measured 2026-08-31):
   NO goal for them: axiom_false.c and axiom_nofalse.c both closed
   `Proved goals: 4 / 4` over a false axiom. `lemma` and `check` are NOT
   banned: their obligations are emitted (lemma_false.c measured 4/5).
-* -wp-smoke-tests is pinned: WP tries to derive \false from each contract's
-  hypotheses, and an inconsistent contract is reported `(Doomed)` /
-  `Failed smoke-test` -> VACUOUS. This catches what no literal regex can:
-  `requires 0 == 1` measured Doomed; all 11 honest tasks stay N / N and all
-  11 twins stay N < M with the flag on (measured across out/*.c).
+* Every WP budget knob is pinned, none left at its default: -wp-steps,
+  -wp-timeout, -wp-smoke-timeout and -wp-par (whose default is the machine's
+  core count), all four echoed into Result.budget, plus
+  -wp-smoke-dead-local-init to complete the smoke family (the one smoke class
+  WP leaves off by default). All 11
+  honest tasks stay N / N and all 11 twins stay N < M with the full set on
+  (measured across out/*.c). See the constants for the sizing measurement,
+  including the correction it forced: on the twins the failing goal ends
+  `[Timeout]`, not `[Stepout]`, so the WALL and not -wp-steps is what makes
+  those REFUTED — which is why the wall is pinned small and stated rather
+  than raised until steps bind, a point 30s of budget failed to reach.
 * TOOL_ERROR is live: absent/dead kernel binary, empty kernel output,
   `[wp] User Error` / `Plug-in wp aborted` (measured with an unknown prover:
   exit 0, no Proved line — exit codes alone cannot be trusted), and a
   `Failed:` prover status outside a smoke test. A prover failure is never
   REFUTED — it is not evidence.
+
+THE TWO SEMANTIC VACUITY INSTRUMENTS, and the measured division of labour:
+
+1. -wp-smoke-tests, WP's own instrument: it asks the prover to derive \\false
+   from each contract's hypotheses and from each program point's path
+   condition, and reports `(Doomed)` / `Failed smoke-test`. That catches
+   vacuity sitting in a *hypothesis position* — `requires 0 == 1` and
+   `requires bad(x) >= 0` over an inconsistent definition both measured
+   Doomed (requires_false.c, e2_reqbad.c).
+
+2. THE CONSISTENCY PROBE, this adapter's kernel-native answer to what smoke
+   provably cannot see. Measured 2026-08-31: smoke tests catch NEITHER of the
+   two non-well-founded-definition probes, because the contradiction is
+   laundered into an ensures *antecedent*, which is not a smoke position, and
+   because alt-ergo only instantiates a definition axiom when a term over
+   that symbol is in scope — no smoke goal mentions the symbol, so
+   `Smoke Tests: 1 / 1` passes over a theory that is flatly inconsistent.
+   Both holes are live soundness failures, not cosmetic ones: with
+   `logic integer bad(integer n) = bad(n) + 1;` in scope,
+   `ensures bad(x) >= 0 ==> \\result == 998` on a function returning 999 was
+   VERIFIED 4 / 4 (e1_wrong.c), and the predicate form
+   `predicate bad(integer n) = ! bad(n);` did the same (e3_pred_wrong.c).
+
+   So the adapter puts the term in scope and asks the kernel. For every
+   RECURSIVE logic/predicate definition in the kernel's own normalized AST it
+   synthesizes two probe functions carrying COMPLEMENTARY preconditions over
+   that symbol — `F(a) >= 0` / `F(a) < 0` for a logic function, `P(a)` /
+   `!P(a)` for a predicate — and re-runs WP restricted to them with -wp-fct.
+   No consistent theory can make both members of a complementary pair
+   underivable-from, so BOTH smoke goals coming back `(Doomed)` is a kernel
+   proof that the file's logic environment is inconsistent -> VACUOUS. The
+   verdict is the prover's, not a regex's, and the AND over the pair is what
+   makes it one-sided: a merely lopsided definition (fact is never negative,
+   so `fact(a) < 0` is genuinely unsatisfiable) dooms at most one side.
+   Measured: both probes Doomed on both holes; `Smoke Tests: 2 / 2` (neither
+   doomed) on the honest recursive lowerings count_matches and factorial.
+
+3. THE STRUCTURAL BACKSTOP, second line only. A non-well-founded recursive
+   definition is an inconsistency vector whether or not alt-ergo finds the
+   contradiction at this budget, and WP checks logic-function termination
+   never (lower_framac.py's docstring records the same measurement from the
+   other side). Frama-C 33 has no `decreases` clause for a logic definition
+   at all — `decreases` inside a `logic ... = ...;` annotation is a parse
+   error, measured — so the only expressible well-foundedness obligation is
+   the emitted-goal form the lowering already produces: one
+   `lemma <F>_terminates_<k>` per recursive call, stating that the measure is
+   bounded and decreases. A recursive F with no such obligation is refused.
+   This is a naming convention and is therefore NOT what the soundness claim
+   rests on — instrument 2 runs first and decides on kernel evidence; this
+   only fails closed on definitions whose inconsistency alt-ergo did not
+   find.
 """
 from __future__ import annotations
 
 import re
 import subprocess
+import tempfile
 import time
 from pathlib import Path
 
@@ -62,6 +120,35 @@ _FRAMAC_WHY = missing("framac", "T_FRAMAC", ['frama-c'], [".opam/*/bin/frama-c"]
 DEFAULT_STEPS = 20_000
 WALL_S = 240
 PRINT_WALL_S = 60
+PROBE_WALL_S = 120
+# WP leaves both at 2s and prints neither, so a version bump could move them
+# under a witness silently. Pinned for that reason, and sized by measurement,
+# not raised on principle: NO verdict in the 24-cell corpus, the 31 Wave-1
+# probes or the 8 hole probes differs between 2s and 30s on either knob. The
+# slowest honest goal in out/*.c finishes in 28ms and the slowest smoke goal
+# that ever doomed took 13ms, so these are ~350x margins against load on a
+# shared box, which is what they are for.
+#
+# Sizing them is a cost decision because both are pure WALL bounds with no
+# step-budget twin: WP exposes -wp-smoke-timeout only, and on a recursive
+# definition NO smoke goal is refutable, so each one burns its full wall
+# (factorial.c: 5.4s at 2s, 8.0s at 5s, 33s at 30s). Correcting the record
+# above: for the twins -wp-steps is NOT what ends the failing goal — every
+# twin in out/*.c fails `[Timeout]`, never `[Stepout]`, at 2s and at 30s
+# alike, so alt-ergo never reaches 20 000 steps on those VCs and the wall is
+# the operative refutation bound there. Raising it buys no verdict, only
+# ~13s of suite time per extra second, so it stays small and stated.
+GOAL_TIMEOUT_S = 10
+SMOKE_TIMEOUT_S = 5
+
+# -wp-par defaults to the machine's core count (measured: `default: 120` on
+# this box), which is the roadmap's "prover auto-detect" left unpinned. It is
+# verdict-relevant, not cosmetic: the bound that ends a failing goal here is a
+# wall, so how much CPU each prover gets decides how far it got — the same
+# witness taken at -wp-par 120 and re-taken on a laptop is not the same
+# experiment. Pinned at 4, which any machine can honour; on factorial.c the
+# measured wall is 22.7s at 1, 10.2s at 4, 8.0s at 8.
+PAR = 4
 
 # admit/assumes discharge goals by fiat at the use site; axiomatic/axiom are
 # assumed globally with no emitted goal (see module docstring, measured);
@@ -87,6 +174,131 @@ _SMOKE = re.compile(r"^\s+Smoke Tests:\s+(\d+)\s*/\s*(\d+)", re.M)
 _FAILED = re.compile(r"^\s+Failed:\s+\d+", re.M)
 _TOOLFAIL = re.compile(r"Plug-in wp aborted|\[wp\] User Error")
 _PRINT_MARK = "/* Generated by Frama-C */"
+
+# --- consistency-probe machinery (see docstring section 2) -----------------
+_PROBE_TAG = "t_vacuity_probe"
+_ACSL_BLOCK = re.compile(r"/\*@(.*?)\*/", re.S)
+# Matches a DEFINITION (`... ) =`), never a bare declaration: only definitions
+# are assumed as axioms, and only those can make the theory inconsistent.
+_LOGIC_DEF = re.compile(
+    r"\b(?P<kind>logic|predicate)\s+"
+    r"(?:(?P<ret>[^;{}()=]*?)\s+)??"       # `predicate p(...)` has no return type
+    r"(?P<name>[A-Za-z_]\w*)\s*"
+    r"(?P<labels>\{[^{}]*\})?\s*"
+    r"\((?P<params>[^()]*)\)\s*=")
+_PARAM = re.compile(r"^(?P<ty>.+?)\s*(?P<stars>\**)\s*(?P<nm>[A-Za-z_]\w*)$")
+# -print renders ACSL `integer` as ℤ; `int` appears for C-typed parameters.
+_INT_TYPES = {"ℤ", "integer", "int"}
+
+
+def _wf_obligation(flat: str, name: str) -> bool:
+    """A kernel-emitted well-foundedness goal for recursive symbol `name`.
+    Frama-C 33 rejects `decreases` inside a logic definition (measured), so
+    the lemma form lower_framac.py emits is the only one that exists."""
+    return re.search(r"\blemma\s+" + re.escape(name) + r"_(?:terminates|decreases)",
+                     flat) is not None
+
+
+def _recursive_defs(norm: str) -> tuple[list, str]:
+    """Recursive ACSL logic/predicate definitions in the kernel's normalized
+    AST, with the flattened annotation text they were read from."""
+    body = norm.split(_PRINT_MARK, 1)[1] if _PRINT_MARK in norm else norm
+    flat_all, defs = [], []
+    for blk in _ACSL_BLOCK.findall(body):
+        flat = " ".join(blk.split())
+        flat_all.append(flat)
+        for m in _LOGIC_DEF.finditer(flat):
+            depth, rhs = 0, []
+            for ch in flat[m.end():]:
+                if ch in "([":
+                    depth += 1
+                elif ch in ")]":
+                    depth -= 1
+                elif ch == ";" and depth <= 0:
+                    break
+                rhs.append(ch)
+            name = m.group("name")
+            if not re.search(r"\b" + re.escape(name) + r"\b", "".join(rhs)):
+                continue                    # non-recursive: a definitional
+            params, typed = [], True        # extension, always consistent
+            for raw in (m.group("params") or "").split(","):
+                raw = raw.strip()
+                if raw in ("", "void"):
+                    continue
+                pm = _PARAM.match(raw)
+                if not pm or pm.group("ty").strip() not in _INT_TYPES:
+                    typed = False           # cannot build a well-typed probe
+                    break
+                params.append("int " + pm.group("stars"))
+            defs.append({"kind": m.group("kind"), "name": name,
+                         "labels": m.group("labels"), "params": params,
+                         "typed": typed})
+    return defs, " ".join(flat_all)
+
+
+def _probe_source(raw: str, defs: list) -> tuple[str, list]:
+    """Original source + two complementary-precondition probe functions per
+    recursive symbol. Both preconditions doomed == theory inconsistent."""
+    lines, pairs = [raw, ""], []
+    for i, d in enumerate(defs):
+        if not d["typed"]:
+            continue
+        args = [f"t_p{j}" for j in range(len(d["params"]))]
+        sig = ", ".join(t + a for t, a in zip(d["params"], args)) or "void"
+        lab = ("{" + ",".join("Pre" for _ in d["labels"].strip("{}").split(","))
+               + "}") if d["labels"] else ""
+        call = f"{d['name']}{lab}({', '.join(args)})"
+        pos, neg = ((call, f"!({call})") if d["kind"] == "predicate"
+                    else (f"({call}) >= 0", f"({call}) < 0"))
+        fp, fn = f"{_PROBE_TAG}_pos_{i}", f"{_PROBE_TAG}_neg_{i}"
+        for f, req in ((fp, pos), (fn, neg)):
+            lines += [f"/*@ requires {req};", "    assigns \\nothing; */",
+                      f"void {f}({sig}) {{ return; }}"]
+        pairs.append((d["name"], fp, fn))
+    return "\n".join(lines), pairs
+
+
+def _doomed_fn(out: str, fn: str) -> bool:
+    return re.search(r"\(Doomed\)\s+typed_" + re.escape(fn) + r"_wp_smoke",
+                     out) is not None
+
+
+def _consistency_probe(raw: str, defs: list, budget: int) -> tuple[list, str]:
+    """Ask the kernel whether the file's logic environment is inconsistent.
+    Returns (symbols proved inconsistent, why-the-probe-was-inconclusive)."""
+    if _PROBE_TAG in raw:
+        return [], f"source already defines {_PROBE_TAG}*"
+    src, pairs = _probe_source(raw, defs)
+    if not pairs:
+        return [], "no probe expressible for the parameter types"
+    with tempfile.TemporaryDirectory(prefix="t-framac-probe-") as td:
+        f = Path(td) / "probe.c"
+        f.write_text(src, encoding="utf-8")
+        # -wp-fct restricts goal generation to the probes, so the original
+        # file's own goals are neither re-proved nor charged to this run.
+        fcts = ",".join(fn for _, pos_fn, neg_fn in pairs
+                        for fn in (pos_fn, neg_fn))
+        try:
+            _, out = _run(
+                [FRAMAC, "-wp", "-wp-fct", fcts, "-wp-prover", "alt-ergo",
+                 "-wp-steps", str(budget), "-wp-cache", "none", "-wp-par",
+                 str(PAR), "-wp-timeout", str(GOAL_TIMEOUT_S),
+                 "-wp-smoke-tests", "-wp-smoke-dead-local-init",
+                 "-wp-smoke-timeout", str(SMOKE_TIMEOUT_S), str(f)],
+                PROBE_WALL_S)
+        except (subprocess.TimeoutExpired, OSError) as e:
+            return [], f"probe run did not complete: {type(e).__name__}"
+    if not _PROVED.search(out) or _TOOLFAIL.search(out):
+        return [], "probe file produced no WP goals"
+    return [sym for sym, p, n in pairs
+            if _doomed_fn(out, p) and _doomed_fn(out, n)], ""
+
+
+def _budget(steps: int) -> str:
+    """Every knob that can move a verdict, in the witness. A pin nobody can
+    read from the record is not a pin (fstar.py sets the same precedent)."""
+    return (f"wp-steps={steps} wp-timeout={GOAL_TIMEOUT_S}s "
+            f"wp-smoke-timeout={SMOKE_TIMEOUT_S}s wp-par={PAR}")
 
 
 def version() -> str:
@@ -117,7 +329,7 @@ def verify(path: Path, budget: int = DEFAULT_STEPS) -> Result:
     t0 = time.monotonic()
     if not FRAMAC:
         return Result("framac", "frama-c (absent)", src_hash,
-                      Outcome.TOOL_ERROR, budget=f"wp-steps={budget}",
+                      Outcome.TOOL_ERROR, budget=_budget(budget),
                       error=_FRAMAC_WHY)
 
     # The t lowering emits UTF-8 only, so a non-decodable source is not a t
@@ -126,11 +338,11 @@ def verify(path: Path, budget: int = DEFAULT_STEPS) -> Result:
     # proves the goals (nonutf8.c scored VERIFIED), and 10MB of random bytes
     # (random10mb.c) burned the full wall backstop.
     try:
-        path.read_bytes().decode("utf-8")
+        raw_src = path.read_bytes().decode("utf-8")
     except UnicodeDecodeError as e:
         return Result("framac", _ver(), src_hash, Outcome.MALFORMED,
                       wall_ms=int((time.monotonic() - t0) * 1000),
-                      budget=f"wp-steps={budget}",
+                      budget=_budget(budget),
                       error=f"source is not valid UTF-8: {e}")
 
     # Ban audit on the kernel's normalized view; the scan starts after the
@@ -153,23 +365,59 @@ def verify(path: Path, budget: int = DEFAULT_STEPS) -> Result:
     if banned:
         return Result("framac", _ver(), src_hash, Outcome.VACUOUS,
                       wall_ms=int((time.monotonic() - t0) * 1000),
-                      budget=f"wp-steps={budget}",
+                      budget=_budget(budget),
                       extras={"banned_tokens": banned[:5],
                               "ban_audit": ban_audit})
+
+    # Recursive logic/predicate definitions only: WP assumes a definition as
+    # an axiom and emits no goal for it, and it never checks that the
+    # recursion terminates. Non-recursive definitions are definitional
+    # extensions and cannot introduce an inconsistency, so they are not
+    # probed and cost nothing.
+    rec, flat = _recursive_defs(norm) if print_ok else ([], "")
+    probe_note = "no recursive logic definition"
+    if rec:
+        inconsistent, probe_note = _consistency_probe(raw_src, rec, budget)
+        if inconsistent:
+            return Result("framac", _ver(), src_hash, Outcome.VACUOUS,
+                          wall_ms=int((time.monotonic() - t0) * 1000),
+                          budget=_budget(budget),
+                          error="logic environment is inconsistent: WP doomed "
+                                "both halves of a complementary hypothesis "
+                                "pair over " + ", ".join(inconsistent),
+                          extras={"inconsistent_symbols": inconsistent,
+                                  "vacuity_instrument": "consistency probe "
+                                                        "(-wp-fct smoke)",
+                                  "banned_tokens": [], "ban_audit": ban_audit})
+        unmeasured = [d["name"] for d in rec if not _wf_obligation(flat, d["name"])]
+        if unmeasured:
+            return Result("framac", _ver(), src_hash, Outcome.VACUOUS,
+                          wall_ms=int((time.monotonic() - t0) * 1000),
+                          budget=_budget(budget),
+                          error="recursive logic definition with no emitted "
+                                "well-foundedness obligation: "
+                                + ", ".join(unmeasured),
+                          extras={"unmeasured_recursion": unmeasured,
+                                  "vacuity_instrument": "structural backstop",
+                                  "probe_note": probe_note,
+                                  "banned_tokens": [], "ban_audit": ban_audit})
 
     try:
         rc, out = _run(
             [FRAMAC, "-wp", "-wp-prover", "alt-ergo", "-wp-steps",
-             str(budget), "-wp-cache", "none", "-wp-smoke-tests", str(path)],
+             str(budget), "-wp-cache", "none", "-wp-par", str(PAR),
+             "-wp-timeout", str(GOAL_TIMEOUT_S), "-wp-smoke-tests",
+             "-wp-smoke-dead-local-init", "-wp-smoke-timeout",
+             str(SMOKE_TIMEOUT_S), str(path)],
             WALL_S)
     except subprocess.TimeoutExpired:
         return Result("framac", _ver(), src_hash, Outcome.TIMEOUT,
                       wall_ms=int((time.monotonic() - t0) * 1000),
-                      budget=f"wp-steps={budget}", error="wall backstop fired")
+                      budget=_budget(budget), error="wall backstop fired")
     except OSError as e:
         return Result("framac", _ver(), src_hash, Outcome.TOOL_ERROR,
                       wall_ms=int((time.monotonic() - t0) * 1000),
-                      budget=f"wp-steps={budget}",
+                      budget=_budget(budget),
                       error=f"kernel binary failed to run: {e}")
     wall = int((time.monotonic() - t0) * 1000)
     proved = list(_PROVED.finditer(out))
@@ -203,10 +451,12 @@ def verify(path: Path, budget: int = DEFAULT_STEPS) -> Result:
         outcome = Outcome.REFUTED       # unproved at the pinned budget
     return Result("framac", _ver(), src_hash, outcome,
                   ok=outcome == Outcome.VERIFIED, exit_code=rc,
-                  wall_ms=wall, budget=f"wp-steps={budget}", error=err,
+                  wall_ms=wall, budget=_budget(budget), error=err,
                   extras={"proved": m.group(0).replace("[wp] ", "").strip()
                           if m else None,
                           "goal_statuses": statuses[:8],
                           "smoke": smoke.group(0).strip() if smoke else None,
+                          "recursive_defs": [d["name"] for d in rec],
+                          "probe_note": probe_note,
                           "banned_tokens": [],
                           "ban_audit": ban_audit})
