@@ -1,6 +1,6 @@
 # srlm-forge: One Program, Two Instruments — Research Roadmap
 
-**Repo:** this repository, everything on `main` · **Paper:** manuscript v15 (LaTeX tree kept outside the repo; Markdown chain at `docs/revision-2026-08-25/`) · **Hardware:** MacBook M5 Pro (MPS, no CUDA), ubuntu-box (GPU 0 only), the retired Windows 4080/t box (artifact recovery only)
+**Repo:** this repository, everything on `main` · **Paper:** manuscript v15 (LaTeX tree kept outside the repo; Markdown chain at `docs/revision-2026-08-25/`) · **Hardware:** MacBook M5 Pro (MPS, no CUDA), ubuntu-box (GPU 0 only), the retired Windows 4080/Kingo box (artifact recovery only)
 
 ---
 
@@ -79,7 +79,7 @@ The single most consequential design decision, written against the **post-`fd90f
 
 ### WS-6: Metal-arm prep *(hours now; experiment gated on artifact recovery)*
 
-Zero-regret staging for the re-execution arm on a third serving stack: install Ollama; pull `llama3:8b-instruct-q4_K_M` and check the blob against `sha256-8d2bf4416eb1…` (fallback: copy blob+manifest from the Dell's `~/.ollama`); pin a verifier ≤3.13 (`~/.local/bin/python3.12` = 3.12.10 matches the live receipt; 3.11.9 via uv if paper-matching is preferred — decide in the prereg, never 3.14, under which the typing mechanism does not exist); time a 2-replicate unbanked null smoke and **size N from the smoke before preregistering fixed N**. The gating milestone is recovering adapter `sha256-4107cf60` from the Dell or the t box (`C:\Users\t\source\srlm-forge\`); if both are dead, re-scope honestly to the positive-control pair (GGUF `2cf7e8cc…` already on this Mac) and drop the +0.55 replication claim. Metal rows go to the new device-fingerprinted ledger, **never** appended to `data/ruler_noise.jsonl`.
+Zero-regret staging for the re-execution arm on a third serving stack: install Ollama; pull `llama3:8b-instruct-q4_K_M` and check the blob against `sha256-8d2bf4416eb1…` (fallback: copy blob+manifest from the Dell's `~/.ollama`); pin a verifier ≤3.13 (`~/.local/bin/python3.12` = 3.12.10 matches the live receipt; 3.11.9 via uv if paper-matching is preferred — decide in the prereg, never 3.14, under which the typing mechanism does not exist); time a 2-replicate unbanked null smoke and **size N from the smoke before preregistering fixed N**. The gating milestone is recovering adapter `sha256-4107cf60` from the Dell or the Kingo box (`C:\Users\Kingo\source\srlm-forge\`); if both are dead, re-scope honestly to the positive-control pair (GGUF `2cf7e8cc…` already on this Mac) and drop the +0.55 replication claim. Metal rows go to the new device-fingerprinted ledger, **never** appended to `data/ruler_noise.jsonl`.
 
 ---
 
@@ -153,72 +153,47 @@ Gated on D-1/D-3 reproducing a within-ruler-v1 retrain gain on this stack, and p
 
 ## WS-7: The verifier gauntlet — multi-language verified pairs
 
-**STATUS 2026-08-31 (pre-dawn):** six of seven tier-A kernels are LIVE in
-`t/` — Dafny 4.11.0, Verus 0.2026.08.30, GNATprove FSF 16.1.0, Frama-C 33.0
-(alt-ergo 2.4.3-free), Lean 4.33.1, Rocq 9.2.0 — with `t/run_all.py` showing
-FULL AGREEMENT (real VERIFIED / twin REFUTED, flake-checked) on every task ×
-kernel cell. Agda 2.8.0's ADAPTER is measured and landed (exit 0/42, bracketed
-error names, --safe); its LOWERING is parked: the stdlib has no lia/omega
-analogue, so the proof-synthesis template for the LIA fragment is a design
-problem, not a typing task. Parked follow-ups: WP countermodel prover naming
-(why3 lists `counterexamples` configs; -wp-prover spelling TBD), and the
-per-goal gave-up-vs-countermodel refinement shared by SPARK and Frama-C.
+**STATUS: the gauntlet is BUILT. Seven kernels, 77/77 cells
+`verified / refuted`, zero flakes** (`t/AGREEMENT.md`) — Dafny 4.11.0,
+Verus 0.2026.08.30, GNATprove FSF 16.1.0, Frama-C 33.0 (alt-ergo
+2.4.3-free), F\* 2026.08.30, Lean 4.33.1, Rocq 9.2.0, all installed
+no-sudo from pinned hashed artifacts and witnessed in
+`t/WITNESS-2026-08-31-dell.md`. `t/run_par.py` runs the matrix
+cell-parallel and must diff byte-identical against `run_all.py`.
 
-**STATUS 2026-08-31 (ubuntu-box):** step zero is DONE — all six kernels
-reinstalled no-sudo on the Dell after the machine wipe (pinned, hashed; see
-`t/WITNESS-2026-08-31-dell.md`) and the full suite run there. The Verus
-remeasure is discharged, after a second repair to the MALFORMED classifier:
-the `error[` stderr match was itself vacuous against the bracketless
-crate-name diagnostic, so REFUTED now requires the solver's own nonzero
-errors count. The Rocq v1 lowering, recorded above as unfinished, lowers and
-flips 10 of 11 as landed; its one remaining cell, count_matches, was a
-non-terminating `t_merge` rewrite in the generated prelude (missing occurs
-check, self-retriggering `replace`) and is fixed at the root. `t/run_par.py`
-(cell-parallel driver, adversarially reviewed, cross-checked byte-identical
-against `run_all.py`) cuts a full suite from 27 min to the slowest cell.
+**And the table is the least interesting artifact here.** Three adversarial
+campaigns were run against t's own instruments; what they found is the real
+state of the project and the source of everything in WS-10 below.
 
-**STATUS 2026-08-31 (ubuntu-box, evening): 7 kernels, 77/77 FULL
-AGREEMENT.** F\* is landed as the seventh kernel — SMT-track item 3 done:
-official v2026.08.30 binary, taxonomy measured on the box before the adapter
-was written, full column flips, adversarial skeptic reproduced it from
-scratch and caught `[@@expect_failure]` as a verify-anything hole (now
-banned; fix red-witnessed). WS-8's x86_64 question is answered in
-`tup/X86-FEASIBILITY.md`: GO via KVM guest once the account joins the `kvm`
-group; TCG measured ~14x as the fallback; rootless chroot measured dead.
-
-**STATUS 2026-08-31 (adapter audit — the instrument turned on itself).**
-Seven hostile agents, one per kernel, were told to make a FALSE theorem pass
-through each adapter. They found ~38 holes, every one with a live probe.
-Three classes: (1) acceptance mistaken for proof — empty files,
-comments-only files, `verified==0` runs, and a Lean binary pointed at
-`/bin/true` all returned VERIFIED, which reaches the HONEST pipeline, not
-just adversarial input; (2) evadable lexical bans — word-boundary escapes
-(`sorryAx`, `tadmit`, `assume_specification`), Axiom synonyms (`Parameter`,
-`Conjecture`), pragma-versus-aspect forms, comment-hidden and
-macro-expanded admits, an ACSL `axiomatic` block never banned at all;
-(3) output-parse injection — rocq's closedness gate is a substring search,
-so a decoy `Print Assumptions` on a trivial lemma prints the sentinel while
-the real proof's audit is withheld; Lean falls the same way to
-`#guard_msgs`. Plus six of seven adapters crashed on non-UTF8 input.
-
-The repair inverts the trust model: **stop blocklisting bad mechanisms;
-require positive evidence that the named obligation was discharged.** After
-one hardening wave and an independent re-attack per kernel, **dafny, lean
-and rocq are SOUND** (no probe scores a false VERIFIED; dafny survived 56).
-**verus, spark, framac and fstar remain porous**, and the four survivors
-share one root cause worth stating as a law: *semantic vacuity is not
-detectable by regex.* `requires 1 == 0`, `Pre => (1 = 2)`, a content-free
-`Post => (True)`, and a non-well-founded ACSL logic function all let the
-solver honestly discharge an obligation whose hypothesis is unsatisfiable.
-Dafny is sound precisely BECAUSE its adapter runs a semantic vacuity probe
-(`--warn-contradictory-assumptions`) rather than a word list. The fix for
-the rest is each kernel's own equivalent — `-wp-smoke-tests` for Frama-C
-(already named in 7.4's known-bad-flags list as a default that must not stay
-off), an `assert false` reachability probe for Verus, GNATprove's
-inconsistent-precondition proof warnings for SPARK. F\*'s hole is different:
-its positive-evidence counter greps stdout for `Query-stats`, which a
-`print` in the source can forge, so the count must come from a channel the
-source cannot write to.
+- *Adapter audit.* Seven hostile agents, one per kernel, tasked with making
+  a FALSE theorem pass. ~38 holes, each with a live probe: empty files and
+  `verified==0` runs scoring VERIFIED (this class reaches the HONEST
+  pipeline, not just adversarial input); word-boundary escapes (`sorryAx`,
+  `tadmit`, `assume_specification`); Axiom synonyms (`Parameter`,
+  `Conjecture`); an ACSL `axiomatic` block never banned at all; and
+  output-parse injection, where a decoy `Print Assumptions` prints Rocq's
+  closedness sentinel while the real proof's audit is withheld.
+- *The repair inverted the trust model* — stop blocklisting mechanisms,
+  require positive evidence the named obligation was discharged. After one
+  hardening wave and an independent re-attack each, **dafny, lean and rocq
+  are SOUND** (dafny survived 56 probes). **verus, spark, framac and fstar
+  are not**, and the survivors share one root cause worth stating as a law:
+  **semantic vacuity is not detectable by regex.** Dafny is sound precisely
+  because its adapter asks the kernel
+  (`--warn-contradictory-assumptions`) instead of grepping for words.
+- *Differential fuzzing of the lowerings* (`t/fuzz_lower.py`, 218 generated
+  tasks, ~3,500 kernel invocations) found what agreement was hiding: **two
+  lowering UNSOUNDNESSES.** `lower_framac.py` lowered a t `int` to a C
+  `int`, so WP granted `x <= 2^31-1` for free and Frama-C was answering a
+  32-bit question while SPEC.md says unbounded; `lower_spark.py` carried
+  the same disease in its sequence model. Also three `lower_rocq.py` bugs,
+  and an adapter taxonomy violation (SPARK folded gnatprove's "could not
+  prove" into REFUTED, breaking the rule that incompleteness is never a
+  refutation).
+- *The twin discipline, measured for the first time:* all 81
+  INVARIANT-DROP twins are load-bearing, but **21 of 119 COLLAPSE-IF twins
+  compute an identical value to the real program** everywhere tested. For
+  those tasks the "measured flip" measures nothing.
 
 The Dafny pipeline (`~/srlm-forge/dafny_verify.py`, `dafny_pairs.py`) is the specification: a five-way measured outcome taxonomy (VERIFIED / REFUTED / MALFORMED / VACUOUS / TIMEOUT), a deterministic resource budget with a hash-pinned toolchain fingerprint, flake-checking before any verdict is trusted, single-hint ablation kept only on a measured verified→refuted flip, spec mutation, permissive-only shipping, and headless no-sudo installs on macOS-arm64 and Ubuntu 24.04. Nine languages were dossiered and every dossier survived a hostile fact-check; all tiers below are post-correction (no tier was overturned, but several load-bearing details were — they are folded in here, not in the dossiers). Limits first: no Ubuntu install below was executed on the actual box except Dafny's; every "proven" claim is macOS-measured plus a verified self-contained Linux artifact, and step zero on the Dell is always to re-run the language's probe matrix there.
 
@@ -236,24 +211,24 @@ The Dafny pipeline (`~/srlm-forge/dafny_verify.py`, `dafny_pairs.py`) is the spe
 | Haskell (Liquid Haskell) | LH 0.9.14.1.1 on GHC 9.14.1 + **liquid-prelude** (omitting it breaks proof combinators) via package-env; PATH-shim-pinned Z3 4.15.8/4.16.0 | B | Rebuilt by hand: GHC exits 1 for everything — two-pass compile + message-class parse; `--json` in plugin mode is the highest-leverage unknown | No native rlimit — wrapper shim with cumulative per-module Z3 budget; solver `unknown` must be reclassified TIMEOUT from the shim log | LH test suite (BSD-3); benchmark suites per-suite allowlist ONLY — GPL hmatrix is vendored beside them under `tests/benchmarks/` | Three contract pillars (taxonomy, budget, vacuity) all custom; full GHC pipeline per variant |
 | Whiley | wyc 0.10.18 + wyboogie 0.4.8 (`--noverify`) → raw Boogie 3.5.7 `/rlimit` + Z3 4.14.1 | B | Five-way from three stages + stdout regex — Boogie exits 0 on every outcome incl. parse errors; `/smoke` for VACUOUS, Boogie-level havoc for weak specs | Same substrate as Dafny (Boogie rlimit + PROVER_PATH), measured stable | Whiley2Boogie tests (Apache-2.0, ~1409 verifying programs); STD.wy is Apache-2.0 (dossier wrong) | Frontend dormant since 2022 — any bug is fork-and-own; hundreds of pairs, not thousands |
 
-### 7.2 Rollout order
+### 7.2 Rollout order — COMPLETE for tier A
 
-The criterion is stated by the contract: a language enters only when its five-way taxonomy is measured (not documented) and its no-sudo install is proven. Proof assistants are a separate sub-track because "verified" there means kernel-accepted proof term, REFUTED means ill-typed/unsolved rather than SMT-could-not-prove, and mixing those pairs untagged with SMT pairs changes what the preference signal rewards.
+All seven tier-A kernels landed and are measured on the box: SPARK, Verus,
+F\*, C/ACSL on the SMT track; Lean 4 and Rocq on the proof-assistant
+sub-track. The entry criterion held throughout — a language entered only
+when its five-way taxonomy was *measured* on this machine, never merely
+documented — and F\* was the last, with an adversarial skeptic reproducing
+its column from clean scratch before it was claimed.
 
-**SMT track:**
+Still out, deliberately:
 
-1. **SPARK** — the only candidate whose entire probe matrix was independently re-run by the hostile check from a hash-verified tarball; per-platform sha256 published in the Alire index; self-contained tarball needs nothing from apt. First step runs on the Dell directly.
-2. **Verus** — full five-way measured on the current release, all-MIT corpus, rustup+zip install; its two gaps (undiscriminating exit codes, rlimit-out folded into errors) close in the harness and both closures were measured.
-3. **F*** — the richest measured pair demo of the nine, but it pays for it: JSON-only classification, per-corpus F* pinning, and the corrected invocation (drop `--cache_off` from the reward run; use `--cache_off` minus `--report_assumes` only for byte-identical flake re-runs).
-4. **C/ACSL** — tier A on paper, but the only A whose taxonomy has not been executed; sentinel-file re-measurement is mandatory before `framac_verify.py` ships constants, the prover pin must be the corrected free stack, and the install is the most fragile of the A tier.
-
-**Proof-assistant sub-track:**
-
-5. **Lean 4** — measured taxonomy, huge Apache corpus, one-curl installs on both platforms. v1 ships with the `set_option` denylist and parse-precedence classifier or not at all; throughput work (REPL) follows, not precedes.
-6. **Agda** — fully measured taxonomy and the cleanest no-sudo story (one static binary), but gated on the 50-file stdlib pilot: if step/clause/rewrite ablation yields too few flips, the syntax-aware `find_hints` rewrite is not worth it. Linux binary is docs-verified only — smoke-test first.
-7. **Rocq** — measured three-pass gate and the strongest vacuity instrument of the nine (independent kernel re-check), but gated on: gcc confirmed on the Dell, corrected opam pins, and acceptance of ssreflect dialect skew in the shippable corpus.
-
-**B tier, opportunistic only:** Liquid Haskell after one measurement session resolves the `--json` plugin-mode unknown; Whiley only on idle capacity — everything is proven but the ceiling is low and the frontend is unmaintained.
+- **Agda** — adapter measured and landed, LOWERING parked. The stdlib has
+  no `lia`/`omega` analogue, so the proof-synthesis template for the LIA
+  fragment is a design problem, not a typing task. Hand-plumbed proofs
+  dressed as automation are exactly the unwitnessed artifact t exists to
+  refuse.
+- **Liquid Haskell, Whiley** — B tier, opportunistic only. Everything is
+  proven but the ceiling is low and Whiley's frontend is unmaintained.
 
 ### 7.3 The adapter interface: `verifiers/<lang>.py`
 
@@ -378,51 +353,126 @@ so bare-metal engineering had no consumer. The decision and its consequences:
 - The kernel keeps its compiled-in virtio set plus the SATA/e1000 fallbacks
   defconfig already gave it; VMware/VirtualBox should boot via those paths but
   are labeled UNVERIFIED until someone witnesses one.
-- Witnessed so far: QEMU/hvf on macOS (20 s to login), QEMU/TCG on Ubuntu
-  with no KVM at all (40 s) — the worst-case host, measured.
-- Still real from the old list: the **x86_64 build** (same driver, x86 book)
-  for the Dell as pinned verifier/analysis environment. Training stays on the
-  Dell's host OS where CUDA lives.
+- Witnessed: QEMU/hvf on macOS (20 s to login); QEMU/TCG on Ubuntu with no
+  KVM at all (40 s); and, 2026-08-31, the **released split image booted on a
+  second host** from its published parts — 45 s to `tup login:` under pure
+  TCG (`tup/receipts/boot-witness-dell-*.txt`). That run also caught two
+  defects in the release itself: a stale whole-file digest in SHA256SUMS
+  (corrected and re-uploaded) and the fact that the documented boot command
+  *mutates* the image, so RUN-ON-UBUNTU.md now prescribes an overlay.
+- **x86_64 build: GO, and costed.** `tup/X86-FEASIBILITY.md` answers it with
+  measurements — a KVM guest is the recommended path and is blocked only on
+  the account joining the `kvm` group (one admin line); TCG works today at a
+  measured ~14x per thread; a rootless chroot is measured impossible under
+  this kernel's userns policy. `qemu-system-x86_64` is already built and
+  installed beside the aarch64 target from the same hashed source. Training
+  stays on the host OS where CUDA lives.
 
-## WS-9: going public — the checklist before the switch is flipped
+## WS-9: going public — DONE 2026-08-31
 
-The repository is private today and is intended to go public when the ISOs
-exist. Publication is not reversible in the way people assume: history is
-published too, and a repository that was public for an hour is public
-forever. So this is a checklist, run BEFORE the flip, not after.
+The repository is public. The scrub ran before the flip, as this section
+required: usernames in recorded paths became `user`, hostnames became
+`ubuntu-box`/`train-box`/`macbook.local`, absolute home paths became `~`,
+third-party names became roles, and author/copyright attribution was
+deliberately left intact. A second rewrite followed on request, stripping
+every AI co-authorship trailer from the history (301 lines across 526
+commits; prose that factually describes Claude Code as software *installed
+by the distro* was left alone, because deleting it would falsify the
+record).
 
-**Already clean, verified 2026-08-31 by scanning tracked files and full
-history:** no API keys, tokens, or private keys anywhere; no KodCode-derived
-data tracked (the CC BY-NC set exists only locally, as OPEN-ITEMS requires);
-no collaborator names or institutional email addresses in tracked files.
+The one irreducible residue, recorded because it is the kind of thing this
+project refuses to leave unstated: **`refs/pull/*` still point at
+pre-rewrite commits.** GitHub keeps PR refs permanently and refuses pushes
+to them, so the old history remains fetchable by SHA through those refs
+until GitHub Support garbage-collects them. Anyone who cloned in the
+interval also keeps the old history. A rewrite is not an unpublish.
 
-**Three things that are NOT clean, and what to do about each:**
+---
 
-1. **65 files sit in history that were untracked for a reason** — the 61
-   council reports and transcripts, the operating-protocol brief, the
-   handoffs, the method-kit pointer. Gitignoring them stopped future commits;
-   it did not remove them from past ones. Going public publishes all of it.
+## WS-10: what t needs next — the audit's bill (opened 2026-09-01)
 
-2. **One line in history reads badly out of context.** An early note describes
-   "run the loop unattended without elevation prompts" — a
-   throwaway phrasing about an unattended local build loop, but in a public
-   repository belonging to someone doing security research it is a sentence
-   that will be quoted without its context. It is in history, not in the tree.
+Everything here exists because something was *measured*, not because it
+seemed like a good idea. Ordered by how badly it hurts the central claim.
 
-3. **Fourteen manuscript files are tracked**, v10 through v15 of an
-   unpublished paper. Publishing them is a real decision about priority and
-   preprint norms, not an accident to discover afterward.
+### 10.1 Ground-truth fuzzing — the one test that catches a SHARED error
 
-**The recommended shape, which matches how this project already works:** do
-not scrub and flip. Publish a NEW repository containing only what tup IS —
-`t/`, `tup/`, `locallm/`, README, ROADMAP — and keep this one private as the
-working record. `sync_public.py` already implements exactly this pattern for
-locallm: a whitelist, a forbidden-term abort, and a refusal to publish
-anything mentioning the channel. Extending it to publish the distro and the
-language is a day of work and it inherits the safety property that a history
-scrub cannot give you: **the private record never had a public commit to
-scrub in the first place.**
+Differential fuzzing (WS-7 status) compares kernels **to each other**, so it
+is structurally blind to the failure that matters most to this project: if
+all seven lowerings mistranslate the same construct the same way, every
+kernel agrees, the table is green, and the fuzzer reports nothing. The
+integer-width unsoundness was caught only because Frama-C happened to be the
+odd one out. A bias shared by all seven is invisible to that method.
 
-The alternative — `git filter-repo` over this history, then flip visibility —
-is possible and is strictly more dangerous, because it depends on having
-enumerated every sensitive path correctly the first time.
+The fix is to stop grading against consensus and start grading against
+**truth known by construction**:
+
+- **KNOWN-TRUE by construction** — build the postcondition *from* the body's
+  own semantics (if the body computes `if x >= 0 then x else -x`, then
+  `ensures r == (if x >= 0 then x else -x)` is true for all inputs, with no
+  appeal to bounded testing).
+- **KNOWN-FALSE by exhibited witness** — mutate a known-true postcondition
+  and have `t/interp.py` produce a concrete input where it fails. One
+  counterexample is a sound falsity proof; a bounded search is not a sound
+  truth proof, and the generator must never confuse the two.
+- **The oracle:** every kernel must VERIFY every known-true task and REFUTE
+  every known-false one. A VERIFIED on a known-false task is an
+  **unsoundness** — the most serious finding available. A REFUTED on a
+  known-true task is a lowering bug or, if the kernel merely gave up, a
+  taxonomy bug (incompleteness must never be reported as refutation).
+- **Boundary discrimination:** generate tasks whose truth *differs* between
+  unbounded and machine integers. Any backend that verifies a
+  "true-only-under-32-bit" task is silently using machine ints — an
+  independent re-check of the WS-7 integer repair that does not trust it.
+- **Metamorphic invariance:** semantics-preserving rewrites (variable
+  renaming, reordering independent statements, `x + 0`, double negation)
+  must not change any verdict. This also catches shared errors, and is cheap.
+- **Validate the oracle itself.** `t/interp.py` is t-authored; if it shares a
+  misconception with the lowerings it will bless the bug. It must be
+  differential-tested against the kernels and against exhaustive evaluation
+  on small domains before it is trusted as ground truth.
+
+### 10.2 Vacuity belongs in the lowering, not the adapter
+
+Four adapters (verus, spark, framac, fstar) remain porous, and the reason is
+now understood well enough to state as architecture: **an adapter that
+re-parses a rich source language with regexes cannot be sound.** The
+measured evidence is brutal — a Verus probe was defeated by a char literal
+opening a phantom string, by a raw identifier `r#try`, and by a parameter
+named `recommends`; its own canary check silently discarded a correct
+vacuity reading; a Frama-C probe was suppressible by a sentinel the source
+controls.
+
+The harness *generates* the lowered file and therefore holds its AST. The
+vacuity probe must be emitted there — a third artifact per task alongside
+real and twin — so the adapter only ever runs what it was handed. That
+sidesteps every parser hole at once. Defence against arbitrary hostile
+source stays a bounded, honestly-stated claim: the adapters refuse the known
+verify-anything constructs; they are not a sandbox.
+
+### 10.3 Twin operators that guarantee a difference
+
+21 of 119 COLLAPSE-IF twins were behaviourally identical to the real
+program. `t/interp.py` now lets the harness *require a witness input where
+real and twin differ* before a twin is accepted, and new operators
+(off-by-one, comparison flip, guard drop, wrong-variable) exist to retry
+when collapse-if is degenerate. What remains is to re-measure the strength
+statistic on a fresh corpus and publish it beside the agreement table —
+"the flip was measured" is only a claim once the twin is known to differ.
+
+### 10.4 Grow the fragment, gate by gate
+
+t is still integers, sequences, loops with invariants, and recursion via
+spec funs. No heap, no floats, no concurrency. Each gate opens the same way
+this one did: measure the taxonomy, land the lowering, have an adversarial
+skeptic reproduce the flip table from clean scratch, and only then claim the
+column. Floats are the most interesting next gate and the most dangerous —
+every kernel's float model differs, which makes it the natural home for the
+next cross-kernel disagreement finding.
+
+### 10.5 The prove layer
+
+`tup`'s prove layer is still unbuilt: the seven kernels run on the host, not
+inside the distro. Building it puts the whole chain — spec, lowering,
+kernel, libc, compiler — under one receipt discipline, and is the point at
+which "a proof is only as good as the machine that checked it" stops being a
+slogan in this repository.

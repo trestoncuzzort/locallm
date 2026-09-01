@@ -28,9 +28,8 @@ project). So EVERYTHING is a package spec of expression functions:
                       decreases becomes F's Subprogram_Variant.
   * spec_funs      -> recursive expression functions with their own
                       Subprogram_Variant.
-  * seq            -> type Seq is array (Positive range <>) of Big_Integer
-                      (Positive index keeps 'Length within Integer, which
-                      the range obligations below need).
+  * seq            -> SPARK.Containers.Functional.Infinite_Sequences,
+                      instantiated over Big_Integer (see THE SEQ MODEL).
 
 VARIANTS: SPARK requires a Big_Integer Subprogram_Variant to be provably
 nonnegative; t's decreases obligations only give >= 0 at the recursion/loop
@@ -38,33 +37,56 @@ step. Every variant is therefore wrapped (if D >= 0 then D else 0): still
 well-founded, decreasing exactly when t's obligations hold, and measured to
 prove where Big_Integers.Max blew the 20000-step budget.
 
-QUANTIFIERS: SPARK quantified expressions range over discrete machine types
-only, so a t quantifier over mathematical [lo, hi) is lowered as
+THE SEQ MODEL, rewritten 2026-09-01 because the previous one was UNSOUND.
+It was `type Seq is array (Positive range <>) of Big_Integer`, and an Ada
+array index type is discrete and therefore bounded: S'Length <= Integer'Last
+holds by typing, so the kernel was handed `len(s) <= 2^31-1` for free.
+SPEC.md gives a seq only `len(s) >= 0`. MEASURED on the fuzzer's fz_p_seqlen
+probe (ensures len(s) <= 2^31-1 with both branches live): spark VERIFIED it
+while dafny, verus, lean, rocq and fstar REFUTED it — a false theorem, the
+same disease as lower_framac.py's C int. The seq is now
 
-    (for all K in Integer => (if lo <= K < hi then body else True))
+    package Seqs is new SPARK.Containers.Functional.Infinite_Sequences
+      (Element_Type => Big_Integer);
 
-(exists dually with `and then`) — the machine-representable slice of the
-range. That is NOT the t quantifier when [lo, hi) escapes Integer, so per
-SPEC.md ("bounded backends owe explicit range obligations") every clause
-that contains quantifiers gets a hoisted leading obligation
+whose Length returns Big_Natural (no upper bound) and whose Get is indexed
+by a Big_Integer position. Its private part is `pragma SPARK_Mode (Off)`, so
+the prover sees the public axiomatization and nothing of the bounded
+representation underneath: the emitted obligation is about sequences of
+arbitrary mathematical length. len(s) >= 0 — SPEC.md's one seq assumption —
+comes from Length's own Big_Natural result subtype, not from an assumption
+this lowering writes.
 
-    Integer'First <= lo and then hi <= Integer'Last + 1
+QUANTIFIERS: SPARK quantified expressions range over a discrete type or over
+a type carrying the Iterable aspect, and Ada's discrete types are all
+bounded. t quantifies over mathematical [lo, hi), so the range is lowered as
+an Iterable record whose CURSOR IS Big_Integer:
 
-conjoined in front (`bounds_ok`). Once bounds_ok is PROVED, machine slice
-and t range coincide and the lowered clause is exactly the t clause; if it
-cannot be proved the task is honestly refuted, never silently weakened.
-bounds_ok is only sound where it is CHECKED before being assumed — ensures
-and invariants. A quantifier in `requires` (pure assumption position), in a
-quantifier bound that mentions an enclosing bound variable, under a partial
-`at` in a bound, or in an executable/definitional position (bodies,
-spec_fun bodies, loop conditions, decreases) is an explicit ABSTAIN.
+    type T_Range is record Lo, Hi : Big_Integer; end record
+      with Iterable => (First => R_First, Has_Element => R_Has,
+                        Next  => R_Next);
+    (for all K in T_Range'(lo, hi) => body)      -- `for some` for exists
+
+gnatprove quantifies over the cursor type under R_Has, so this IS t's
+quantifier over [lo, hi) with no machine slice and no bound to hoist.
+MEASURED (2026-09-01, gnatprove FSF 16.1.0): `for all K in T_Range'(0, N) =>
+K <= Integer'Last` with N unconstrained goes `medium: postcondition might
+fail` — the range is genuinely unbounded — while all_nonneg, contains,
+count_matches, linear_search and seq_max still prove. This replaces the
+previous `for all K in Integer` encoding and the hoisted `bounds_ok`
+obligation it owed, and with them the four ABSTAIN paths that existed only
+because a bounds obligation had nowhere sound to sit (quantifier in
+requires, in a bound mentioning an enclosing bound variable, under a partial
+`at` in a bound, in an executable/definitional position).
 
 DEFINEDNESS: `and`/`or`/`implies` lower to `and then`/`or else`/if-
 expressions, so SPEC.md's left-to-right definedness contexts land exactly on
-GNATprove's own RTE-checking contexts; `at` lowers to
-S (S'First + To_Integer (I)) whose index/conversion checks ARE the t
-definedness obligations — a lowering that silently totalized `at` would be
-wrong, this one makes the kernel discharge it.
+GNATprove's own RTE-checking contexts; `at` lowers to `Elem (S, I)`, whose
+own precondition `0 <= I and then I < Len (S)` is exactly t's definedness
+side condition and is discharged by the kernel at every use. (Seqs.Get is
+total in the shipped non-defensive SPARKlib build — reading out of range
+yields an unconstrained value — so the obligation must be, and is, stated on
+the wrapper rather than borrowed from the library.)
 """
 from __future__ import annotations
 
@@ -82,79 +104,81 @@ TYPE = {"int": "Big_Integer", "bool": "Boolean", "seq": "Seq"}
 CMP = {"==": "=", "!=": "/=", "<": "<", "<=": "<=", ">": ">", ">=": ">="}
 ARITH = {"+": "+", "-": "-", "*": "*"}
 NARY = {"and": "and then", "or": "or else"}
-B_FIRST = "To_Big_Integer (Integer'First)"
-B_LAST = "To_Big_Integer (Integer'Last)"
+
+# Every Ada name this file puts in the emitted package. A t identifier that
+# capitalizes onto one of them would be captured silently, so lower() refuses
+# instead (the W_k helpers are checked separately, by count).
+RESERVED = frozenset((
+    "F", "Seq", "Seqs", "Len", "Elem", "T_Range", "R_First", "R_Has",
+    "R_Next", "Big_Integer", "Boolean"))
+
+SEQ_PREAMBLE = """\
+   package Seqs is new SPARK.Containers.Functional.Infinite_Sequences
+     (Element_Type => Big_Integer);
+   subtype Seq is Seqs.Sequence;
+
+   --  len(s): Big_Natural, so `len(s) >= 0` (SPEC.md's one seq assumption)
+   --  is the library's result subtype and nothing bounds it above.
+   function Len (S : Seq) return Big_Integer is (Seqs.Length (S));
+
+   --  at(s, i): the Pre IS SPEC.md's definedness side condition, discharged
+   --  by the kernel at every use. Seqs.Get is total in the shipped
+   --  non-defensive SPARKlib build, so it cannot be borrowed from there.
+   function Elem (S : Seq; I : Big_Integer) return Big_Integer is
+     (Seqs.Get (S, I + Big_Integer'(1)))
+   with Pre => I >= Big_Integer'(0) and then I < Len (S);
+"""
+
+# A t quantifier ranges over mathematical [lo, hi). Ada's discrete types are
+# all bounded, so the range is a cursor-iterable whose cursor is Big_Integer;
+# gnatprove quantifies over the cursor type under R_Has. R_Next's V is unused
+# (flow reports UNUSED_VARIABLE at severity "warning", which the adapter's
+# audit tolerates); writing a V-dependent body to silence it would put an
+# arm in the iteration model that nothing measures.
+RANGE_PREAMBLE = """\
+   type T_Range is record
+      Lo : Big_Integer;
+      Hi : Big_Integer;
+   end record
+   with Iterable => (First       => R_First,
+                     Has_Element => R_Has,
+                     Next        => R_Next);
+
+   function R_First (V : T_Range) return Big_Integer is (V.Lo);
+   function R_Has (V : T_Range; C : Big_Integer) return Boolean is
+     (C >= V.Lo and then C < V.Hi);
+   function R_Next (V : T_Range; C : Big_Integer) return Big_Integer is
+     (C + Big_Integer'(1));
+"""
 
 
 def cap(name: str) -> str:
     return name.capitalize()
 
 
-# --- expression tree walks -------------------------------------------------
+# --- name capture ----------------------------------------------------------
 
-def _children(e: dict):
-    if "op" in e:
-        yield from e.get("args", [])
-    elif "forall" in e or "exists" in e:
-        q = e["forall"] if "forall" in e else e["exists"]
-        yield q["lo"]
-        yield q["hi"]
-        yield q["body"]
-    elif "ite" in e:
-        yield e["ite"]["cond"]
-        yield e["ite"]["then"]
-        yield e["ite"]["else"]
-    elif "call" in e:
-        yield from e["call"]["args"]
+def bound_names(task: dict, body: list) -> set:
+    """Every t identifier the emitted package will capitalize into an Ada
+    name: params, returns, locals, spec_fun names and their params, and
+    quantifier bound variables."""
+    out = set()
 
+    def go(x):
+        if isinstance(x, dict):
+            for k, v in x.items():
+                if k in ("var", "name", "fun") and isinstance(v, str):
+                    out.add(v)
+                elif k in ("forall", "exists") and isinstance(v, dict):
+                    out.add(v.get("var"))
+                go(v)
+        elif isinstance(x, list):
+            for v in x:
+                go(v)
 
-def _walk(e: dict):
-    yield e
-    for c in _children(e):
-        yield from _walk(c)
-
-
-def has_quant(e: dict) -> bool:
-    return any("forall" in n or "exists" in n for n in _walk(e))
-
-
-def has_at(e: dict) -> bool:
-    return any(n.get("op") == "at" for n in _walk(e))
-
-
-def fvars(e: dict) -> set:
-    return {n["var"] for n in _walk(e) if "var" in n}
-
-
-def quant_bounds(e: dict) -> list:
-    """Every quantifier's (lo, hi) in this clause, for the hoisted machine-
-    range obligation. Abstains when hoisting would be unsound."""
-    out = []
-
-    def go(e: dict, active: frozenset):
-        if "forall" in e or "exists" in e:
-            q = e["forall"] if "forall" in e else e["exists"]
-            for b in (q["lo"], q["hi"]):
-                if fvars(b) & active:
-                    raise NotImplementedError(
-                        "spark: quantifier bound mentions an enclosing bound "
-                        "variable; the machine-range obligation cannot be "
-                        "hoisted to clause level")
-                if has_at(b):
-                    raise NotImplementedError(
-                        "spark: partial `at` inside a quantifier bound; "
-                        "hoisting the machine-range obligation would strip "
-                        "its definedness guard")
-            out.append((q["lo"], q["hi"]))
-            go(q["lo"], active)
-            go(q["hi"], active)
-            go(q["body"], active | {q["var"]})
-        else:
-            for c in _children(e):
-                go(c, active)
-
-    go(e, frozenset())
-    return out
+    go(task)
+    go(body)
+    return {n for n in out if isinstance(n, str)}
 
 
 class Lower:
@@ -162,6 +186,7 @@ class Lower:
         self.task = task
         self.helpers: list[str] = []   # emitted W_k record types + functions
         self.wcount = 0
+        self.needs_range = False       # set by the first lowered quantifier
         self.spec_fun_names = {sf["name"] for sf in task.get("spec_funs", [])}
 
     # --- expressions -------------------------------------------------------
@@ -183,17 +208,16 @@ class Lower:
                 raise ValueError(f"read of unassigned {v!r}")
             return sub[v]
         if "forall" in e or "exists" in e:
+            self.needs_range = True
             q = e["forall"] if "forall" in e else e["exists"]
             v = cap(q["var"])
             lo, hi = self.expr(q["lo"], sub), self.expr(q["hi"], sub)
-            guard = (f"To_Big_Integer ({v}) >= {lo} "
-                     f"and then To_Big_Integer ({v}) < {hi}")
-            body = self.expr(q["body"],
-                             {**sub, q["var"]: f"To_Big_Integer ({v})"})
-            if "forall" in e:
-                return (f"(for all {v} in Integer => "
-                        f"(if {guard} then {body} else True))")
-            return f"(for some {v} in Integer => ({guard} and then {body}))"
+            # The cursor IS the mathematical bound variable: T_Range's cursor
+            # type is Big_Integer, so [lo, hi) is not sliced to a machine type
+            # and there is no range obligation to owe (see the header).
+            body = self.expr(q["body"], {**sub, q["var"]: v})
+            kind = "for all" if "forall" in e else "for some"
+            return f"({kind} {v} in T_Range'({lo}, {hi}) => {body})"
         if "ite" in e:
             c = e["ite"]
             return (f"(if {self.expr(c['cond'], sub)} "
@@ -210,10 +234,10 @@ class Lower:
         op = e["op"]
         args = [self.expr(a, sub) for a in e.get("args", [])]
         if op == "len":
-            return f"To_Big_Integer ({args[0]}'Length)"
+            return f"Len ({args[0]})"
         if op == "at":
             s, i = args
-            return f"{s} ({s}'First + To_Integer ({i}))"
+            return f"Elem ({s}, {i})"
         if op == "neg":
             return f"(-{args[0]})"
         if op == "not":
@@ -228,29 +252,10 @@ class Lower:
             return f"({args[0]} {ARITH[op]} {args[1]})"
         raise ValueError(f"t has no operator {op!r}")
 
-    def no_quant(self, e: dict, where: str) -> None:
-        if has_quant(e):
-            raise NotImplementedError(
-                f"spark: quantifier in {where}: the machine-Integer encoding "
-                f"truncates the range there with no place to state the "
-                f"bounds obligation")
-
-    def clause(self, e: dict, sub: dict) -> str:
-        """A requires/ensures/invariant item: hoisted machine-range
-        obligations for every quantifier, then the clause itself."""
-        parts = [f"({B_FIRST} <= {self.expr(lo, sub)} "
-                 f"and then {self.expr(hi, sub)} <= {B_LAST} + 1)"
-                 for lo, hi in quant_bounds(e)]
-        parts.append(self.expr(e, sub))
-        return " and then ".join(parts)
-
-    def req_clause(self, e: dict, sub: dict) -> str:
-        if has_quant(e):
-            raise NotImplementedError(
-                "spark: quantifier in requires is assumption-position; the "
-                "machine-range obligation would be assumed, not checked — "
-                "not conservative")
-        return self.expr(e, sub)
+    # clause() and req_clause() are gone with the machine-Integer quantifier
+    # encoding they served: T_Range carries no bounds obligation to hoist, so
+    # every position (requires included) is just expr(). The four ABSTAIN
+    # paths that guarded the hoist are gone with it — see the header.
 
     # --- statements --------------------------------------------------------
 
@@ -262,16 +267,13 @@ class Lower:
                 v, e = s["assign"]
                 if v not in env:
                     raise ValueError(f"assign to undeclared {v!r}")
-                self.no_quant(e, "an executable body position")
                 env[v] = self.expr(e, {**psub, **env})
             elif "var" in s:
                 d = s["var"]
-                self.no_quant(d["init"], "an executable body position")
                 env[d["name"]] = self.expr(d["init"], {**psub, **env})
                 types[d["name"]] = d["type"]
             elif "if" in s:
                 c = s["if"]
-                self.no_quant(c["cond"], "an executable body position")
                 cond = self.expr(c["cond"], {**psub, **env})
                 et = self.compile(c["then"], env, types, psub)
                 ee = self.compile(c["else"], env, types, psub)
@@ -309,12 +311,10 @@ class Lower:
         result = {**psub,
                   **{v: f"{name}'Result.{cap(v)}" for v in state}}
         invs = w.get("invariants", [])
-        pre = "\n       and then ".join(self.clause(i, entry) for i in invs)
-        post_parts = [self.clause(i, result) for i in invs]
-        self.no_quant(w["cond"], "a loop condition")
+        pre = "\n       and then ".join(self.expr(i, entry) for i in invs)
+        post_parts = [self.expr(i, result) for i in invs]
         post_parts.append(f"(not {self.expr(w['cond'], result)})")
         post = "\n       and then ".join(post_parts)
-        self.no_quant(w["decreases"], "a decreases clause")
         d = self.expr(w["decreases"], entry)
         variant = f"(if {d} >= 0 then {d} else 0)"
         inner = {v: cap(v) for v in state}
@@ -350,8 +350,6 @@ class Lower:
 
     def lower_spec_fun(self, sf: dict) -> str:
         sub = {p["name"]: cap(p["name"]) for p in sf["params"]}
-        self.no_quant(sf["body"], "a spec_fun body (definitional position)")
-        self.no_quant(sf["decreases"], "a decreases clause")
         d = self.expr(sf["decreases"], sub)
         plist = "; ".join(f"{cap(p['name'])} : {TYPE[p['type']]}"
                           for p in sf["params"])
@@ -373,6 +371,15 @@ def lower(task: dict, body: list) -> str:
         p["type"] == "seq"
         for sf in task.get("spec_funs", []) for p in sf["params"])
 
+    # The seq and range preambles put fixed Ada names in scope; a t
+    # identifier capitalizing onto one of them would be captured silently,
+    # which is a wrong answer rather than a missing one.
+    clash = sorted(n for n in bound_names(task, body) if cap(n) in RESERVED)
+    if clash:
+        raise NotImplementedError(
+            f"spark: t name(s) {clash} collide with the emitted package's own "
+            f"names ({sorted(RESERVED)})")
+
     spec_funs = [L.lower_spec_fun(sf) for sf in task.get("spec_funs", [])]
 
     env = L.compile(body, {ret["name"]: None}, {ret["name"]: ret["type"]},
@@ -382,14 +389,13 @@ def lower(task: dict, body: list) -> str:
     final = env[ret["name"]]
 
     aspects = []
-    reqs = [L.req_clause(e, psub) for e in task.get("requires", [])]
+    reqs = [L.expr(e, psub) for e in task.get("requires", [])]
     if reqs:
         aspects.append("Pre  => " + "\n       and then ".join(reqs))
     post_sub = {**psub, ret["name"]: "F'Result"}
     aspects.append("Post => " + "\n       and then ".join(
-        L.clause(e, post_sub) for e in task["ensures"]))
+        L.expr(e, post_sub) for e in task["ensures"]))
     if "decreases" in task:
-        L.no_quant(task["decreases"], "a decreases clause")
         d = L.expr(task["decreases"], psub)
         aspects.append(f"Subprogram_Variant => "
                        f"(Decreases => (if {d} >= 0 then {d} else 0))")
@@ -403,12 +409,14 @@ def lower(task: dict, body: list) -> str:
         "pragma Ada_2022;",
         "with Ada.Numerics.Big_Numbers.Big_Integers;",
         "use  Ada.Numerics.Big_Numbers.Big_Integers;",
-        f"package {pkg} with SPARK_Mode is",
-        "",
     ]
     if needs_seq:
-        parts += ["   type Seq is array (Positive range <>) of Big_Integer;",
-                  ""]
+        parts += ["with SPARK.Containers.Functional.Infinite_Sequences;"]
+    parts += [f"package {pkg} with SPARK_Mode is", ""]
+    if needs_seq:
+        parts += [SEQ_PREAMBLE]
+    if L.needs_range:
+        parts += [RANGE_PREAMBLE]
     for sf in spec_funs:
         parts += [sf]
     for h in L.helpers:

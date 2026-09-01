@@ -44,6 +44,15 @@ class Outcome:
     REFUTED = "refuted"        # the honest "this is wrong"
     MALFORMED = "malformed"    # does not parse/resolve; NOT a proof failure
     TIMEOUT = "timeout"        # budget exhausted; we do NOT know it is wrong
+    # The solver stopped WITHOUT exhausting the budget and WITHOUT a
+    # countermodel. Added by measurement (2026-09-01, gnatprove FSF 16.1.0):
+    # gnatprove's per-unit .spark audit carries exactly three unproved_status
+    # values — "limit", "gave_up", "unknown" — and abs_twin.ads/max_twin.ads
+    # report "gave_up" after Z3 spent 1 step of 20000. Folding that into
+    # TIMEOUT would assert a budget exhaustion the kernel's own record denies;
+    # folding it into REFUTED is the bug this outcome exists to make
+    # unrepresentable. ok=False, exactly like TIMEOUT: not knowledge.
+    UNPROVED = "unproved"
     TOOL_ERROR = "tool_error"  # anything else; never counted as evidence
 
 

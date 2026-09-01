@@ -10,6 +10,7 @@ Proof.
   | |- context [?a <? ?b] => destruct (Z.ltb_spec a b)
   | |- context [?a <=? ?b] => destruct (Z.leb_spec a b)
   | |- context [?a =? ?b] => destruct (Z.eqb_spec a b)
+  | |- _ => progress (cbn [orb andb negb])
   end; lia.
 Qed.
 

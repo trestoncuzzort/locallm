@@ -391,13 +391,24 @@ lessons 1–11 catches `ensures r >= 0` standing alone on `abs` — plenty of
 wrong programs stay non-negative.
 
 t's answer is the **twin**. For every task, t mechanically builds a
-deliberately broken copy of your body — by one fixed rule, no human choice:
+deliberately broken copy of your body — by one fixed ladder of mutations, no
+human choice. It tries, in order:
 
-- If your body has a loop with invariants, the twin **deletes your first
-  invariant** (is your stated reasoning actually load-bearing?).
-- Otherwise, the twin **collapses your first if** to its then-branch,
-  erasing the decision (does your promise even notice the behavior
-  changing?).
+- **delete one invariant** of one loop (is your stated reasoning actually
+  load-bearing?);
+- **collapse one if** to its then-branch, erasing the decision (does your
+  promise even notice the behavior changing?);
+- then swap an `if`'s branches, flip a `<` to `<=`, exchange a comparison's
+  operands, move a literal or an index by one, substitute another variable of
+  the same type, or drop a conjunct from a guard.
+
+It takes the **first mutation it can prove is really broken**: t interprets
+both bodies over a bounded set of inputs and keeps a mutation only once it
+has a *witness* — an input where your body and the twin return different
+answers (or, for the deleted invariant, a loop state your remaining
+invariants no longer cover). A mutation nothing can tell apart from your real
+body would make the whole exercise theatre, so it is discarded, and a task
+where no mutation has a witness is refused with that reason named.
 
 Then both versions face the kernels, and a task **counts** only on the
 double result: real body **VERIFIED, and twin REFUTED**. If the broken twin
@@ -416,7 +427,8 @@ tried to break it and failed.
 |---|---|---|
 | `s[i]` before establishing `i` is in range | task refused — unprovable definedness | guard it: `i < len(s) and s[i] …`, in that order |
 | a loop with no `decreases` | not valid t | state the shrinking measure, usually `end - i` |
-| an invariant that's true but unused | twin (invariant-drop) still verifies → refused | state the invariant your `ensures` actually needs, first |
+| an invariant that's true but unused | t finds no loop state it covers, and moves down the ladder to a different mutation | state the invariant your `ensures` actually needs |
+| a body whose branches assign the same thing | no mutation changes what it computes → refused, `no-witness` | make the decision matter, or drop the `if` |
 | `ensures` that only bounds the answer (`r >= 0`) | a constant body might satisfy it | add the connecting clause (`r == x or r == -x`, or an `exists`) |
 | reusing a name as a quantifier variable | task refused — shadowing is banned | pick a fresh name (`j` when `i` is taken) |
 | expecting `s[i]` to crash "at run time" | nothing in t happens at run time — the proof already covered it | internalize: errors are ruled out before running, or the task is refused |

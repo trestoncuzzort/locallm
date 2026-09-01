@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """lower_rocq.py — lower t tasks (v0 and v1) to the Rocq Prover; the fifth kernel.
 
-v0 (`"t": 0`, frozen): unchanged from the original lowering — function,
-theorem, and the uniform destruct-then-lia proof. abs/max keep their measured
-behavior byte-for-byte in structure.
+v0 (`"t": 0`): function, theorem, and the uniform destruct-then-lia proof.
+The shape is the original lowering's; the `if` condition accepts the full Exp
+that SYNTAX.md's Stmt row permits, which the first version did not (35 of the
+74 generated v0 fuzz tasks raised ValueError instead of lowering), and the
+proof adds one boolean-reduction arm for the connectives that admits.
 
 v1 (`"t": 1`) opens the three gates for this backend:
 
@@ -69,12 +71,18 @@ PROP_OPS = {"==": "=", "!=": "<>", "<": "<", "<=": "<=", ">": ">", ">=": ">=",
 BOOL_CMP = {"<": "<?", "<=": "<=?", "==": "=?"}
 NARY = {"and": "/\\", "or": "\\/"}
 
+# The cbn arm is reached only by a condition built with a boolean connective
+# (SYNTAX.md's Stmt row puts a full Expr under `if`): the comparison destructs
+# leave `negb true` / `false && _` behind, which lia cannot read. Whitelisted
+# delta only — a bare `simpl`/`cbn` here would unfold Z.add against the goal,
+# the failure measured on the v1 loop lemma (fz_v1loop_007).
 TACTIC = (
     "  intros; unfold {name}_t;\n"
     "  repeat match goal with\n"
     "  | |- context [?a <? ?b] => destruct (Z.ltb_spec a b)\n"
     "  | |- context [?a <=? ?b] => destruct (Z.leb_spec a b)\n"
     "  | |- context [?a =? ?b] => destruct (Z.eqb_spec a b)\n"
+    "  | |- _ => progress (cbn [orb andb negb])\n"
     "  end; lia.\n")
 
 
@@ -99,6 +107,14 @@ def prop0(e: dict, ret_subst: str | None, ret_name: str) -> str:
 
 
 def cond_bool0(e: dict) -> str:
+    """The decidable `bool` mirror of a v0 `if` condition.
+
+    SYNTAX.md's Stmt row puts a full Expr under `if`, so every v0 operator
+    that can be bool-typed belongs here: the six comparisons and the four
+    connectives. Handling only the five order comparisons made 35 of the 74
+    generated v0 tasks raise ValueError, which run_all records as LOWER-ERROR
+    (measured 2026-09-01, rocq column of the fuzz corpus).
+    """
     op = e.get("op")
     if op in BOOL_CMP:
         a, b = (prop0(x, None, "") for x in e["args"])
@@ -109,7 +125,22 @@ def cond_bool0(e: dict) -> str:
     if op == ">=":
         b, a = (prop0(x, None, "") for x in e["args"])
         return f"({a} <=? {b})"
-    raise ValueError(f"t v0 -> rocq: no boolean form for condition {op!r}")
+    if op == "!=":
+        a, b = (prop0(x, None, "") for x in e["args"])
+        return f"(negb ({a} =? {b}))"
+    if op == "not":
+        return f"(negb {cond_bool0(e['args'][0])})"
+    if op in ("and", "or"):
+        sep = " && " if op == "and" else " || "
+        return "(" + sep.join(cond_bool0(x) for x in e["args"]) + ")%bool"
+    if op == "implies":
+        a, b = (cond_bool0(x) for x in e["args"])
+        return f"((negb {a}) || {b})%bool"
+    # An int-valued operator under `if` is ill-typed rather than unsupported,
+    # but the lowering is not the type checker: abstain, never guess.
+    raise NotImplementedError(
+        f"rocq lowering: no decidable boolean form for a v0 `if` condition "
+        f"headed by {op!r}")
 
 
 def body_expr0(body: list, ret: str) -> str:
@@ -179,6 +210,62 @@ Ltac t_merge a b :=
   | tryif (t_numeral a) then fail else idtac; replace a with b in * by lia
   ].
 
+(* Case-split a decided Z boolean EVERYWHERE it occurs — hypotheses included.
+   `destruct (Z.ltb_spec a b)` abstracts the conclusion only, so a boolean
+   that structural inversion had already moved into a hypothesis was never
+   split: 19 of the 24 bool-returning fuzz tasks refuted under rocq while six
+   other kernels verified them (measured 2026-09-01). Replacing the boolean
+   by its truth value reaches goal and hypotheses alike AND removes the match
+   trigger, so the arm cannot re-fire — a hypothesis-side `destruct` would
+   loop, since it leaves the boolean standing in the hypothesis.
+   Each split first tries the branch the context already decides: that costs
+   two lia calls and saves a doubling of the goal, and it is what keeps the
+   arms affordable in the hypothesis position, which is scanned only after
+   every cheaper arm has failed. *)
+
+(* boolean connectives left behind by a case split; whitelisted delta only,
+   so Z arithmetic is never unfolded (the fz_v1loop_007 measurement below) *)
+Ltac t_bred := cbn [orb andb negb].
+Ltac t_bred_all := try (progress (cbn [orb andb negb] in * )).
+
+Ltac t_ltb_case a b :=
+  first
+  [ replace (a <? b) with true in * by (symmetry; apply Z.ltb_lt; lia)
+  | replace (a <? b) with false in * by (symmetry; apply Z.ltb_ge; lia)
+  | let E := fresh "Eb" in
+    assert (E : a < b \/ b <= a) by lia; destruct E as [E|E];
+    [ replace (a <? b) with true in * by (symmetry; apply Z.ltb_lt; exact E)
+    | replace (a <? b) with false in * by (symmetry; apply Z.ltb_ge; exact E) ]
+  ]; t_bred_all.
+
+Ltac t_leb_case a b :=
+  first
+  [ replace (a <=? b) with true in * by (symmetry; apply Z.leb_le; lia)
+  | replace (a <=? b) with false in * by (symmetry; apply Z.leb_gt; lia)
+  | let E := fresh "Eb" in
+    assert (E : a <= b \/ b < a) by lia; destruct E as [E|E];
+    [ replace (a <=? b) with true in * by (symmetry; apply Z.leb_le; exact E)
+    | replace (a <=? b) with false in * by (symmetry; apply Z.leb_gt; exact E) ]
+  ]; t_bred_all.
+
+Ltac t_eqb_case a b :=
+  first
+  [ replace (a =? b) with true in * by (symmetry; apply Z.eqb_eq; lia)
+  | replace (a =? b) with false in * by (symmetry; apply Z.eqb_neq; lia)
+  | let E := fresh "Eb" in
+    assert (E : a = b \/ a <> b) by lia; destruct E as [E|E];
+    [ replace (a =? b) with true in * by (symmetry; apply Z.eqb_eq; exact E)
+    | replace (a =? b) with false in * by (symmetry; apply Z.eqb_neq; exact E) ]
+  ]; t_bred_all.
+
+Ltac t_beq_case a b :=
+  let E := fresh "Eb" in
+  destruct (Bool.bool_dec a b) as [E|E];
+  [ replace (Bool.eqb a b) with true in *
+      by (symmetry; apply Bool.eqb_true_iff; exact E)
+  | replace (Bool.eqb a b) with false in *
+      by (symmetry; apply Bool.eqb_false_iff; exact E) ]; t_bred_all.
+
 (* invertible structural steps *)
 Ltac t_inv1 :=
   match goal with
@@ -192,16 +279,25 @@ Ltac t_inv1 :=
   | |- forall _, _ => intro
   | |- _ -> _ => intro
   | |- not _ => intro
-  | |- context [?a <? ?b] => destruct (Z.ltb_spec a b)
-  | |- context [?a <=? ?b] => destruct (Z.leb_spec a b)
-  | |- context [?a =? ?b] => destruct (Z.eqb_spec a b)
-  | |- context [Bool.eqb ?a ?b] => destruct (Bool.eqb_spec a b)
-  | |- context [orb _ _] => progress (cbn [orb andb negb])
-  | |- context [andb _ _] => progress (cbn [orb andb negb])
-  | |- context [negb _] => progress (cbn [orb andb negb])
-  | |- context [if true then _ else _] => progress (cbn [orb andb negb])
-  | |- context [if false then _ else _] => progress (cbn [orb andb negb])
+  | |- context [?a <? ?b] => t_ltb_case a b
+  | |- context [?a <=? ?b] => t_leb_case a b
+  | |- context [?a =? ?b] => t_eqb_case a b
+  | |- context [Bool.eqb ?a ?b] => t_beq_case a b
+  | |- context [orb _ _] => progress t_bred
+  | |- context [andb _ _] => progress t_bred
+  | |- context [negb _] => progress t_bred
+  | |- context [if true then _ else _] => progress t_bred
+  | |- context [if false then _ else _] => progress t_bred
   | _ => progress subst
+  (* hypothesis position last: a `context` scan over the whole context is the
+     most expensive arm here, and by the time it is reached the goal-side arms
+     have already established that the boolean is not in the conclusion. The
+     splits reduce the connectives they expose in place (t_bred_all), so no
+     hypothesis-side cbn arm is needed in this loop. *)
+  | H : context [?a <? ?b] |- _ => t_ltb_case a b
+  | H : context [?a <=? ?b] |- _ => t_leb_case a b
+  | H : context [?a =? ?b] |- _ => t_eqb_case a b
+  | H : context [Bool.eqb ?a ?b] |- _ => t_beq_case a b
   end.
 
 (* deterministic saturation steps *)
@@ -817,7 +913,7 @@ Lemma sf_{f}_fuel_irrel :
 Proof.
   induction fuel as [|fu IH]; intros fuel' {atxt} Hf Hf'; [ lia | ].
   destruct fuel' as [|fu']; [ lia | ].
-  simpl; t_sweep;
+  cbn [sf_{f}_fuel]; t_sweep;
   repeat first [ reflexivity
                | solve [ lia ]
                | solve [ apply IH; lia ]
@@ -829,7 +925,7 @@ Lemma sf_{f}_eq :
   forall {btxt},
   sf_{f} {atxt} = {body_plain}.
 Proof.
-  intros; unfold sf_{f} at 1; simpl; t_sweep;
+  intros; unfold sf_{f} at 1; cbn [sf_{f}_fuel]; t_sweep;
   repeat first [ reflexivity
                | solve [ lia ]
                | solve [ unfold sf_{f}; apply sf_{f}_fuel_irrel; lia ]
@@ -1072,6 +1168,13 @@ def gen_loop(cx: Ctx, prefix: list, w: dict, suffix: list,
         + [f"Hini{k+1}" for k in range(n_invs)]
         + ["Heq"])
 
+    # The induction step needs exactly one reduction: the fixpoint's own
+    # iota step on `S fu`. `simpl` also unfolds Z.add against the goal —
+    # measured on fz_v1loop_007, where `4 + i' * 1` became a raw match on the
+    # binary positive, past which neither lia nor `apply IH` can go (six
+    # kernels verified that task, rocq refuted it). Whitelisted delta keeps
+    # the arithmetic in the form the induction hypothesis is stated in.
+
     return f"""{def_txt}
 Fixpoint {name}_loop (fuel : nat) {pb} {sb} : {tup_ty} :=
   match fuel with
@@ -1094,7 +1197,7 @@ Lemma {name}_loop_spec :
 Proof.
   induction fuel as [|fu IH];
   intros {param_names} {state_names} {primed_names} {' '.join(hyp_names)};
-  simpl; t_sweep;
+  cbn [{name}_loop]; t_sweep;
   first [ solve [ apply IH; t_side ]
         | (let Heq := fresh "Heq" in
            intro Heq; inversion Heq; subst; clear Heq; t_dis)
@@ -1165,7 +1268,7 @@ Lemma {name}_fuel_spec :
 Proof.
   induction fuel as [|fu IH]; intros {pargs} Hf {hyps};
   [ exfalso; lia | ].
-  simpl.
+  cbn [{name}_fuel].
 {eq_lines}  t_sweep;
   repeat first [ reflexivity
                | solve [ lia ]

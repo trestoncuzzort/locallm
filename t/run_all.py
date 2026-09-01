@@ -61,13 +61,16 @@ def main() -> int:
         cols.append((bname, ver))
         for tpath in tasks:
             task = harness.load(tpath)
-            twin_body, op = harness.make_twin(task["body"])
+            # The whole task, not just the body: the twin is chosen by a
+            # measured witness (harness.twin_for) and the witness needs
+            # params/requires/ensures to have anything to run on.
+            twin_body, op, w = harness.twin_cached(task)
             if twin_body is None:
                 cell = ("no-twin", "no-twin", True)
                 rows[task["name"]][bname] = cell
                 all_ok = False
-                print(f"  {task['name']} x {bname}: no twin operator applies"
-                      f"  <-- FINDING")
+                print(f"  {task['name']} x {bname}: no twin — "
+                      f"{harness.REFUSALS[op]}  <-- FINDING")
                 continue
             try:
                 real_src = lower(task, task["body"])
@@ -101,7 +104,8 @@ def main() -> int:
             all_ok &= good
             print(f"  {task['name']} x {bname} [{op}]: "
                   f"real={cell[0]} twin={cell[1]}"
-                  + ("" if good else "  <-- FINDING"))
+                  + ("" if good else "  <-- FINDING")
+                  + f"   (twin witness: {harness.witness(w)})")
 
     # VACUOUS AGREEMENT IS NOT AGREEMENT. With no kernel installed the loop
     # above never runs, all_ok stays True, and this printed FULL AGREEMENT —

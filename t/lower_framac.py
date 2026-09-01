@@ -1,11 +1,33 @@
 #!/usr/bin/env python3
 """lower_framac.py — lower t v0+v1 tasks to ACSL-annotated C; the sixth kernel.
 
-The semantic line, stated where it can be seen: C's int is a machine type,
-but WP WITHOUT -wp-rte reasons about the arithmetic mathematically — so this
-lowering matches t's mathematical integers exactly, and the -wp-rte
-machine-int arm is a later gate, not a silent default. The adapter pins that
-flag choice; this file only emits the C.
+THE SEMANTIC LINE, corrected 2026-09-01 — the old one was WRONG, and the
+error was a false theorem, not a wording slip. It read: "C's int is a machine
+type, but WP WITHOUT -wp-rte reasons about the arithmetic mathematically — so
+this lowering matches t's mathematical integers exactly." Only the
+ARITHMETIC is mathematical without -wp-rte. The TYPING is not: WP's default
+model constrains every C `int` with is_sint32, so `x <= 2^31-1` was granted
+for free on every formal, every local and every seq element. SPEC.md says t
+integers are mathematical and unbounded, so the emitted obligation was a
+different, weaker theorem. MEASURED on the differential fuzzer: framac alone
+VERIFIED fz_p_intwidth and fz_p_seqlen while six other kernels REFUTED them,
+and an element-width probe (`ensures len(s) > 0 ==> s[0] <= 2^31-1`) proved
+7/7 goals.
+
+The fix is not in this file, and cannot be: ACSL's unbounded `integer` is a
+LOGIC type, and Frama-C 33 rejects it for a ghost variable and for a ghost
+function's parameters and result alike (both measured), so there is no C
+program this lowering could emit whose program variables are unbounded. What
+a C int MEANS to the prover is a model, and the model is a flag: the adapter
+pins -wp-model Typed+nat (verifiers/framac.py, MODEL), WP's natural
+arithmetic, under which a C integer carries no range hypothesis at all.
+Everything below — `int` formals, `int` locals, `int *s` elements, the `int
+s_n` length — is therefore a mathematical integer, and the ACSL side already
+used `integer` for spec-level quantities and bound variables. The two files
+are one instrument: this C read under the default model is a proof of
+something t did not ask.
+
+The -wp-rte machine-int arm remains a later gate, not a silent default.
 
 v1 mapping (measured on frama-c 33.0 / alt-ergo 2.4.3-free, 2026-08-31):
 

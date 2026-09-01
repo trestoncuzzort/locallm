@@ -174,32 +174,67 @@ would measure nothing.
 
 ## The twins
 
-Two mutation operators. Neither is optional or configurable; the choice is
-derived from the body by one deterministic rule, applied identically to every
-task, so "the twin failed" always means the same thing for a given body
-shape. The twin never touches `requires`, `ensures`, `spec_funs`, or the
-task/loop `decreases` clauses that survive in the mutated body — the spec is
-the fixed instrument; the body and its annotations are what gets broken.
+A ladder of mutation operators. None is optional or configurable; the choice
+is derived from the body by one deterministic rule, applied identically to
+every task, so "the twin failed" always means the same thing. The twin never
+touches `requires`, `ensures`, `spec_funs`, or the task/loop `decreases`
+clauses that survive in the mutated body — the spec is the fixed instrument;
+the body and its annotations are what gets broken.
 
-**COLLAPSE-IF** (v0, unchanged in meaning): the first `if` in pre-order
-(descending into loop bodies) is replaced by its then-branch. A semantic
-mutation: the twin computes something else. Twin REFUTED means the spec has
-teeth; twin VERIFIED means the spec is vacuous and the task is refused.
+**Every twin must carry a witness.** This is the whole point and it is a
+measurement, not an assumption. Measured over the 1395 generated tasks (7 seeds x
+200 from `fuzz_lower.py`, less the 5 its own well-formedness check rejects)
+that the fuzzer measures, 129 of them — 9.2%, and 13 to 22 per seed — had a
+twin that computes an IDENTICAL value to the real program on every input
+tested. On those tasks the "measured flip" measures nothing: there is no
+behavioural difference for a kernel to detect, so a REFUTED verdict is luck
+and a VERIFIED twin cannot be told apart from a vacuous spec. So a mutation is
+accepted only when `t/interp.py` produces one of:
 
-**INVARIANT-DROP** (v1): the FIRST invariant of the FIRST loop (pre-order)
-that states any invariant is deleted. An annotation mutation: the twin
-computes the same thing with a weaker proof. Twin REFUTED means that
-invariant is load-bearing — the kernel cannot re-derive it, so the stated
-proof outline is real work. Twin VERIFIED means the dropped invariant was
-dead weight (or the spec vacuous) and the task is refused: a task author must
-place a load-bearing invariant first, and the flip rule enforces it by
-measurement rather than by trust.
+- a value witness — an input satisfying `requires` on which the real body and
+  the twin return different values, or on which the twin is undefined where
+  the real body has a value (the value-changing operators); or
+- a proof witness — a loop state satisfying `requires` and the SURVIVING
+  invariants that either falsifies `ensures` with the guard false (exit
+  entailment) or breaks a surviving invariant in one iteration (preservation).
+  INVARIANT-DROP's twin computes the same value by construction, so this is
+  the only thing there is to measure about it.
 
-Selection: a body containing a loop with at least one invariant gets
-INVARIANT-DROP; otherwise a body containing an `if` gets COLLAPSE-IF;
-otherwise no twin exists and the task is refused. A task counts ONLY when
-the real lowering is VERIFIED and the twin is REFUTED by the actual kernel —
-both measured, never predicted.
+The operators, tried in this fixed order, with sites inside an operator
+enumerated in pre-order (statement, then into `if` branches and `while`
+bodies), first candidate with a witness winning:
+
+1. **INVARIANT-DROP** (v1) — one invariant of one loop is deleted. An
+   annotation mutation. Twin REFUTED means that invariant is load-bearing:
+   the kernel cannot re-derive it, so the stated proof outline is real work.
+2. **COLLAPSE-IF** (v0) — one `if` is replaced by its then-branch.
+3. **NEGATE-COND** — one `if`'s branches are swapped, which is `not cond`
+   with no new syntax for a lowering to reject.
+4. **COMPARE-FLIP** — `<` <-> `<=`, `>` <-> `>=` at one comparison.
+5. **BOUNDARY-SWAP** — the operands of one order comparison are exchanged.
+6. **OFF-BY-ONE** — +/-1 on one integer literal, `at` index, or loop bound.
+7. **WRONG-VAR** — one variable occurrence is replaced by another of the same
+   type in scope (never the return: reading it before its first assignment is
+   ill-formed rather than wrong, and a lowering rejects it instead of
+   refuting it).
+8. **DROP-GUARD** — one conjunct of an `if`/`while` condition is dropped.
+
+Rungs 1 and 2 at site 0 are exactly the v1 rule, so a task whose v1 twin was
+already load-bearing keeps that twin unchanged; measured over the same 1395
+tasks, 96 twins changed and every one of them was a twin the interpreter
+shows was vacuous — no twin that was already distinct moved.
+
+No witness on any rung and the task is REFUSED, with the reason named:
+`no-witness` (every mutation computes what the real body computes),
+`no-input` (nothing in the bounded domain satisfies `requires` — a vacuous
+precondition), `real-undefined` (the real body returns no value), or
+`no-operator` (nothing to mutate). An unmeasurable twin is reported as such,
+never passed off as a flip.
+
+A task counts ONLY when the real lowering is VERIFIED and the twin is REFUTED
+by the actual kernel — both measured, never predicted. Twin VERIFIED now says
+one specific thing, because the twin is known to be broken: the spec is
+vacuous, or the dropped invariant's obligation is one the kernel re-derives.
 
 ## What v1 does not claim
 

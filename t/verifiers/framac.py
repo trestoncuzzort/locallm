@@ -13,10 +13,13 @@ countermodel refinement (why3's `counterexamples` prover configs exist; WP's
 naming for them is the parked follow-up) can sharpen this later without
 rewriting history. Outcome.TIMEOUT here means the WALL backstop only.
 
-THE SEMANTIC DECISION: without -wp-rte, WP reasons about C integer
-arithmetic mathematically — which is t v0's semantics, so -wp-rte is
-deliberately absent. The machine-int arm (with -wp-rte and explicit range
-obligations) is a later gate, same as Verus's exec/i64 arm.
+THE SEMANTIC DECISION, half of which was wrong until 2026-09-01: without
+-wp-rte, WP reasons about C integer ARITHMETIC mathematically, so -wp-rte
+stays deliberately absent and the machine-int arm is a later gate, same as
+Verus's exec/i64 arm. But the TYPING is a separate knob, and its default was
+not t's semantics at all: -wp-model now pins Typed+nat, without which every
+C `int` came with is_sint32 and the kernel proved bounded theorems for
+unbounded t tasks. See MODEL below for the measurement.
 
 -wp-cache none because a proof cache poisons flake_check — a cached verdict
 re-measures nothing.
@@ -141,6 +144,36 @@ PROBE_WALL_S = 120
 GOAL_TIMEOUT_S = 10
 SMOKE_TIMEOUT_S = 5
 
+# THE ARITHMETIC MODEL, pinned 2026-09-01 because the default one was
+# UNSOUND for t. WP's default machine-integer model types every C `int` with
+# is_sint32, so the hypothesis `x <= 2^31-1` is handed to the prover for
+# free — and SPEC.md says t integers are mathematical and unbounded.
+# MEASURED on the differential fuzzer's probes: under the default model
+# framac VERIFIED fz_p_intwidth (ensures r <= 2^31-1 with both branches
+# live) while dafny, verus, spark, lean, rocq and fstar REFUTED it, and the
+# same for fz_p_seqlen (a seq length in an `int` formal) and for a
+# seq-element probe no fuzzer task had reached until this repair added it
+# (fz_p_elemwidth, `ensures len(s) > 0 ==> s[0] <= 2^31-1`: 10/10 goals
+# proved, twin refuted, so the flip rule would have COUNTED it).
+# `+nat` is WP's own natural-arithmetic selector: C integers are modelled by
+# mathematical integers with no range hypothesis at all, which is exactly
+# SPEC.md's int. Under it all three probes are REFUTED with the other six
+# kernels, and all 22 committed cells (11 real VERIFIED, 11 twin REFUTED)
+# are unchanged, goal counts included.
+#
+# This is the ONE place the choice can be made — ACSL's unbounded `integer`
+# is a LOGIC type, and Frama-C 33 rejects it for a ghost variable and for a
+# ghost function's parameters and result (both measured: "syntax error ...
+# before or at token"), so no C program lower_framac.py could emit carries
+# an unbounded program variable. The lowering emits the C; the model that
+# says what a C int MEANS is a flag, and it is pinned here with the rest.
+# It only ever REMOVES a hypothesis, so it can turn a proof into a
+# non-proof, never the reverse.
+MODEL = "Typed+nat"
+# WP names every goal after the model; the consistency probe reads goal
+# names, so the two must move together.
+GOAL_PREFIX = MODEL.lower().replace("+", "_") + "_"
+
 # -wp-par defaults to the machine's core count (measured: `default: 120` on
 # this box), which is the roadmap's "prover auto-detect" left unpinned. It is
 # verdict-relevant, not cosmetic: the bound that ends a failing goal here is a
@@ -259,8 +292,8 @@ def _probe_source(raw: str, defs: list) -> tuple[str, list]:
 
 
 def _doomed_fn(out: str, fn: str) -> bool:
-    return re.search(r"\(Doomed\)\s+typed_" + re.escape(fn) + r"_wp_smoke",
-                     out) is not None
+    return re.search(r"\(Doomed\)\s+" + re.escape(GOAL_PREFIX)
+                     + re.escape(fn) + r"_wp_smoke", out) is not None
 
 
 def _consistency_probe(raw: str, defs: list, budget: int) -> tuple[list, str]:
@@ -280,7 +313,8 @@ def _consistency_probe(raw: str, defs: list, budget: int) -> tuple[list, str]:
                         for fn in (pos_fn, neg_fn))
         try:
             _, out = _run(
-                [FRAMAC, "-wp", "-wp-fct", fcts, "-wp-prover", "alt-ergo",
+                [FRAMAC, "-wp", "-wp-model", MODEL, "-wp-fct", fcts,
+                 "-wp-prover", "alt-ergo",
                  "-wp-steps", str(budget), "-wp-cache", "none", "-wp-par",
                  str(PAR), "-wp-timeout", str(GOAL_TIMEOUT_S),
                  "-wp-smoke-tests", "-wp-smoke-dead-local-init",
@@ -297,7 +331,8 @@ def _consistency_probe(raw: str, defs: list, budget: int) -> tuple[list, str]:
 def _budget(steps: int) -> str:
     """Every knob that can move a verdict, in the witness. A pin nobody can
     read from the record is not a pin (fstar.py sets the same precedent)."""
-    return (f"wp-steps={steps} wp-timeout={GOAL_TIMEOUT_S}s "
+    return (f"wp-model={MODEL} wp-steps={steps} "
+            f"wp-timeout={GOAL_TIMEOUT_S}s "
             f"wp-smoke-timeout={SMOKE_TIMEOUT_S}s wp-par={PAR}")
 
 
@@ -404,7 +439,8 @@ def verify(path: Path, budget: int = DEFAULT_STEPS) -> Result:
 
     try:
         rc, out = _run(
-            [FRAMAC, "-wp", "-wp-prover", "alt-ergo", "-wp-steps",
+            [FRAMAC, "-wp", "-wp-model", MODEL, "-wp-prover", "alt-ergo",
+             "-wp-steps",
              str(budget), "-wp-cache", "none", "-wp-par", str(PAR),
              "-wp-timeout", str(GOAL_TIMEOUT_S), "-wp-smoke-tests",
              "-wp-smoke-dead-local-init", "-wp-smoke-timeout",

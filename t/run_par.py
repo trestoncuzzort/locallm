@@ -103,16 +103,21 @@ def main() -> int:
         present.append((bname, importlib.import_module(lmod).lower, suffix))
     # Lowering + writes: sequential, entirely before any dispatch below, so
     # out/*.{suffix} has a single writer for the whole time it is produced.
-    pending = []
+    pending, wits = [], {}
     for bname, lower, suffix in present:
         for tpath in tasks:
             task = harness.load(tpath)
             name = task["name"]
-            twin_body, op = harness.make_twin(task["body"])
+            # The whole task, not just the body: the twin is chosen by a
+            # measured witness (harness.twin_for), and the witness needs
+            # params/requires/ensures to have anything to run on. Cached, so
+            # the ladder search happens once per task, not once per backend.
+            twin_body, op, w = harness.twin_cached(task)
             if twin_body is None:
                 rows[name][bname] = ("no-twin", "no-twin", True)
                 all_ok = False
-                print(f"  {name} x {bname}: no twin operator applies  <-- FINDING")
+                print(f"  {name} x {bname}: no twin — "
+                      f"{harness.REFUSALS[op]}  <-- FINDING")
                 continue
             try:
                 real_src = lower(task, task["body"])
@@ -130,6 +135,7 @@ def main() -> int:
             (harness.OUT / f"{name}.{suffix}").write_text(real_src, encoding="utf-8")
             (harness.OUT / f"{name}_twin.{suffix}").write_text(twin_src, encoding="utf-8")
             pending.append((bname, name, suffix, op))
+            wits[name] = w
     n_cells = len(tasks) * len(BACKENDS)          # matrix size, independent of what lowered
     jobs = jobs_arg or max(1, min(n_cells, os.cpu_count() or 1))
     # fork: this interpreter's Linux default; cost here is the subprocess
@@ -146,7 +152,8 @@ def main() -> int:
             good = cell == (Outcome.VERIFIED, Outcome.REFUTED, True)
             all_ok &= good
             print(f"  {name} x {bname} [{op}]: real={cell[0]} twin={cell[1]}"
-                  + ("" if good else "  <-- FINDING"))
+                  + ("" if good else "  <-- FINDING")
+                  + f"   (twin witness: {harness.witness(wits.get(name))})")
     present_names = [b for b, v in cols if not v.startswith("ABSENT")]
     MIN_KERNELS = int(os.environ.get("T_MIN_KERNELS", "2"))
 

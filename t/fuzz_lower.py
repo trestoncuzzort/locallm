@@ -502,7 +502,18 @@ def sample_inputs(task, rng, k):
         for p in task["params"]:
             if p["type"] == "seq":
                 n = rng.choice([0, 0, 1, 2, 3, 3, 4, 5, 6])
-                env[p["name"]] = tuple(rng.choice(SMALL) for _ in range(n))
+                # SPEC.md gate 1: a seq's ELEMENTS are mathematical integers,
+                # same as an int parameter, so they are drawn from the same
+                # two pools. Drawing them from SMALL alone made every
+                # element-width claim unfalsifiable BY SAMPLING: the
+                # 2026-09-01 framac finding (`int *s` typed every element
+                # is_sint32) had to be hand-written as fz_p_elemwidth because
+                # no generated task could reach a counterexample. 12% here
+                # rather than the 8% used for a scalar: a counterexample needs
+                # only ONE big element, and a seq has several draws.
+                env[p["name"]] = tuple(
+                    (rng.choice(BIG) if rng.random() < 0.12
+                     else rng.choice(SMALL)) for _ in range(n))
             elif p["type"] == "bool":
                 env[p["name"]] = rng.choice([True, False])
             else:
@@ -1334,6 +1345,26 @@ def probes() -> list[dict]:
         "refuted",
         "SPEC.md gives len(s) no upper bound; verifying it means the lowering "
         "bounded the sequence length by a machine type")
+    # A seq's ELEMENTS are mathematical integers too, and no probe reached
+    # them until 2026-09-01: lower_framac.py's `int *s` made every element
+    # is_sint32 under WP's default model, and this task proved 10/10 goals
+    # there — VERIFIED with its twin REFUTED, so the flip rule would have
+    # COUNTED a false theorem. The length probe above does not cover it: a
+    # lowering can bound the elements while leaving the length free.
+    add({"t": 1, "name": "fz_p_elemwidth", "gate": "quantifiers",
+         "params": [{"name": "s", "type": "seq"}],
+         "returns": [{"name": "r", "type": "int"}], "requires": [],
+         "ensures": [OP("implies", OP(">", LEN("s"), I(0)),
+                        OP("==", V("r"), I(1))),
+                     OP("implies", OP("==", LEN("s"), I(0)),
+                        OP("==", V("r"), I(0))),
+                     OP("implies", OP(">", LEN("s"), I(0)),
+                        OP("<=", AT("s", I(0)), I(2 ** 31 - 1)))],
+         "body": [IFS(OP(">", LEN("s"), I(0)),
+                      [ASG("r", I(1))], [ASG("r", I(0))])]},
+        "refuted",
+        "SPEC.md's seq elements are mathematical integers; verifying it "
+        "means the lowering stored them in a machine type")
     add({"t": 1, "name": "fz_p_attotal", "gate": "quantifiers",
          "params": [{"name": "s", "type": "seq"}],
          "returns": [{"name": "r", "type": "int"}], "requires": [],
@@ -1620,7 +1651,8 @@ def run(corpus, outdir: Path, jobs: int, n_flake: int, only=None):
 def analyse(corpus, rows):
     """A cell is a finding when it contradicts another kernel on the same real
     lowering, or contradicts the reference interpreter."""
-    out = {"disagreements": [], "twin_survived": [], "vs_truth": []}
+    out = {"disagreements": [], "twin_survived": [], "vs_truth": [],
+           "no_flip": []}
     for task in corpus:
         name = task["name"]
         cells = rows.get(name, {})
@@ -1657,6 +1689,20 @@ def analyse(corpus, rows):
                  "op": task.get("_twin_op"), "backends": surv,
                  "twin_differs": task.get("_twin_differs"),
                  "inv": task.get("_inv")})
+        # THE FLIP, counted. A twin that comes back TIMEOUT or UNPROVED is
+        # neither a disagreement (nothing contradicts it) nor a survivor (it
+        # did not verify), so until 2026-09-01 it was reported as NOTHING —
+        # and a kernel that had stopped refuting altogether read as a clean
+        # run. MEASURED that day: spark went from 101/110 flips to 0/359
+        # across three fresh seeds while `disagreements` stayed at 4. The
+        # twin's whole purpose is the flip, so a real VERIFIED whose twin is
+        # not REFUTED is recorded here, with the outcome that replaced it.
+        for b, c in cells.items():
+            if c[0] == Outcome.VERIFIED and c[1] != Outcome.REFUTED:
+                out["no_flip"].append(
+                    {"task": name, "family": task.get("_family"),
+                     "op": task.get("_twin_op"), "backend": b,
+                     "twin_outcome": c[1]})
     return out
 
 
@@ -1693,9 +1739,17 @@ def main() -> int:
     (outdir / "rows.json").write_text(json.dumps(rows, indent=1))
     (outdir / "findings.json").write_text(json.dumps(res, indent=1))
     (outdir / "corpus.json").write_text(json.dumps(corpus, indent=1))
+    nf = {}
+    for d in res["no_flip"]:
+        nf.setdefault(d["backend"], []).append(d["twin_outcome"])
     print(f"\ndisagreements: {len(res['disagreements'])}  "
           f"vs-truth: {len(res['vs_truth'])}  "
-          f"twin-survived: {len(res['twin_survived'])}")
+          f"twin-survived: {len(res['twin_survived'])}  "
+          f"no-flip: {len(res['no_flip'])}")
+    for b in sorted(nf):
+        c = {o: nf[b].count(o) for o in sorted(set(nf[b]))}
+        print(f"  NO-FLIP {b}: {len(nf[b])} real-VERIFIED cells whose twin "
+              f"was not REFUTED — {c}")
     for d in res["disagreements"]:
         print(f"  DISAGREE {d['task']} [{d['family']}] "
               f"verified={d['verified']} refuted={d['refuted']} "
