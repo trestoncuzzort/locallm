@@ -41,7 +41,11 @@ THREE THINGS THIS FILE USED TO GET WRONG, and what it does instead
    arm's rows carry a greedy draw plus four sampled ones, and its banked
    aggregate INCLUDES the greedy draw. Both constructions are now computed for
    every arm and printed side by side, and the label on the banked aggregate is
-   derived by comparing it against both -- checked, not asserted.
+   derived by comparing it against both -- checked, not asserted. Comparing is
+   not enough BY ITSELF, though: the two constructions can come out equal, and
+   the label then used to read that tie as proof that no greedy draw existed.
+   Presence is a fact about the ROW SHAPE and is now read from the row shape --
+   see has_greedy_draw() and stored_construction().
 3. AN UNMEASURED TASK SCORED AS ZERO. The per-task view enumerated tasks from
    the trained arm only, so a task present in just the null arm was invisible;
    and a task whose `sampled` list was empty was averaged in as 0.0, which is
@@ -140,9 +144,37 @@ def greedy_anchored_rate(row: dict) -> float | None:
     return mean(vals) if vals else None
 
 
+def has_greedy_draw(rows: list[dict]) -> bool:
+    """Does any row in this arm bank a temp-0 greedy draw?
+
+    A question about the ROW SHAPE, and the row shape is the only thing that can
+    answer it. Asked because the two constructions can come out numerically
+    equal -- an arm that passed every draw scores 1.0 both ways -- and a tie
+    between two numbers is not evidence that one of the inputs was absent.
+    """
+    return any(e.get("greedy") is not None for r in rows for e in entries(r))
+
+
 def stored_construction(rows: list[dict]) -> str:
     """Which of the two the banked aggregate actually equals, decided by
-    recomputing both and comparing -- so the label cannot drift off the data."""
+    recomputing both and comparing -- so the label cannot drift off the data.
+
+    WHERE COMPARING IS NOT ENOUGH. When the two constructions agree, the stored
+    number cannot say which one produced it, and this used to print "greedy-free
+    (no greedy draw was banked)" on that tie -- reading a numeric coincidence as
+    proof of an absence. The executed witness: one row with greedy=True,
+    sampled=[1, 1] and aggregate 1.0 is 1.0 under BOTH constructions and plainly
+    HAS a banked greedy draw, and it got that label. Presence is a fact about
+    the row shape, so on a tie the row shape decides: the stored value is
+    reported as greedy-ANCHORED whenever any greedy draw is banked, because the
+    anchored reading is then true of the number, and the claim of absence is
+    made only when no row carries one.
+
+    A stored value matching greedy-free and NOT greedy-anchored keeps the plain
+    "greedy-free" label even where a greedy draw exists. There the number itself
+    discriminates -- it says the draw was left out of the aggregate -- and that
+    label asserts nothing about whether one was banked.
+    """
     if not rows:
         return "no rows"
     free = all(v is not None and abs(rate(r) - v) <= _TOL
@@ -154,6 +186,9 @@ def stored_construction(rows: list[dict]) -> str:
     if anch and not free:
         return "greedy-ANCHORED"
     if free and anch:
+        if has_greedy_draw(rows):
+            return ("greedy-ANCHORED (a greedy draw is banked; the two "
+                    "constructions are indistinguishable on these rows)")
         return "greedy-free (no greedy draw was banked)"
     return "UNRECOGNISED (matches neither construction)"
 

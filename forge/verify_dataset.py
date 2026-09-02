@@ -19,12 +19,18 @@ rather than a habit.
 
 Also reconciles the known_hard.json vs ledger contradiction (multiply_strings).
 
-THREE WAYS THIS GATE USED TO SAY PASS WITHOUT HAVING CHECKED
+FOUR WAYS THIS GATE USED TO SAY PASS WITHOUT HAVING CHECKED
 -----------------------------------------------------------
 1. A COLLIDING SIGNATURE. signature() concatenated prompt + chosen + rejected +
-   tid with no delimiter and hashed the string. Concatenation is not injective:
-   {"prompt": "ab", "chosen": "c"} and {"prompt": "a", "chosen": "bc"} build the
-   same string and hashed to the same sha1 (ca1cf76f..., executed both ways).
+   tid with no delimiter and hashed the string. Concatenation is not injective.
+   THE DIGEST IS OF THE WHOLE FIXTURE, so the two pairs are given here in full:
+   {"prompt": "ab", "chosen": "c", "rejected": "r", "meta": {"tid": "t"}} and
+   {"prompt": "a", "chosen": "bc", "rejected": "r", "meta": {"tid": "t"}} both
+   concatenate to "abcrt" and both hashed to
+   sha1("abcrt") = ca1cf76fb284896905ebd7cc391407f1eae89585, executed both ways.
+   Quoting that digest beside the prompt/chosen halves alone does not reproduce
+   -- those two fields build "abc", whose sha1 is a9993e36... -- and a citation
+   a reader cannot re-run is not a citation.
    Deduplication is what makes that fatal rather than untidy -- load_pairs keeps
    the FIRST pair under a signature and every later row inherits its verdict, so
    the second pair was never executed and was still counted as verified. The
@@ -42,12 +48,24 @@ THREE WAYS THIS GATE USED TO SAY PASS WITHOUT HAVING CHECKED
    task ids would have been executed, verified and passed -- training on the
    eval set with a receipt to show for it. Every non-seed tid must now be in
    ruler_frozen.json's training_pool, and any tid in the frozen ruler is fatal.
+4. A FILE WITH NOTHING IN IT PASSED AFFIRMATIVELY. Every number this gate
+   reports is a count OVER the rows it parsed, so a pair file truncated to zero
+   length -- or one left holding only blank lines -- scored zero on all of them:
+   0 unique pairs, 0 malformed lines, 0 off-partition pairs, 0 violations, exit
+   0, "PASS: 0/0 pairs valid". The receipt entry it wrote reads {"pairs": 0,
+   "violations": 0}, which is exactly the shape require_verified() grants
+   permission on, and the trainer was told "verified receipt OK --
+   dpo_pairs.jsonl (0 pairs); 0 violations, hashes match". "Nothing was checked"
+   and "everything checked out" are different answers and this gate has to tell
+   them apart, so a pair file that is PRESENT with zero parseable rows is now a
+   violation in its own right (no_verifiable_rows).
 
-NONE OF THE THREE CHANGES THE VERDICT ON THE RETAINED BYTES, checked before the
+NONE OF THE FOUR CHANGES THE VERDICT ON THE RETAINED BYTES, checked before the
 change: the committed pair files contain no malformed line, no tid outside the
-training pool, no frozen-ruler tid, and they deduplicate to the same 1279 unique
-pairs under both the old and the new signature. These are fences against the
-next generation run, not a re-verdict on this one.
+training pool, no frozen-ruler tid, none of the three is empty (1244 / 918 / 38
+parseable rows), and they deduplicate to the same 1279 unique pairs under both
+the old and the new signature. These are fences against the next generation run,
+not a re-verdict on this one.
 
 Writes data/dataset_verification.json. Exit code 1 if any violation is found.
 """
@@ -211,6 +229,40 @@ def load_pairs():
     return unique, rows_by_file, malformed
 
 
+def empty_file_violations(rows_by_file: dict[str, list[str]]) -> list[dict]:
+    """Pair files the gate could read nothing verifiable out of.
+
+    THE HOLE THIS CLOSES. Every other check here counts something ACROSS the
+    parsed rows, so a file with no parseable rows scores zero on all of them and
+    the absence of findings reads as a finding of absence: 0 pairs, 0 malformed
+    lines, 0 off-partition pairs, 0 violations, exit 0. Worse than the printed
+    PASS is the receipt entry, {"pairs": 0, "violations": 0} -- the exact shape
+    require_verified() grants permission on, so a dataset file truncated by a
+    failed write cleared the gate and training started on it.
+
+    A file with nothing in it did not pass; there was nothing in it to pass. So
+    a present pair file with zero parseable rows is a violation of its own, and
+    the receipt entry it produces is no longer clean.
+
+    SCOPE, because this is a whole-file verdict and those are easy to overstate:
+    only files that EXIST are considered, since load_pairs() skips a missing one
+    and never puts it in rows_by_file. A missing file is a different failure and
+    already has a different answer -- require_verified() refuses it as NOT
+    COVERED by the receipt. This class is for the file that is present and says
+    nothing.
+
+    A file whose only rows are unparseable lands here TOO, on top of its
+    malformed_line violations. Both statements are true of it and they are not
+    the same statement: one says which lines could not be read, the other says
+    the file as a whole certified nothing.
+    """
+    return [{"tid": None, "src": FILES.get(fname), "row": None,
+             "file": fname, "ok": False, "why": "no_verifiable_rows",
+             "detail": f"{fname}: 0 parseable rows; a receipt over this file "
+                       f"would certify nothing"}
+            for fname, sigs in rows_by_file.items() if not sigs]
+
+
 def load_partition() -> tuple[set[str], set[str]]:
     """(frozen ruler tids, training-pool tids) from data/ruler_frozen.json.
 
@@ -273,6 +325,7 @@ def check(pair) -> dict:
 
 def main() -> int:
     unique, rows_by_file, malformed = load_pairs()
+    empty_files = empty_file_violations(rows_by_file)
     sigs = list(unique)
     total_rows = sum(len(v) for v in rows_by_file.values())
     print(f"re-verifying {len(sigs)} unique pairs bidirectionally "
@@ -282,6 +335,9 @@ def main() -> int:
     if malformed:
         print(f"  !! {len(malformed)} line(s) could not be parsed and are "
               f"counted as violations, not skipped")
+    if empty_files:
+        print(f"  !! {len(empty_files)} file(s) hold no parseable row at all; "
+              f"a receipt over them would certify nothing")
 
     # The frozen split, checked BEFORE anything is executed: a pair drawn from
     # the eval set is a violation whichever way its tests come out. Tracked by
@@ -302,7 +358,8 @@ def main() -> int:
         results = list(ex.map(check, (unique[s] for s in sigs)))
     by_sig = dict(zip(sigs, results))
 
-    violations = [r for r in results if not r["ok"]] + malformed + partition
+    violations = ([r for r in results if not r["ok"]]
+                  + malformed + partition + empty_files)
     by_tid = {}
     for r in results:
         by_tid.setdefault(r["tid"], {"n": 0, "bad": 0})
@@ -315,15 +372,22 @@ def main() -> int:
     # pair counts against every file that carries it, exactly as an execution
     # violation does. Otherwise a file could hold an unreadable or
     # contaminating row and still report zero.
+    #
+    # THIS ROLLUP IS THE RECEIPT, not a summary of it: require_verified() reads
+    # `violations` per file and grants permission on 0. An empty file therefore
+    # has to be counted HERE and not only in the printed report, or the gate
+    # would name the defect on stdout and still certify the file.
     malformed_by_file: dict[str, int] = {}
     for v in malformed:
         malformed_by_file[v["file"]] = malformed_by_file.get(v["file"], 0) + 1
+    empty_by_file = {v["file"] for v in empty_files}
     per_file = {
         fname: {
             "pairs": len(sl),
             "violations": (sum(1 for s in sl if not by_sig[s]["ok"]
                                or s in bad_partition_sigs)
-                           + malformed_by_file.get(fname, 0)),
+                           + malformed_by_file.get(fname, 0)
+                           + (1 if fname in empty_by_file else 0)),
         }
         for fname, sl in rows_by_file.items()
     }
@@ -351,6 +415,7 @@ def main() -> int:
             "execution": sum(1 for r in results if not r["ok"]),
             "malformed_lines": len(malformed),
             "off_partition_pairs": len(partition),
+            "no_verifiable_rows": len(empty_files),
         },
         "violation_detail": violations[:50],
         "per_tid": by_tid,

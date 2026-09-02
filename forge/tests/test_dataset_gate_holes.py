@@ -1,4 +1,4 @@
-"""tests/test_dataset_gate_holes.py — three ways the data gate said PASS.
+"""tests/test_dataset_gate_holes.py — four ways the data gate said PASS.
 
 verify_dataset.py is the mechanism behind "every training pair was executed and
 checked". These are the inputs on which it said so without having checked.
@@ -22,6 +22,13 @@ checked". These are the inputs on which it said so without having checked.
      verified, and passed, because "chosen passes and rejected fails" is true
      of a contaminating pair too. The gate's own subject matter is which pairs
      may be trained on, so this one it has to answer.
+  4. A FILE WITH NOTHING IN IT PASSED AFFIRMATIVELY. Every count the gate
+     reports is a count OVER the rows it parsed, so a file truncated to zero
+     length -- or left holding only blank lines -- came out zero on all of
+     them and the report said "PASS: 0/0 pairs valid" with exit 0. The receipt
+     entry, {"pairs": 0, "violations": 0}, is the exact shape
+     require_verified() grants permission on, so training then started on it.
+     A present pair file with no parseable row is now a violation of its own.
 
 Each test keeps the broken twin beside it (test_stats_core.py idiom) and
 asserts the twin STILL misbehaves, so a test that stops discriminating is
@@ -79,6 +86,15 @@ def _fixture(*lines: str) -> pathlib.Path:
     """A DATA directory holding one dpo_pairs.jsonl of exactly these lines."""
     d = pathlib.Path(tempfile.mkdtemp(prefix="test_gate_holes_"))
     (d / "dpo_pairs.jsonl").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return d
+
+
+def _fixture_bytes(body: str) -> pathlib.Path:
+    """A DATA directory whose dpo_pairs.jsonl is EXACTLY these bytes. _fixture()
+    always terminates the file with a newline, and a zero-length file is one of
+    the two shapes under test here."""
+    d = pathlib.Path(tempfile.mkdtemp(prefix="test_gate_holes_"))
+    (d / "dpo_pairs.jsonl").write_text(body, encoding="utf-8", newline="")
     return d
 
 
@@ -199,6 +215,65 @@ def test_the_committed_pairs_are_all_on_the_training_side():
     unique, _, _ = V.load_pairs()
     bad = V.partition_violations(list(unique.values()))
     assert bad == [], bad[:5]
+
+
+# --- 4. a file with nothing verifiable in it ------------------------------
+def test_an_empty_pair_file_is_a_violation():
+    unique, rows_by_file, malformed = _load_from(_fixture_bytes(""))
+    bad = V.empty_file_violations(rows_by_file)
+    assert len(bad) == 1, bad
+    assert bad[0]["file"] == "dpo_pairs.jsonl", bad
+    assert bad[0]["why"] == "no_verifiable_rows", bad
+    assert not bad[0]["ok"], bad
+    # THE TWIN, in the only form this defect has one: every OTHER signal the
+    # gate owns is silent on this file, which is exactly why it used to pass
+    # with a clean receipt. If any of them ever starts firing here, this test
+    # has stopped being the thing that catches an empty file.
+    assert rows_by_file == {"dpo_pairs.jsonl": []}, rows_by_file
+    assert unique == {}, unique
+    assert malformed == [], malformed
+    assert V.partition_violations(list(unique.values())) == []
+
+
+def test_a_blank_lines_only_pair_file_is_a_violation():
+    """A file of newlines is not malformed -- blank lines are legal and there
+    is a test above saying so -- so the malformed check cannot be what catches
+    this one."""
+    _, rows_by_file, malformed = _load_from(_fixture_bytes("\n\n   \n\t\n"))
+    assert malformed == [], malformed
+    assert [v["why"] for v in V.empty_file_violations(rows_by_file)] == \
+        ["no_verifiable_rows"], rows_by_file
+
+
+def test_a_file_with_a_parseable_row_is_not_flagged_as_empty():
+    """The cry-wolf side. One row is something to certify, and a trailing
+    blank line does not take it away."""
+    _, rows_by_file, _ = _load_from(_fixture(json.dumps(PAIR_A), ""))
+    assert V.empty_file_violations(rows_by_file) == []
+
+
+def test_a_file_of_only_malformed_lines_is_reported_both_ways():
+    """Two different true statements about one file: WHICH lines could not be
+    read, and that the file as a whole certified nothing. Neither implies the
+    other -- an empty file has no malformed line at all."""
+    _, rows_by_file, malformed = _load_from(_fixture("{oops", "also not json"))
+    assert len(malformed) == 2, malformed
+    assert len(V.empty_file_violations(rows_by_file)) == 1, rows_by_file
+
+
+def test_the_committed_pair_files_all_have_parseable_rows():
+    """States what the retained bytes are, so the new check is known to be a
+    fence rather than a change of verdict on the current data.
+
+    The row COUNTS are deliberately not pinned -- a generation run is allowed
+    to change them, and a test that failed on that would be crying wolf about
+    the wrong thing. What is pinned is that all three named files are present
+    and none of them is empty, which is the property this class is about."""
+    _, rows_by_file, _ = V.load_pairs()
+    assert sorted(rows_by_file) == sorted(V.FILES), rows_by_file
+    assert V.empty_file_violations(rows_by_file) == []
+    assert all(sl for sl in rows_by_file.values()), \
+        {n: len(sl) for n, sl in rows_by_file.items()}
 
 
 if __name__ == "__main__":
