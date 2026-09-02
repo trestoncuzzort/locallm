@@ -278,6 +278,15 @@ class Corpus:
         self.train_text = train_text
         self.val_text = val_text
 
+        # THE REQUEST THAT PRODUCED THE SPLIT, kept for the same reason the
+        # split itself is. A run record that names the corpus but not the
+        # holdout cannot tell two runs on different validation sets apart, and
+        # every prereg in this folder asserts an identical holdout across arms.
+        # runlog.split_fingerprint turns these three into that record.
+        self.val_frac = val_frac
+        self.seed = seed
+        self.grouped = grouped
+
         self.device = device
         # Keep the corpus resident on the training device. Batches are then cut
         # on-device with one vectorised gather instead of a Python loop plus a
