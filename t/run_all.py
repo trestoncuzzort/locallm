@@ -155,4 +155,13 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    from verifiers import acquire_run_lock
+    _lock = acquire_run_lock(HERE / "out")
+    if not callable(_lock):
+        print(f"REFUSED: {_lock}")
+        raise SystemExit(2)
+    try:
+        _code = main()
+    finally:
+        _lock()
+    raise SystemExit(_code)

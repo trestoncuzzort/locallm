@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import argparse
 import importlib
-import multiprocessing
 import os
 import sys
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -31,7 +30,7 @@ if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 
 import harness                      # noqa: E402
-from verifiers import Outcome, flake_check, sha256_file   # noqa: E402
+from verifiers import Outcome, flake_check, sha256_file, mp_context   # noqa: E402
 
 BACKENDS = [
     ("dafny", "lower_dafny", "dfy"),
@@ -80,7 +79,9 @@ def _run_cell(bname: str, task_name: str, suffix: str, op: str):
 
 
 def main() -> int:
-    conflict = _live_conflict()
+    # /proc is Linux furniture; elsewhere the lock in __main__ is the
+    # only guard, and iterating a missing /proc would crash before it.
+    conflict = _live_conflict() if Path("/proc").is_dir() else None
     if conflict:
         print(f"REFUSED: another t run is live ({conflict}). Two concurrent "
               f"runs write the same out/ filenames; let it finish first.")
@@ -138,12 +139,11 @@ def main() -> int:
             wits[name] = w
     n_cells = len(tasks) * len(BACKENDS)          # matrix size, independent of what lowered
     jobs = jobs_arg or max(1, min(n_cells, os.cpu_count() or 1))
-    # fork: this interpreter's Linux default; cost here is the subprocess
-    # call inside verify(), not process startup, and no threads are held
-    # open in the parent, so fork's thread-safety hazard does not apply.
-    # _run_cell re-imports its backend regardless, so this stays correct
-    # unchanged if ever switched to spawn/forkserver.
-    ctx = multiprocessing.get_context("fork")
+    # Platform-selected: fork where it exists, spawn on Windows. The spawn
+    # contract (module-level worker, picklable args, __main__ guard) lives
+    # in verifiers.mp_context's docstring; the spawn branch is exercised on
+    # Linux via T_MP_START=spawn against the full matrix.
+    ctx = mp_context()
     with ProcessPoolExecutor(max_workers=jobs, mp_context=ctx) as ex:
         futs = {ex.submit(_run_cell, b, n, s, o): (b, n, o) for b, n, s, o in pending}
         for fut in as_completed(futs):
@@ -197,4 +197,13 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    from verifiers import acquire_run_lock
+    _lock = acquire_run_lock(HERE / "out")
+    if not callable(_lock):
+        print(f"REFUSED: {_lock}")
+        raise SystemExit(2)
+    try:
+        _code = main()
+    finally:
+        _lock()
+    raise SystemExit(_code)
