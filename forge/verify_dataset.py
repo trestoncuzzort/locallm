@@ -60,6 +60,23 @@ FOUR WAYS THIS GATE USED TO SAY PASS WITHOUT HAVING CHECKED
    them apart, so a pair file that is PRESENT with zero parseable rows is now a
    violation in its own right (no_verifiable_rows).
 
+AND A FIFTH, WHICH IS WHY THE OTHER FOUR NOW REACH THE TRAINER
+--------------------------------------------------------------
+Each of the four changed what THIS FILE calls a violation, and nothing in the
+receipt said which version of this file wrote it: the verifier fingerprint
+covered forge.py, the task source and the interpreter. A receipt issued before
+them therefore went on matching perfectly afterwards, and require_verified()
+granted permission on a "0 violations" computed by a gate that had never asked
+any of the four questions. The same silence covered the frozen split that check
+3 reads at verification time: re-freeze the ruler so a training-pool task
+becomes an eval task, and the old receipt still accepted, so a pair labelled
+with it could be trained on under a receipt that never checked it against that
+split. Both files are now in dataset_gate.verifier_fingerprint(), so editing
+this one or data/ruler_frozen.json makes every outstanding receipt stop matching
+and the gate says which entry moved instead of carrying on. That regenerates
+nothing: re-verifying is the maintainer's explicit decision
+(docs/UBUNTU-BOOTSTRAP.md, step 6).
+
 NONE OF THE FOUR CHANGES THE VERDICT ON THE RETAINED BYTES, checked before the
 change: the committed pair files contain no malformed line, no tid outside the
 training pool, no frozen-ruler tid, none of the three is empty (1244 / 918 / 38

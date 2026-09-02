@@ -1,4 +1,4 @@
-"""tests/test_dataset_gate_holes.py — four ways the data gate said PASS.
+"""tests/test_dataset_gate_holes.py — five ways the data gate said PASS.
 
 verify_dataset.py is the mechanism behind "every training pair was executed and
 checked". These are the inputs on which it said so without having checked.
@@ -29,6 +29,18 @@ checked". These are the inputs on which it said so without having checked.
      entry, {"pairs": 0, "violations": 0}, is the exact shape
      require_verified() grants permission on, so training then started on it.
      A present pair file with no parseable row is now a violation of its own.
+  5. A RECEIPT OUTLIVED THE GATE THAT ISSUED IT. Every fix above changed what
+     verify_dataset.py checks, and nothing recorded WHICH version of that file
+     wrote a receipt: the fingerprint covered forge.py, the task source and the
+     interpreter, never the gate's own bytes. So a receipt written by the OLD
+     gate -- the one that skipped malformed lines, certified an empty file and
+     never looked at the partition -- is byte-indistinguishable from one written
+     after, require_verified() honours it, and all four fixes are invisible at
+     consumption time. The same silence covered the frozen split: the partition
+     check reads data/ruler_frozen.json at verification time, so with the split
+     unrecorded a receipt stays valid across a re-freeze that moves a training
+     task into the eval set, and training on eval data becomes possible under a
+     receipt that is still, on its own terms, correct.
 
 Each test keeps the broken twin beside it (test_stats_core.py idiom) and
 asserts the twin STILL misbehaves, so a test that stops discriminating is
@@ -41,19 +53,27 @@ chosen -- the same path tests/test_replicate_provenance.py takes, for the same
 reason. Nothing here executes a candidate, so the interpreter's identity does
 not enter any assertion.
 
-NOTHING HERE WRITES A RECEIPT. main() is never called: every test drives
-load_pairs() or partition_violations() against fixtures in a temp directory, or
-reads the committed pairs without verifying them. Receipt regeneration is the
+NOTHING HERE TOUCHES data/. main() is never called: tests 1-4 drive load_pairs()
+or partition_violations() against fixtures in a temp directory, or read the
+committed pairs without verifying them. The class-5 tests do write receipts, but
+only into temp directories: each one assembles a receipt from the same two
+helpers main() writes with (dataset_gate.build_file_entries and
+verifier_fingerprint) and re-points dataset_gate.HERE at a byte-copy of the
+fingerprinted files, so "the verifier changed" and "the split moved" can be
+staged without editing anything in the repo. data/dataset_verification.json is
+never written and data/ is read only to copy it. Receipt regeneration is the
 maintainer's explicit decision (docs/UBUNTU-BOOTSTRAP.md, step 6).
 
 Run: python tests/test_dataset_gate_holes.py
 """
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import os
 import pathlib
+import shutil
 import sys
 import tempfile
 
@@ -65,6 +85,7 @@ _VENV_PY = ROOT / ".venv-train" / "Scripts" / "python.exe"
 if not os.environ.get("SRLM_VERIFY_PY") and not _VENV_PY.exists():
     os.environ["SRLM_VERIFY_PY"] = sys.executable   # see THE PIN, above
 
+import dataset_gate                                               # noqa: E402
 import forge                                                      # noqa: E402
 import verify_dataset as V                                        # noqa: E402
 
@@ -274,6 +295,193 @@ def test_the_committed_pair_files_all_have_parseable_rows():
     assert V.empty_file_violations(rows_by_file) == []
     assert all(sl for sl in rows_by_file.values()), \
         {n: len(sl) for n, sl in rows_by_file.items()}
+
+
+# --- 5. a receipt that outlived the gate that issued it -------------------
+# THE TWIN, verbatim: the fingerprint scope as it stood before this class was
+# closed. Whole-file hashes of the executor, the task source and the
+# interpreter -- and nothing about verify_dataset.py, which is the file that
+# decides what a violation IS, or about the frozen split it decides against.
+_OLD_VERIFIER_FILES = ("forge.py",)
+_OLD_TASK_SOURCE_FILES = ("screen_tasks.py", "task_bank.py",
+                          "data/screen_results.jsonl")
+
+
+def _fingerprint_before_the_fix(root: pathlib.Path) -> dict:
+    fp = {n: dataset_gate.sha256_file(root / n)
+          for n in _OLD_VERIFIER_FILES + _OLD_TASK_SOURCE_FILES}
+    fp.update(dataset_gate.interpreter_fingerprint())
+    return fp
+
+
+@contextlib.contextmanager
+def _repointed_at(root: pathlib.Path):
+    """Point the gate's hashing at `root`. dataset_gate reads HERE at call time
+    (`sha256_file(HERE / name)`), so this moves the whole fingerprint without a
+    stub in front of it -- the real function runs over real files."""
+    saved = dataset_gate.HERE
+    dataset_gate.HERE = root
+    try:
+        yield root
+    finally:
+        dataset_gate.HERE = saved
+
+
+def _mirror() -> pathlib.Path:
+    """A byte-copy of every file the fingerprint reads, safe to edit.
+
+    The two files this class adds are copied whether or not the gate currently
+    hashes them (hence the union with the literal names, and the getattr): the
+    fixture must still build with dataset_gate.py reverted to its pre-fix bytes,
+    or the four tests below could not be re-run against the defect they were
+    written for. The copy is asserted to fingerprint IDENTICALLY to the repo
+    before any test mutates it, which is what makes it a redirect rather than a
+    stub.
+    """
+    d = pathlib.Path(tempfile.mkdtemp(prefix="test_gate_receipt_"))
+    (d / "data").mkdir()
+    names = (set(dataset_gate.VERIFIER_FILES)
+             | set(dataset_gate.TASK_SOURCE_FILES)
+             | set(getattr(dataset_gate, "SPLIT_FILES", ()))
+             | {"verify_dataset.py", "data/ruler_frozen.json"})
+    for n in names:
+        shutil.copyfile(ROOT / n, d / n)
+    live = dataset_gate.verifier_fingerprint()
+    with _repointed_at(d):
+        assert dataset_gate.verifier_fingerprint() == live, \
+            "the mirror does not fingerprint like the repo; it is not a redirect"
+    return d
+
+
+def _receipt(data_dir: pathlib.Path, fname: str, pairs: int, violations: int,
+             fingerprint: dict) -> pathlib.Path:
+    """A receipt in the shape verify_dataset.main() writes, built by the same
+    two helpers, into a temp directory."""
+    r = {"schema": dataset_gate.SCHEMA,
+         "files": dataset_gate.build_file_entries(
+             data_dir, {fname: {"pairs": pairs, "violations": violations}}),
+         "verifier": fingerprint}
+    dataset_gate.receipt_path(data_dir).write_text(json.dumps(r, indent=2))
+    return data_dir / fname
+
+
+def _refusal(paths, data_dir) -> str | None:
+    """The gate's message if it refuses, None if it grants permission."""
+    try:
+        dataset_gate.require_verified(paths, data_dir)
+        return None
+    except SystemExit as e:
+        return str(e)
+
+
+def _pair_file(body: str) -> tuple[pathlib.Path, str]:
+    d = pathlib.Path(tempfile.mkdtemp(prefix="test_gate_receipt_data_"))
+    (d / "dpo_pairs.jsonl").write_text(body, encoding="utf-8", newline="")
+    return d, "dpo_pairs.jsonl"
+
+
+CLEAN_ROW = json.dumps({"prompt": "p", "chosen": "c", "rejected": "r",
+                        "meta": {"tid": "atoi"}}) + "\n"
+
+
+def test_the_fingerprint_names_the_gate_that_writes_the_receipt():
+    """verify_dataset.py decides what a violation IS. A receipt that does not
+    record its bytes cannot say which set of checks produced '0 violations'."""
+    fp = dataset_gate.verifier_fingerprint()
+    assert "verify_dataset.py" in fp, (
+        "the fingerprint does not cover verify_dataset.py, so a receipt written "
+        "by any earlier version of the gate is indistinguishable from one "
+        f"written by this one; it covers {sorted(fp)}")
+    assert fp["verify_dataset.py"] == dataset_gate.sha256_file(
+        ROOT / "verify_dataset.py"), "not the sha256 of the file on disk"
+    # The twin must still be blind, or this test has stopped testing anything.
+    assert "verify_dataset.py" not in _fingerprint_before_the_fix(ROOT), \
+        "twin lost its bug; the test is dead"
+
+
+def test_a_receipt_from_the_previous_gate_is_refused_not_honoured():
+    """THE RED. A receipt issued by the gate BEFORE the four checks above,
+    over a pair file the new gate calls a violation, presented after the gate
+    changed. Nothing in it is false; it simply answers an older question."""
+    root = _mirror()
+    with _repointed_at(root):
+        data, fname = _pair_file("")           # 0 rows: class 4's violation
+        p = _receipt(data, fname, 0, 0, _fingerprint_before_the_fix(root))
+        # ...and now the gate's judgement changes: the checks land.
+        with open(root / "verify_dataset.py", "ab") as fh:
+            fh.write(b"\n# the four checks above land here\n")
+
+        msg = _refusal([p], data)
+        assert msg is not None, (
+            "a receipt written by the previous gate still grants permission: "
+            "the empty file it certified is a violation now, and nothing in "
+            "the receipt records which gate wrote it")
+        assert "verify_dataset.py" in msg, msg
+        assert "VERIFIER changed" in msg, msg
+        # THE TWIN: under the old scope this receipt still matches exactly.
+        recorded = json.loads(
+            dataset_gate.receipt_path(data).read_text())["verifier"]
+        assert _fingerprint_before_the_fix(root) == recorded, \
+            "twin lost its bug; the test is dead"
+
+
+def test_the_fingerprint_names_the_frozen_split_the_pairs_were_checked_against():
+    """The partition check reads data/ruler_frozen.json at verification time.
+    Which split it read is part of what the receipt means."""
+    fp = dataset_gate.verifier_fingerprint()
+    assert "data/ruler_frozen.json" in fp, (
+        "the fingerprint does not cover the frozen split, so a receipt does not "
+        f"say which partition its pairs were checked against; it covers {sorted(fp)}")
+    assert fp["data/ruler_frozen.json"] == dataset_gate.sha256_file(
+        ROOT / "data" / "ruler_frozen.json"), "not the sha256 of the file on disk"
+    assert "data/ruler_frozen.json" not in _fingerprint_before_the_fix(ROOT), \
+        "twin lost its bug; the test is dead"
+
+
+def test_a_receipt_does_not_survive_the_frozen_split_moving():
+    """THE SECOND RED. A receipt that was correct when written, presented after
+    a re-freeze moved one of its training tasks into the eval set. The pairs did
+    not change and neither did the verifier; what changed is the answer to 'may
+    this task be trained on', which is the question the receipt was asked."""
+    root = _mirror()
+    with _repointed_at(root):
+        data, fname = _pair_file(CLEAN_ROW)
+        p = _receipt(data, fname, 1, 0, dataset_gate.verifier_fingerprint())
+        assert _refusal([p], data) is None, \
+            "the control failed: a freshly issued receipt must be honoured"
+
+        frozen = root / "data" / "ruler_frozen.json"
+        spec = json.loads(frozen.read_text(encoding="utf-8"))
+        moved = sorted(spec["training_pool"])[0]
+        spec["training_pool"] = [t for t in spec["training_pool"] if t != moved]
+        spec["ruler"] = sorted(set(spec["ruler"]) | {moved})
+        frozen.write_text(json.dumps(spec, indent=2), encoding="utf-8")
+
+        msg = _refusal([p], data)
+        assert msg is not None, (
+            f"the receipt still grants permission after training-pool task "
+            f"{moved!r} became a frozen RULER task; a pair labelled with it "
+            f"would now be trained on under a receipt that never checked it "
+            f"against this split")
+        assert "ruler_frozen.json" in msg, msg
+        # THE TWIN: the old scope cannot see a split change at all.
+        recorded = json.loads(
+            dataset_gate.receipt_path(data).read_text())["verifier"]
+        old = _fingerprint_before_the_fix(root)
+        assert all(old[k] == recorded[k] for k in old), \
+            "twin lost its bug; the test is dead"
+
+
+def test_a_receipt_written_under_the_current_fingerprint_is_honoured():
+    """The cry-wolf side. Widening the fingerprint refuses STALE receipts; a
+    receipt issued by the gate on disk now, over data that has not moved, must
+    still grant permission -- otherwise the fix is a brick, not a check."""
+    root = _mirror()
+    with _repointed_at(root):
+        data, fname = _pair_file(CLEAN_ROW)
+        p = _receipt(data, fname, 1, 0, dataset_gate.verifier_fingerprint())
+        assert _refusal([p], data) is None, \
+            "a receipt written under the live fingerprint was refused"
 
 
 if __name__ == "__main__":

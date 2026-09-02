@@ -217,8 +217,8 @@ def replicate_row(res: dict, replicate: int, verifier: dict) -> dict:
     indistinguishable in the file, silently pooled into one sd.
 
     dataset_gate already owns that scope decision for the dataset receipt
-    (VERIFIER_FILES + TASK_SOURCE_FILES, whole files on purpose) and already
-    computes it. It is IMPORTED here rather than re-derived, for the reason
+    (VERIFIER_FILES + TASK_SOURCE_FILES + SPLIT_FILES, whole files on purpose)
+    and already computes it. It is IMPORTED here rather than re-derived, for the reason
     venv_guard.py exists: a second definition of "what the verifier is" would be
     free to drift from the first, which is the failure this row is meant to make
     visible.
