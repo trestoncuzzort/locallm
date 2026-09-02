@@ -197,9 +197,29 @@ def review(rows: list[dict]) -> None:
     # characters all recorded chars 17298 / vocab 22 / sha1 ce31645cb012. The
     # reader this page is written for did not watch any of it happen and cannot
     # tell those apart from the corpus line, so the split gets its own.
+    #
+    # AND THE HOLDOUT IS NOT THE REQUEST EITHER. The key here was (val_sha1,
+    # val_chars, val_frac, seed), which is the content AND the two fields
+    # split_fingerprint's own docstring calls the REQUEST. val_frac and seed do
+    # not identify a holdout, because group_split answers different requests
+    # with the same text: measured over 320 grouped splits of this project's own
+    # sources, the markdown corpus returns the identical 15-character holdout
+    # (val_sha1 51c7fa5fba92) for val_frac 0.0002 at seed 4242 and at seed
+    # 20260901, and an identical 3-character one at four different seeds. So
+    # two runs scored on byte-identical validation text under different seeds
+    # counted as two holdouts and printed the warning below, which is false, and
+    # false in the expensive direction -- it tells a reviewer to discard a
+    # comparison that is in fact sound. Measured on the bytes before this
+    # change: two rows, val_sha1 ce31645cb012 / 1,728 chars, seeds 1337 and
+    # 4242, reported "holdouts 2 named" and warned.
+    #
+    # Identity is now the CONTENT alone. val_frac and seed stay on the record
+    # and stay on the page -- they say what was asked for, and two requests
+    # answered with the same text is worth seeing -- they just do not get to
+    # split one holdout into two.
     holdout_rows = [r for r in rows if r.get("kind") in ("train", "experiment")]
     if holdout_rows:
-        named: dict[tuple, int] = {}
+        named: dict[tuple, dict] = {}
         unnamed = 0
         for r in holdout_rows:
             sf = r.get("split_fingerprint")
@@ -209,15 +229,24 @@ def review(rows: list[dict]) -> None:
                 # to hash, or arms that disagreed about which holdout they had.
                 unnamed += 1
                 continue
-            key = (sha, sf.get("val_chars"), sf.get("val_frac"), sf.get("seed"))
-            named[key] = named.get(key, 0) + 1
+            key = (sha, sf.get("val_chars"))
+            e = named.setdefault(key, {"runs": 0, "requests": []})
+            e["runs"] += 1
+            req = (sf.get("val_frac"), sf.get("seed"))
+            if req not in e["requests"]:
+                e["requests"].append(req)
         print(f"holdouts     {len(named)} named"
               + (f", {unnamed} of {len(holdout_rows)} run(s) name none"
                  if unnamed else ""))
-        for (sha, chars, vf, sd), n in list(named.items())[:4]:
+        for (sha, chars), e in list(named.items())[:4]:
             size = f"{chars:,} chars" if isinstance(chars, int) else f"{chars} chars"
-            print(f"             {sha}  {size}, val_frac {vf}, seed {sd}"
-                  f"   {n} run(s)")
+            asked = "; ".join(f"val_frac {vf}, seed {sd}" for vf, sd in e["requests"])
+            print(f"             {sha}  {size}, asked for as {asked}"
+                  f"   {e['runs']} run(s)")
+            if len(e["requests"]) > 1:
+                print(f"             {'':12}   ^ {len(e['requests'])} different "
+                      f"requests, ONE holdout: the same held-out text came back "
+                      f"each time, so these runs are comparable")
         if len(named) > 1:
             print("  WARNING: these runs were NOT all scored on the same "
                   "held-out text. A val loss from one does not compare with a "
