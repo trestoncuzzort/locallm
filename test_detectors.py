@@ -28,11 +28,17 @@ oracle, and every test runs against both implementations so you can see which
 tests actually discriminate.
 
 BE PRECISE ABOUT WHAT THIS SUITE GUARANTEES, because the first version of this
-docstring overstated it: only ONE of the four tests (phase invariance) fails
-against the known-broken sampler. The other three pass on both, because they
+docstring overstated it: only ONE of the five tests (phase invariance) fails
+against the known-broken sampler. Three of the others pass on both, because they
 guard properties the old sampler also had. That is not a defect in them, but it
-does mean three of these four tests could not have caught the bug that made this
-file necessary, and only the phase test is a real regression guard.
+does mean they could not have caught the bug that made this file necessary.
+
+THE FIFTH TEST HAS A DIFFERENT ORACLE, and it is named here so nobody reads the
+"passes on both samplers" column and calls it toothless. `short copies are
+caught` guards the VERDICT, not the fingerprinter: it fails against leakage.py
+as of commit 4b0b4f7, whose verdict read content overlap alone. Its fixture is
+the one that change was measured on, and it lives in this file rather than in a
+commit message because a fixture quoted in prose is not run by anything.
 
 NOT COVERED, measured rather than assumed: renamed or rewritten copies. The
 detector scores 0% recall on identifier-renamed Python. No test here checks for
@@ -78,6 +84,64 @@ def _verdict(train: str, val: str, shingle_fn) -> str:
         val_shingles=len(val_sh),
         val_shingles_in_train=len(val_sh & train_sh))
     return rep.verdict
+
+
+def _scan_like(train: str, val: str, shingle_fn, doc_aligned: bool) -> Report:
+    """scan(), with a swappable fingerprinter and all three signals real.
+
+    _verdict above zeroes the document and line counts on purpose: its tests are
+    about the fingerprinter, and a stray line collision in generated filler
+    would move a verdict those tests read as the fingerprinter's answer. This
+    one keeps all three, because the fixture below is about what the verdict
+    does with the two signals content overlap cannot see.
+    """
+    train_docs = set(leakage.documents(train))
+    val_docs = leakage.documents(val)
+    train_lines = set(train.splitlines())
+    val_lines = [l for l in val.splitlines() if l.strip()]
+    train_sh, val_sh = shingle_fn(train), shingle_fn(val)
+    return Report(
+        train_chars=len(train), val_chars=len(val),
+        val_docs=len(val_docs),
+        val_docs_in_train=sum(1 for d in val_docs if d in train_docs),
+        doc_aligned=doc_aligned,
+        val_lines=len(val_lines),
+        val_lines_in_train=sum(1 for l in val_lines if l in train_lines),
+        val_shingles=len(val_sh),
+        val_shingles_in_train=len(val_sh & train_sh))
+
+
+def short_document_fixture(seed: int = 4242, n_copied: int = 40) -> tuple[str, str]:
+    """A holdout made ENTIRELY of verbatim copies of SHORT training documents.
+
+    Every copied document is 30-35 characters, which is below SHINGLE = 50, so
+    the content arm cannot fingerprint the duplication at any offset: it is not
+    a matter of the copies being hard to find, they are shorter than the unit
+    the arm measures in. The copies are re-ordered on the holdout side and the
+    training side interleaves unrelated multi-line filler, so no 50-character
+    window is shared across the two either — the content arm reads 0.0% because
+    there is nothing there for it to see, while 100% of the holdout is
+    byte-identical to training.
+    """
+    rng = random.Random(seed)
+    words = ["alpha", "beta", "gamma", "delta", "value", "index", "buffer",
+             "result", "window", "offset", "table", "kernel", "row", "seed"]
+
+    def line(lo: int, hi: int) -> str:
+        s = ""
+        while len(s) < lo:
+            s += (" " if s else "") + rng.choice(words)
+        return s[:hi]
+
+    copied = [line(30, 35) for _ in range(n_copied)]
+    filler = ["\n".join(line(60, 90) for _ in range(4)) for _ in range(n_copied)]
+    train_docs = []
+    for c, f in zip(copied, filler):
+        train_docs += [f, c]
+    rng.shuffle(train_docs)
+    val_docs = list(copied)
+    rng.shuffle(val_docs)
+    return "\n\n".join(train_docs), "\n\n".join(val_docs)
 
 
 def _filler(n: int, seed: int) -> str:
@@ -157,11 +221,37 @@ def test_guarantee_length(shingle_fn) -> tuple[bool, str]:
     return ok, f"{hits}/{trials} runs of the documented {need} chars were found"
 
 
+def test_short_copies_are_caught(shingle_fn) -> tuple[bool, str]:
+    """A holdout of verbatim copies too SHORT to fingerprint must not read CLEAN.
+
+    The regression oracle here is not the old sampler, it is the old VERDICT:
+    against leakage.py at 4b0b4f7, which decided on content overlap alone while
+    printing all three signals, this fixture returns CLEAN with trustworthy
+    True. Measured on that commit: documents 40/40, lines 40/40, content 0/95.
+
+    The assertion deliberately includes `content is below its own SUSPECT bar`.
+    Without it the test would pass on a detector that reached CONTAMINATED
+    through the content arm, which is the one arm that structurally cannot see
+    this fixture; with it, the test can only pass because the document and line
+    arms are read too.
+    """
+    train, val = short_document_fixture()
+    rep = _scan_like(train, val, shingle_fn, doc_aligned=True)
+    ok = (rep.verdict == "CONTAMINATED" and not rep.trustworthy
+          and rep.doc_frac == 1.0 and rep.line_frac == 1.0
+          and rep.shingle_frac < leakage.SUSPECT)
+    return ok, (f"documents {rep.val_docs_in_train}/{rep.val_docs} "
+                f"({rep.doc_frac:.1%}), lines {rep.val_lines_in_train}/"
+                f"{rep.val_lines} ({rep.line_frac:.1%}), content "
+                f"{rep.shingle_frac:.1%} -> {rep.verdict}")
+
+
 TESTS = [
     ("phase invariance", test_phase_invariance),
     ("no false positive at scale", test_no_false_positive_at_scale),
     ("clean split reads CLEAN", test_clean_split_reads_clean),
     ("documented length guarantee", test_guarantee_length),
+    ("short copies are caught", test_short_copies_are_caught),
 ]
 
 
