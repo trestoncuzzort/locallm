@@ -74,18 +74,23 @@ def train_one(corpus, tok, device, steps: int, seed: int) -> dict:
 
 
 def summarise(rows: list[dict], steps: int, corpus_chars: int,
-              ngram_choices: float) -> dict:
+              ngram_choices: float, ineligible: str | None = None) -> dict:
     vals = [r["val"] for r in rows]
     trains = [r["train"] for r in rows]
     gaps = [r["val"] - r["train"] for r in rows]
     mean_val = sum(vals) / len(vals)
+    # baselines.closed_fraction, not the division spelled out here: this used to
+    # divide by (ngram_choices - 1.0) unguarded and publish the result whatever
+    # the holdout was worth. See baselines.holdout_eligibility.
+    closed, why = baselines.closed_fraction(ngram_choices, math.exp(mean_val),
+                                            ineligible)
     return {
         "seeds_val": vals, "seeds_train": trains, "seeds_gap": gaps,
         "mean_val": mean_val, "spread_val": max(vals) - min(vals),
         "mean_train": sum(trains) / len(trains),
         "mean_gap": sum(gaps) / len(gaps), "spread_gap": max(gaps) - min(gaps),
         "choices": math.exp(mean_val),
-        "closed_fraction": (ngram_choices - math.exp(mean_val)) / (ngram_choices - 1.0),
+        "closed_fraction": closed, "closed_fraction_reason": why,
         "corpus_crossings": steps * CHARS_PER_STEP / corpus_chars,
     }
 
@@ -101,8 +106,20 @@ def main() -> None:
     print(f"one crossing of this corpus = {len(text)/CHARS_PER_STEP:,.0f} steps\n",
           flush=True)
 
-    base = baselines.compare(corpus.train_text, corpus.val_text, tok.vocab_size)
+    base = baselines.compare(corpus.train_text or "", corpus.val_text or "",
+                             tok.vocab_size)
     ngram_choices = base[f"ngram_{baselines.NGRAM_ORDER}"]["choices"]
+
+    # Is this holdout worth comparing anything against? Asked once, before the
+    # arms run, and carried into every arm's row. Without it this file printed a
+    # "vs table" percentage for corpora with no usable holdout at all.
+    ineligible = baselines.holdout_eligibility(text, corpus.train_text,
+                                               corpus.val_text,
+                                               corpus.val_frac, corpus.seed)
+    if ineligible:
+        print(f"  NOT ELIGIBLE for a baseline comparison: {ineligible}\n"
+              f"  closed_fraction will be recorded as null for every arm; the "
+              f"train/val readings below stand on their own.\n", flush=True)
 
     summary: dict[str, dict] = {}
     wall0 = time.time()
@@ -115,7 +132,7 @@ def main() -> None:
             print(f"  steps={steps:<7} seed={seed}  train={r['train']:.4f}  "
                   f"val={r['val']:.4f}  gap={r['val']-r['train']:+.4f}  "
                   f"({time.time()-t:.0f}s)", flush=True)
-        s = summarise(rows, steps, len(text), ngram_choices)
+        s = summarise(rows, steps, len(text), ngram_choices, ineligible)
         summary[str(steps)] = s
         print(f"  -> {steps}: val {s['mean_val']:.4f} (spread {s['spread_val']:.4f})  "
               f"gap {s['mean_gap']:+.4f}  crossings {s['corpus_crossings']:.1f}\n",
@@ -123,6 +140,8 @@ def main() -> None:
         # Written after every arm, not at the end. See module docstring.
         OUT.write_text(json.dumps(
             {"prereg": PREREG["experiment"], "device": device, "baseline": base,
+             "holdout_eligible": ineligible is None,
+             "ineligible_reason": ineligible,
              "partial": True, "arms": summary,
              "wall_s": time.time() - wall0}, indent=2), encoding="utf-8")
 
@@ -153,7 +172,9 @@ def main() -> None:
         verdict = "flattened — gains fell inside seed noise, but nothing got worse"
 
     payload = {"prereg": PREREG["experiment"], "device": device, "partial": False,
-               "baseline": base, "arms": summary, "comparisons": comparisons,
+               "baseline": base, "holdout_eligible": ineligible is None,
+               "ineligible_reason": ineligible,
+               "arms": summary, "comparisons": comparisons,
                "verdict": verdict, "wall_s": time.time() - wall0}
     OUT.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     runlog.record("experiment", kind_detail="steps_tail", device=device,
@@ -165,9 +186,13 @@ def main() -> None:
           f"{'spread':>8} {'vs table':>9}")
     for k in arms:
         s = summary[k]
+        vs = (f"{s['closed_fraction']*100:>8.0f}%"
+              if s["closed_fraction"] is not None else f"{'n/a':>9}")
         print(f"{k:>8} {s['corpus_crossings']:>9.1f}x {s['mean_train']:>8.4f} "
               f"{s['mean_val']:>8.4f} {s['mean_gap']:>+8.4f} {s['spread_val']:>8.4f} "
-              f"{s['closed_fraction']*100:>8.0f}%")
+              f"{vs}")
+    if ineligible:
+        print(f"  vs table: n/a -- {ineligible}")
     print()
     for c in comparisons:
         if c["turned_up"]:
