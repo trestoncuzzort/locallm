@@ -394,7 +394,7 @@ interval also keeps the old history. A rewrite is not an unpublish.
 Everything here exists because something was *measured*, not because it
 seemed like a good idea. Ordered by how badly it hurts the central claim.
 
-### 10.1 Ground-truth fuzzing — the one test that catches a SHARED error
+### 10.1 Ground-truth fuzzing: DONE 2026-09-01, and it worked
 
 Differential fuzzing (WS-7 status) compares kernels **to each other**, so it
 is structurally blind to the failure that matters most to this project: if
@@ -430,6 +430,20 @@ The fix is to stop grading against consensus and start grading against
   misconception with the lowerings it will bless the bug. It must be
   differential-tested against the kernels and against exhaustive evaluation
   on small domains before it is trusted as ground truth.
+
+**RESULT.** Built as `t/truth_fuzz.py`, `t/boundary_probe.py` and
+`t/metamorphic.py`; 1,009 task-instances, 7,063 cells. It found the
+definedness unsoundness in `lower_framac.py` (10.6) and returned the null
+result this section was written to obtain: **no error shared by all seven
+kernels**, across 357 known-false-by-witness tasks including 48 built false
+over the integers but true under a machine word. The oracle was earned, not
+assumed: validated against an independently written second interpreter over
+263,664 (task,input) triples, and that comparison then mutation-tested with
+ten seeded misconceptions, which exposed two corpus blind spots before they
+could hide a real bug. It also retired a false claim in `interp.py`'s own
+docstring, whose cited cross-check turned out to be a clone differing only
+by renames. What the null result bounds: shared error over t's current
+fragment at this corpus size. It is not a proof that the lowerings agree.
 
 ### 10.2 Vacuity belongs in the lowering, not the adapter
 
@@ -476,3 +490,45 @@ inside the distro. Building it puts the whole chain — spec, lowering,
 kernel, libc, compiler — under one receipt discipline, and is the point at
 which "a proof is only as good as the machine that checked it" stops being a
 slogan in this repository.
+
+### 10.6 Definedness: the open unsoundness
+
+`lower_framac.py` emits no definedness obligation, and ACSL's logic is
+total, so an out-of-range element denotes an unconstrained value and
+`at(s,-1) == at(s,-1)` proves by reflexivity. Four witnesses, each
+reproduced at n=3: negative index, one past the end, a `forall` whose range
+includes `len(s)`, and the matching `exists`. SPEC.md is unambiguous that
+`at(s,i)` is defined iff `0 <= i < len(s)`, so this is a lowering defect.
+The repair is to emit the definedness proof obligation explicitly instead
+of relying on the target logic to have one.
+
+### 10.7 Purge incompleteness-sold-as-refutation, everywhere
+
+The SPARK fix was the first instance found, not the only one. Ground-truth
+fuzzing measured 39 cells refuting a task true by construction: Verus on
+nonlinear arithmetic (`x*(y+z) == x*y + x*z`), Lean and Rocq via
+`REFUTED_MARKS` lists that treat "omega could not prove" and "Tactic
+failure" as disproof, Frama-C returning a goal whose own status is
+`Timeout`. Every one violates the rule `verifiers/__init__.py` already
+states. Two consequences: a kernel's REFUTED cannot be used as evidence
+against the oracle, and any twin flip resting on such a verdict was never
+measured. Fixing this will cost more flips, as SPARK's did. That is the
+price of the number meaning something.
+
+### 10.8 Restore SPARK's flip, honestly
+
+Nine of eleven SPARK twins read `verified / timeout`: gnatprove verifies
+the real program but cannot produce a countermodel for the twin under the
+unbounded model. `abs` and `max` were recovered with a confirmed
+countermodel (its small-step RAC actually executing it). If the remaining
+nine cannot be recovered under a sound model, the honest outcome is to
+record SPARK as verify-only rather than manufacture a flip.
+
+### 10.9 Pin the loop frame rule in SPEC.md
+
+Gate 2 says only "the standard partial-correctness-plus-termination
+package" and never states which variables a loop havocs. A lowering that
+havocs everything and one that havocs only the assigned set prove different
+theorems, which is exactly how two lowerings drift apart without either
+looking wrong. The behaviour of an undefined `requires` is likewise
+unspecified. Both were found by the oracle-validation pass.
