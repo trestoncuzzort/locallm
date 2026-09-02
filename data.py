@@ -287,7 +287,14 @@ class Corpus:
         self.seed = seed
         self.grouped = grouped
 
+        # TWO DEVICES, BECAUSE THERE REALLY ARE TWO. `device` is where batches
+        # are DELIVERED, which is where the model lives and never changes.
+        # `data_device` is where the corpus tensors actually ended up, which is
+        # the same thing right up until the corpus does not fit and _place falls
+        # back to host memory. Collapsing them into one attribute is what made
+        # that fallback silent.
         self.device = device
+        self.data_device = device
         # Keep the corpus resident on the training device. Batches are then cut
         # on-device with one vectorised gather instead of a Python loop plus a
         # host-to-device copy per step, which is the dominant cost at these
@@ -296,16 +303,51 @@ class Corpus:
         # costs one cheap cast per batch (nn.Embedding needs int64 indices).
         self.train = self._place(train_ids)
         self.val = self._place(val_ids)
+        if self.train.device.type != self.data_device:
+            # The val half fell back after the train half was already placed.
+            # Keep the whole corpus on one device, so data_device describes all
+            # of it rather than most of it.
+            self.train = self.train.to(self.data_device)
 
     def _place(self, t: torch.Tensor) -> torch.Tensor:
         """Move the corpus to the device, falling back to host memory if it
         does not fit. A corpus large enough to fill VRAM should not cost you
-        the ability to train on it."""
-        if self.device == "cpu":
+        the ability to train on it.
+
+        THE FALLBACK IS NOT FREE AND IT USED TO BE SILENT. It caught the
+        exception, returned the CPU tensor, and left self.device saying "cuda",
+        so every consumer -- the run log included -- recorded a GPU run that was
+        keeping its corpus in host memory. Two things change under it and
+        neither is cosmetic:
+
+          speed        every batch is now cut on the CPU and copied across, so a
+                       ms/step recorded from this run is not comparable with one
+                       recorded from a run that fitted.
+          the RNG      get_batch draws its index with device=d.device. On the
+                       fallback that is the CPU generator, not the CUDA one, so
+                       the same --seed produces a DIFFERENT training batch
+                       sequence. A run that silently changes what it trains on
+                       is the one thing this folder exists to make impossible.
+
+        self.device is deliberately NOT changed to "cpu". The model is still on
+        the graphics card, and get_batch's last two lines move each batch to
+        self.device precisely because the corpus may not be there; setting it to
+        "cpu" would skip that move and hand CPU batches to a CUDA model. The
+        object stops lying by gaining a second, accurate attribute, not by
+        replacing a true one with a false one.
+        """
+        if self.data_device == "cpu":
             return t
         try:
-            return t.to(self.device)
-        except (torch.cuda.OutOfMemoryError, RuntimeError):
+            return t.to(self.data_device)
+        except (torch.cuda.OutOfMemoryError, RuntimeError) as e:
+            print(f"WARNING: the corpus does not fit on the {self.device} "
+                  f"({type(e).__name__}), so it stays in host memory. Training "
+                  f"still runs on the {self.device}, but batches are cut on the "
+                  f"CPU and copied across: slower, and drawn from the CPU random "
+                  f"stream, so this run is not step-for-step comparable with one "
+                  f"whose corpus fitted.")
+            self.data_device = "cpu"
             return t
 
     def get_batch(self, split: str, batch_size: int, block_size: int,
