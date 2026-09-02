@@ -351,7 +351,9 @@ class Corpus:
                        fallback that is the CPU generator, not the CUDA one, so
                        the same --seed produces a DIFFERENT training batch
                        sequence. A run that silently changes what it trains on
-                       is the one thing this folder exists to make impossible.
+                       is the one thing this folder exists to make VISIBLE: a
+                       recorded fingerprint detects a wrong comparison, it
+                       cannot prevent one.
 
         self.device is deliberately NOT changed to "cpu". The model is still on
         the graphics card, and get_batch's last two lines move each batch to
