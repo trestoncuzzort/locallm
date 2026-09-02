@@ -199,7 +199,12 @@ def _init_worker(cfg_d, device, corpus_path):
     text = Path(corpus_path).read_text(encoding="utf-8", errors="ignore")
     tok = CharTokenizer.from_text(text)
     corpus = Corpus(text, tok, device)
+    # The fingerprint of the file THIS worker read, kept rather than the text:
+    # it is the fallback identity for a split that has no train TEXT to hash,
+    # and holding another copy of a 20MB corpus per worker to get it would be
+    # paying in memory for twelve characters.
     _W.update(tok=tok, corpus=corpus, device=device, cfg=cfg_d,
+              corpus_fp=runlog.corpus_fingerprint(text),
               batches=fixed_eval_batches(corpus, cfg_d["batch_size"],
                                          cfg_d["block_size"], EVAL_BATCHES))
 
@@ -213,9 +218,37 @@ def _provenance() -> dict:
     pass the same val_frac and seed, which is the trap data.Corpus keeps
     train_text/val_text to close. So the arm reports what it used and main()
     reconciles the reports.
+
+    THE ENDPOINT HERE IS TRAIN LOSS, SO THE TRAINING TEXT IS THE FINGERPRINT
+    THAT HAS TO BE RECONCILED. This reported the VALIDATION fingerprint alone,
+    which is the half of the split the endpoint never touches. Measured on a
+    24-document corpus with one TRAINING document rewritten to the same length
+    (4 characters changed): train text different, val text byte-identical, both
+    arms reporting val_sha1 16aba70b30cb, and provenance_of joining them into
+    one split_fingerprint with no warning -- provenance reporting agreement
+    between two arms that trained on different text. Any same-length edit does
+    it, because group_split assigns by position in a seed-shuffled list and the
+    document LENGTHS decide what fits.
+
+    A LIMIT THIS DOES NOT FIX: main() records corpus_fingerprint(text) from its
+    OWN read of the file and nothing compares that with what the workers read.
+    If the file changes between the parent's read and a worker's, the arms can
+    agree with each other and all disagree with the corpus named on the row.
+    The train fingerprint makes that visible to a reader who compares two runs
+    of the "same" corpus; nothing here raises it.
     """
     c = _W["corpus"]
+    # The text this arm's optimiser actually saw. On the positional path there
+    # is no train TEXT to hash -- data.Corpus splits tokens there and keeps
+    # None -- so the fallback is the corpus this worker read, labelled as such:
+    # "the whole corpus" and "the training half of it" are different facts, and
+    # a reconciliation that could not tell them apart would be the val-only
+    # mistake again in another costume.
+    trained_on = (runlog.corpus_fingerprint(c.train_text)
+                  if c.train_text is not None
+                  else dict(_W["corpus_fp"], whole_corpus=True))
     return {"data_device": c.data_device,
+            "train_fingerprint": trained_on,
             "split_fingerprint": runlog.split_fingerprint(
                 c.val_frac, c.seed, c.val_text)}
 
@@ -236,22 +269,35 @@ def provenance_of(results: list) -> dict:
     host memory while another's fitted, or the corpus file changed between the
     two stages -- and that is a fact about the run, not a detail to average
     away. So the distinct values are joined rather than reduced to the first
-    one seen, and a run whose arms did not agree on the holdout does not get to
-    name one.
+    one seen, and a run whose arms did not agree on the training text or on the
+    holdout does not get to name one.
     """
     devices = sorted({r[5]["data_device"] for r in results})
-    splits = {json.dumps(r[5]["split_fingerprint"], sort_keys=True)
-              for r in results}
     out = {"data_device": devices[0] if len(devices) == 1 else "+".join(devices)}
-    if len(splits) == 1:
-        out["split_fingerprint"] = json.loads(splits.pop())
-    else:
-        out["split_fingerprint"] = {"arms_disagreed":
-                                    [json.loads(s) for s in sorted(splits)]}
-        print("\nWARNING: the arms did not train on the same holdout, so the "
-              "comparison printed above is between arms scored on different "
-              "validation text and the prereg assumes they are identical. "
-              "Recorded as a disagreement rather than as one split.")
+
+    # BOTH HALVES OF THE SPLIT, reconciled the same way. The train fingerprint
+    # is the one this experiment's endpoint is measured on; the split
+    # fingerprint identifies the holdout the prereg says every arm shares.
+    # Reporting only the second was reporting agreement about the text nobody
+    # scored: see _provenance.
+    for field, warning in (
+            ("train_fingerprint",
+             "\nWARNING: the arms did not train on the same TEXT, so the gap "
+             "printed above is between arms trained on different corpora and "
+             "cannot be attributed to the learning rate. Recorded as a "
+             "disagreement rather than as one training set."),
+            ("split_fingerprint",
+             "\nWARNING: the arms did not train on the same holdout, so the "
+             "comparison printed above is between arms scored on different "
+             "validation text and the prereg assumes they are identical. "
+             "Recorded as a disagreement rather than as one split.")):
+        seen = {json.dumps(r[5][field], sort_keys=True) for r in results}
+        if len(seen) == 1:
+            out[field] = json.loads(seen.pop())
+        else:
+            out[field] = {"arms_disagreed":
+                          [json.loads(s) for s in sorted(seen)]}
+            print(warning)
     if len(devices) > 1:
         print(f"\nWARNING: arms kept the corpus on different devices "
               f"({', '.join(devices)}); their ms/step are not comparable with "
@@ -422,14 +468,16 @@ def main():
         "mean_control": mc, "mean_treatment": mt, "gap": gap,
         "ranges_overlap": overlap, "passed": passed,
     }, indent=2), encoding="utf-8")
-    # The endpoint here is TRAIN loss, but every arm still trains on the train
-    # side of a split, so which split it was is part of what produced these
-    # numbers -- and the timings are device numbers. Reported by the arms
-    # themselves, because the corpus is built inside the workers.
+    # The endpoint here is TRAIN loss, so the training text is on the row: a
+    # gap between two arms means nothing if they were not reading the same
+    # documents. The split is on it too -- every arm still trains on the train
+    # side of one -- and the timings are device numbers. All three are reported
+    # by the arms themselves, because the corpus is built inside the workers.
     prov = provenance_of(sweep_res + res)
     runlog.record("experiment", name=f"lr_vs_width[{args.profile}]",
                   device=device, data_device=prov["data_device"],
                   corpus=runlog.corpus_fingerprint(text),
+                  train_fingerprint=prov["train_fingerprint"],
                   split_fingerprint=prov["split_fingerprint"],
                   config=C,
                   metrics={"verdict": verdict, "gap": gap,
