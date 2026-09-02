@@ -75,6 +75,24 @@ _BAR = re.compile(
     r">=\s*([+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?)"
     r"(?![0-9A-Za-z_]|\.[0-9])")
 
+# EVERY ">=" IN THE SENTENCE IS A COMPARISON THIS HAS TO ACCOUNT FOR. The bar
+# above is a good pattern applied with findall, which reports the comparisons it
+# COULD read and says nothing about the ones it could not, so a sentence
+# carrying one readable comparison and one malformed one came back with a
+# number. Measured, three of three sentences tried in this shape:
+#
+#     "n >= 5 seeds and gap >= 0.020junk"   -> 5.0
+#     "gap >= 0.020 and gap >= 5e-1x"       -> 0.02
+#     "gap >= 0x10 and gap >= 0.020"        -> 0.02
+#
+# Each is a bar the preregistration never set, printed as if it had.
+#
+# A parser that validates only its own matches cannot refuse anything it failed
+# to match, which is the whole failure class. So the occurrences are enumerated
+# FIRST and each one is then required to parse, rather than the parse being
+# allowed to define the occurrences.
+_GE = re.compile(r">=")
+
 
 def success_bar(prereg: dict) -> float:
     """The numeric bar, READ FROM THE PREREGISTRATION that declared it.
@@ -103,9 +121,28 @@ def success_bar(prereg: dict) -> float:
     the bar as 5.0. There is no rule that makes one of them the right one, so
     this refuses and says which two it found. Repeats of the SAME number are
     fine: they cannot be ambiguous.
+
+    AND EVERY COMPARISON COUNTS, not only the ones that parsed. The refusal
+    above was implemented with findall, which returns successes: it could refuse
+    "gap >= 0.020junk" alone, because then there was nothing to return, but
+    "n >= 5 seeds and gap >= 0.020junk" returned 5.0 -- the bar of the readable
+    half, silently standing in for a sentence half of which is unreadable. So
+    the ">=" occurrences are enumerated first and each is required to parse as a
+    complete comparison; one that does not is named and raises. See _GE.
     """
     primary = prereg["success_bar"]["primary"]
-    found = _BAR.findall(primary)
+    found = []
+    for m in _GE.finditer(primary):
+        bar_at = _BAR.match(primary, m.start())
+        if bar_at is None:
+            raise ValueError(
+                f"this preregistration's success_bar.primary contains a "
+                f"comparison whose bar is not a number this can read: "
+                f"{primary[m.start():m.start() + 20]!r} at character "
+                f"{m.start()} of {primary!r}. Every '>=' in the sentence must "
+                f"be followed by a complete decimal literal (5, 0.020, .5, "
+                f"-0.02, 5e-1) with nothing attached to it.")
+        found.append(bar_at.group(1))
     if not found:
         raise ValueError(
             f"cannot read a numeric bar out of this preregistration's "
