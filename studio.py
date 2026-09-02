@@ -501,8 +501,16 @@ class TrainWorker(threading.Thread):
             for line in baselines.summary_lines(base):
                 self.log(line)
 
-        runlog.record("train", device=device, out=str(out), source="studio",
+        # corpus AND split AND data device, the same three the CLI trainer
+        # records. A GUI run lands in the same log and is read beside those
+        # rows: without the split fingerprint two runs on different holdouts
+        # are indistinguishable there, and without data_device a run whose
+        # corpus fell back to host memory looks like one that fitted.
+        runlog.record("train", device=device, data_device=corpus.data_device,
+                      out=str(out), source="studio",
                       corpus=runlog.corpus_fingerprint(text),
+                      split_fingerprint=runlog.split_fingerprint(
+                          corpus.val_frac, corpus.seed, corpus.val_text),
                       config={k: c[k] for k in ("n_layer", "n_head", "n_embd",
                                                 "block_size", "batch_size",
                                                 "steps", "lr", "dropout", "seed")},

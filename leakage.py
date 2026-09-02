@@ -399,8 +399,18 @@ def main() -> None:
     # the same line and look like a contradiction, when the truth is that the
     # holdout had two lines and the arm was never read. The raw fraction is kept
     # rather than nulled: it is a real count, it just is not a verdict.
+    # split_fingerprint as well as the split's NAME: this row's whole content is
+    # a verdict about one holdout, and "grouped" does not identify it. Two scans
+    # of the same corpus at different seeds or val fractions are different
+    # scans with the same corpus fingerprint. Both paths here split TEXT, so
+    # both have a holdout to hash -- unlike Corpus's ungrouped path, which
+    # splits tokens and has none. On the positional path the recorded seed is
+    # inert (nothing consumes it); val_sha1 is what identifies the holdout.
+    # No data_device: this file never puts anything on a device.
     runlog.record("leakage", corpus=runlog.corpus_fingerprint(text),
                   split=args.split,
+                  split_fingerprint=runlog.split_fingerprint(
+                      args.val_frac, args.seed, va),
                   leakage={"verdict": rep.verdict, "content_frac": rep.shingle_frac,
                            "line_frac": rep.line_frac,
                            "lines_readable": rep.lines_readable,

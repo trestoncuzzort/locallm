@@ -181,8 +181,15 @@ def main() -> None:
                "arms": summary, "comparisons": comparisons,
                "verdict": verdict, "wall_s": time.time() - wall0}
     OUT.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    # Every arm here is scored on the SAME holdout and the verdict is a
+    # comparison of val losses, so which holdout it was is part of the result,
+    # not decoration; and every arm's timing is a device number. Both fields
+    # are read off the Corpus that actually trained, never re-derived.
     runlog.record("experiment", kind_detail="steps_tail", device=device,
+                  data_device=corpus.data_device,
                   corpus=runlog.corpus_fingerprint(text),
+                  split_fingerprint=runlog.split_fingerprint(
+                      corpus.val_frac, corpus.seed, corpus.val_text),
                   metrics={"verdict": verdict, "wall_s": payload["wall_s"]})
 
     print("=" * 78)
