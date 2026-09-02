@@ -24,6 +24,14 @@ CLEAN: documents on a split that cut mid-document, lines on a holdout with too
 few of them for a fraction to be a measurement. A CLEAN verdict is only ever as
 strong as the arms that could actually be read, and the report names them.
 
+BUT n/a IS FOR A FRACTION THAT CANNOT BE READ, NEVER FOR ONE THAT IS TOO LARGE
+TO ARGUE WITH. The line arm's small-holdout floor was written as a gate on the
+whole arm, which turned a denominator into a blind spot: 19 validation lines,
+every one of them a verbatim training line in a new order, read n/a on lines,
+0.0% on content, and CLEAN overall. A floor that quiets the borderline band must
+still let overwhelming overlap through, and this one now does. See
+LINE_DECISIVE.
+
 Content overlap is the finest-grained of the three, WITHIN a scope worth stating
 up front: this is an exact-substring scanner, not a near-duplicate scanner.
 Measured recall on this project's own documents, by clone type:
@@ -83,10 +91,58 @@ LINE_SUSPECT = 0.50
 #
 # 20 is that measured floor and it is also where the arithmetic stops being a
 # coin flip: one recurring line is worth 5 points, so reaching 0.50 takes ten
-# shared lines rather than one. Below it the arm reads n/a and says so, the
-# same way the document arm is gated by doc_aligned -- an unreadable signal is
-# not a clean one, and the report must not let it look like either.
+# shared lines rather than one. Below it the SUSPECT band reads n/a and says so,
+# the same way the document arm is gated by doc_aligned -- an unreadable signal
+# is not a clean one, and the report must not let it look like either.
 LINE_MIN_VAL_LINES = 20
+
+# THE FLOOR SUPPRESSES BORDERLINE EVIDENCE. IT MUST NOT SUPPRESS OVERWHELMING
+# EVIDENCE, and as first written it did: it gated the whole arm, so it was a
+# blind spot with a denominator's justification. Measured on the bytes before
+# this change, a 19-line holdout every line of which is a verbatim training line
+# in a different order:
+#
+#     lines 19 / 19 (100.0%)   content 0.0%   documents n/a
+#     VERDICT CLEAN   trustworthy True
+#
+# One line under the floor, nothing in the holdout unseen, and the scan called
+# it clean. At 20 lines the identical fixture reads CONTAMINATED.
+#
+# The floor's own justification is what separates the two cases. It exists
+# because ONE honestly recurring line is worth 1/n, so at small n the SUSPECT
+# band is noise; it says nothing whatever about a holdout that IS its training
+# set. So the floor keeps the SUSPECT band, and the arm still escalates below it
+# when the overlap is decisive: LINE_DECISIVE of the lines shared, on at least
+# LINE_DECISIVE_MIN_LINES of them.
+#
+# 0.90 is LINE_CONTAMINATED, the bar this arm already calls contamination at,
+# and below the floor it is a demanding one rather than a loose one. Integer
+# counts: reaching 0.90 takes EVERY line up to n = 9 (8/9 is 88.9%), then 9 of
+# 10, 14 of 15, 18 of 19. That is not a licence header recurring, it is the
+# holdout.
+#
+# 3 is the smallest denominator at which "all of it" is more than the corpus's
+# own boilerplate. Two of the three false SUSPECTs the floor was built for are
+# 2-line holdouts, one shared line each; a 2-line holdout whose BOTH lines are
+# boilerplate is the same shape one line further along, and a 1-line holdout is
+# a single line. From 3 up, "all of it" needs three independent lines to recur
+# together.
+#
+# The amended rule owes the evidence the floor was justified with, so it was
+# re-measured on the same calibration: the two corpora of commit 98be925,
+# rebuilt byte-exactly (non-test Python sources 255,237 chars sha1 a35d7d4ce43c;
+# markdown 89,349 chars sha1 b364c23b1ec5, both at commit 38f5866), 5 seeds x 11
+# requested val fractions x 2 corpora = 110 genuinely clean grouped splits, plus
+# a 320-split superset over 32 val fractions, because that commit records only 3
+# of its 11 fractions and the other 8 are not recoverable from it. The three
+# known false SUSPECTs reproduce exactly (2 lines at 50.0% on seeds 7 and
+# 20260901, 12 lines at 50.0% on seed 4242, all at val_frac 0.0002/0.002 on the
+# Python corpus), and the decisive rule fires on NONE of either set. The worst
+# clean line_frac measured below the floor is 50.0% over the 110 and 66.7% over
+# the 320 -- twenty-three points of room at the tighter of the two. Above the
+# floor: 33.3% and 39.1%. Zero of 110 and zero of 320. See the commit message.
+LINE_DECISIVE = LINE_CONTAMINATED
+LINE_DECISIVE_MIN_LINES = 3
 
 _RANK = {"CLEAN": 0, "SUSPECT": 1, "CONTAMINATED": 2}
 
@@ -206,8 +262,28 @@ class Report:
     @property
     def lines_readable(self) -> bool:
         """Whether the holdout has enough lines for line_frac to be a
-        measurement. See LINE_MIN_VAL_LINES."""
+        measurement across its whole range, SUSPECT band included. See
+        LINE_MIN_VAL_LINES."""
         return self.val_lines >= LINE_MIN_VAL_LINES
+
+    @property
+    def lines_decisive(self) -> bool:
+        """Whether the overlap is too large for the floor to be about it.
+
+        The floor is a statement about the BORDERLINE band: at small n one
+        recurring line moves the fraction too far for 0.50 to mean anything.
+        Nothing about that argument reaches 100% of a 19-line holdout, which is
+        19 lines of training text with nothing unseen among them however small
+        the denominator. See LINE_DECISIVE.
+        """
+        return (self.val_lines >= LINE_DECISIVE_MIN_LINES
+                and self.line_frac >= LINE_DECISIVE)
+
+    @property
+    def lines_read(self) -> bool:
+        """Whether the line arm gets a vote at all: a readable denominator, or
+        an overlap decisive enough not to need one."""
+        return self.lines_readable or self.lines_decisive
 
     def _calls(self) -> list[tuple[str, str]]:
         """Each signal's own call, with the sentence that justifies it.
@@ -247,10 +323,14 @@ class Report:
                     validation lines at seeds 99, 7 and 1337. A 0.20 bar here
                     would cry wolf on every code corpus in existence. At 0.90
                     the holdout is a re-arrangement of training lines and there
-                    is nothing unseen left in it. Read only above
-                    LINE_MIN_VAL_LINES, because a bar is only half of a signal:
-                    below 20 lines one recurring line is worth 5 points or more
-                    and the fraction is noise with a percent sign on it.
+                    is nothing unseen left in it. The SUSPECT band is read only
+                    above LINE_MIN_VAL_LINES, because a bar is only half of a
+                    signal: below 20 lines one recurring line is worth 5 points
+                    or more and the fraction is noise with a percent sign on it.
+                    The CONTAMINATED bar still fires below the floor, from
+                    LINE_DECISIVE_MIN_LINES lines up, because that argument is
+                    about a borderline fraction and does not reach a holdout
+                    that is 90% training text. See LINE_DECISIVE.
         """
         calls = [(_call(self.shingle_frac, CONTAMINATED, SUSPECT),
                   f"{self.shingle_frac:.1%} of validation content fingerprints "
@@ -259,10 +339,18 @@ class Report:
             calls.append((_call(self.doc_frac, DOC_CONTAMINATED, DOC_SUSPECT),
                           f"{self.doc_frac:.1%} of validation documents are "
                           f"byte-identical to a training one"))
-        if self.lines_readable:
+        if self.lines_read:
+            # A call made below the floor says so in the same breath. The reader
+            # of this sentence has been told elsewhere that under 20 lines the
+            # arm reads n/a, and a verdict that contradicts that without
+            # explaining itself is the contradiction the floor was added to
+            # remove, arriving from the other side.
+            below = ("" if self.lines_readable else
+                     f", decisive on {self.val_lines} lines even under the "
+                     f"{LINE_MIN_VAL_LINES}-line floor")
             calls.append((_call(self.line_frac, LINE_CONTAMINATED, LINE_SUSPECT),
                           f"{self.line_frac:.1%} of validation lines appear "
-                          f"verbatim in training"))
+                          f"verbatim in training{below}"))
         return calls
 
     @property
@@ -277,7 +365,7 @@ class Report:
         v = self.verdict
         if v == "CLEAN":
             docs = (f", documents {self.doc_frac:.1%}" if self.doc_aligned else "")
-            lines = (f"{self.line_frac:.1%}" if self.lines_readable
+            lines = (f"{self.line_frac:.1%}" if self.lines_read
                      else f"n/a on {self.val_lines} line(s)")
             return (f"nothing above a bar (content {self.shingle_frac:.1%}, "
                     f"lines {lines}{docs})")
@@ -307,7 +395,11 @@ class Report:
             (f"  lines      {self.val_lines_in_train:>6,} / {self.val_lines:<6,} "
              f"of validation lines appear verbatim in training "
              f"({self.line_frac:.1%})"
-             if self.lines_readable else
+             + ("" if self.lines_readable else
+                f"   <- under the {LINE_MIN_VAL_LINES}-line floor, and read "
+                f"anyway: {LINE_DECISIVE:.0%} or more is not a borderline "
+                f"fraction")
+             if self.lines_read else
              f"  lines         n/a  the holdout is {self.val_lines} line(s), under "
              f"the {LINE_MIN_VAL_LINES}-line floor: below it one recurring line is "
              f"worth {1 / LINE_MIN_VAL_LINES:.0%} of the fraction or more"),
@@ -399,6 +491,11 @@ def main() -> None:
     # the same line and look like a contradiction, when the truth is that the
     # holdout had two lines and the arm was never read. The raw fraction is kept
     # rather than nulled: it is a real count, it just is not a verdict.
+    #
+    # lines_decisive rides with it for the mirror reason. The two booleans are
+    # not one boolean's two names: a row can now read lines_readable false and
+    # CONTAMINATED on the line arm, which without the second field is the same
+    # contradiction seen from the other side.
     # split_fingerprint as well as the split's NAME: this row's whole content is
     # a verdict about one holdout, and "grouped" does not identify it. Two scans
     # of the same corpus at different seeds or val fractions are different
@@ -414,6 +511,7 @@ def main() -> None:
                   leakage={"verdict": rep.verdict, "content_frac": rep.shingle_frac,
                            "line_frac": rep.line_frac,
                            "lines_readable": rep.lines_readable,
+                           "lines_decisive": rep.lines_decisive,
                            "val_lines": rep.val_lines})
 
     if args.split == "grouped":

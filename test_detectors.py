@@ -28,17 +28,33 @@ oracle, and every test runs against both implementations so you can see which
 tests actually discriminate.
 
 BE PRECISE ABOUT WHAT THIS SUITE GUARANTEES, because the first version of this
-docstring overstated it: only ONE of the five tests (phase invariance) fails
-against the known-broken sampler. Three of the others pass on both, because they
-guard properties the old sampler also had. That is not a defect in them, but it
-does mean they could not have caught the bug that made this file necessary.
+docstring overstated it and a later one went stale on its own arithmetic. Read
+off the two columns this file prints, not counted from memory:
 
-THE FIFTH TEST HAS A DIFFERENT ORACLE, and it is named here so nobody reads the
-"passes on both samplers" column and calls it toothless. `short copies are
-caught` guards the VERDICT, not the fingerprinter: it fails against leakage.py
-as of commit 4b0b4f7, whose verdict read content overlap alone. Its fixture is
-the one that change was measured on, and it lives in this file rather than in a
-commit message because a fixture quoted in prose is not run by anything.
+    phase invariance                        old sampler 4/16 offsets   FAILS
+    documented length guarantee             old sampler 16/20 runs     FAILS
+    line arm has a denominator              old sampler 2 lines        FAILS
+                                              -> SUSPECT via CONTENT overlap
+    no false positive at scale                                         passes
+    clean split reads CLEAN                                            passes
+    short copies are caught                                            passes
+    the floor does not swallow a full copy                             passes
+
+Four of the seven pass against the known-broken sampler. That is not a defect in
+them and it does not make them toothless: their regression target is the old
+VERDICT RULE rather than the old fingerprinter, and each names the commit it
+fails against.
+
+  short copies are caught                 fails against leakage.py at 4b0b4f7,
+                                          whose verdict read content overlap
+                                          alone.
+  the floor does not swallow a full copy   fails against leakage.py at 5d0c184,
+                                          whose line floor gated the whole arm
+                                          instead of its borderline band.
+
+Both fixtures are the ones those changes were measured on, and they live in this
+file rather than in a commit message because a fixture quoted in prose is not
+run by anything.
 
 NOT COVERED, measured rather than assumed: renamed or rewritten copies. The
 detector scores 0% recall on identifier-renamed Python. No test here checks for
@@ -293,6 +309,64 @@ def test_line_arm_has_a_denominator(shingle_fn) -> tuple[bool, str]:
                 f"shared -> {big.verdict}")
 
 
+def test_the_floor_does_not_swallow_a_full_copy(shingle_fn) -> tuple[bool, str]:
+    """A holdout entirely copied from training must not read CLEAN for being SMALL.
+
+    The companion to the test above, and the case that one silenced. The floor
+    was added because at small n one recurring line moves line_frac too far for
+    the SUSPECT band to mean anything. It was implemented as a gate on the whole
+    arm, so it also silenced the top of the range: measured on leakage.py at
+    commit 5d0c184, a 19-line holdout whose every line is a verbatim training
+    line in a different order read
+
+        lines 19 / 19 (100.0%), content 0.0%, documents n/a -> CLEAN, trustworthy
+
+    and the same fixture at 20 lines read CONTAMINATED. One line of denominator
+    was the whole difference between "your holdout is your training set" and
+    "no signal above its bar".
+
+    Three sizes are asserted together, because each one alone permits a wrong
+    fix:
+
+      19 lines, all copied   must be caught. This is the case that read CLEAN.
+       2 lines, all copied   must NOT be caught by the line arm: two shared
+                             lines is the boilerplate shape the floor exists
+                             for, and a fix that just deleted the floor would
+                             catch this too.
+      19 lines, 9 copied     must NOT be caught. 47.4% is inside the borderline
+                             band the floor still owns, so a fix that lowered
+                             the floor rather than reading the top of the range
+                             fails here.
+
+    Like the large half above, the fixture is built where only the LINE arm can
+    answer: every line is under SHINGLE = 50 characters, training interleaves
+    unrelated filler between the copied lines so no 50-character window is
+    shared, and doc_aligned is False.
+    """
+    def fixture(n_lines: int, n_copied: int):
+        shared = [f"def shared{i}(x): return x * {i}" for i in range(n_copied)]
+        fresh = [f"def fresh{i}(y): return y - {i}" for i in range(n_lines - n_copied)]
+        fill = [_filler(120, seed=900 + i) for i in range(n_copied)]
+        train = "\n\n".join(x for pair in zip(fill, shared) for x in pair)
+        val = shared + fresh
+        random.Random(17).shuffle(val)
+        return _scan_like(train, "\n\n".join(val), shingle_fn, doc_aligned=False)
+
+    full19 = fixture(19, 19)
+    full2 = fixture(2, 2)
+    half19 = fixture(19, 9)
+
+    ok = (full19.verdict == "CONTAMINATED" and not full19.trustworthy
+          and full19.line_frac == 1.0
+          and full19.shingle_frac < leakage.SUSPECT
+          and full2.verdict == "CLEAN"
+          and half19.verdict == "CLEAN")
+    return ok, (f"19 lines all copied: {full19.line_frac:.1%} -> {full19.verdict} "
+                f"(content {full19.shingle_frac:.1%}); "
+                f"2 lines all copied: {full2.line_frac:.1%} -> {full2.verdict}; "
+                f"19 lines 9 copied: {half19.line_frac:.1%} -> {half19.verdict}")
+
+
 TESTS = [
     ("phase invariance", test_phase_invariance),
     ("no false positive at scale", test_no_false_positive_at_scale),
@@ -300,6 +374,8 @@ TESTS = [
     ("documented length guarantee", test_guarantee_length),
     ("short copies are caught", test_short_copies_are_caught),
     ("line arm has a denominator", test_line_arm_has_a_denominator),
+    ("the floor does not swallow a full copy",
+     test_the_floor_does_not_swallow_a_full_copy),
 ]
 
 
