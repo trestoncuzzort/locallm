@@ -215,6 +215,30 @@ def split_verdict(h: dict) -> str | None:
     return "splitter"
 
 
+# WHAT A CAPACITY FAILURE SAYS, lowercased, from the backends this runs on.
+# torch.cuda.OutOfMemoryError is matched by TYPE, which is the honest primary;
+# these three substrings are for the backends that raise a plain RuntimeError:
+#
+#   "CUDA out of memory. Tried to allocate 2.00 GiB (GPU 0; ...)"  out of memory
+#   "MPS backend out of memory (MPS allocated: 9.06 GB, ...)"      out of memory
+#   "[enforce fail at alloc_cpu.cpp:75] . DefaultCPUAllocator:
+#    not enough memory: you tried to allocate 4294967296 bytes"    not enough memory
+#   "cudaErrorMemoryAllocation"                                    alloc
+#
+# The list is deliberately short and deliberately about MEMORY. It is a
+# whitelist, not a blacklist: anything it does not recognise is not called a
+# capacity problem, which is the direction that cannot invent a cause.
+_CAPACITY_TELLS = ("out of memory", "not enough memory", "alloc")
+
+
+def _is_capacity_error(e: BaseException) -> bool:
+    """Is this the corpus not fitting, or is it something else entirely?"""
+    if isinstance(e, torch.cuda.OutOfMemoryError):
+        return True
+    msg = str(e).lower()
+    return any(tell in msg for tell in _CAPACITY_TELLS)
+
+
 class CharTokenizer:
     def __init__(self, chars):
         self.chars = list(chars)
@@ -335,18 +359,37 @@ class Corpus:
         "cpu" would skip that move and hand CPU batches to a CUDA model. The
         object stops lying by gaining a second, accurate attribute, not by
         replacing a true one with a false one.
+
+        ONLY A CAPACITY FAILURE TAKES THIS PATH. The except clause caught every
+        RuntimeError and printed one invented cause over all of them: measured,
+        RuntimeError("CUDA driver initialization failed, you might not have a
+        CUDA gpu") printed "the corpus does not fit on the cuda" and returned a
+        CPU tensor, and so did "Torch not compiled with CUDA enabled" and "CUDA
+        error: device-side assert triggered". None of those is about size.
+
+        Anything else RE-RAISES rather than falling back with the real message,
+        and that is the choice on purpose. The fallback is only a remedy for
+        one problem. The MODEL is on that device too: if the device is not
+        usable, keeping the corpus in host memory buys nothing and the run dies
+        at the first forward pass instead, several screens later, with the
+        original cause already scrolled away and a WARNING on the record
+        claiming a corpus size problem that never existed. Re-raising loses
+        nothing -- the exception is the device's own, with its own message.
         """
         if self.data_device == "cpu":
             return t
         try:
             return t.to(self.data_device)
         except (torch.cuda.OutOfMemoryError, RuntimeError) as e:
+            if not _is_capacity_error(e):
+                raise
             print(f"WARNING: the corpus does not fit on the {self.device} "
-                  f"({type(e).__name__}), so it stays in host memory. Training "
-                  f"still runs on the {self.device}, but batches are cut on the "
-                  f"CPU and copied across: slower, and drawn from the CPU random "
-                  f"stream, so this run is not step-for-step comparable with one "
-                  f"whose corpus fitted.")
+                  f"({type(e).__name__}: {str(e).splitlines()[0][:120]}), so it "
+                  f"stays in host memory. Training still runs on the "
+                  f"{self.device}, but batches are cut on the CPU and copied "
+                  f"across: slower, and drawn from the CPU random stream, so "
+                  f"this run is not step-for-step comparable with one whose "
+                  f"corpus fitted.")
             self.data_device = "cpu"
             return t
 
