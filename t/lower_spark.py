@@ -87,6 +87,108 @@ side condition and is discharged by the kernel at every use. (Seqs.Get is
 total in the shipped non-defensive SPARKlib build — reading out of range
 yields an unconstrained value — so the obligation must be, and is, stated on
 the wrapper rather than borrowed from the library.)
+
+THE COUNTEREXAMPLE INSTANCE, added 2026-09-01 because the sound numeric model
+above closed gnatprove's refutation channel completely: after the move to
+Big_Integer the SPARK flip rate went 91.8% -> 0.0%. REPRODUCED before this
+section was written: 0 flips on the 11 committed tasks (11 reals VERIFIED, 9
+twins TIMEOUT and 2 UNPROVED, not one twin carrying a counterexample) and 0
+flips on the 47 real-VERIFIED cells of a fresh 169-task generated corpus.
+
+The cause is MEASURED, and it is not the budget and not the prover.
+verifiers/spark.py rules REFUTED only on gnatprove severity "high", which for
+a prover check means the counterexample was generated AND confirmed by
+gnatprove's runtime assertion checker. Both halves fail on Big_Integer, for
+two different reasons, both read off `gnatprove -d`'s own RAC verdict line:
+
+  * a Big_Integer PARAMETER gets no value in the model —
+    "Small-step: RES_INCOMPLETE, Reason: No counterexample value for program
+    parameter x" — so the abs twin carries no cntexmp field at all;
+  * a Big_Integer EXPRESSION cannot be executed by the RAC —
+    "Small-step: RES_INCOMPLETE, Reason: expr with private type" — so even
+    when every free variable is an Integer and the model IS built (probe
+    p_ce1: `To_Big_Integer (X) >= 0`, cntexmp X = -1 present), the verdict
+    stays NON_CONFORMITY_OR_SUBCONTRACT_WEAKNESS and severity stays "medium".
+    The same file with the Big_Integer subexpression left unevaluated by
+    short-circuit (probe p_ce2) reaches "VERDICT: NON_CONFORMITY" and "high".
+
+Both are properties of the type being private with a SPARK_Mode (Off)
+completion, which is what Big_Integer and the Infinite_Sequences containers
+both are; a private type whose completion IS visible to SPARK (probe p_priv,
+`type P is new Integer`) confirms normally. Budget and prover were measured
+out: abs/max twins stay medium/gave_up at --steps 20000, 200000 and 1000000,
+under --prover=z3, cvc5 and all, and at --level 0..4; the seq twins hit the
+wall backstop at 1000000 before anything changes.
+
+So the refutation cannot come from the unbounded theorem. It comes from a
+SECOND subprogram in the same file: F_Ce, the same task instantiated at
+machine-integer inputs with exact arithmetic.
+
+  * SOUNDNESS OF VERIFIED is untouched: F over Big_Integer keeps its Post,
+    and verifiers/spark.py refuses VERIFIED while any check is unproved. An
+    extra obligation can only make a proof harder, never possible — measured
+    on the boundary probes, which still resolve: fz_p_bigrange and
+    fz_p_bigwide VERIFIED, fz_p_seqlen / fz_p_elemwidth / fz_p_biglen /
+    fz_p_attotal not verified.
+  * SOUNDNESS OF REFUTED is the instance being FAITHFUL: a machine integer is
+    a t integer, so a counterexample to F_Ce is a counterexample to the task
+    — provided the instance computed the same value t does. That holds iff no
+    operation overflows, which is why the instance is emitted only when this
+    file can bound every int-valued node of the task by construction:
+    |parameter| <= 2^40 (CE_WINDOW) and every derived magnitude <= 2^100
+    (CE_CAP), inside Long_Long_Long_Integer's 2^127. The bound is computed on
+    t's own AST, over the SAME substitution walk `compile` performs, and any
+    node it cannot bound — a loop, a call, recursion, a seq, a quantifier, an
+    oversized literal — makes the instance not be emitted at all.
+  * THE CHECK MUST ALSO BE CHEAP TO EXECUTE, because severity "high" is the
+    RAC actually running it. MEASURED: the same shape with a quantifier over
+    the window, `for all K in 0 .. 2**40`, reports
+    "Small-step: RES_INCOMPLETE, Reason: out of fuel" and falls back to
+    "medium" — so a machine-typed quantifier would cost the refutation it was
+    emitted to buy. Quantifiers are outside the fragment for that reason as
+    much as for the bound.
+  * AN UNPROVABLE OVERFLOW CHECK CANNOT BECOME A REFUTATION, which is the
+    second line under the bound analysis: severity "high" is the small-step
+    RAC having EXECUTED the check and seen it fail ("VERDICT: NON_CONFORMITY"
+    above), so a check no concrete input can fail cannot reach it — a bound
+    the prover fails to see costs a proof, not a false countermodel.
+    MEASURED both ways: X*X at |X| <= 2^40 proves and the cell VERIFIES;
+    X*X*X is over CE_CAP, gets no instance, and the (genuinely false) task
+    reports UNPROVED rather than a refutation this file could not stand
+    behind.
+  * INCOMPLETENESS STAYS INCOMPLETENESS: a task the instance cannot reach, or
+    a twin whose only counterexamples lie above 2^40, still reports UNPROVED
+    or TIMEOUT. The instance adds refutations; it never converts a failure to
+    prove into one.
+
+WHAT IT BOUGHT, MEASURED on one 169-task generated corpus (seed 1) and the 11
+committed tasks, spark only, --steps 20000:
+  * 64 of the 169 generated tasks are inside the fragment; the other 103
+    lower to BYTE-IDENTICAL source with and without this section, so their
+    verdicts are unchanged by construction, not by re-measurement. On the
+    committed tasks the fragment holds abs and max; the other 9 carry loops,
+    recursion or sequences.
+  * over the whole corpus the flip rate went 0/116 -> 38/116 real-VERIFIED
+    cells (32.8%); over the fragment, 0/47 -> 38/47 (80.9%). The 9 misses are
+    twins whose own theorem is still true (a loose ensures), which no kernel
+    can refute. Committed tasks: 0/11 -> 2/11, all 11 reals still VERIFIED.
+  * NO false refutation appeared. Every real whose verdict changed went
+    UNPROVED -> REFUTED, and all 14 are tasks the corpus's ground truth calls
+    false: 12 fz_wrong, fz_v0loose_045, and the fz_p_bigneg / fz_p_intwidth
+    probes, which spark now refutes alongside the other six kernels.
+    fuzz_lower.py's own vs-truth and disagreement counts stay 0, and the new
+    verdicts are stable over 3 repeats (verifiers.flake_check).
+
+The instance's Pre is deliberately empty and the task's `requires` is folded
+into its Post as an implication: a Pre unsatisfiable inside the 2^40 window
+would raise VC_INCONSISTENT_PRE, which verifiers/spark.py rules VACUOUS on
+the whole file — a wrong verdict bought from a construct that exists only to
+carry a witness. `requires -> ensures` cannot be always-False here, because
+the twin operators never touch `ensures` (harness.py) and the real proves it.
+
+Ce_Num / Ce_Int / F_Ce cannot collide with a t identifier: cap() lowercases
+everything after the first character, so no t name can reach a name with an
+interior capital.
 """
 from __future__ import annotations
 
@@ -111,6 +213,123 @@ NARY = {"and": "and then", "or": "or else"}
 RESERVED = frozenset((
     "F", "Seq", "Seqs", "Len", "Elem", "T_Range", "R_First", "R_Has",
     "R_Next", "Big_Integer", "Boolean"))
+
+# The counterexample instance (header). The window is above 2^31 so that a
+# lowering which had silently kept a 32-bit model would be caught by the
+# instance too (fz_p_intwidth, fz_p_bigneg), and the cap leaves 27 bits of
+# headroom under Long_Long_Long_Integer'Last = 2^127 - 1.
+CE_WINDOW_BITS = 40
+CE_WINDOW = 2 ** CE_WINDOW_BITS
+CE_CAP = 2 ** 100
+CE_TYPE = {"int": "Ce_Int", "bool": "Boolean"}       # parameter types
+CE_RET = {"int": "Ce_Num", "bool": "Boolean"}        # result type: unwindowed
+CE_PREAMBLE = f"""\
+   --  The task at machine inputs with exact arithmetic: gnatprove's RAC
+   --  cannot execute a Big_Integer expression, so F above can never carry a
+   --  confirmed counterexample (header). Every magnitude here is bounded by
+   --  construction, so a counterexample to F_Ce is a counterexample to the
+   --  task itself.
+   subtype Ce_Num is Long_Long_Long_Integer;
+   subtype Ce_Int is Ce_Num range -2**{CE_WINDOW_BITS} .. 2**{CE_WINDOW_BITS};
+"""
+
+
+class _NoCe(Exception):
+    """The task is outside the instance's reach; emit no instance. Never a
+    lowering failure — the unbounded theorem is unaffected."""
+
+
+def _ce_cap(n: int) -> int:
+    if n > CE_CAP:
+        raise _NoCe(f"magnitude bound 2^{n.bit_length()} exceeds the "
+                    f"instance's headroom")
+    return n
+
+
+def _ce_max(a, b):
+    """Join two branch bounds. None is a bool-valued branch; a task where one
+    branch is bool and the other is not is not well typed, and is refused
+    rather than instantiated on a guess."""
+    if a is None and b is None:
+        return None
+    if a is None or b is None:
+        raise _NoCe("branches of an `if` disagree on type")
+    return max(a, b)
+
+
+_UNSET = object()
+
+
+def _ce_bound(e: dict, env: dict):
+    """An upper bound on |value| for an int-valued node, None for a
+    bool-valued one. Every int-valued subnode is bounded on the way down, so
+    an overflowing intermediate refuses the instance even when the node above
+    it would have fit."""
+    if "int" in e:
+        return _ce_cap(abs(int(e["int"])))
+    if "bool" in e:
+        return None
+    if "var" in e:
+        b = env.get(e["var"], _UNSET)
+        if b is _UNSET:
+            raise _NoCe(f"read of unassigned {e['var']!r}")
+        return b
+    if "forall" in e or "exists" in e:
+        raise _NoCe("quantifier: the range is mathematical, not machine")
+    if "ite" in e:
+        c = e["ite"]
+        _ce_bound(c["cond"], env)
+        return _ce_max(_ce_bound(c["then"], env), _ce_bound(c["else"], env))
+    if "call" in e:
+        raise _NoCe("call: a spec fun or recursion has no static bound")
+    op = e["op"]
+    if op in ("len", "at"):
+        raise _NoCe("seq operator")
+    bs = [_ce_bound(a, env) for a in e.get("args", [])]
+    if op in ("not", "and", "or", "implies") or op in CMP:
+        return None
+    if any(b is None for b in bs):
+        raise _NoCe(f"{op!r} over a bool-valued operand")
+    if op == "neg":
+        return bs[0]
+    if op in ("+", "-"):
+        return _ce_cap(bs[0] + bs[1])
+    if op == "*":
+        return _ce_cap(bs[0] * bs[1])
+    raise _NoCe(f"operator {op!r}")
+
+
+def _ce_stmts(stmts: list, env: dict) -> dict:
+    """The bound walk over statements, mirroring Lower.compile's substitution
+    exactly: a branch-local declaration is invisible after the `if`, and the
+    join is over the variables that were in scope before it."""
+    env = dict(env)
+    for s in stmts:
+        if "assign" in s:
+            v, e = s["assign"]
+            if v not in env:
+                raise _NoCe(f"assign to undeclared {v!r}")
+            env[v] = _ce_bound(e, env)
+        elif "var" in s:
+            d = s["var"]
+            env[d["name"]] = _ce_bound(d["init"], env)
+        elif "if" in s:
+            c = s["if"]
+            _ce_bound(c["cond"], env)
+            et = _ce_stmts(c["then"], env)
+            ee = _ce_stmts(c["else"], env)
+            for v in list(env):
+                if et[v] is _UNSET and ee[v] is _UNSET:
+                    continue           # still unassigned on both sides
+                if et[v] is _UNSET or ee[v] is _UNSET:
+                    raise _NoCe(f"{v!r} assigned on only one branch")
+                env[v] = _ce_max(et[v], ee[v])
+        elif "while" in s:
+            raise _NoCe("while loop: no static bound on the accumulated value")
+        else:
+            raise _NoCe(f"statement {sorted(s)!r}")
+    return env
+
 
 SEQ_PREAMBLE = """\
    package Seqs is new SPARK.Containers.Functional.Infinite_Sequences
@@ -182,12 +401,17 @@ def bound_names(task: dict, body: list) -> set:
 
 
 class Lower:
-    def __init__(self, task: dict):
+    def __init__(self, task: dict, ce: bool = False):
         self.task = task
         self.helpers: list[str] = []   # emitted W_k record types + functions
         self.wcount = 0
         self.needs_range = False       # set by the first lowered quantifier
         self.spec_fun_names = {sf["name"] for sf in task.get("spec_funs", [])}
+        # The counterexample instance walks the SAME tree with the SAME
+        # operator table; only the numeric type of a literal differs, so a
+        # transcription slip cannot make the instance disagree with the
+        # theorem it instantiates (header).
+        self.num = "Ce_Num" if ce else "Big_Integer"
 
     # --- expressions -------------------------------------------------------
 
@@ -197,7 +421,7 @@ class Lower:
             # of an operator are literal-bearing (measured: "expected type
             # universal integer" on count_matches), and the qualified form
             # keeps the Big_Integer literal aspect for arbitrary magnitude.
-            return f"Big_Integer'({e['int']})"
+            return f"{self.num}'({e['int']})"
         if "bool" in e:
             return "True" if e["bool"] else "False"
         if "var" in e:
@@ -428,9 +652,74 @@ def lower(task: dict, body: list) -> str:
         f"   {fsig} is",
         f"     ({final});",
         "",
-        f"end {pkg};",
     ]
+    inst = ce_instance(task, body)
+    if inst:
+        parts += [inst]
+    parts += [f"end {pkg};"]
     return "\n".join(parts) + "\n"
+
+
+def ce_instance(task: dict, body: list) -> str:
+    """The task at machine inputs, or "" when this file cannot bound it.
+
+    The instance exists only to give gnatprove a domain its counterexample
+    generator can build a model in and its RAC can execute; neither is
+    possible over Big_Integer (header). It is emitted after F, so the havoc
+    oracle's `function F ... is` scan still lands on F: verifiers/spark.py's
+    pattern requires whitespace, `(` or `return` after the F, and `F_Ce`
+    presents `_`.
+    """
+    ret = task["returns"][0]
+    if ret["type"] not in CE_TYPE \
+            or any(p["type"] not in CE_TYPE for p in task["params"]) \
+            or task.get("spec_funs") or "decreases" in task:
+        return ""
+    try:
+        env = _ce_stmts(body, {**{p["name"]: (CE_WINDOW
+                                              if p["type"] == "int" else None)
+                                  for p in task["params"]},
+                               ret["name"]: _UNSET})
+        pbound = {p["name"]: (CE_WINDOW if p["type"] == "int" else None)
+                  for p in task["params"]}
+        for e in task.get("requires", []):
+            _ce_bound(e, pbound)
+        for e in task["ensures"]:
+            _ce_bound(e, {**pbound, ret["name"]: env[ret["name"]]})
+        L = Lower(task, ce=True)
+        psub = {p["name"]: cap(p["name"]) for p in task["params"]}
+        cenv = L.compile(body, {ret["name"]: None},
+                         {ret["name"]: ret["type"]}, psub)
+        final = cenv[ret["name"]]
+        post_sub = {**psub, ret["name"]: "F_Ce'Result"}
+        ens = [L.expr(e, post_sub) for e in task["ensures"]]
+        reqs = [L.expr(e, psub) for e in task.get("requires", [])]
+    except (_NoCe, ValueError, NotImplementedError, KeyError):
+        # Outside the fragment. The unbounded theorem above is the artifact;
+        # the instance is an addition, and its absence costs a refutation,
+        # never a proof.
+        return ""
+    if env[ret["name"]] is _UNSET:
+        return ""
+    # `requires` becomes a hypothesis of the Post rather than a Pre: a Pre
+    # unsatisfiable inside the window is VC_INCONSISTENT_PRE, which
+    # verifiers/spark.py rules VACUOUS for the whole file (header).
+    if reqs:
+        post = ("(if " + "\n                and then ".join(reqs)
+                + "\n              then "
+                + "\n                and then ".join(ens) + ")")
+    else:
+        post = "\n       and then ".join(ens)
+    plist = "; ".join(f"{cap(p['name'])} : {CE_TYPE[p['type']]}"
+                      for p in task["params"])
+    sig = (f"function F_Ce ({plist}) return {CE_RET[ret['type']]}" if plist
+           else f"function F_Ce return {CE_RET[ret['type']]}")
+    return (CE_PREAMBLE + "\n"
+            + f"   {sig}\n"
+            + f"   with\n     Post => {post};\n"
+            + "\n"
+            + f"   {sig} is\n"
+            + f"     ({final});\n")
 
 
 if __name__ == "__main__":

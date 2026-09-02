@@ -13,15 +13,46 @@ a loop state the surviving invariants no longer cover (INVARIANT-DROP, whose
 mutation is to the proof and not to the computed value).
 
 Not shared with fuzz_lower.py's interpreter: that module imports harness and
-harness imports this one, so importing it back would be a cycle. The
-duplication buys a cross-check no single implementation gets — run over the
-seed-1 corpus the two agreed on the returned value at all 7793 (task, input)
-pairs both of them decided, with 0 disagreements (2026-09-01). One
-deliberate divergence, stated because it is a semantic choice
-and not an accident: a self-call inside a TWIN body resolves to the twin
-(SPEC.md gate 3 — the self-call denotes the task's own function, and in the
-twin lowering that function is the twin), where fuzz_lower.twin_semantics
-resolves it to the real body.
+harness imports this one, so importing it back would be a cycle. What that
+duplication is worth was OVER-STATED here until 2026-09-01, and the
+correction matters because this file is being promoted to ground-truth
+oracle: fuzz_lower.ev is a CLONE of `ev` below, not an independent reading of
+SPEC.md — same dispatch order, same short-circuit idioms, same `not (0 <= i
+< len(s))` guard, same forall accumulator; the diff is `args` renamed to `a`
+plus formatting. Agreement between the two is therefore evidence of faithful
+copying and NOT evidence against a shared misconception, which is exactly the
+failure ROADMAP.md 10.1 exists to catch. The real independent check is
+described under "Validation" below. One deliberate divergence from
+fuzz_lower, stated because it is a semantic choice and not an accident: a
+self-call inside a TWIN body resolves to the twin (SPEC.md gate 3 — the
+self-call denotes the task's own function, and in the twin lowering that
+function is the twin), where fuzz_lower.twin_semantics resolves it to the
+real body.
+
+VALIDATION (2026-09-01, the oracle-validation wave). Three arms, because a
+bounded search is a sound proof of FALSITY and never of TRUTH:
+  - against SPEC.md by reading, clause by clause (see the citations inline);
+  - against a from-scratch re-implementation written in a deliberately
+    different style (option-typed definedness instead of exceptions,
+    closure-compiled expressions, immutable state-passing): 263 664
+    (task, input) triples over 248 tasks — the 11 committed plus 3 seeds of
+    the generator — with 0 disagreements on value, on `requires` and on
+    `ensures`, compared TYPE-AWARE so True and 1 do not pass for each other.
+    That comparison was itself mutation-tested: ten seeded misconceptions
+    (32-bit wraparound; `at` totalized three ways; non-short-circuit and /
+    implies / ite; a short-circuiting forall; a closed quantifier range; an
+    unassigned return reading 0) were all caught, so "0 disagreements" is a
+    measurement and not a blind spot;
+  - against all seven kernels on 20 probes whose verdict SPEC.md's text
+    entails: no kernel VERIFIED any probe this file calls FALSE or
+    UNDEFINED, and on 16 generated tasks where this file exhibits a concrete
+    counterexample, dafny, verus, lean and rocq REFUTED all 16 — 64 of 64
+    cells. Every remaining disagreement ran the other way (this file says
+    TRUE, a kernel says REFUTED) and every one of those diagnosed to the
+    kernel side: a tactic or SMT call that could not discharge a true goal,
+    reported as REFUTED rather than as incompleteness. That direction is
+    ROADMAP.md 10.1's taxonomy bug, and it is why a kernel's REFUTED can
+    never be used to correct this file.
 
 The domain is enumerated, never sampled: the same task always yields the same
 witness, because harness.make_twin's selection must stay deterministic and
@@ -111,16 +142,30 @@ def ev(e: dict, env: dict, funs: dict, st: St):
             sub[q["var"]] = i
             v = ev(q["body"], sub, funs, st)
             acc = (acc and v) if kind == "forall" else (acc or v)
-        return acc
+        # SPEC.md gate 1: a quantifier denotes a BOOLEAN. Without the cast the
+        # accumulator returns the body's own last value, so an int-bodied
+        # quantifier would yield an int that Python's == then compares equal
+        # to True — the bool/int conflation this oracle must not have.
+        return bool(acc)
     if "call" in e:
         c = e["call"]
         f = funs.get(c["fun"])
         if f is None:
             raise Undef(f"no spec_fun {c['fun']}")
         args = [ev(a, env, funs, st) for a in c["args"]]
+        if len(args) != len(f["params"]):
+            # zip() would truncate and return a value for a call t has no
+            # meaning for; an oracle must refuse instead of guessing.
+            raise ValueError(f"{c['fun']}: {len(args)} args for "
+                             f"{len(f['params'])} params")
         sub = {p["name"]: a for p, a in zip(f["params"], args)}
         if "_exec" in f:
             body, ret = f["_exec"]
+            if ret in sub:
+                # `sub[ret] = None` below would destroy a parameter of the
+                # same name, silently changing what the call computes.
+                raise ValueError(f"{c['fun']}: return name {ret!r} collides "
+                                 f"with a parameter")
             st.d += 1
             if st.d > MAX_DEPTH:
                 st.d -= 1
@@ -181,11 +226,16 @@ def ev(e: dict, env: dict, funs: dict, st: St):
     raise ValueError(f"t has no operator {op!r}")
 
 
-def exec_body(body: list, env: dict, funs: dict, st: St) -> None:
+def exec_body(body: list, env: dict, funs: dict, st: St, hook=None) -> None:
     """Run statements for their VALUE only. Invariants and `decreases` are not
     checked here: this interpreter answers "what does the twin compute", and a
     twin whose annotations are broken is exactly what the kernel is asked to
-    detect."""
+    detect.
+
+    `hook(stmt, env)` fires once per ARRIVAL at a `while` header, before the
+    guard. invariant_witness needs it to learn what an actual execution puts
+    in the variables the loop does not assign; default None leaves behaviour
+    unchanged for every other caller."""
     for s in body:
         st.tick()
         if "assign" in s:
@@ -197,17 +247,39 @@ def exec_body(body: list, env: dict, funs: dict, st: St) -> None:
         elif "if" in s:
             c = s["if"]
             exec_body(c["then"] if ev(c["cond"], env, funs, st) else c["else"],
-                      env, funs, st)
+                      env, funs, st, hook)
         elif "while" in s:
             w = s["while"]
+            if hook is not None:
+                hook(s, env)
             it = 0
             while ev(w["cond"], env, funs, st):
-                exec_body(w["body"], env, funs, st)
+                exec_body(w["body"], env, funs, st, hook)
                 it += 1
                 if it > MAX_LOOP:
                     raise Budget("loop cap")
         else:
             raise ValueError(f"t has no statement {s!r}")
+
+
+def assigned(body: list, out: set | None = None) -> set:
+    """Every name `body` assigns, at any depth. This is exactly the set a
+    kernel's while rule HAVOCS at the loop header: SPEC.md gate 2 states the
+    standard partial-correctness package, under which a variable the loop
+    does not assign keeps whatever the straight-line code before the loop
+    gave it, and the kernel keeps that fact for free."""
+    out = set() if out is None else out
+    for s in body:
+        if "assign" in s:
+            out.add(s["assign"][0])
+        elif "var" in s and isinstance(s["var"], dict):
+            out.add(s["var"]["name"])
+        elif "if" in s:
+            assigned(s["if"]["then"], out)
+            assigned(s["if"]["else"], out)
+        elif "while" in s:
+            assigned(s["while"]["body"], out)
+    return out
 
 
 def self_calls(node, name: str) -> bool:
@@ -352,6 +424,13 @@ def _j(v):
     return list(v) if isinstance(v, tuple) else v
 
 
+def _tv(v):
+    """A value tagged with its t TYPE. Python makes True == 1, so a bare `!=`
+    would call a bool-returning twin and an int-returning real body equal and
+    silently drop the witness; SPEC.md gate 1 keeps int and bool distinct."""
+    return ("bool", v) if isinstance(v, bool) else (type(v).__name__, v)
+
+
 def _shown(env: dict) -> dict:
     return {k: _j(v) for k, v in env.items()}
 
@@ -391,11 +470,37 @@ class Reference:
                 continue              # undecided, so it witnesses nothing
             self.points.append((env0, v))
 
+    def _breaks_ensures(self, env0: dict, got) -> bool | None:
+        """Does the twin's value actually FALSIFY `ensures` here? True is the
+        only thing that forces a sound kernel to refute; a value that merely
+        DIFFERS may still satisfy a loose spec (abs's twin returns -x, which
+        is a different value at x=1 and also violates `r >= 0`; a spec of
+        `r == x or r == -x` alone it would not violate). None when the
+        question could not be decided within budget."""
+        env = dict(env0)
+        env[self.ret] = got
+        st = St()
+        try:
+            for c in self.task["ensures"]:
+                if not ev(c, env, self.funs, st):
+                    return True
+            return False
+        except Undef:
+            return True           # an ensures with no value is not satisfied
+        except (Budget, RecursionError):
+            return None
+
     def witness(self, twin_body: list) -> dict | None:
         """First domain point where the twin disagrees with the real body,
         or None. A twin that is UNDEFINED where the real body has a value
         counts: SPEC.md makes every lowering discharge definedness or
-        abstain, so that difference is one a kernel must see."""
+        abstain, so that difference is one a kernel must see.
+
+        SPEC.md "The twins" defines the witness as a VALUE DIFFERENCE, and
+        that is what this returns, unchanged. `_ens` records separately
+        whether the twin's value also falsifies `ensures` at that point,
+        because only that is grounds for saying a kernel MUST refute — see
+        refuting_witness, which searches for one."""
         funs = funs_of(self.task, twin_body)
         for env0, real in self.points:
             st = St()
@@ -406,16 +511,122 @@ class Reference:
                 got = env[self.ret]
             except Undef as u:
                 w = _shown(env0)
-                w.update(_kind="undefined", _real=_j(real), _twin=str(u))
+                w.update(_kind="undefined", _real=_j(real), _twin=str(u),
+                         _ens=True)   # no value at all cannot satisfy ensures
                 return w
             except (Budget, RecursionError):
                 continue
-            if got is None or got != real:
+            if got is None or _tv(got) != _tv(real):
                 w = _shown(env0)
                 w.update(_kind="value", _real=_j(real),
-                         _twin="no value" if got is None else _j(got))
+                         _twin="no value" if got is None else _j(got),
+                         _ens=(True if got is None
+                               else self._breaks_ensures(env0, got)))
                 return w
         return None
+
+    def refuting_witness(self, twin_body: list) -> dict | None:
+        """The first domain point where the twin's value FALSIFIES `ensures`
+        — the only kind of witness that entails a sound kernel must refute
+        the twin. Separate from `witness` and never called by the twin
+        ladder, because SPEC.md defines twin acceptance by value difference
+        and changing that would move every published measurement. This is
+        what a ground-truth grader (ROADMAP.md 10.1) should ask for, since a
+        REFUTED it does not predict is a finding about the kernel."""
+        funs = funs_of(self.task, twin_body)
+        for env0, real in self.points:
+            st = St()
+            env = dict(env0)
+            env[self.ret] = None
+            try:
+                exec_body(twin_body, env, funs, st)
+                got = env[self.ret]
+            except Undef as u:
+                w = _shown(env0)
+                w.update(_kind="undefined", _real=_j(real), _twin=str(u),
+                         _ens=True)
+                return w
+            except (Budget, RecursionError):
+                continue
+            if got is None:
+                w = _shown(env0)
+                w.update(_kind="value", _real=_j(real), _twin="no value",
+                         _ens=True)
+                return w
+            if self._breaks_ensures(env0, got) is True:
+                w = _shown(env0)
+                w.update(_kind="value", _real=_j(real), _twin=_j(got),
+                         _ens=True)
+                return w
+        return None
+
+
+class _Admissible:
+    """Which loop states a SOUND kernel cannot rule out.
+
+    A kernel's while rule havocs the variables the loop body assigns and
+    keeps everything else. So a candidate state that moves an UNMODIFIED
+    local off the value the code before the loop gave it is a state the
+    kernel refutes on sight, and a "witness" standing on one is not evidence
+    the kernel must refute the twin — it is a false accusation of vacuity.
+
+    MEASURED 2026-09-01 on the smallest task with that shape (a local `m :=
+    n` never assigned in the loop, invariant `m == n` dropped): the old
+    unfiltered search returned `exit at n=0, m=1, r=1`, and dafny and verus
+    both VERIFIED that twin, because neither can reach m != n.
+
+    The filter is: params and modified names range freely (a kernel knows
+    nothing about the modified ones beyond the invariants, and nothing about
+    params beyond `requires`); an unmodified local or return must carry a
+    value some ACTUAL execution puts there at this loop's header, since a
+    state a real run reaches is one no sound kernel can exclude.
+
+    Measured on the 407-task corpus (11 committed + 4 seeds x 80 generated),
+    NO invariant-carrying loop has an unmodified non-param name in scope, so
+    `fixed` is empty everywhere and this filter is a no-op there: the repair
+    closes a latent hole and moves no existing measurement."""
+
+    def __init__(self, task, loop, names, funs):
+        mod = assigned(loop["body"])
+        params = {p["name"] for p in task["params"]}
+        self.fixed = [n for n, _ in names if n not in mod and n not in params]
+        self.params = [p["name"] for p in task["params"]]
+        self.task, self.loop, self.funs = task, loop, funs
+        self.cache: dict = {}
+
+    def __bool__(self):
+        return bool(self.fixed)
+
+    def _reachable(self, key: tuple) -> set:
+        """The tuples of `fixed` values an actual run leaves at the header,
+        for one assignment to the params."""
+        if key in self.cache:
+            return self.cache[key]
+        seen: set = set()
+        env0 = dict(zip(self.params, key))
+        env = dict(env0)
+        env[self.task["returns"][0]["name"]] = None
+        target = self.loop
+
+        def hook(stmt, e):
+            if stmt["while"] is target:
+                v = tuple(e.get(n) for n in self.fixed)
+                if all(x is not None for x in v):
+                    seen.add(v)
+
+        try:
+            exec_body(self.task["body"], env, self.funs, St(), hook)
+        except (Undef, Budget, RecursionError, ValueError):
+            pass                      # a run that dies still yields what it
+                                      # reached before dying
+        self.cache[key] = seen
+        return seen
+
+    def ok(self, env: dict) -> bool:
+        if not self.fixed:
+            return True
+        key = tuple(env[n] for n in self.params)
+        return tuple(env.get(n) for n in self.fixed) in self._reachable(key)
 
 
 def invariant_witness(task: dict, loop: dict, kept: list,
@@ -428,14 +639,21 @@ def invariant_witness(task: dict, loop: dict, kept: list,
     false but `ensures` false (exit entailment), or one satisfying them with
     the guard true whose single iteration breaks a survivor (preservation).
     Either means a kernel MUST refute the twin. Neither means a twin that
-    verifies says nothing, and harness.make_twin moves on."""
+    verifies says nothing, and harness.make_twin moves on.
+
+    The state must also be one the kernel cannot rule out — see _Admissible,
+    without which this returns witnesses dafny and verus were measured to
+    verify straight through."""
     funs = funs_of(task, task["body"])
     req = task.get("requires", [])
     ens = task["ensures"]
+    adm = _Admissible(task, loop, names, funs)
     for env in domain(task, names, limit):
         st = St()
         try:
             if not all(ev(c, env, funs, st) for c in req):
+                continue
+            if not adm.ok(env):
                 continue
             if not all(ev(c, env, funs, st) for c in kept):
                 continue

@@ -1,10 +1,10 @@
-# t cross-kernel agreement — 2026-09-01 23:36Z
+# t cross-kernel agreement — 2026-09-02 01:55Z
 
 Cell = real outcome / twin outcome. Agreement means `verified / refuted` in every present column.
 
 | task | dafny | verus | spark | framac | lean | rocq | fstar |
 |---|---|---|---|---|---|---|---|
-| abs | verified / refuted | verified / refuted | verified / unproved | verified / refuted | verified / refuted | verified / refuted | verified / refuted |
+| abs | verified / refuted | verified / refuted | verified / refuted | verified / refuted | verified / refuted | verified / refuted | verified / refuted |
 | all_nonneg | verified / refuted | verified / refuted | verified / timeout | verified / refuted | verified / refuted | verified / refuted | verified / refuted |
 | contains | verified / refuted | verified / refuted | verified / timeout | verified / refuted | verified / refuted | verified / refuted | verified / refuted |
 | count_matches | verified / refuted | verified / refuted | verified / timeout | verified / refuted | verified / refuted | verified / refuted | verified / refuted |
@@ -12,7 +12,7 @@ Cell = real outcome / twin outcome. Agreement means `verified / refuted` in ever
 | fib | verified / refuted | verified / refuted | verified / timeout | verified / refuted | verified / refuted | verified / refuted | verified / refuted |
 | gcd | verified / refuted | verified / refuted | verified / timeout | verified / refuted | verified / refuted | verified / refuted | verified / refuted |
 | linear_search | verified / refuted | verified / refuted | verified / timeout | verified / refuted | verified / refuted | verified / refuted | verified / refuted |
-| max | verified / refuted | verified / refuted | verified / unproved | verified / refuted | verified / refuted | verified / refuted | verified / refuted |
+| max | verified / refuted | verified / refuted | verified / refuted | verified / refuted | verified / refuted | verified / refuted | verified / refuted |
 | seq_max | verified / refuted | verified / refuted | verified / timeout | verified / refuted | verified / refuted | verified / refuted | verified / refuted |
 | sum_upto | verified / refuted | verified / refuted | verified / timeout | verified / refuted | verified / refuted | verified / refuted | verified / refuted |
 
