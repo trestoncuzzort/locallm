@@ -519,8 +519,12 @@ class TrainWorker(threading.Thread):
                                "ms_per_step": wall / max(c["steps"], 1) * 1000,
                                "params": model.num_params()},
                       baselines=base,
-                      leakage={"verdict": rep.verdict,
-                               "content_frac": rep.shingle_frac})
+                      # The scan's own row, not a two-field copy of it: the
+                      # verdict is the worst of three signals and this used to
+                      # record the verdict beside the CONTENT fraction, which
+                      # is frequently not the arm that decided. See
+                      # leakage.Report.record.
+                      leakage=rep.record())
         self.q.put(("done", {"model": model, "tok": tok, "device": device,
                              "elapsed": time.time() - t0,
                              "train": final["train"], "vocab": tok.vocab_size}))
