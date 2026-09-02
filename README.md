@@ -10,7 +10,7 @@ is built from hashed sources, every file in the system is inventoried, and every
 layer says exactly what it added.
 
 **Status: tup 0.1 boots.** From its own disk, under nothing but UEFI firmware
-— no `-kernel`, no `-initrd`, no host help — to a `tup login:` prompt in 20
+— no `-kernel`, no `-initrd`, no host help to a `tup login:` prompt in 20
 seconds, with Claude Code preinstalled and the exact file-level cost of
 installing it recorded. Witnessed on macOS/QEMU, and on Ubuntu under pure TCG
 emulation with no KVM at all. What exists, what does not, and what is merely
@@ -36,14 +36,14 @@ The intended shape is layered, each layer with its own inventory diff:
 
 | Layer | What it adds | Status |
 |---|---|---|
-| **base** | kernel, libc, toolchain fully hashed | **built and boots** — 105 book pages, a receipt each, [boot witness committed](tup/receipts/) |
-| **agent** | Node, Claude Code AI tooling as a first-class citizen | **installed and measured** — [4,844 files added, 1 modified](tup/receipts/LAYER-agent-FULL.md) |
+| **base** | kernel, libc, toolchain fully hashed | **built and boots** 105 book pages, a receipt each, [boot witness committed](tup/receipts/) |
+| **agent** | Node, Claude Code AI tooling as a first-class citizen | **installed and measured** [4,844 files added, 1 modified](tup/receipts/LAYER-agent-FULL.md) |
 | **train** | `locallm`, PyTorch train models on the box itself | `locallm/` exists; layer not yet built |
 | **prove** | `t` and its proof kernels | all 7 kernels run on Ubuntu today (no sudo, pinned + hashed); layer not yet built |
 | **infer** | local model serving | planned |
 
 To boot it yourself on any Ubuntu box, VM or not:
-[`tup/RUN-ON-UBUNTU.md`](tup/RUN-ON-UBUNTU.md) — one apt-get, one qemu
+[`tup/RUN-ON-UBUNTU.md`](tup/RUN-ON-UBUNTU.md) one apt-get, one qemu
 command, measured at 40 seconds to login even without KVM. The image is a
 2.3 GB qcow2 with its sha256 published beside it.
 
@@ -54,7 +54,7 @@ preconditions, postconditions and lower it mechanically to established
 verifiers, whose kernels supply every verdict. t proves nothing itself and is
 trusted for nothing. That is the design, not a weakness.
 
-**Seven independent proof kernels agree on all eleven t tasks** — 77 of 77
+**Seven independent proof kernels agree on all eleven t tasks** 77 of 77
 cells `verified / refuted`, zero flakes ([`t/AGREEMENT.md`](t/AGREEMENT.md)):
 
 | Kernel | Stack |
@@ -87,12 +87,12 @@ shown:
   labeled porous rather than quietly shipped.
 - **Differential fuzzing of the lowerings** ([`t/fuzz_lower.py`](t/fuzz_lower.py))
   generated 218 random well-formed tasks and ran ~3,500 kernel invocations
-  looking for cross-kernel disagreement — because seven kernels agreeing on a
+  looking for cross-kernel disagreement because seven kernels agreeing on a
   *mistranslated* spec proves nothing. It found two **lowering
   unsoundnesses**, described in the honesty section below.
 
 The same refusal applies to t's own instrument: `run_all.py` will not conclude
-from fewer than two present kernels — on a machine with none installed it
+from fewer than two present kernels on a machine with none installed it
 prints where it looked for each and exits, because agreement measured on
 nothing is one opinion, or none. Kernels are discovered portably (env var,
 then PATH, then known install globs); the repo pulled onto a fresh Ubuntu box
@@ -102,7 +102,7 @@ cell-parallel and must produce a byte-identical table; divergence between the
 two drivers is a finding, not a nuisance.
 
 The same refusal applies to t's own instrument: `run_all.py` will not conclude
-from fewer than two present kernels — on a machine with none installed it
+from fewer than two present kernels on a machine with none installed it
 prints where it looked for each and exits, because agreement measured on
 nothing is one opinion, or none. Kernels are discovered portably (env var,
 then PATH, then known install globs); the repo pulled onto a fresh Ubuntu box
@@ -139,26 +139,26 @@ distro and the language are where the method goes next.
 - **tup is VM-native by decision, not omission.** It runs everywhere a VM
   runs, which is everywhere it will actually be used; a bare-metal installer
   is deleted scope, not missing scope. The kernel carries virtio plus
-  SATA/e1000 fallbacks — VMware and VirtualBox should boot it, but nobody has
+  SATA/e1000 fallbacks VMware and VirtualBox should boot it, but nobody has
   witnessed that yet, so it is not claimed.
 - **tup is arm64 today.** On an x86_64 host it boots under emulation
   (measured: 45 s to login on the training box, from the released split
   image, under pure TCG with no KVM). A native x86_64 build through the same
   driver and receipts has not been run; the feasibility probe is
-  [`tup/X86-FEASIBILITY.md`](tup/X86-FEASIBILITY.md) — GO via a KVM guest,
+  [`tup/X86-FEASIBILITY.md`](tup/X86-FEASIBILITY.md) GO via a KVM guest,
   currently gated on a group membership, with TCG measured at ~14x as the
   fallback and a rootless chroot measured impossible on this kernel.
 - **tup 0.1 is witnessed, not verified.** Nothing here proves the kernel or
   libc correct. It records what was built, from which bytes, in what order.
 - **Two lowerings are UNSOUND at the integer boundary, measured 2026-08-31.**
   `lower_framac.py` lowers a t `int` to a C `int`, so WP constrains every
-  parameter with `is_sint32` and `x <= 2^31-1` is granted for free —
+  parameter with `is_sint32` and `x <= 2^31-1` is granted for free
   Frama-C has been answering a 32-bit question while SPEC.md says t integers
   are unbounded. The fuzzer's `fz_p_intwidth` is the witness: six kernels
   refute it, Frama-C verifies it. `fz_p_seqlen` is the same disease in the
   sequence model, and `lower_spark.py` carries its own variant. **Until this
   is fixed, "seven kernels agree" means seven kernels agree on the eleven
-  committed tasks, which stay far from that boundary — not that the
+  committed tasks, which stay far from that boundary not that the
   lowerings are faithful translations of one spec.**
 - **The twin discipline is weaker than the phrase "measured flip" suggests.**
   Measured over 200 generated tasks: all 81 INVARIANT-DROP twins are
@@ -168,14 +168,14 @@ distro and the language are where the method goes next.
   operators that guarantee a semantic difference are owed.
 - **Four adapters are not sound against hostile input.** Verus, SPARK,
   Frama-C and F\* can still be made to score a false theorem VERIFIED,
-  chiefly through *semantic vacuity* — an unsatisfiable hypothesis
+  chiefly through *semantic vacuity* an unsatisfiable hypothesis
   (`requires 1 == 0`, a content-free `Post => (True)`, a non-well-founded
   ACSL definition) lets a solver honestly discharge an obligation that proves
   nothing. This does not affect the committed tasks, whose lowerings contain
   none of these constructs, but the defensive layer is porous and is not
   claimed otherwise. The architectural lesson is recorded rather than
   papered over: **an adapter that re-parses a rich source language with
-  regexes cannot be sound** — Dafny is sound precisely because its adapter
+  regexes cannot be sound** Dafny is sound precisely because its adapter
   asks the kernel (`--warn-contradictory-assumptions`) instead of grepping
   for words, and the remaining vacuity checks belong in the lowerings, which
   hold the AST, not in the adapters, which hold only text.
