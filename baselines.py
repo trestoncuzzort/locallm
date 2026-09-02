@@ -138,7 +138,8 @@ def ngram_nats(train: str, val: str, vocab_size: int,
 
 
 def holdout_eligibility(text: str, train_text: str | None, val_text: str | None,
-                        val_frac: float = 0.1, seed: int = 1337) -> str | None:
+                        val_frac: float = 0.1, seed: int = 1337, *,
+                        doc_aligned: bool) -> str | None:
     """Why this holdout cannot carry a baseline comparison, or None if it can.
 
     THE RULE IN THIS MODULE'S DOCSTRING, MADE CALLABLE. It was prose here and
@@ -161,6 +162,31 @@ def holdout_eligibility(text: str, train_text: str | None, val_text: str | None,
     passages on both sides, and a corpus with no overlap at all can still fail
     to yield a holdout worth the name.
 
+    doc_aligned IS KEYWORD-ONLY AND HAS NO DEFAULT, deliberately. It is passed
+    straight to leakage.scan, whose document arm counts byte-identical
+    documents against a tight 0.10 bar and is meaningful only on a split that
+    cut between documents; on a positional cut those "documents" are fragments.
+    This function used to call scan() with no flag at all and inherit its
+    default of True, which reads fragment counts against the document bar.
+    Measured on a 18,249-character corpus of 100 blocks, every fifth one an
+    identical separator, cut positionally at 90%: documents 2/10 = 20.0%,
+    lines 5.9%, content 0.0%, and the eligibility answer came back "the leakage
+    scan reads CONTAMINATED: 20.0% of validation documents are byte-identical
+    to a training one" -- while the same report prints "documents n/a, the
+    split cut through a document, so document counts are not meaningful". With
+    doc_aligned=False the same holdout reads CLEAN. A default would let the
+    next caller inherit the same wrong answer silently; a required keyword
+    makes it state what it split, and a caller that does not know gets a
+    TypeError rather than a verdict.
+
+    A LIMIT THIS DOES NOT FIX, named rather than left for the next reader to
+    find: the split arm below asks group_split's question. split_health()
+    re-splits `text` by document whatever the caller's split was, so on a
+    positional caller it reports on a holdout that caller is not using, and the
+    "splitter" remedy it can return ("another seed probably would") is
+    grouped-only advice -- a positional cut does not have a seed. The leakage
+    arm is now honest about the split it was handed; the split arm is not yet.
+
     Imports are local so that importing baselines stays free for callers that
     only want the arithmetic, and so this module never has to be ordered
     against leakage.py at import time.
@@ -181,7 +207,7 @@ def holdout_eligibility(text: str, train_text: str | None, val_text: str | None,
                          "though the corpus could support it -- another seed "
                          "probably would"),
         }[v]
-    rep = scan(train_text, val_text)
+    rep = scan(train_text, val_text, doc_aligned=doc_aligned)
     if not rep.trustworthy:
         return f"the leakage scan reads {rep.verdict}: {rep.reason}"
     return None

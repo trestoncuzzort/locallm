@@ -113,9 +113,13 @@ def main() -> None:
     # Is this holdout worth comparing anything against? Asked once, before the
     # arms run, and carried into every arm's row. Without it this file printed a
     # "vs table" percentage for corpora with no usable holdout at all.
+    # doc_aligned comes from the Corpus that produced the split, not from a
+    # default: grouped=True splits between whole documents, so document counts
+    # mean something; the positional path's do not.
     ineligible = baselines.holdout_eligibility(text, corpus.train_text,
                                                corpus.val_text,
-                                               corpus.val_frac, corpus.seed)
+                                               corpus.val_frac, corpus.seed,
+                                               doc_aligned=corpus.grouped)
     if ineligible:
         print(f"  NOT ELIGIBLE for a baseline comparison: {ineligible}\n"
               f"  closed_fraction will be recorded as null for every arm; the "
