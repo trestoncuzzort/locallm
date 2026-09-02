@@ -250,8 +250,15 @@ def main():
         for line in baselines.summary_lines(base):
             print(line)
 
+    # corpus AND split. The corpus fingerprint says which text; the split
+    # fingerprint says which tenth of it was held back, which is the part every
+    # prereg here assumes is identical across runs and which nothing recorded.
+    # A new key beside the old one, never a change to one: rows already written
+    # must keep parsing, and they do.
     runlog.record("train", device=device, out=args.out, source="cli",
                   corpus=runlog.corpus_fingerprint(text),
+                  split_fingerprint=runlog.split_fingerprint(
+                      corpus.val_frac, corpus.seed, corpus.val_text),
                   config={"n_layer": args.n_layer, "n_head": args.n_head,
                           "n_embd": args.n_embd, "block_size": args.block_size,
                           "batch_size": args.batch_size, "steps": args.steps,

@@ -40,6 +40,33 @@ def corpus_fingerprint(text: str) -> dict:
             "sha1": hashlib.sha1(text.encode("utf-8", "ignore")).hexdigest()[:12]}
 
 
+def split_fingerprint(val_frac: float, seed: int, val_text: str | None) -> dict:
+    """Identity of the HOLDOUT, which corpus_fingerprint cannot carry.
+
+    THE CORPUS IS NOT THE SPLIT. corpus_fingerprint hashes the text, so two
+    runs that held back completely different validation sets record the same
+    fingerprint: measured on a 17,298-character corpus, holdouts of 1,728,
+    1,688 and 3,458 characters (seed 1337, seed 4242, val_frac 0.2) all
+    recorded chars 17298 / vocab 22 / sha1 ce31645cb012. Meanwhile both preregs
+    assert every arm was scored on an IDENTICAL holdout, and nothing in
+    runs.jsonl could confirm or refute it.
+
+    The seed and val_frac alone would not do it either: they are the REQUEST,
+    and group_split's answer to the same request changes if the corpus changes
+    or the splitter does. The hash of the val text is the answer, so the record
+    carries both.
+
+    val_text is None on the ungrouped path, where the split is positional over
+    tokens and there is no held-out TEXT to hash. That records as None rather
+    than as the hash of an empty string, because "there was no text" and "the
+    text was empty" are different facts.
+    """
+    return {"val_frac": val_frac, "seed": seed,
+            "val_chars": None if val_text is None else len(val_text),
+            "val_sha1": None if val_text is None else
+            hashlib.sha1(val_text.encode("utf-8", "ignore")).hexdigest()[:12]}
+
+
 def record(kind: str, **fields) -> None:
     """Append one run. Never raises into the caller: a logging failure must not
     take down a training run that otherwise succeeded."""
