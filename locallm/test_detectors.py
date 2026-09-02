@@ -39,11 +39,12 @@ off the two columns this file prints, not counted from memory:
     clean split reads CLEAN                                            passes
     short copies are caught                                            passes
     the floor does not swallow a full copy                             passes
+    the record names the deciding signal                               passes
 
-Four of the seven pass against the known-broken sampler. That is not a defect in
+Five of the eight pass against the known-broken sampler. That is not a defect in
 them and it does not make them toothless: their regression target is the old
-VERDICT RULE rather than the old fingerprinter, and each names the commit it
-fails against.
+VERDICT RULE, or the old ROW, rather than the old fingerprinter, and each names
+what it fails against.
 
   short copies are caught                 fails against leakage.py at 4b0b4f7,
                                           whose verdict read content overlap
@@ -51,6 +52,12 @@ fails against.
   the floor does not swallow a full copy   fails against leakage.py at 5d0c184,
                                           whose line floor gated the whole arm
                                           instead of its borderline band.
+  the record names the deciding signal     fails against the row the writers
+                                          built by hand before
+                                          leakage.Report.record() existed:
+                                          verdict plus the CONTENT fraction,
+                                          which on its fixture is the arm that
+                                          did not decide.
 
 Both fixtures are the ones those changes were measured on, and they live in this
 file rather than in a commit message because a fixture quoted in prose is not
@@ -367,6 +374,42 @@ def test_the_floor_does_not_swallow_a_full_copy(shingle_fn) -> tuple[bool, str]:
                 f"19 lines 9 copied: {half19.line_frac:.1%} -> {half19.verdict}")
 
 
+def test_the_record_names_the_deciding_signal(shingle_fn) -> tuple[bool, str]:
+    """The row a writer persists must carry the signal that DECIDED the verdict.
+
+    The regression oracle here is the old ROW, not the old sampler. Before
+    Report.record() existed, train.py:104 and studio.py:522 each built
+    {"verdict": rep.verdict, "content_frac": rep.shingle_frac} by hand, and on
+    this fixture -- a holdout every document of which is a verbatim copy of a
+    training document -- runlog printed
+
+        CONTAMINATED  content 0.00%
+
+    a verdict beside the one arm that structurally cannot see what caused it.
+    The fallback below IS that row, so a detector without record() fails here
+    with a legible line instead of an AttributeError.
+
+    ASSERTED MECHANICALLY, not by naming the arms: whatever the row says
+    decided the verdict must appear in the row with a number. A row that says
+    CONTAMINATED and carries no fraction for the arm that said so is the
+    failure, whichever arm it turns out to be, and an arm added to
+    Report._signals() later inherits the assertion.
+    """
+    train, val = short_document_fixture()
+    rep = _scan_like(train, val, shingle_fn, doc_aligned=True)
+    rec = getattr(rep, "record", lambda: {"verdict": rep.verdict,
+                                          "content_frac": rep.shingle_frac})()
+    deciding = rec.get("deciding", [])
+    missing = [n for n in deciding
+               if not isinstance(rec.get(f"{n}_frac"), (int, float))]
+    ok = (rec["verdict"] == "CONTAMINATED" and bool(deciding) and not missing
+          and rec.get("reason") == rep.reason
+          and rec["content_frac"] < leakage.SUSPECT)
+    return ok, (f"row {sorted(rec)}; deciding {deciding or 'NOT RECORDED'}; "
+                f"content {rec['content_frac']:.1%}"
+                + (f"; no fraction for {missing}" if missing else ""))
+
+
 TESTS = [
     ("phase invariance", test_phase_invariance),
     ("no false positive at scale", test_no_false_positive_at_scale),
@@ -376,6 +419,8 @@ TESTS = [
     ("line arm has a denominator", test_line_arm_has_a_denominator),
     ("the floor does not swallow a full copy",
      test_the_floor_does_not_swallow_a_full_copy),
+    ("the record names the deciding signal",
+     test_the_record_names_the_deciding_signal),
 ]
 
 

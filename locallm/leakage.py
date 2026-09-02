@@ -285,8 +285,25 @@ class Report:
         an overlap decisive enough not to need one."""
         return self.lines_readable or self.lines_decisive
 
-    def _calls(self) -> list[tuple[str, str]]:
-        """Each signal's own call, with the sentence that justifies it.
+    def _signals(self) -> list[dict]:
+        """Every arm: its fraction, its call, whether it is read, and why not.
+
+        ONE TABLE, BECAUSE THREE CONSUMERS READ IT and they must not be able to
+        disagree. The verdict is the worst call among the arms that are read,
+        the reason quotes the arms that produced that call, and record() -- the
+        row a writer persists -- carries all of them. Before this table the row
+        was assembled by hand at three call sites and consisted of the verdict
+        and the CONTENT fraction: measured on
+        test_detectors.short_document_fixture, a holdout 100% of which is
+        byte-identical to a training document, train.py:104 and studio.py:522
+        persisted {"verdict": "CONTAMINATED", "content_frac": 0.0} and runlog's
+        summary printed
+
+            CONTAMINATED  content 0.00%
+
+        which is a verdict beside the one number that did not cause it. The
+        deciding arms were documents 100.0% and lines 100.0%, and neither was
+        written down anywhere.
 
         THREE MEASUREMENTS, THREE BARS, AND THE VERDICT IS THE WORST OF THEM.
         This used to read shingle_frac alone while printing all three, which is
@@ -332,26 +349,41 @@ class Report:
                     about a borderline fraction and does not reach a holdout
                     that is 90% training text. See LINE_DECISIVE.
         """
-        calls = [(_call(self.shingle_frac, CONTAMINATED, SUSPECT),
-                  f"{self.shingle_frac:.1%} of validation content fingerprints "
-                  f"are found in training")]
-        if self.doc_aligned:
-            calls.append((_call(self.doc_frac, DOC_CONTAMINATED, DOC_SUSPECT),
-                          f"{self.doc_frac:.1%} of validation documents are "
-                          f"byte-identical to a training one"))
-        if self.lines_read:
-            # A call made below the floor says so in the same breath. The reader
-            # of this sentence has been told elsewhere that under 20 lines the
-            # arm reads n/a, and a verdict that contradicts that without
-            # explaining itself is the contradiction the floor was added to
-            # remove, arriving from the other side.
-            below = ("" if self.lines_readable else
-                     f", decisive on {self.val_lines} lines even under the "
-                     f"{LINE_MIN_VAL_LINES}-line floor")
-            calls.append((_call(self.line_frac, LINE_CONTAMINATED, LINE_SUSPECT),
-                          f"{self.line_frac:.1%} of validation lines appear "
-                          f"verbatim in training{below}"))
-        return calls
+        # A line call made below the floor says so in the same breath. The
+        # reader of that sentence has been told elsewhere that under 20 lines
+        # the arm reads n/a, and a verdict that contradicts that without
+        # explaining itself is the contradiction the floor was added to remove,
+        # arriving from the other side.
+        below = ("" if self.lines_readable else
+                 f", decisive on {self.val_lines} lines even under the "
+                 f"{LINE_MIN_VAL_LINES}-line floor")
+        return [
+            {"name": "content", "frac": self.shingle_frac,
+             "call": _call(self.shingle_frac, CONTAMINATED, SUSPECT),
+             "meaningful": True, "read": True, "why_not": None,
+             "says": f"{self.shingle_frac:.1%} of validation content "
+                     f"fingerprints are found in training"},
+            {"name": "document", "frac": self.doc_frac,
+             "call": _call(self.doc_frac, DOC_CONTAMINATED, DOC_SUSPECT),
+             "meaningful": self.doc_aligned, "read": self.doc_aligned,
+             "why_not": None if self.doc_aligned else
+                        "the split cut through a document, so document counts "
+                        "are not meaningful",
+             "says": f"{self.doc_frac:.1%} of validation documents are "
+                     f"byte-identical to a training one"},
+            {"name": "line", "frac": self.line_frac,
+             "call": _call(self.line_frac, LINE_CONTAMINATED, LINE_SUSPECT),
+             "meaningful": True, "read": self.lines_read,
+             "why_not": None if self.lines_read else
+                        f"the holdout is {self.val_lines} line(s), under the "
+                        f"{LINE_MIN_VAL_LINES}-line floor",
+             "says": f"{self.line_frac:.1%} of validation lines appear "
+                     f"verbatim in training{below}"},
+        ]
+
+    def _calls(self) -> list[tuple[str, str]]:
+        """The arms that get a vote, as (call, sentence). See _signals."""
+        return [(s["call"], s["says"]) for s in self._signals() if s["read"]]
 
     @property
     def verdict(self) -> str:
@@ -377,6 +409,53 @@ class Report:
 
     def summary(self) -> str:
         return f"{self.verdict}: {self.reason}"
+
+    def record(self) -> dict:
+        """The row a writer persists: the verdict AND what produced it.
+
+        WRITTEN HERE, ONCE, rather than at each call site. train.py, studio.py
+        and this file's own main() each built their own row, and two of the
+        three carried the verdict beside the content fraction alone. That was
+        correct while content overlap WAS the verdict; it stopped being correct
+        when the verdict became the worst of three signals, and nothing made the
+        three writers notice. A row assembled from _signals() cannot fall behind
+        the rule that way: an arm added to that table appears in every row that
+        is written afterwards.
+
+        WHAT EACH FIELD IS FOR:
+
+          reason      the sentence the deciding arm produced. A row whose
+                      verdict and whose only number disagree sends its reader
+                      looking in the wrong place; this is the number that
+                      caused it, in words.
+          deciding    the arms whose call equals the verdict. On CLEAN that is
+                      every arm read, which is the truth: they all agreed.
+          *_frac      every arm's fraction, read or not. A fraction that was
+                      measured but not READ is kept rather than nulled -- it is
+                      a real count, it just is not a verdict -- except where the
+                      count is not meaningful at all: on a positional split the
+                      "documents" are fragments, so document_frac is null and
+                      not_read says why.
+          not_read    the arms that got no vote, and why. Without it a row can
+                      read CLEAN beside line_frac 0.5 and look like a
+                      contradiction when the truth is that the holdout had two
+                      lines and the arm was never read.
+        """
+        v = self.verdict
+        sig = self._signals()
+        rec = {
+            "verdict": v,
+            "reason": self.reason,
+            "deciding": [s["name"] for s in sig if s["read"] and s["call"] == v],
+            "not_read": {s["name"]: s["why_not"] for s in sig if not s["read"]},
+        }
+        for s in sig:
+            rec[f"{s['name']}_frac"] = s["frac"] if s["meaningful"] else None
+        rec.update(doc_aligned=self.doc_aligned,
+                   lines_readable=self.lines_readable,
+                   lines_decisive=self.lines_decisive,
+                   val_lines=self.val_lines, val_chars=self.val_chars)
+        return rec
 
     def report(self) -> str:
         bar = "=" * 64
@@ -486,16 +565,11 @@ def main() -> None:
           f"{len(documents(text)):,} documents, split={args.split}\n")
     rep = scan(tr, va, doc_aligned=(args.split == "grouped"))
     print(rep.report())
-    # lines_readable rides with line_frac because the row is read by someone who
-    # was not here. Without it a row can say verdict CLEAN and line_frac 0.5 on
-    # the same line and look like a contradiction, when the truth is that the
-    # holdout had two lines and the arm was never read. The raw fraction is kept
-    # rather than nulled: it is a real count, it just is not a verdict.
+    # The leakage half of the row is Report.record(), not a dict spelled out
+    # here: this file, train.py and studio.py each wrote their own and two of
+    # them carried the verdict beside the content fraction alone, which is not
+    # the signal that decides. See Report.record.
     #
-    # lines_decisive rides with it for the mirror reason. The two booleans are
-    # not one boolean's two names: a row can now read lines_readable false and
-    # CONTAMINATED on the line arm, which without the second field is the same
-    # contradiction seen from the other side.
     # split_fingerprint as well as the split's NAME: this row's whole content is
     # a verdict about one holdout, and "grouped" does not identify it. Two scans
     # of the same corpus at different seeds or val fractions are different
@@ -508,11 +582,7 @@ def main() -> None:
                   split=args.split,
                   split_fingerprint=runlog.split_fingerprint(
                       args.val_frac, args.seed, va),
-                  leakage={"verdict": rep.verdict, "content_frac": rep.shingle_frac,
-                           "line_frac": rep.line_frac,
-                           "lines_readable": rep.lines_readable,
-                           "lines_decisive": rep.lines_decisive,
-                           "val_lines": rep.val_lines})
+                  leakage=rep.record())
 
     if args.split == "grouped":
         h = split_health(text, args.val_frac, args.seed)

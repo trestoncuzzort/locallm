@@ -95,13 +95,21 @@ def _leak_of(text: str) -> dict:
     run beside the ones that were actually scanned and found clean. A scan that
     died tells you nothing about the split, so it must say exactly that and be
     counted with the runs whose val loss cannot be defended.
+
+    AND THE ROW IS THE SCAN'S OWN. This built {"verdict", "content_frac"} by
+    hand, which was the whole row while content overlap WAS the verdict. It is
+    now the worst of three signals, and a hand-built row went on recording the
+    one arm that structurally cannot see a short copied document: measured on
+    test_detectors.short_document_fixture, verdict CONTAMINATED beside
+    content_frac 0.0, with the two arms that decided it recorded nowhere. See
+    leakage.Report.record.
     """
     try:
         from leakage import scan
         from data import group_split
         tr, va = group_split(text)
         rep = scan(tr, va, doc_aligned=True)      # group_split: it is
-        return {"verdict": rep.verdict, "content_frac": rep.shingle_frac}
+        return rep.record()
     except Exception as e:                       # noqa: BLE001
         print(f"[leakage] the scan failed ({type(e).__name__}: {e}), so this "
               f"run's val loss is UNVERIFIED. Judge it on train loss.")
