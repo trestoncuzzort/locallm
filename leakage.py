@@ -13,9 +13,15 @@ It measures three things, cheapest first:
   line overlap      validation lines that appear verbatim in training
   content overlap   winnowing fingerprints of validation text found in training
 
-Content overlap is the one to trust, WITHIN a scope worth stating up front: this
-is an exact-substring scanner, not a near-duplicate scanner. Measured recall on
-this project's own documents, by clone type:
+ALL THREE DECIDE THE VERDICT, each against its own bar, and the verdict is the
+worst call any of them makes. This file used to print all three and decide on
+content alone, which is not merely untidy: content overlap cannot see a copied
+run shorter than 50 characters at all, so a holdout made entirely of verbatim
+copies of short training documents scored 0.0% and read CLEAN. See Report.
+
+Content overlap is the finest-grained of the three, WITHIN a scope worth stating
+up front: this is an exact-substring scanner, not a near-duplicate scanner.
+Measured recall on this project's own documents, by clone type:
 
     verbatim copy                          100%
     reformatted (whitespace re-rendered)    90%
@@ -52,6 +58,22 @@ DOC_MARKER = "\n\n# file: "
 # any corpus with shared vocabulary and is not a finding.
 CONTAMINATED = 0.20
 SUSPECT = 0.05
+
+# The other two signals get their own bars, because they are not the same kind
+# of evidence. Justified against measurement in Report._calls().
+DOC_CONTAMINATED = 0.10
+DOC_SUSPECT = 0.01
+LINE_CONTAMINATED = 0.90
+LINE_SUSPECT = 0.50
+
+_RANK = {"CLEAN": 0, "SUSPECT": 1, "CONTAMINATED": 2}
+
+
+def _call(frac: float, contaminated: float, suspect: float) -> str:
+    """One signal's own verdict against its own two bars."""
+    if frac >= contaminated:
+        return "CONTAMINATED"
+    return "SUSPECT" if frac >= suspect else "CLEAN"
 
 
 def _h(chunk: bytes) -> int:
@@ -159,19 +181,80 @@ class Report:
     def shingle_frac(self) -> float:
         return self.val_shingles_in_train / max(self.val_shingles, 1)
 
+    def _calls(self) -> list[tuple[str, str]]:
+        """Each signal's own call, with the sentence that justifies it.
+
+        THREE MEASUREMENTS, THREE BARS, AND THE VERDICT IS THE WORST OF THEM.
+        This used to read shingle_frac alone while printing all three, which is
+        precisely the failure test_detectors.py's docstring names — a human
+        reads the healthy number — except that here the blind spot is
+        structural rather than incidental. Winnowing cannot fingerprint a
+        shared run shorter than SHINGLE = 50 characters, so a holdout built
+        ENTIRELY of byte-identical copies of short training documents scores no
+        content overlap whatsoever. Measured: 40 copied documents of 30-35
+        characters, 100% of the holdout duplicated, content overlap 0.0%, old
+        verdict CLEAN and trustworthy True.
+
+        The three bars differ because the three signals do:
+
+          content   0.20 / 0.05, unchanged. A shared 74-character run can be
+                    coincidence in a corpus with shared vocabulary and
+                    boilerplate, so it needs room before it means anything.
+
+          documents 0.10 / 0.01, TIGHTER, because a byte-identical document has
+                    no innocent explanation: two independently written
+                    documents are not byte-identical. Measured 0.000% across
+                    six clean grouped splits (this project's own sources and
+                    its markdown, seeds 1337/7/99). Read only when the split is
+                    document-aligned; on a positional cut the counts describe
+                    fragments and the report already prints n/a for them.
+                    Expect 0 on the grouped path — group_split de-duplicates
+                    before it splits — so this arm exists for the callers that
+                    bring their own split, which is what scan() invites.
+
+          lines     0.90 / 0.50, MUCH LOOSER, because short lines legitimately
+                    recur: `}`, `    return`, a repeated heading. Measured on
+                    this project's own sources as a corpus, grouped split, with
+                    nothing copied anywhere: 11.1%, 18.4% and 26.7% of
+                    validation lines at seeds 99, 7 and 1337. A 0.20 bar here
+                    would cry wolf on every code corpus in existence. At 0.90
+                    the holdout is a re-arrangement of training lines and there
+                    is nothing unseen left in it.
+        """
+        calls = [(_call(self.shingle_frac, CONTAMINATED, SUSPECT),
+                  f"{self.shingle_frac:.1%} of validation content fingerprints "
+                  f"are found in training")]
+        if self.doc_aligned:
+            calls.append((_call(self.doc_frac, DOC_CONTAMINATED, DOC_SUSPECT),
+                          f"{self.doc_frac:.1%} of validation documents are "
+                          f"byte-identical to a training one"))
+        calls.append((_call(self.line_frac, LINE_CONTAMINATED, LINE_SUSPECT),
+                      f"{self.line_frac:.1%} of validation lines appear "
+                      f"verbatim in training"))
+        return calls
+
     @property
     def verdict(self) -> str:
-        if self.shingle_frac >= CONTAMINATED:
-            return "CONTAMINATED"
-        return "SUSPECT" if self.shingle_frac >= SUSPECT else "CLEAN"
+        return max((c for c, _ in self._calls()), key=_RANK.__getitem__)
+
+    @property
+    def reason(self) -> str:
+        """Which signal produced the verdict, in words. A verdict whose own
+        summary quotes a different number than the one that caused it sends the
+        reader looking in the wrong place."""
+        v = self.verdict
+        if v == "CLEAN":
+            docs = (f", documents {self.doc_frac:.1%}" if self.doc_aligned else "")
+            return (f"nothing above a bar (content {self.shingle_frac:.1%}, "
+                    f"lines {self.line_frac:.1%}{docs})")
+        return "; ".join(r for c, r in self._calls() if c == v)
 
     @property
     def trustworthy(self) -> bool:
         return self.verdict == "CLEAN"
 
     def summary(self) -> str:
-        return (f"{self.verdict}: {self.shingle_frac:.1%} of validation text "
-                f"also appears in training")
+        return f"{self.verdict}: {self.reason}"
 
     def report(self) -> str:
         bar = "=" * 64
@@ -191,7 +274,9 @@ class Report:
             f"of validation lines appear verbatim in training ({self.line_frac:.1%})",
             f"  content    {self.val_shingles_in_train:>6,} / {self.val_shingles:<6,} "
             f"of validation fingerprints are found in training "
-            f"({self.shingle_frac:.1%})   <- the one that matters",
+            f"({self.shingle_frac:.1%})   <- the finest-grained",
+            "",
+            f"  verdict {self.verdict}: {self.reason}",
             "",
         ]
         if self.verdict == "CONTAMINATED":
@@ -211,7 +296,7 @@ class Report:
             ]
         else:
             lines += [
-                "  No verbatim overlap found. Note what that does and does not mean:",
+                "  No signal above its bar. Note what that does and does not mean:",
                 "  this is an EXACT-SUBSTRING scanner. It finds shared runs of >=74",
                 "  characters at any offset, measured 100% recall. It does NOT find",
                 "  renamed or rewritten copies: measured 0% recall on identifier-",
