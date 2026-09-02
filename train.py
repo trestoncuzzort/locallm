@@ -114,7 +114,13 @@ def auto_lr(n_embd: int) -> float:
     The old hardcoded 3e-4 is a GPT-2-scale constant (width 768-1600) and is far
     too low for the widths this rig runs. Measured on this box (exp_lr_width.py,
     prereg_lr_width.json): at width 256 / 4 layers on corpus.txt, lr=3e-3 beats
-    3e-4 by 0.1056 train loss, 5 seeds/arm, zero range overlap.
+    3e-4 by 0.0439 train loss, 5 seeds/arm, zero range overlap.
+
+    0.0439 is the GAP -- mean(control) 0.1495 minus mean(treatment) 0.1056 --
+    which is what the experiment's success bar is written against and what its
+    not_claimed section quotes. This line used to say 0.1056, the treatment
+    arm's own mean, which is where the treatment ENDED and not what the change
+    was worth. It overstated the effect by 2.4x.
 
     The 1/width scaling is muP's (Yang et al. 2022, arXiv:2203.03466). ANCHORED AT
     ONE MEASURED POINT ONLY (width 256). Other widths are extrapolation, not
