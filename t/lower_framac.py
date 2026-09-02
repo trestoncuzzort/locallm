@@ -188,6 +188,82 @@ def term(e: dict, ctx: Ctx) -> str:
     raise ValueError(f"t has no operator {op!r}")
 
 
+
+def _conj(parts):
+    parts = [x for x in parts if x is not None]
+    if not parts:
+        return None
+    return parts[0] if len(parts) == 1 else "(" + " && ".join(parts) + ")"
+
+
+def defs(e: dict, ctx: Ctx):
+    """SPEC.md definedness of a spec expression, as an ACSL predicate that
+    must be PROVEN, or None when trivially defined.
+
+    ACSL's logic is total: an out-of-range s[i] denotes an unconstrained
+    value, so `s[-1] == s[-1]` proves by reflexivity and the obligation t
+    requires vanishes. Measured 2026-09-01 (ground-truth wave): four false
+    theorems about undefined elements scored VERIFIED, the only kernel of
+    seven to accept them. The lowering therefore emits the domain
+    obligation itself, following SPEC's own evaluation order: `and`, `or`,
+    `implies` and `ite` guard the definedness of what they may not
+    evaluate, and a quantifier body must be defined at EVERY range point,
+    for exists as much as forall.
+
+    Residual, stated rather than hidden: spec_fun bodies are axiomatized
+    as total ACSL logic functions, so an `at` INSIDE a spec_fun applied
+    outside its guarded range keeps the reflexivity hole; the committed
+    tasks guard their ranges, and hostile tasks are the ground-truth
+    fuzzer's beat. Division is not in t, so `at` is the only partial
+    operation this must cover.
+    """
+    if "int" in e or "bool" in e or "var" in e:
+        return None
+    if "ite" in e:
+        i = e["ite"]
+        c = pred(i["cond"], ctx)
+        dt, de = defs(i["then"], ctx), defs(i["else"], ctx)
+        return _conj([defs(i["cond"], ctx),
+                      None if dt is None else f"(({c}) ==> {dt})",
+                      None if de is None else f"((!({c})) ==> {de})"])
+    if "forall" in e or "exists" in e:
+        q = e["forall"] if "forall" in e else e["exists"]
+        # Fresh binder, so the defs guard never re-binds the name the
+        # enclosing \\exists or \\forall from pred() already uses. On the
+        # exists definedness witness Why3/Alt-Ergo fails either way with
+        # "bound variable in of_term" (measured 2026-09-02, with and
+        # without the rename); that lands as TOOL_ERROR, which is ok=False
+        # and never evidence, so the witness still cannot score VERIFIED.
+        fresh = q["var"] + "_d"
+        c2 = ctx.bind(fresh, "int")
+        db = defs(subst(q["body"], {q["var"]: {"var": fresh}}), c2)
+        rng = (f"({term(q['lo'], ctx)}) <= {fresh} "
+               f"&& {fresh} < ({term(q['hi'], ctx)})")
+        return _conj([defs(q["lo"], ctx), defs(q["hi"], ctx),
+                      None if db is None else
+                      f"(\\forall integer {fresh}; ({rng}) ==> {db})"])
+    if "call" in e:
+        return _conj([defs(a, ctx) for a in e["call"].get("args", [])])
+    op, args = e["op"], e.get("args", [])
+    if op == "at":
+        i = term(args[1], ctx)
+        n = seq_var(args[0], ctx.env) + "_n"
+        return _conj([defs(args[1], ctx), f"(0 <= ({i}) && ({i}) < {n})"])
+    if op in ("and", "or", "implies"):
+        acc, guards = [defs(args[0], ctx)], []
+        for k, a in enumerate(args[1:], 1):
+            prev = args[k - 1] if op != "implies" else args[0]
+            g = pred(prev, ctx)
+            if op == "or":
+                g = f"!({g})"
+            d = defs(a, ctx)
+            guards.append(g)
+            if d is not None:
+                acc.append("((" + " && ".join(guards) + f") ==> {d})")
+        return _conj(acc)
+    return _conj([defs(a, ctx) for a in args])
+
+
 def pred(e: dict, ctx: Ctx) -> str:
     """ACSL predicate (for requires/ensures/invariants/asserts/lemmas)."""
     if "bool" in e:
@@ -555,7 +631,11 @@ def lower(task: dict, body: list) -> str:
     if "decreases" in task:
         clauses.append(f"  decreases ({term(task['decreases'], spec_ctx)});")
     clauses.append("  assigns \\nothing;")
-    clauses += [f"  ensures {pred(e, post_ctx)};" for e in task["ensures"]]
+    for e in task["ensures"]:
+        d = defs(e, post_ctx)
+        body_p = pred(e, post_ctx)
+        clauses.append(f"  ensures {body_p};" if d is None else
+                       f"  ensures ({d}) && ({body_p});")
 
     cparams = []
     for p in task["params"]:

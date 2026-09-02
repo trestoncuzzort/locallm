@@ -491,7 +491,7 @@ kernel, libc, compiler — under one receipt discipline, and is the point at
 which "a proof is only as good as the machine that checked it" stops being a
 slogan in this repository.
 
-### 10.6 Definedness: the open unsoundness
+### 10.6 Definedness: FIXED 2026-09-02
 
 `lower_framac.py` emits no definedness obligation, and ACSL's logic is
 total, so an out-of-range element denotes an unconstrained value and
@@ -501,6 +501,19 @@ includes `len(s)`, and the matching `exists`. SPEC.md is unambiguous that
 `at(s,i)` is defined iff `0 <= i < len(s)`, so this is a lowering defect.
 The repair is to emit the definedness proof obligation explicitly instead
 of relying on the target logic to have one.
+
+**Fixed.** lower_framac.py now emits the definedness obligation itself
+(`defs()`), following SPEC's own evaluation order: `and`, `or`, `implies`
+and `ite` guard the definedness of what they may not evaluate, and a
+quantifier body must be defined at every range point, for exists as much
+as forall. Measured: all four wave-4 witnesses stopped verifying (three
+REFUTED; the exists witness lands TOOL_ERROR because Why3/Alt-Ergo fails
+with "bound variable in of_term" on that goal class, which is ok=False and
+never evidence), and the full framac column holds at 11/11 verified with
+twins refuted, flake n=3. Residual, stated in the docstring: spec_fun
+bodies are axiomatized as total logic functions, so an `at` inside a
+spec_fun applied outside its guarded range keeps the reflexivity hole;
+the committed tasks guard their ranges.
 
 ### 10.7 Purge incompleteness-sold-as-refutation, everywhere
 
