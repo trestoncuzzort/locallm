@@ -19,6 +19,36 @@ rather than a habit.
 
 Also reconciles the known_hard.json vs ledger contradiction (multiply_strings).
 
+THREE WAYS THIS GATE USED TO SAY PASS WITHOUT HAVING CHECKED
+-----------------------------------------------------------
+1. A COLLIDING SIGNATURE. signature() concatenated prompt + chosen + rejected +
+   tid with no delimiter and hashed the string. Concatenation is not injective:
+   {"prompt": "ab", "chosen": "c"} and {"prompt": "a", "chosen": "bc"} build the
+   same string and hashed to the same sha1 (ca1cf76f..., executed both ways).
+   Deduplication is what makes that fatal rather than untidy -- load_pairs keeps
+   the FIRST pair under a signature and every later row inherits its verdict, so
+   the second pair was never executed and was still counted as verified. The
+   four fields are now hashed as a canonical JSON object under sha256, where the
+   field boundaries survive.
+2. A MALFORMED LINE WAS SKIPPED IN SILENCE. `except json.JSONDecodeError:
+   continue`. A truncated write, a half-flushed append or a hand-edit made the
+   row disappear from the count, and the gate reported PASS over whatever it
+   could still parse. A file the gate cannot read is not a file the gate has
+   cleared, so an unparseable non-empty line is now a violation carrying its
+   filename and 1-based line number. A blank line is still just a blank line.
+3. NO PARTITION CHECK. Nothing asserted that a training pair belongs to the
+   TRAINING side of the frozen split. "chosen passes, rejected fails" is true of
+   a contaminating pair too, so a pair labelled with one of the 31 frozen RULER
+   task ids would have been executed, verified and passed -- training on the
+   eval set with a receipt to show for it. Every non-seed tid must now be in
+   ruler_frozen.json's training_pool, and any tid in the frozen ruler is fatal.
+
+NONE OF THE THREE CHANGES THE VERDICT ON THE RETAINED BYTES, checked before the
+change: the committed pair files contain no malformed line, no tid outside the
+training pool, no frozen-ruler tid, and they deduplicate to the same 1279 unique
+pairs under both the old and the new signature. These are fences against the
+next generation run, not a re-verdict on this one.
+
 Writes data/dataset_verification.json. Exit code 1 if any violation is found.
 """
 from __future__ import annotations
@@ -117,27 +147,60 @@ TASKS = load_tasks()
 
 def signature(d: dict) -> str:
     """Content identity of a pair. Verification depends on which task's tests
-    run, so the tid is part of the identity, not just the three text fields."""
+    run, so the tid is part of the identity, not just the three text fields.
+
+    CANONICAL JSON, NOT CONCATENATION. The four fields used to be glued into one
+    string and sha1'd, and gluing loses the boundaries: prompt "ab" + chosen "c"
+    is the same string as prompt "a" + chosen "bc", so two different pairs got
+    one identity and the second inherited the first one's verdict without ever
+    being run. json.dumps escapes quotes and backslashes, so a field's own bytes
+    cannot forge a boundary; sorted keys make the encoding independent of dict
+    order; and only these four keys are read, so unrelated metadata on the row
+    cannot change what "the same pair" means.
+    """
     tid = (d.get("meta") or {}).get("tid") or ""
-    return hashlib.sha1(
-        (d.get("prompt", "") + d.get("chosen", "") +
-         d.get("rejected", "") + tid).encode("utf-8")).hexdigest()
+    canonical = json.dumps({"prompt": d.get("prompt", ""),
+                            "chosen": d.get("chosen", ""),
+                            "rejected": d.get("rejected", ""),
+                            "tid": tid},
+                           sort_keys=True, ensure_ascii=False,
+                           separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 def load_pairs():
-    """Returns (unique_pairs, rows_by_file). A pair present in several files is
-    verified once; every file that contains it inherits that one verdict."""
+    """Returns (unique_pairs, rows_by_file, malformed). A pair present in
+    several files is verified once; every file that contains it inherits that
+    one verdict.
+
+    `malformed` carries one violation-shaped record per unparseable non-empty
+    line. It used to be `continue`, which meant a row the gate could not read
+    left no trace anywhere in the report and the file was still eligible for a
+    PASS. Blank lines are not malformed -- a file ending in a newline is normal,
+    and calling that a violation would make the gate cry wolf on every file.
+    """
     unique: dict[str, dict] = {}
     rows_by_file: dict[str, list[str]] = {}
+    malformed: list[dict] = []
     for fname, src in FILES.items():
         p = DATA / fname
         if not p.exists():
             continue
         sigs: list[str] = []
         for i, line in enumerate(p.open(encoding="utf-8")):
+            if not line.strip():
+                continue
             try:
                 d = json.loads(line)
-            except json.JSONDecodeError:
+            except json.JSONDecodeError as e:
+                # `why` is the CLASS, so the violation-type histogram groups;
+                # the varying part (which file, which line, which parse error)
+                # lives in `detail`, and in the file/line fields beside it.
+                malformed.append({"tid": None, "src": src, "row": i,
+                                  "file": fname, "line": i + 1, "ok": False,
+                                  "why": f"malformed_line: "
+                                         f"{e.__class__.__name__}",
+                                  "detail": f"{fname}:{i + 1}: {e.msg}"})
                 continue
             sig = signature(d)
             sigs.append(sig)
@@ -145,7 +208,50 @@ def load_pairs():
                 d["_src"], d["_row"], d["_file"] = src, i, fname
                 unique[sig] = d
         rows_by_file[fname] = sigs
-    return unique, rows_by_file
+    return unique, rows_by_file, malformed
+
+
+def load_partition() -> tuple[set[str], set[str]]:
+    """(frozen ruler tids, training-pool tids) from data/ruler_frozen.json.
+
+    The frozen split is the artifact that decides which tasks are EVAL and
+    which may be trained on. Read here rather than restated, so widening the
+    pool widens the gate for free and the two cannot drift apart.
+    """
+    spec = json.loads((DATA / "ruler_frozen.json").read_text(encoding="utf-8"))
+    return set(spec["ruler"]), set(spec["training_pool"])
+
+
+def partition_violations(pairs, split=None) -> list[dict]:
+    """Pairs whose task is not on the training side of the frozen split.
+
+    `split` is the (ruler, pool) pair from load_partition(), accepted so a
+    caller checking pairs one at a time reads the frozen file once instead of
+    once per pair. Passing it changes nothing about the rule -- there is still
+    one implementation of it, here.
+
+    THE HOLE THIS CLOSES. check() asks whether `chosen` passes and `rejected`
+    fails. That is true of a contaminating pair too, so nothing in this gate
+    noticed if a pair was labelled with one of the 31 frozen RULER tasks -- the
+    eval set. It would have been executed, verified, counted clean, and trained
+    on, with a receipt saying the dataset was checked.
+
+    SEED_TASKS are allowed outside the pool: they are hand-written, predate the
+    frozen split, and are neither ruler nor pool members. Refusing them would
+    reject the pairs the project started from.
+    """
+    ruler, pool = split if split is not None else load_partition()
+    seeded = {t.tid for t in forge.SEED_TASKS}
+    out: list[dict] = []
+    for pair in pairs:
+        tid = (pair.get("meta") or {}).get("tid")
+        rec = {"tid": tid, "src": pair.get("_src"), "row": pair.get("_row"),
+               "file": pair.get("_file"), "ok": False}
+        if tid in ruler:
+            out.append(dict(rec, why="ruler_task_in_training_data"))
+        elif tid not in seeded and tid not in pool:
+            out.append(dict(rec, why="tid_outside_training_pool"))
+    return out
 
 
 def check(pair) -> dict:
@@ -166,17 +272,37 @@ def check(pair) -> dict:
 
 
 def main() -> int:
-    unique, rows_by_file = load_pairs()
+    unique, rows_by_file, malformed = load_pairs()
     sigs = list(unique)
     total_rows = sum(len(v) for v in rows_by_file.values())
     print(f"re-verifying {len(sigs)} unique pairs bidirectionally "
           f"(chosen passes / rejected fails) "
-          f"covering {total_rows} rows across {len(rows_by_file)} files...")
+          f"covering {total_rows} parseable rows across "
+          f"{len(rows_by_file)} files...")
+    if malformed:
+        print(f"  !! {len(malformed)} line(s) could not be parsed and are "
+              f"counted as violations, not skipped")
+
+    # The frozen split, checked BEFORE anything is executed: a pair drawn from
+    # the eval set is a violation whichever way its tests come out. Tracked by
+    # signature as well, so a shared pair counts against every file holding it.
+    split = load_partition()
+    partition: list[dict] = []
+    bad_partition_sigs: set[str] = set()
+    for s in sigs:
+        vs = partition_violations([unique[s]], split)
+        if vs:
+            partition.extend(vs)
+            bad_partition_sigs.add(s)
+    if partition:
+        print(f"  !! {len(partition)} pair(s) are not on the training side of "
+              f"the frozen split")
+
     with ThreadPoolExecutor(max_workers=8) as ex:
         results = list(ex.map(check, (unique[s] for s in sigs)))
     by_sig = dict(zip(sigs, results))
 
-    violations = [r for r in results if not r["ok"]]
+    violations = [r for r in results if not r["ok"]] + malformed + partition
     by_tid = {}
     for r in results:
         by_tid.setdefault(r["tid"], {"n": 0, "bad": 0})
@@ -184,11 +310,20 @@ def main() -> int:
         if not r["ok"]:
             by_tid[r["tid"]]["bad"] += 1
 
-    # Per-file rollup: a file is clean only if every row in it is clean.
+    # Per-file rollup: a file is clean only if every row in it is clean. A
+    # malformed line counts against the file it was read from; an off-partition
+    # pair counts against every file that carries it, exactly as an execution
+    # violation does. Otherwise a file could hold an unreadable or
+    # contaminating row and still report zero.
+    malformed_by_file: dict[str, int] = {}
+    for v in malformed:
+        malformed_by_file[v["file"]] = malformed_by_file.get(v["file"], 0) + 1
     per_file = {
         fname: {
             "pairs": len(sl),
-            "violations": sum(1 for s in sl if not by_sig[s]["ok"]),
+            "violations": (sum(1 for s in sl if not by_sig[s]["ok"]
+                               or s in bad_partition_sigs)
+                           + malformed_by_file.get(fname, 0)),
         }
         for fname, sl in rows_by_file.items()
     }
@@ -210,6 +345,13 @@ def main() -> int:
         "total_pairs": len(sigs),              # unique pairs actually verified
         "total_rows_across_files": total_rows,  # rows, counting shared pairs once per file
         "violations": len(violations),
+        # The three counts that add up to it, so a reader can see WHICH gate
+        # failed rather than only that one did.
+        "violations_by_class": {
+            "execution": sum(1 for r in results if not r["ok"]),
+            "malformed_lines": len(malformed),
+            "off_partition_pairs": len(partition),
+        },
         "violation_detail": violations[:50],
         "per_tid": by_tid,
         "files": dataset_gate.build_file_entries(DATA, per_file),
@@ -223,13 +365,19 @@ def main() -> int:
     for fname, e in report["files"].items():
         print(f"  {fname:<24} {e['pairs']:>5} rows  "
               f"{e['violations']} violations  sha256 {e['sha256'][:12]}…")
+    # A malformed line is not a pair, so it cannot be subtracted from the pair
+    # count; and a pair can fail execution AND the partition check, so the bad
+    # ones are counted as a set rather than summed.
+    bad_sigs = {s for s in sigs if not by_sig[s]["ok"]} | bad_partition_sigs
     print(f"\n{'PASS' if not violations else 'FAIL'}: "
-          f"{len(sigs) - len(violations)}/{len(sigs)} pairs valid")
+          f"{len(sigs) - len(bad_sigs)}/{len(sigs)} pairs valid"
+          + (f"; {len(malformed)} unparseable line(s)" if malformed else ""))
     if violations:
         from collections import Counter
         print("  violation types:", dict(Counter(v["why"] for v in violations)))
         for v in violations[:10]:
-            print(f"    {v['src']}[{v['row']}] tid={v['tid']}: {v['why']}")
+            print(f"    {v['src']}[{v['row']}] tid={v['tid']}: {v['why']}"
+                  + (f"  ({v['detail']})" if v.get("detail") else ""))
     if contradictions:
         print("\nRECONCILE: tasks labeled known_hard BUT present as training pairs "
               "(label is stale — they were solved):")
