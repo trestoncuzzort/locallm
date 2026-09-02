@@ -1,6 +1,6 @@
 # srlm-forge: One Program, Two Instruments — Research Roadmap
 
-**Repo:** this repository, everything on `main` · **Paper:** manuscript v15 (LaTeX tree kept outside the repo; Markdown chain at `docs/revision-2026-08-25/`) · **Hardware:** MacBook M5 Pro (MPS, no CUDA), ubuntu-box (GPU 0 only), the retired Windows 4080 box (artifact recovery only)
+**Repo:** this repository, everything on `main` · **Paper:** manuscript v15 (LaTeX tree kept outside the repo; Markdown chain at `docs/revision-2026-08-25/`) · **Hardware:** MacBook M5 Pro (MPS, no CUDA), ubuntu-box (GPU 0 only), the retired Windows 4090 box (artifact recovery only)
 
 ---
 
