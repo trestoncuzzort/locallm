@@ -15,7 +15,11 @@ runs printed to a terminal that has since been closed are not.
 
 What a record deliberately includes:
   - a fingerprint of the CORPUS, so runs on different text are never compared
+  - a fingerprint of the SPLIT, because the corpus fingerprint cannot tell two
+    runs on different holdouts apart, and every prereg here assumes they match
   - the DEVICE and model configuration, so a slower number is attributable
+  - the DATA device where it differs, because a corpus that fell back to host
+    memory changes both the ms/step and the batch sequence
   - wall clock and ms/step, so a change in speed is visible
   - the leakage verdict where one applies, so a val loss is never read without
     knowing whether it means anything
@@ -170,10 +174,60 @@ def review(rows: list[dict]) -> None:
     print(f"last         {rows[-1].get('ts','?')}")
     devices = sorted({r.get("device", "?") for r in rows} - {"?"})
     print(f"devices      {', '.join(devices) or 'not recorded'}")
+    # data_device, where it was recorded: a run whose corpus did not fit and
+    # fell back to host memory cut its batches on the CPU and drew them from
+    # the CPU random stream. Its ms/step is not comparable with a run that
+    # fitted, and its batch sequence is not the same one either.
+    moved = sorted({f"{r.get('device', '?')} model / {r['data_device']} corpus"
+                    for r in rows if r.get("data_device")
+                    and r["data_device"] != r.get("device")})
+    if moved:
+        print(f"             {', '.join(moved)} — corpus not on the training "
+              f"device, so ms/step and batch order differ from a run that fitted")
+
     corpora = {_g(r, "corpus", "sha1"): _g(r, "corpus", "chars")
                for r in rows if _g(r, "corpus", "sha1")}
     print(f"corpora      {len(corpora)}  " +
           ", ".join(f"{k} ({v:,} chars)" for k, v in list(corpora.items())[:4]))
+
+    # THE HOLDOUT IS NOT THE CORPUS. This digest used to point at the corpus
+    # fingerprint and the config and stop there, and both can be identical
+    # across two runs that held back completely different validation text:
+    # measured on a 17,298-character corpus, holdouts of 1,728, 1,688 and 3,458
+    # characters all recorded chars 17298 / vocab 22 / sha1 ce31645cb012. The
+    # reader this page is written for did not watch any of it happen and cannot
+    # tell those apart from the corpus line, so the split gets its own.
+    holdout_rows = [r for r in rows if r.get("kind") in ("train", "experiment")]
+    if holdout_rows:
+        named: dict[tuple, int] = {}
+        unnamed = 0
+        for r in holdout_rows:
+            sf = r.get("split_fingerprint")
+            sha = sf.get("val_sha1") if isinstance(sf, dict) else None
+            if not sha:
+                # No split recorded, a positional split with no held-out TEXT
+                # to hash, or arms that disagreed about which holdout they had.
+                unnamed += 1
+                continue
+            key = (sha, sf.get("val_chars"), sf.get("val_frac"), sf.get("seed"))
+            named[key] = named.get(key, 0) + 1
+        print(f"holdouts     {len(named)} named"
+              + (f", {unnamed} of {len(holdout_rows)} run(s) name none"
+                 if unnamed else ""))
+        for (sha, chars, vf, sd), n in list(named.items())[:4]:
+            size = f"{chars:,} chars" if isinstance(chars, int) else f"{chars} chars"
+            print(f"             {sha}  {size}, val_frac {vf}, seed {sd}"
+                  f"   {n} run(s)")
+        if len(named) > 1:
+            print("  WARNING: these runs were NOT all scored on the same "
+                  "held-out text. A val loss from one does not compare with a "
+                  "val loss from another, however well their corpus "
+                  "fingerprints match.")
+        if unnamed:
+            print(f"  {unnamed} run(s) do not name a single holdout — no split "
+                  f"recorded, a positional split with no held-out text to hash, "
+                  f"or arms that disagreed — so no val loss on those rows can "
+                  f"be attributed to one.")
 
     train = [r for r in rows if r.get("kind") == "train"]
     if train:
@@ -203,8 +257,10 @@ def review(rows: list[dict]) -> None:
               + (f"   ({detail})" if detail else ""))
 
     print("\nWhat this digest does NOT establish: that any two runs above are")
-    print("comparable. Check the corpus fingerprint and the config before")
-    print("reading a difference between two lines as a result.")
+    print("comparable. Check the corpus fingerprint, the HOLDOUT above it and")
+    print("the config before reading a difference between two lines as a")
+    print("result. Same corpus is not same split, and same split is not same")
+    print("configuration.")
     print("=" * 70)
 
 

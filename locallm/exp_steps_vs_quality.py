@@ -171,8 +171,14 @@ def main() -> None:
         "verdict": verdict,
     }
     OUT.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    # The verdict is "longer training measurably helps", read off val losses
+    # from one holdout. Which holdout is therefore part of the claim, and the
+    # wall clock is a device number. Both read off the Corpus that trained.
     runlog.record("experiment", kind_detail="steps_vs_quality", device=device,
+                  data_device=corpus.data_device,
                   corpus=runlog.corpus_fingerprint(text),
+                  split_fingerprint=runlog.split_fingerprint(
+                      corpus.val_frac, corpus.seed, corpus.val_text),
                   metrics={"verdict": verdict, "wall_s": payload["wall_s"]})
 
     print("=" * 70)

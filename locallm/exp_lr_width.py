@@ -123,11 +123,59 @@ def _init_worker(cfg_d, device, corpus_path):
                                          cfg_d["block_size"], EVAL_BATCHES))
 
 
+def _provenance() -> dict:
+    """What this arm actually trained on, read off the Corpus in this worker.
+
+    Every arm runs in a separate process and builds its own Corpus, so there is
+    no single object in the parent to ask. Re-deriving it in main() by calling
+    group_split() again would agree only for as long as every caller happens to
+    pass the same val_frac and seed, which is the trap data.Corpus keeps
+    train_text/val_text to close. So the arm reports what it used and main()
+    reconciles the reports.
+    """
+    c = _W["corpus"]
+    return {"data_device": c.data_device,
+            "split_fingerprint": runlog.split_fingerprint(
+                c.val_frac, c.seed, c.val_text)}
+
+
 def _run_arm(job):
     label, lr, seed = job
     loss, secs, _ = run_one(_W["corpus"], _W["tok"], lr, seed, _W["cfg"],
                             _W["device"], _W["batches"])
-    return label, lr, seed, loss, secs
+    return label, lr, seed, loss, secs, _provenance()
+
+
+def provenance_of(results: list) -> dict:
+    """One provenance for the whole run, or the disagreement left visible.
+
+    Arms build their corpus independently from the same file with the same
+    defaults, so they normally agree exactly and this returns their one answer.
+    They can disagree for a real reason -- one worker's corpus fell back to
+    host memory while another's fitted, or the corpus file changed between the
+    two stages -- and that is a fact about the run, not a detail to average
+    away. So the distinct values are joined rather than reduced to the first
+    one seen, and a run whose arms did not agree on the holdout does not get to
+    name one.
+    """
+    devices = sorted({r[5]["data_device"] for r in results})
+    splits = {json.dumps(r[5]["split_fingerprint"], sort_keys=True)
+              for r in results}
+    out = {"data_device": devices[0] if len(devices) == 1 else "+".join(devices)}
+    if len(splits) == 1:
+        out["split_fingerprint"] = json.loads(splits.pop())
+    else:
+        out["split_fingerprint"] = {"arms_disagreed":
+                                    [json.loads(s) for s in sorted(splits)]}
+        print("\nWARNING: the arms did not train on the same holdout, so the "
+              "comparison printed above is between arms scored on different "
+              "validation text and the prereg assumes they are identical. "
+              "Recorded as a disagreement rather than as one split.")
+    if len(devices) > 1:
+        print(f"\nWARNING: arms kept the corpus on different devices "
+              f"({', '.join(devices)}); their ms/step are not comparable with "
+              f"each other.")
+    return out
 
 
 def _run_jobs(jobs, cfg_d, device, workers, corpus_path):
@@ -219,8 +267,9 @@ def main():
     t_stage = time.time()
     res = _run_jobs([("sweep", lr, sweep_seed) for lr in sweep_lrs],
                     C, device, args.workers, str(corpus_path))
-    sweep = {lr: loss for _, lr, _, loss, _ in res}
-    for _, lr, _, loss, secs in sorted(res, key=lambda r: r[1]):
+    sweep_res = res
+    sweep = {lr: loss for _, lr, _, loss, _, _ in res}
+    for _, lr, _, loss, secs, _p in sorted(res, key=lambda r: r[1]):
         print(f"  lr {lr:<8.1e}  train loss {loss:.4f}   ({secs:.0f}s)")
     print(f"  stage 1 wall clock: {time.time() - t_stage:.0f}s")
     finite = {k: v for k, v in sweep.items() if v == v}
@@ -242,7 +291,7 @@ def main():
             + [("treatment", treatment_lr, sd) for sd in seeds])
     res = _run_jobs(jobs, C, device, args.workers, str(corpus_path))
     arms = {"control": [], "treatment": []}
-    for label, lr, sd, loss, secs in sorted(res, key=lambda r: (r[0], r[2])):
+    for label, lr, sd, loss, secs, _p in sorted(res, key=lambda r: (r[0], r[2])):
         arms[label].append(loss)
         print(f"  {label:<10} seed {sd}  train loss {loss:.4f}   ({secs:.0f}s)")
     print(f"  stage 2 wall clock: {time.time() - t_stage:.0f}s")
@@ -292,8 +341,15 @@ def main():
         "mean_control": mc, "mean_treatment": mt, "gap": gap,
         "ranges_overlap": overlap, "passed": passed,
     }, indent=2), encoding="utf-8")
+    # The endpoint here is TRAIN loss, but every arm still trains on the train
+    # side of a split, so which split it was is part of what produced these
+    # numbers -- and the timings are device numbers. Reported by the arms
+    # themselves, because the corpus is built inside the workers.
+    prov = provenance_of(sweep_res + res)
     runlog.record("experiment", name=f"lr_vs_width[{args.profile}]",
-                  device=device, corpus=runlog.corpus_fingerprint(text),
+                  device=device, data_device=prov["data_device"],
+                  corpus=runlog.corpus_fingerprint(text),
+                  split_fingerprint=prov["split_fingerprint"],
                   config=C,
                   metrics={"verdict": verdict, "gap": gap,
                            "mean_control": mc, "mean_treatment": mt,
