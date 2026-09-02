@@ -53,6 +53,24 @@ THREE THINGS THIS FILE USED TO GET WRONG, and what it does instead
    from the UNION of both arms, an entry with no sampled draws contributes
    nothing, a task with no measurement in either arm is excluded, and the
    excluded count is printed rather than absorbed.
+
+AND A FOURTH, WHICH IS THE OTHER THREE ONE LEVEL UP
+---------------------------------------------------
+4. THE TWO COMPARED ARMS WERE NEVER CHECKED AGAINST EACH OTHER. Fix 1 made
+   each arm one verifier key and said nothing about the two arms sharing
+   it, so a trained arm scored on 3.11.9/win32 and a null arm scored on
+   3.12.10/linux both cleared single_key() and the primary Welch ran across
+   two instruments. Fix 2 derived each arm's construction label and said
+   nothing about the two arms sharing that either, so a greedy-free trained
+   arm against a greedy-anchored null arm printed "UNRECOGNISED (matches
+   neither construction)" on the metric line and then reported a
+   difference, a CI and a p-value underneath it. Three instances of one
+   shape, so the fence is one level up rather than a third patch:
+   require_commensurable() runs immediately before the comparison, derives
+   what two arms must share from the ROW STRUCTURE rather than from those
+   findings, and RAISES. A difference between two numbers that were not
+   built the same way is not an effect, and a warning printed above one
+   does not turn it into a comparison.
 """
 from __future__ import annotations
 
@@ -253,6 +271,181 @@ def single_key(name: str, rows: list[dict]) -> list[dict]:
     return rows
 
 
+# --- commensurability: the precondition the comparison rests on ----------
+class Incommensurable(ValueError):
+    """Two arms that are not measurements of the same thing.
+
+    RAISED, NOT PRINTED, because both softer answers were already tried in
+    this file and each one shipped a number. A warning above the result: the
+    metric line printed UNRECOGNISED and the Welch block ran anyway. A check
+    inside one arm that says nothing about the other: single_key(), which
+    cleared a 3.11.9 arm and a 3.12.10 arm standing side by side. A
+    difference between two numbers built by different instruments, or by
+    different constructions, is not an effect, and there is no honest way to
+    print one with a caveat attached.
+    """
+
+
+# THE DIMENSIONS, DERIVED FROM THE ROW STRUCTURE RATHER THAN LISTED.
+# Hand-picking "the fields that matter" is the invented-scope mistake this
+# project keeps paying for, so the set is read off the code and the data in
+# three steps.
+#
+# STEP 1 -- what this file reads BY NAME, taken from its own accessors above
+# rather than judged by eye:
+#   model      load() groups on it. It IS the contrast: the two arms must
+#              differ on it, and that is the only thing they may differ on.
+#   aggregate  rate(). The measurement being compared.
+#   per_task   entries(). The per-task measurements the label is built from.
+# Their VALUES have to differ between arms -- that is the measurement -- so
+# they are excluded from value comparison and checked on SHAPE in step 3.
+#
+# STEP 2 -- every OTHER key on the row describes the conditions under which
+# the measurement was taken, and a run configuration is precisely what an
+# arm holds CONSTANT across its replicates. So the data decides: a key is a
+# dimension for an arm when the arm takes one value on it. A key that varies
+# is per-replicate bookkeeping (ts, replicate) or a per-run count, and there
+# is no single value on it to compare. Nothing is named here -- the rows'
+# own key set supplies the candidates, and each arm's own data sorts them.
+#
+# STEP 3 -- the dimensions no single key carries, read off the accessors
+# again: the verifier key (verifier_key(), the identity partition() already
+# pools on), the aggregate's shape (rate() branches on dict-vs-number, and a
+# bare number does not say which statistic it is), how many sampled draws
+# stand behind each per-task rate, whether a greedy draw is banked at all
+# (has_greedy_draw, a fact about the row shape), which construction the
+# banked aggregate matches (stored_construction), and the set of task ids
+# actually measured -- a run-level mean over a different task set is a
+# different number.
+_READ_BY_NAME = ("model", "aggregate", "per_task")
+# `verifier` is dropped from step 2 and re-entered in step 3 as the DERIVED
+# key. Raw equality would be STRICTER across two arms than partition() is
+# within one -- the recorded dict also carries `executable` and
+# `launcher_version` -- and one definition of "the same instrument", applied
+# in both directions, is the whole point of the fix that produced
+# verifier_key().
+_DERIVED_INSTEAD = ("verifier",)
+# Deliberately carries no COUNT. Two arms that both vary on a per-run
+# measurement agree that it is not configuration; recording 39 values against
+# 38 would turn that agreement into a refusal.
+_VARIES = "<varies across this arm's rows>"
+
+
+def context_dimensions(rows: list[dict],
+                       keys: set[str]) -> dict[str, str] | None:
+    """Step 2 for one arm: what it holds constant, over the given key set.
+
+    None when the arm has fewer than two rows. With a single row every key is
+    trivially constant -- ts and replicate included -- so the
+    constant-versus-varying split stops meaning anything, and refusing
+    because two arms carry different timestamps would be a refusal for a
+    false reason. welch() rejects a one-row arm on its own terms
+    (stats_core._sample, minimum 2), so no p-value escapes there either way.
+    """
+    if len(rows) < 2:
+        return None
+    out: dict[str, str] = {}
+    for k in sorted(keys):
+        vals = {json.dumps(r.get(k), sort_keys=True) for r in rows}
+        out[k] = vals.pop() if len(vals) == 1 else _VARIES
+    return out
+
+
+def shape_dimensions(rows: list[dict]) -> dict[str, str]:
+    """Step 3 for one arm: the dimensions no single row key carries."""
+    es = [e for r in rows for e in entries(r)]
+    agg = sorted({"a bare number (unlabelled)"
+                  if not isinstance(r["aggregate"], dict)
+                  else "{" + ", ".join(sorted(r["aggregate"])) + "}"
+                  for r in rows})
+    tids = sorted({e["tid"] for e in es})
+    return {
+        "verifier key (provenance.verifier_key)":
+            ", ".join(sorted(f"{k[0]}/{k[1]}"
+                             for k in {verifier_key(r) for r in rows})),
+        "aggregate shape (what rate() reads)": ", ".join(agg),
+        "sampled draws behind each per-task rate":
+            ", ".join(str(n) for n in
+                      sorted({len(e.get("sampled") or []) for e in es})),
+        "greedy draw banked (row shape)": str(has_greedy_draw(rows)),
+        "stored aggregate construction": stored_construction(rows),
+        "measured task ids": f"{len(tids)}: {', '.join(tids)}",
+    }
+
+
+def require_commensurable(a_name: str, a_rows: list[dict],
+                          b_name: str, b_rows: list[dict]) -> None:
+    """Refuse the comparison unless the two arms were measured the same way.
+
+    Runs immediately before the primary Welch. The dimensions are derived in
+    the three steps documented above; this function only applies them and
+    reports which one differs, with both values.
+
+    WHAT THIS DOES NOT COVER, stated because a check that overstates its
+    reach is worse than no check:
+      - A key that VARIES within either arm is not a dimension for it: the
+        arm has no single value on it, so there is nothing to compare.
+        Within-arm heterogeneity is a different defect, and only the verifier
+        key is policed for it (single_key()). Re-run half of one arm at
+        another temperature and `temp` stops being configuration for that
+        arm -- though the two arms then disagree about whether it is
+        configuration at all, and THAT is reported.
+      - Arms of fewer than two rows: step 2 is skipped entirely, because the
+        classification is undefined there. welch() refuses those inputs, so
+        no p-value is printed regardless.
+      - It compares DECLARED metadata. A row recording temp 0.8 that was
+        actually sampled at 0.2 is invisible here. What this certifies is
+        that the two arms describe themselves identically, not that either
+        description is true.
+      - It cannot see a difference nothing records. No row carries the
+        decoding seed, the prompt template, the adapter rank or the
+        quantisation, so two arms differing in any of those read as
+        commensurable.
+      - per_task's CONTAINER (list versus mapping) is deliberately not a
+        dimension: entries() normalises both to the same entries, so it
+        cannot move a number.
+      - It says nothing about whether these are the RIGHT two arms to compare
+        -- the preregistration decides that -- and nothing about the base
+        arm, which never enters the comparison.
+      - stored_construction is compared as a LABEL, decided at _TOL = 1e-4.
+        Two arms agreeing on it agree to that tolerance and no finer.
+    """
+    for name, rows in ((a_name, a_rows), (b_name, b_rows)):
+        label = stored_construction(rows)
+        if not label.startswith(("greedy-free", "greedy-ANCHORED")):
+            raise Incommensurable(
+                f"arm {name}: its banked aggregate is {label}. Which "
+                f"construction produced the stored number is unknown, so "
+                f"it cannot be matched against the other arm's -- and that "
+                f"is the state the metric line used to print before "
+                f"reporting a difference underneath it.")
+
+    dims: dict[str, tuple[str, str]] = {}
+    a_shape, b_shape = shape_dimensions(a_rows), shape_dimensions(b_rows)
+    for k in a_shape:
+        dims[k] = (a_shape[k], b_shape[k])
+
+    keys = ({k for r in a_rows + b_rows for k in r}
+            - set(_READ_BY_NAME) - set(_DERIVED_INSTEAD))
+    a_ctx = context_dimensions(a_rows, keys)
+    b_ctx = context_dimensions(b_rows, keys)
+    if a_ctx is not None and b_ctx is not None:
+        for k in sorted(keys):
+            dims[f"row field {k!r}"] = (a_ctx[k], b_ctx[k])
+
+    differ = {k: v for k, v in dims.items() if v[0] != v[1]}
+    if not differ:
+        return
+    detail = "".join(f"\n  {k}\n      {a_name}: {av}\n      {b_name}: {bv}"
+                     for k, (av, bv) in differ.items())
+    raise Incommensurable(
+        f"{a_name} and {b_name} are not commensurable: they differ on "
+        f"{len(differ)} of the {len(dims)} dimensions the primary "
+        f"comparison's validity rests on. Welch would report the difference "
+        f"between two numbers that were not built the same way, which is not "
+        f"an effect." + detail)
+
+
 def main() -> int:
     # Self-check the t implementation before trusting a p-value from it.
     assert abs(t_crit(10) - 2.228) < 0.002, t_crit(10)
@@ -262,6 +455,10 @@ def main() -> int:
     by = load()
     tr_rows = single_key(TRAINED, by.get(TRAINED, []))
     nu_rows = single_key(NULL, by.get(NULL, []))
+    # Each arm is one instrument by now; nothing yet says the two arms are
+    # the SAME instrument, or that their banked aggregates were built the
+    # same way. Raises rather than warns -- see require_commensurable().
+    require_commensurable(TRAINED, tr_rows, NULL, nu_rows)
     tr = [rate(r) for r in tr_rows]
     nu = [rate(r) for r in nu_rows]
 
