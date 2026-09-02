@@ -56,7 +56,8 @@ import json
 from pathlib import Path
 
 from provenance import UNPINNED, is_pinned, verifier_key
-from stats_core import mean, paired, sd, t_crit, t_sf, welch
+from stats_core import (DegenerateInput, mean, paired, sd, t_crit, t_sf,
+                        welch)
 
 HERE = Path(__file__).resolve().parent
 NOISE = HERE / "data" / "ruler_noise.jsonl"
@@ -70,6 +71,17 @@ MDE_PP = 2.98          # preregistered minimum detectable effect
 _TOL = 1e-4
 
 
+def _refuse_non_finite(token: str):
+    """json.loads accepts the bare tokens NaN, Infinity and -Infinity by
+    default, and a NaN rate survives every downstream comparison silently:
+    `p < 0.05` and `p >= 0.05` are BOTH false against it, so a run that was
+    never measured reads as one that was measured and found unremarkable.
+    A banked replicate has no such value; if one appears, the file is wrong."""
+    raise DegenerateInput(
+        f"{NOISE}: a row carries the non-finite JSON token {token!r}. A "
+        f"run-level rate is a measurement or it is absent; it is never NaN.")
+
+
 def load() -> dict[str, list[dict]]:
     """Rows grouped by model. Grouping by model is NOT a pooling decision --
     partition() below supplies the key that is, and every statistic in main()
@@ -79,7 +91,7 @@ def load() -> dict[str, list[dict]]:
         for line in fh:
             line = line.strip()
             if line:
-                r = json.loads(line)
+                r = json.loads(line, parse_constant=_refuse_non_finite)
                 out.setdefault(r.get("model"), []).append(r)
     return out
 
