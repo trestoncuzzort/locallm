@@ -84,7 +84,26 @@ parseable rows), and they deduplicate to the same 1279 unique pairs under both
 the old and the new signature. These are fences against the next generation run,
 not a re-verdict on this one.
 
-Writes data/dataset_verification.json. Exit code 1 if any violation is found.
+AND A SIXTH: THE RECEIPT WAS FINGERPRINTED AFTER THE VERDICT, NOT BEFORE
+------------------------------------------------------------------------
+The fifth fix put the gate's own bytes and the frozen split into the
+fingerprint, which makes a receipt say WHICH questions it answered -- but
+the fingerprint was taken at the END of the run, while the split is read at
+the START (load_partition, before any pair is executed) and every pair file
+is read before that. Verification takes minutes of subprocesses. Change
+data/ruler_frozen.json inside that window and the receipt records the NEW
+hash beside a verdict computed against the OLD split; re-freeze so a
+training task becomes an eval task and the receipt says '0 violations' while
+naming the very bytes under which that pair is a violation. Append to a
+pair file and the receipt names a sha256 covering a pair nothing executed.
+Every input is now hashed BEFORE the checks, re-hashed before the write,
+and a difference aborts without writing anything: a receipt whose bytes did
+not produce its verdict is the one failure a receipt exists to prevent. On
+an undisturbed run the two snapshots are equal and nothing about the
+receipt changes -- this is a fence, not a re-verdict.
+
+Writes data/dataset_verification.json. Exit code 1 if any violation is
+found, or if an input moved while the verification ran.
 """
 from __future__ import annotations
 
@@ -340,7 +359,62 @@ def check(pair) -> dict:
             "ok": not problems, "why": ",".join(problems) or "ok"}
 
 
+def receipt_inputs() -> tuple[dict[str, str], dict[str, str]]:
+    """Everything the receipt will NAME, hashed as of right now.
+
+    (verifier fingerprint, sha256 of each pair file that exists). Called
+    twice per run -- once before anything is read, once before the write --
+    and the two must agree or no receipt is issued.
+
+    The pair files are enumerated from FILES rather than from load_pairs()'s
+    result, because the snapshot has to be taken BEFORE load_pairs() runs; a
+    file that appears or disappears inside the window then shows up as a key
+    that only one of the two snapshots has, which is drift and is reported as
+    such.
+
+    WHAT THIS CANNOT SEE, and it is a real gap rather than a rounding of one:
+      - The interpreter entry. dataset_gate.interpreter_fingerprint() caches
+        its answer for the process, so the second call returns the first
+        call's string by construction and a Python swapped mid-run is not
+        detectable here. The FILE hashes are re-read from disk every time.
+      - The window between this module's import and the first call. TASKS is
+        built at import from data/screen_results.jsonl, so a change in those
+        milliseconds lands in both snapshots and is invisible. The window
+        this closes is the multi-minute one the checks run in.
+      - Anything outside FILES and the fingerprint -- known_hard.json, for
+        one, which the report reads but no consumer gates on.
+    """
+    return (dataset_gate.verifier_fingerprint(),
+            {n: dataset_gate.sha256_file(DATA / n)
+             for n in FILES if (DATA / n).exists()})
+
+
+_ABSENT = "(absent)"      # a file that only one of the two snapshots has
+
+
+def input_drift(before: tuple[dict, dict],
+                after: tuple[dict, dict]) -> list[str]:
+    """One line per input that is not the same file it was at the start."""
+    def short(h: str) -> str:
+        # _ABSENT is not a truncated hash, so it does not get the ellipsis:
+        # "(absent)\u2026" reads as a shortened digest that happens to spell
+        # the word, which is the opposite of what happened to the file.
+        return h if h == _ABSENT else f"{h[:16]}\u2026"
+
+    out: list[str] = []
+    for was, now in zip(before, after):
+        for n in sorted(set(was) | set(now)):
+            a, b = was.get(n, _ABSENT), now.get(n, _ABSENT)
+            if a != b:
+                out.append(f"{n}: at start {short(a)} now {short(b)}")
+    return out
+
+
 def main() -> int:
+    # HASHED BEFORE ANYTHING IS READ. The receipt written at the end of this
+    # function names the bytes it was verified against, and that claim is
+    # only true if the bytes did not move while the verification ran.
+    started_with = receipt_inputs()
     unique, rows_by_file, malformed = load_pairs()
     empty_files = empty_file_violations(rows_by_file)
     sigs = list(unique)
@@ -419,6 +493,21 @@ def main() -> int:
     contradictions = {t: v for t, v in reconcile.items()
                       if v["labeled_known_hard"] and v["pairs_in_dataset"] > 0}
 
+    # THE RECEIPT MUST NAME THE BYTES THAT PRODUCED THE VERDICT. Everything
+    # above ran against the files as they were at started_with; if any of
+    # them has moved since, the report below would carry the new hashes
+    # beside the old run's answers -- a receipt vouching for bytes it never
+    # checked, which is precisely what a receipt is for. Nothing is written.
+    drifted = input_drift(started_with, receipt_inputs())
+    if drifted:
+        raise SystemExit(
+            "GATE: an input to this verification CHANGED while it ran.\n"
+            + "".join(f"  - {d}\n" for d in drifted)
+            + "  The verdict above was computed against the bytes as they\n"
+            "  stood at the start, so a receipt written now would name bytes\n"
+            "  that did not produce it. No receipt written.\n"
+            "  Re-run:  python verify_dataset.py")
+
     report = {
         # schema/files are the RECEIPT train_native.py checks; the rest is the
         # human report. One artifact, one truth about the same verification run.
@@ -437,8 +526,10 @@ def main() -> int:
         "violation_detail": violations[:50],
         "per_tid": by_tid,
         "files": dataset_gate.build_file_entries(DATA, per_file),
-        # What "verified" meant when these numbers were produced.
-        "verifier": dataset_gate.verifier_fingerprint(),
+        # What "verified" meant when these numbers were produced -- the
+        # snapshot taken BEFORE the checks, not a re-read after them. The
+        # guard above has just established that the two are the same.
+        "verifier": started_with[0],
         "known_hard": kh,
         "reconcile_contradictions": contradictions,
     }

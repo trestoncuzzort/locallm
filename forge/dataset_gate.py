@@ -19,10 +19,16 @@ rather than left implicit, because a guard that overstates its reach is worse
 than no guard:
 
   - A receipt is NOT proof of success by its existence. verify_dataset.py writes
-    one on every run, recording the violation count truthfully including when it
-    fails. `require_verified` is the only thing that grants permission, and it
-    demands violations == 0 AND a matching hash. A failed run therefore replaces
-    a passing receipt with a failing one, which is the intended behaviour.
+    one at the end of every run it COMPLETES, recording the violation count
+    truthfully including when it fails. It writes nothing in exactly one case:
+    an input it was verifying changed while it ran, so a receipt would name
+    bytes that did not produce the verdict. That leaves whatever receipt was
+    there before in place, unchanged and unendorsed -- and each file that moved
+    is one require_verified() compares, so aborting cannot make a stale receipt
+    acceptable. `require_verified` is the only thing that grants permission, and
+    it demands violations == 0 AND a matching hash. A failed run therefore
+    replaces a passing receipt with a failing one, which is the intended
+    behaviour.
   - This is unsigned plain JSON. It defends against DRIFT and ACCIDENT — a
     regenerated dataset, a stale receipt, hand-edited rows, a file swapped after
     verification. It does NOT defend against someone who edits the receipt

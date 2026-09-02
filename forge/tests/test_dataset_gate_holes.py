@@ -1,4 +1,4 @@
-"""tests/test_dataset_gate_holes.py — five ways the data gate said PASS.
+"""tests/test_dataset_gate_holes.py — six ways the data gate said PASS.
 
 verify_dataset.py is the mechanism behind "every training pair was executed and
 checked". These are the inputs on which it said so without having checked.
@@ -41,6 +41,21 @@ checked". These are the inputs on which it said so without having checked.
      unrecorded a receipt stays valid across a re-freeze that moves a training
      task into the eval set, and training on eval data becomes possible under a
      receipt that is still, on its own terms, correct.
+  6. THE RECEIPT WAS FINGERPRINTED AFTER THE VERDICT, NOT BEFORE. Fix 5
+     put the gate's own bytes and the frozen split into the fingerprint so
+     a receipt says WHICH questions it answered -- but the fingerprint was
+     taken at the END of the run, while the split is read at the START
+     (load_partition, before any pair is executed) and the pair files
+     before that, with minutes of subprocesses in between. Edit
+     data/ruler_frozen.json inside that window and the receipt records the
+     NEW hash beside a verdict computed against the OLD split: it says '0
+     violations' while naming the very bytes under which the pair it
+     cleared is an eval-set contamination. Append to a pair file and it
+     names a sha256 covering a pair that was never executed. Every input is
+     now hashed BEFORE the checks, re-hashed before the write, and any
+     difference aborts without writing anything -- a receipt whose bytes
+     did not produce its verdict is the one failure a receipt exists to
+     prevent.
 
 Each test keeps the broken twin beside it (test_stats_core.py idiom) and
 asserts the twin STILL misbehaves, so a test that stops discriminating is
@@ -53,16 +68,22 @@ chosen -- the same path tests/test_replicate_provenance.py takes, for the same
 reason. Nothing here executes a candidate, so the interpreter's identity does
 not enter any assertion.
 
-NOTHING HERE TOUCHES data/. main() is never called: tests 1-4 drive load_pairs()
-or partition_violations() against fixtures in a temp directory, or read the
-committed pairs without verifying them. The class-5 tests do write receipts, but
-only into temp directories: each one assembles a receipt from the same two
-helpers main() writes with (dataset_gate.build_file_entries and
+NOTHING HERE TOUCHES data/. Tests 1-4 drive load_pairs() or
+partition_violations() against fixtures in a temp directory, or read the
+committed pairs without verifying them. The class-5 tests write receipts,
+but only into temp directories: each assembles one from the same two helpers
+main() writes with (dataset_gate.build_file_entries and
 verifier_fingerprint) and re-points dataset_gate.HERE at a byte-copy of the
 fingerprinted files, so "the verifier changed" and "the split moved" can be
-staged without editing anything in the repo. data/dataset_verification.json is
-never written and data/ is read only to copy it. Receipt regeneration is the
-maintainer's explicit decision (docs/UBUNTU-BOOTSTRAP.md, step 6).
+staged without editing anything in the repo. The class-6 tests DO call
+main() -- the window they are about exists only inside it -- with
+dataset_gate.HERE and verify_dataset.DATA both pointed at that same
+byte-copy, so every file it reads and the receipt it writes are under the
+temp root. They also replace check(), which is where a real run spends its
+minutes in subprocesses; the elapsed window is what is under test, not what
+check() computes. data/dataset_verification.json is never written and data/
+is read only to copy it. Receipt regeneration is the maintainer's explicit
+decision (docs/UBUNTU-BOOTSTRAP.md, step 6).
 
 Run: python tests/test_dataset_gate_holes.py
 """
@@ -70,6 +91,7 @@ from __future__ import annotations
 
 import contextlib
 import hashlib
+import io
 import json
 import os
 import pathlib
@@ -482,6 +504,161 @@ def test_a_receipt_written_under_the_current_fingerprint_is_honoured():
         p = _receipt(data, fname, 1, 0, dataset_gate.verifier_fingerprint())
         assert _refusal([p], data) is None, \
             "a receipt written under the live fingerprint was refused"
+
+
+# --- 6. a receipt fingerprinted after the verdict instead of before -------
+@contextlib.contextmanager
+def _gate_run(root: pathlib.Path, on_check):
+    """Point the gate AND its DATA directory at `root`, with check() replaced.
+
+    Both have to move together: main() reads the frozen split through
+    verify_dataset.DATA and hashes it through dataset_gate.HERE, and the
+    defect is precisely that those two reads happen at different times.
+    Pointing them at one byte-copy keeps every read and the receipt inside
+    the temp root.
+    """
+    saved = (dataset_gate.HERE, V.DATA, V.check)
+    dataset_gate.HERE, V.DATA, V.check = root, root / "data", on_check
+    try:
+        yield
+    finally:
+        dataset_gate.HERE, V.DATA, V.check = saved
+
+
+def _clean_check(pair):
+    """check() with the subprocesses taken out. It stands in for the minutes
+    a real run spends there, and returning CLEAN is deliberate: the sharpest
+    form of this defect is a PASSING receipt naming bytes that never
+    produced it."""
+    return {"tid": (pair.get("meta") or {}).get("tid"), "src": pair["_src"],
+            "row": pair["_row"], "ok": True, "why": "ok"}
+
+
+def _mutating_check(edit):
+    """_clean_check, editing a file the first time through -- a change
+    arriving while the verification runs."""
+    def run(pair):
+        if not getattr(run, "done", False):
+            run.done = True
+            edit()
+        return _clean_check(pair)
+    return run
+
+
+def _run_main() -> tuple[int | None, str | None]:
+    """(return code, refusal message). Stdout is swallowed: main() prints a
+    full report, and these tests are about what it WRITES."""
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        try:
+            return V.main(), None
+        except SystemExit as e:
+            return None, str(e)
+
+
+def _root_with_one_pair() -> pathlib.Path:
+    root = _mirror()
+    (root / "data" / "dpo_pairs.jsonl").write_text(
+        CLEAN_ROW, encoding="utf-8", newline="")
+    return root
+
+
+def test_a_split_that_moves_mid_verification_leaves_no_receipt():
+    """THE RED. The frozen split is read at the top of the run and used to
+    decide whether each pair may be trained on; the fingerprint was taken at
+    the bottom. Move the split inside that window -- here, so the pair's own
+    task becomes a frozen RULER task -- and the receipt names the NEW bytes
+    beside a verdict computed against the old ones, under which that pair is
+    an eval-set contamination."""
+    root = _root_with_one_pair()
+    frozen = root / "data" / "ruler_frozen.json"
+    before = dataset_gate.sha256_file(frozen)
+
+    def move_the_pairs_task_into_the_eval_set():
+        spec = json.loads(frozen.read_text(encoding="utf-8"))
+        spec["ruler"] = sorted(set(spec["ruler"]) | {"atoi"})
+        frozen.write_text(json.dumps(spec, indent=2), encoding="utf-8")
+
+    moved = _mutating_check(move_the_pairs_task_into_the_eval_set)
+    with _gate_run(root, moved):
+        _rc, msg = _run_main()
+        rp = dataset_gate.receipt_path(root / "data")
+        assert not rp.exists(), (
+            "a receipt was written naming split "
+            + json.loads(rp.read_text())["verifier"][
+                "data/ruler_frozen.json"]
+            + f", while the verdict was computed against {before}")
+        assert msg is not None, "main() completed and wrote nothing?"
+        assert "CHANGED while it ran" in msg, msg
+        assert "data/ruler_frozen.json" in msg, msg
+        # THE TWIN, in the only form this defect has one: the fingerprint
+        # the old gate took at WRITE time. Recomputed here, after the move,
+        # it names bytes this verification never read.
+        after = dataset_gate.verifier_fingerprint()["data/ruler_frozen.json"]
+        assert after != before, "twin lost its bug; the split did not move"
+        assert after == dataset_gate.sha256_file(frozen)
+
+
+def test_a_pair_file_that_changes_mid_verification_leaves_no_receipt():
+    """The same window, one file over, so the guard is the window and not a
+    special case for the split. load_pairs() reads the pair files at the top
+    of the run and build_file_entries() hashed them at the bottom, so a pair
+    appended in between lands in the receipt's sha256 without ever having
+    been executed -- the receipt then certifies bytes it did not check."""
+    root = _root_with_one_pair()
+    pairs = root / "data" / "dpo_pairs.jsonl"
+    before = dataset_gate.sha256_file(pairs)
+
+    def append_a_pair_nothing_will_execute():
+        with open(pairs, "a", encoding="utf-8", newline="") as fh:
+            fh.write(json.dumps({"prompt": "q", "chosen": "c",
+                                 "rejected": "r",
+                                 "meta": {"tid": "atoi"}}) + "\n")
+
+    with _gate_run(root, _mutating_check(append_a_pair_nothing_will_execute)):
+        _rc, msg = _run_main()
+        rp = dataset_gate.receipt_path(root / "data")
+        assert not rp.exists(), (
+            "a receipt was written over dpo_pairs.jsonl at sha256 "
+            + json.loads(rp.read_text())["files"]["dpo_pairs.jsonl"]["sha256"]
+            + f", while the one pair it executed came from {before}")
+        assert msg is not None and "dpo_pairs.jsonl" in msg, msg
+        assert dataset_gate.sha256_file(pairs) != before, \
+            "twin lost its bug; the pair file did not actually change"
+
+
+def test_a_file_appearing_or_vanishing_inside_the_window_is_drift():
+    """The snapshot is taken BEFORE load_pairs(), so it enumerates the pair
+    files from FILES rather than from what was read. A file that arrives or
+    leaves inside the window is then a key only one of the two snapshots
+    has, and it is reported rather than tolerated."""
+    was = ({"forge.py": "a" * 64}, {"dpo_pairs.jsonl": "x" * 64})
+    now = ({"forge.py": "a" * 64}, {"dpo_pairs.jsonl": "x" * 64,
+                                    "repair_pairs.jsonl": "y" * 64})
+    lines = V.input_drift(was, now)
+    assert len(lines) == 1 and "repair_pairs.jsonl" in lines[0], lines
+    assert "(absent)" in lines[0], lines[0]
+    assert V.input_drift(now, was)[0].endswith("(absent)"), \
+        V.input_drift(now, was)
+    assert V.input_drift(was, was) == []
+
+
+def test_an_undisturbed_run_still_writes_a_receipt_that_is_honoured():
+    """The cry-wolf side, and the one that makes this a check rather than a
+    brick. Nothing moves, the two snapshots agree, and the receipt is written
+    exactly as before -- naming the split, the gate and the pair file it was
+    verified against, and still granting permission to train."""
+    root = _root_with_one_pair()
+    with _gate_run(root, _clean_check):
+        rc, msg = _run_main()
+        assert msg is None, msg
+        assert rc == 0, rc
+        r = json.loads(dataset_gate.receipt_path(root / "data").read_text())
+        assert r["verifier"] == dataset_gate.verifier_fingerprint(), \
+            "the receipt does not name the files as they stand on disk"
+        assert r["files"]["dpo_pairs.jsonl"]["violations"] == 0, r["files"]
+        assert _refusal([root / "data" / "dpo_pairs.jsonl"],
+                        root / "data") is None
 
 
 if __name__ == "__main__":
