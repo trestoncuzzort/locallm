@@ -28,6 +28,7 @@ from __future__ import annotations
 import argparse
 import json
 import multiprocessing as mp
+import re
 import sys
 import time
 from pathlib import Path
@@ -52,6 +53,33 @@ EVAL_BATCHES = 40
 # which is the shipped default, bf16 wins by a wide margin end to end (163s vs
 # 215s). Benchmark the configuration you actually run.
 USE_AMP = True
+
+
+_BAR = re.compile(r">=\s*([0-9]*\.?[0-9]+)")
+
+
+def success_bar(prereg: dict) -> float:
+    """The numeric bar, READ FROM THE PREREGISTRATION that declared it.
+
+    This file printed prereg['success_bar']['primary'] and then decided against
+    a literal 0.020 in three places. Change the preregistration and the
+    experiment goes on answering the old question while printing the new one:
+    measured with the bar raised to 0.500 and a stubbed gap of 0.0500, it
+    printed "gap >= ... >= 0.500" and then "bar = 0.020" and PASS.
+
+    The bar lives in prose because the prose is what a reader checks the run
+    against, so it is parsed out rather than duplicated into a numeric field --
+    a second field would be a second place for the two to disagree. If it
+    cannot be read, the experiment stops: a confirmatory run that does not know
+    its own bar has nothing to confirm.
+    """
+    primary = prereg["success_bar"]["primary"]
+    m = _BAR.search(primary)
+    if not m:
+        raise ValueError(
+            f"cannot read a numeric bar out of this preregistration's "
+            f"success_bar.primary: {primary!r}. It must contain '>= <number>'.")
+    return float(m.group(1))
 
 
 def fixed_eval_batches(corpus: Corpus, batch_size: int, block_size: int, n: int):
@@ -178,7 +206,9 @@ def main():
     text = corpus_path.read_text(encoding="utf-8", errors="ignore")
     print(f"device {device} | corpus {len(text):,} chars | workers {args.workers} "
           f"| config {C}")
-    print(f"prereg bar: gap >= {prereg['success_bar']['primary']}\n")
+    bar = success_bar(prereg)
+    print(f"prereg bar: {prereg['success_bar']['primary']}")
+    print(f"            read as: gap >= {bar}\n")
 
     t_all = time.time()
 
@@ -225,9 +255,9 @@ def main():
     print("\n" + "=" * 62)
     print(f"control   lr {control_lr:.1e}  mean {mc:.4f}  range [{min(c):.4f}, {max(c):.4f}]")
     print(f"treatment lr {treatment_lr:.1e}  mean {mt:.4f}  range [{min(t):.4f}, {max(t):.4f}]")
-    print(f"gap (control - treatment) = {gap:+.4f}   bar = 0.020")
+    print(f"gap (control - treatment) = {gap:+.4f}   bar = {bar}")
     print(f"ranges overlap = {overlap}   (bar requires NO overlap)")
-    passed = (gap >= 0.020) and (not overlap)
+    passed = (gap >= bar) and (not overlap)
     # The verdict carries its own provenance. A label kept only in a filename or
     # a person's memory gets conflated with the canonical result eventually; one
     # written into the string itself travels with the number wherever it is
@@ -240,7 +270,7 @@ def main():
         verdict += (" - claim: reaches lower train loss FASTER; "
                     "NOT the canonical effect size")
     print(f"\nPREREGISTERED VERDICT: {verdict}")
-    if gap < 0 and abs(gap) >= 0.020:
+    if gap < 0 and abs(gap) >= bar:
         print("NOTE: control WON — the hypothesis is falsified on this rig.")
     print("=" * 62)
 
@@ -252,7 +282,8 @@ def main():
     else:
         out = HERE / "exp_lr_width_result.json"
     out.write_text(json.dumps({
-        "profile": args.profile, "prereg_file": pf, "verdict_string": verdict,
+        "profile": args.profile, "prereg_file": pf, "success_bar": bar,
+        "verdict_string": verdict,
         "claim": prereg.get("claim_this_licenses", ""),
         "config": C, "device": device, "quick": args.quick,
         "sweep": {str(k): v for k, v in sweep.items()},
