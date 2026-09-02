@@ -261,7 +261,11 @@ def main():
     # prereg here assumes is identical across runs and which nothing recorded.
     # A new key beside the old one, never a change to one: rows already written
     # must keep parsing, and they do.
-    runlog.record("train", device=device, out=args.out, source="cli",
+    # data_device, not just device: if the corpus did not fit and fell back to
+    # host memory, this run's ms/step and its batch sequence are both different
+    # from an otherwise identical run that fitted. See Corpus._place.
+    runlog.record("train", device=device, data_device=corpus.data_device,
+                  out=args.out, source="cli",
                   corpus=runlog.corpus_fingerprint(text),
                   split_fingerprint=runlog.split_fingerprint(
                       corpus.val_frac, corpus.seed, corpus.val_text),
