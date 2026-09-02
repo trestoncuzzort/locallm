@@ -386,7 +386,7 @@ class TrainWorker(threading.Thread):
         # anything. Validation text that also appears in training measures
         # memorisation, not generalisation.
         tr_txt, va_txt = group_split(text)
-        rep = leakage_scan(tr_txt, va_txt)
+        rep = leakage_scan(tr_txt, va_txt, doc_aligned=True)   # group_split: it is
         health = split_health(text)
         # data.split_verdict, not a local comparison: this used to test only
         # "did the splitter fall short", which is silent on the one corpus shape
@@ -1028,7 +1028,7 @@ class Studio(ttk.Frame):
         sample = text[:SCAN_SAMPLE_BYTES] if sampled else text
         try:
             tr_txt, va_txt = group_split(sample)
-            rep = leakage_scan(tr_txt, va_txt)
+            rep = leakage_scan(tr_txt, va_txt, doc_aligned=True)  # group_split: it is
             health = split_health(sample)
             colour = {"CLEAN": self.C["ok"], "SUSPECT": self.C["warn"],
                       "CONTAMINATED": self.C["bad"]}[rep.verdict]

@@ -103,9 +103,13 @@ def main() -> None:
     # baselines.py has said so in prose since it was written and studio.py has
     # enforced it since; this file published closed_fraction for any corpus at
     # all, including ones with no holdout to speak of.
+    # doc_aligned comes from the Corpus that produced the split, not from a
+    # default: grouped=True splits between whole documents, so document counts
+    # mean something; the positional path's do not.
     ineligible = baselines.holdout_eligibility(text, corpus.train_text,
                                                corpus.val_text,
-                                               corpus.val_frac, corpus.seed)
+                                               corpus.val_frac, corpus.seed,
+                                               doc_aligned=corpus.grouped)
     if ineligible:
         print(f"  NOT ELIGIBLE for a baseline comparison: {ineligible}\n"
               f"  closed_fraction will be recorded as null for every arm; the "

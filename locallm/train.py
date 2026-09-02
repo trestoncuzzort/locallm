@@ -100,7 +100,7 @@ def _leak_of(text: str) -> dict:
         from leakage import scan
         from data import group_split
         tr, va = group_split(text)
-        rep = scan(tr, va)
+        rep = scan(tr, va, doc_aligned=True)      # group_split: it is
         return {"verdict": rep.verdict, "content_frac": rep.shingle_frac}
     except Exception as e:                       # noqa: BLE001
         print(f"[leakage] the scan failed ({type(e).__name__}: {e}), so this "
