@@ -19,6 +19,11 @@ content alone, which is not merely untidy: content overlap cannot see a copied
 run shorter than 50 characters at all, so a holdout made entirely of verbatim
 copies of short training documents scored 0.0% and read CLEAN. See Report.
 
+TWO OF THE THREE CAN BE n/a, and an arm that is n/a says so rather than voting
+CLEAN: documents on a split that cut mid-document, lines on a holdout with too
+few of them for a fraction to be a measurement. A CLEAN verdict is only ever as
+strong as the arms that could actually be read, and the report names them.
+
 Content overlap is the finest-grained of the three, WITHIN a scope worth stating
 up front: this is an exact-substring scanner, not a near-duplicate scanner.
 Measured recall on this project's own documents, by clone type:
@@ -65,6 +70,23 @@ DOC_CONTAMINATED = 0.10
 DOC_SUSPECT = 0.01
 LINE_CONTAMINATED = 0.90
 LINE_SUSPECT = 0.50
+
+# The line arm needs a denominator before its fraction means anything. At n
+# validation lines, ONE honestly recurring line -- a licence header, a repeated
+# heading -- is worth 1/n, so at n = 2 a single shared line reads 50.0% and
+# trips the SUSPECT bar on its own. Measured on 110 genuinely clean grouped
+# splits of this project's own text (its Python sources, and its markdown; 5
+# seeds x 11 requested val fractions), three of them read SUSPECT on the line
+# arm with nothing copied anywhere: two 2-line holdouts at 50.0% and one
+# 12-line holdout at 50.0%. Above 20 lines, none of the 56 splits measured
+# reached the bar and the worst clean reading was 39.1%.
+#
+# 20 is that measured floor and it is also where the arithmetic stops being a
+# coin flip: one recurring line is worth 5 points, so reaching 0.50 takes ten
+# shared lines rather than one. Below it the arm reads n/a and says so, the
+# same way the document arm is gated by doc_aligned -- an unreadable signal is
+# not a clean one, and the report must not let it look like either.
+LINE_MIN_VAL_LINES = 20
 
 _RANK = {"CLEAN": 0, "SUSPECT": 1, "CONTAMINATED": 2}
 
@@ -181,6 +203,12 @@ class Report:
     def shingle_frac(self) -> float:
         return self.val_shingles_in_train / max(self.val_shingles, 1)
 
+    @property
+    def lines_readable(self) -> bool:
+        """Whether the holdout has enough lines for line_frac to be a
+        measurement. See LINE_MIN_VAL_LINES."""
+        return self.val_lines >= LINE_MIN_VAL_LINES
+
     def _calls(self) -> list[tuple[str, str]]:
         """Each signal's own call, with the sentence that justifies it.
 
@@ -219,7 +247,10 @@ class Report:
                     validation lines at seeds 99, 7 and 1337. A 0.20 bar here
                     would cry wolf on every code corpus in existence. At 0.90
                     the holdout is a re-arrangement of training lines and there
-                    is nothing unseen left in it.
+                    is nothing unseen left in it. Read only above
+                    LINE_MIN_VAL_LINES, because a bar is only half of a signal:
+                    below 20 lines one recurring line is worth 5 points or more
+                    and the fraction is noise with a percent sign on it.
         """
         calls = [(_call(self.shingle_frac, CONTAMINATED, SUSPECT),
                   f"{self.shingle_frac:.1%} of validation content fingerprints "
@@ -228,9 +259,10 @@ class Report:
             calls.append((_call(self.doc_frac, DOC_CONTAMINATED, DOC_SUSPECT),
                           f"{self.doc_frac:.1%} of validation documents are "
                           f"byte-identical to a training one"))
-        calls.append((_call(self.line_frac, LINE_CONTAMINATED, LINE_SUSPECT),
-                      f"{self.line_frac:.1%} of validation lines appear "
-                      f"verbatim in training"))
+        if self.lines_readable:
+            calls.append((_call(self.line_frac, LINE_CONTAMINATED, LINE_SUSPECT),
+                          f"{self.line_frac:.1%} of validation lines appear "
+                          f"verbatim in training"))
         return calls
 
     @property
@@ -245,8 +277,10 @@ class Report:
         v = self.verdict
         if v == "CLEAN":
             docs = (f", documents {self.doc_frac:.1%}" if self.doc_aligned else "")
+            lines = (f"{self.line_frac:.1%}" if self.lines_readable
+                     else f"n/a on {self.val_lines} line(s)")
             return (f"nothing above a bar (content {self.shingle_frac:.1%}, "
-                    f"lines {self.line_frac:.1%}{docs})")
+                    f"lines {lines}{docs})")
         return "; ".join(r for c, r in self._calls() if c == v)
 
     @property
@@ -270,8 +304,13 @@ class Report:
              if self.doc_aligned else
              "  documents     n/a  the split cut through a document, so document "
              "counts are not meaningful"),
-            f"  lines      {self.val_lines_in_train:>6,} / {self.val_lines:<6,} "
-            f"of validation lines appear verbatim in training ({self.line_frac:.1%})",
+            (f"  lines      {self.val_lines_in_train:>6,} / {self.val_lines:<6,} "
+             f"of validation lines appear verbatim in training "
+             f"({self.line_frac:.1%})"
+             if self.lines_readable else
+             f"  lines         n/a  the holdout is {self.val_lines} line(s), under "
+             f"the {LINE_MIN_VAL_LINES}-line floor: below it one recurring line is "
+             f"worth {1 / LINE_MIN_VAL_LINES:.0%} of the fraction or more"),
             f"  content    {self.val_shingles_in_train:>6,} / {self.val_shingles:<6,} "
             f"of validation fingerprints are found in training "
             f"({self.shingle_frac:.1%})   <- the finest-grained",
@@ -355,10 +394,17 @@ def main() -> None:
           f"{len(documents(text)):,} documents, split={args.split}\n")
     rep = scan(tr, va, doc_aligned=(args.split == "grouped"))
     print(rep.report())
+    # lines_readable rides with line_frac because the row is read by someone who
+    # was not here. Without it a row can say verdict CLEAN and line_frac 0.5 on
+    # the same line and look like a contradiction, when the truth is that the
+    # holdout had two lines and the arm was never read. The raw fraction is kept
+    # rather than nulled: it is a real count, it just is not a verdict.
     runlog.record("leakage", corpus=runlog.corpus_fingerprint(text),
                   split=args.split,
                   leakage={"verdict": rep.verdict, "content_frac": rep.shingle_frac,
-                           "line_frac": rep.line_frac})
+                           "line_frac": rep.line_frac,
+                           "lines_readable": rep.lines_readable,
+                           "val_lines": rep.val_lines})
 
     if args.split == "grouped":
         h = split_health(text, args.val_frac, args.seed)

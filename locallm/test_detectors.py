@@ -246,12 +246,60 @@ def test_short_copies_are_caught(shingle_fn) -> tuple[bool, str]:
                 f"{rep.shingle_frac:.1%} -> {rep.verdict}")
 
 
+BOILERPLATE = "# Copyright (c) 2026 the locallm authors. MIT licence."
+
+
+def test_line_arm_has_a_denominator(shingle_fn) -> tuple[bool, str]:
+    """The line arm must not decide on a holdout too small to have a fraction.
+
+    Both halves are asserted, because a floor is only correct if it silences
+    the arm WITHOUT disarming it:
+
+      tiny   a 2-line holdout whose only shared line is a licence header reads
+             50.0%, which is the SUSPECT bar exactly. On leakage.py before the
+             floor this returned SUSPECT and trustworthy False on a holdout
+             that is entirely unseen text plus one boilerplate line.
+      large  a 24-line holdout, half of it copied line for line, must still
+             read SUSPECT. A floor that also quieted this one would be a
+             deletion of the arm, not a fix.
+
+    The large half is built so the LINE arm is the only one that can answer:
+    every line is under SHINGLE = 50 characters and no two of them are adjacent
+    on both sides of the split, so content overlap is structurally 0.0%, and
+    doc_aligned is False so the document arm does not answer for it either.
+    """
+    train = "\n\n".join(f"{BOILERPLATE}\ndef f{i}(x): return x + {i}"
+                        for i in range(3))
+    val = BOILERPLATE + "\ndef unseen_and_entirely_original(q): return q ** 7"
+    tiny = _scan_like(train, val, shingle_fn, doc_aligned=True)
+
+    shared = [f"def shared{i}(x): return x * {i}" for i in range(12)]
+    fresh = [f"def fresh{i}(y): return y - {i}" for i in range(12)]
+    filler = [_filler(120, seed=500 + i) for i in range(12)]
+    big_train = "\n\n".join(x for pair in zip(filler, shared) for x in pair)
+    big_val = "\n\n".join(x for pair in zip(shared, fresh) for x in pair)
+    big = _scan_like(big_train, big_val, shingle_fn, doc_aligned=False)
+
+    ok = (tiny.verdict == "CLEAN" and not tiny.lines_readable
+          and big.lines_readable and big.verdict == "SUSPECT")
+    # The detail is read off report() rather than off lines_readable, so that a
+    # detector without the floor at all fails with a legible line instead of an
+    # AttributeError. The `and` above short-circuits before it reaches the
+    # attribute for the same reason.
+    row = next(l.strip() for l in tiny.report().splitlines()
+               if l.strip().startswith("lines"))
+    return ok, (f"{tiny.val_lines}-line holdout: {row} -> {tiny.verdict}; "
+                f"{big.val_lines}-line holdout: {big.line_frac:.1%} of lines "
+                f"shared -> {big.verdict}")
+
+
 TESTS = [
     ("phase invariance", test_phase_invariance),
     ("no false positive at scale", test_no_false_positive_at_scale),
     ("clean split reads CLEAN", test_clean_split_reads_clean),
     ("documented length guarantee", test_guarantee_length),
     ("short copies are caught", test_short_copies_are_caught),
+    ("line arm has a denominator", test_line_arm_has_a_denominator),
 ]
 
 
