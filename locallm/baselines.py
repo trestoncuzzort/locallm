@@ -118,6 +118,83 @@ def ngram_nats(train: str, val: str, vocab_size: int,
     return _mean_nats(s, len(val))
 
 
+def holdout_eligibility(text: str, train_text: str | None, val_text: str | None,
+                        val_frac: float = 0.1, seed: int = 1337) -> str | None:
+    """Why this holdout cannot carry a baseline comparison, or None if it can.
+
+    THE RULE IN THIS MODULE'S DOCSTRING, MADE CALLABLE. It was prose here and
+    an inline check in studio.py, and the two experiments had neither: they
+    published closed_fraction on any corpus at all. Measured, before this
+    existed, with training stubbed so only the analysis ran:
+
+      one document holding 99% of the corpus   split_verdict "corpus",
+                                               closed_fraction 0.0221 published
+      near-duplicate documents on both sides   leakage CONTAMINATED,
+                                               closed_fraction -0.3258 published
+      one character, no holdout at all         ZeroDivisionError
+
+    Every one of those numbers is the model and the baseline being wrong in the
+    same direction on the same unusable holdout, printed as a percentage with a
+    "vs table" column heading over it.
+
+    The split arm and the leakage arm are both required, and they catch
+    different things: a corpus can split perfectly and still have the same
+    passages on both sides, and a corpus with no overlap at all can still fail
+    to yield a holdout worth the name.
+
+    Imports are local so that importing baselines stays free for callers that
+    only want the arithmetic, and so this module never has to be ordered
+    against leakage.py at import time.
+    """
+    from data import split_health, split_verdict
+    from leakage import scan
+
+    if train_text is None or not val_text:
+        return ("no held-out text was produced, so there is nothing to score a "
+                "baseline on")
+    v = split_verdict(split_health(text, val_frac, seed))
+    if v is not None:
+        return {
+            "empty": "nothing was held back at all, so there is no holdout",
+            "corpus": ("this corpus cannot support the requested split: no "
+                       "whole-document split of it gets near the request"),
+            "splitter": ("this split fell short of the requested holdout, "
+                         "though the corpus could support it -- another seed "
+                         "probably would"),
+        }[v]
+    rep = scan(train_text, val_text)
+    if not rep.trustworthy:
+        return f"the leakage scan reads {rep.verdict}: {rep.reason}"
+    return None
+
+
+def closed_fraction(ngram_choices: float, model_choices: float,
+                    ineligible: str | None = None) -> tuple[float | None, str | None]:
+    """Of the distance the lookup table left on the table, how much the model
+    closed -- or None, and the sentence that says why there is no number.
+
+    Two ways there is no number. The holdout may be ineligible, in which case
+    the caller already knows why and passes it through. Or the lookup table may
+    already be at 1.0 choices, which leaves the fraction without a denominator:
+    both experiments divided by (ngram_choices - 1.0) unguarded and died with
+    ZeroDivisionError on a single-character corpus, where the n-gram falls back
+    to uniform_nats(1) == 0 and exp(0) is exactly 1.0.
+
+    NOT USED BY compare() BELOW, deliberately and not happily: compare()
+    answers the same question with 0.0 in the no-denominator case, which reads
+    as "the model closed none of the distance" when the truth is "there was no
+    distance". Changing it moves what train.py and studio.py print, so it wants
+    its own change and its own witness rather than a ride on this one.
+    """
+    if ineligible:
+        return None, ineligible
+    if ngram_choices <= 1.0:
+        return None, (f"the lookup table already scores {ngram_choices:.4f} "
+                      f"choices, so there is no distance left to close and the "
+                      f"fraction has no denominator")
+    return (ngram_choices - model_choices) / (ngram_choices - 1.0), None
+
+
 def compare(train: str, val: str, vocab_size: int,
             model_val_nats: float | None = None) -> dict:
     """Score every baseline on this split, plus the model if you have its loss.

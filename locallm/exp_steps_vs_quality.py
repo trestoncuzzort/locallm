@@ -93,10 +93,23 @@ def main() -> None:
 
     print("scoring the lookup table once (same holdout for every arm)...", flush=True)
     t0 = time.time()
-    base = baselines.compare(corpus.train_text, corpus.val_text, tok.vocab_size)
+    base = baselines.compare(corpus.train_text or "", corpus.val_text or "",
+                             tok.vocab_size)
     ngram_choices = base[f"ngram_{baselines.NGRAM_ORDER}"]["choices"]
     print(f"  trigram: {base[f'ngram_{baselines.NGRAM_ORDER}']['bits_per_char']:.3f} "
           f"bits/char, {ngram_choices:.2f} choices  ({time.time()-t0:.1f}s)\n", flush=True)
+
+    # A baseline is only worth reporting on a holdout that is worth reporting.
+    # baselines.py has said so in prose since it was written and studio.py has
+    # enforced it since; this file published closed_fraction for any corpus at
+    # all, including ones with no holdout to speak of.
+    ineligible = baselines.holdout_eligibility(text, corpus.train_text,
+                                               corpus.val_text,
+                                               corpus.val_frac, corpus.seed)
+    if ineligible:
+        print(f"  NOT ELIGIBLE for a baseline comparison: {ineligible}\n"
+              f"  closed_fraction will be recorded as null for every arm; the "
+              f"val losses below stand on their own.\n", flush=True)
 
     results: dict[str, list[float]] = {}
     wall0 = time.time()
@@ -117,11 +130,13 @@ def main() -> None:
     summary = {}
     for steps, row in results.items():
         mean = sum(row) / len(row)
+        closed, why = baselines.closed_fraction(ngram_choices, math.exp(mean),
+                                                ineligible)
         summary[steps] = {
             "seeds": row, "mean": mean, "min": min(row), "max": max(row),
             "spread": max(row) - min(row),
             "choices": math.exp(mean),
-            "closed_fraction": ((ngram_choices - math.exp(mean)) / (ngram_choices - 1.0)),
+            "closed_fraction": closed, "closed_fraction_reason": why,
         }
 
     comparisons = []
@@ -145,6 +160,8 @@ def main() -> None:
         "device": device,
         "wall_s": time.time() - wall0,
         "baseline": base,
+        "holdout_eligible": ineligible is None,
+        "ineligible_reason": ineligible,
         "arms": summary,
         "comparisons": comparisons,
         "verdict": verdict,
@@ -158,8 +175,12 @@ def main() -> None:
     print(f"{'steps':>7} {'mean val':>10} {'spread':>8} {'choices':>9} {'vs table':>9}")
     for steps in arms:
         s = summary[steps]
+        vs = (f"{s['closed_fraction']*100:>8.0f}%"
+              if s["closed_fraction"] is not None else f"{'n/a':>9}")
         print(f"{steps:>7} {s['mean']:>10.4f} {s['spread']:>8.4f} "
-              f"{s['choices']:>9.2f} {s['closed_fraction']*100:>8.0f}%")
+              f"{s['choices']:>9.2f} {vs}")
+    if ineligible:
+        print(f"  vs table: n/a -- {ineligible}")
     print()
     for c in comparisons:
         mark = "REAL" if c["beats_noise"] else "inside noise"
