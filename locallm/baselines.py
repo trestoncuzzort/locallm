@@ -38,6 +38,13 @@ not CLEAN — then the comparison is as meaningless as the model's own val loss,
 and callers must not present it as evidence. compare() therefore takes the
 already-split text rather than re-splitting, so it cannot silently score a
 different split than the one that trained (the F-02 trap, in miniature).
+
+AND IT IS ENFORCED OVER A WHOLE PAYLOAD, not over one field. holdout_eligibility
+answers whether a holdout can carry a claim; withhold_claims takes an
+experiment's result payload and nulls every claim in it when the answer is no,
+deriving the set of claims by walking the payload rather than from a list
+someone maintains by hand beside it. See its docstring for what was published
+the two times only one field was nulled.
 """
 from __future__ import annotations
 
@@ -238,6 +245,117 @@ def closed_fraction(ngram_choices: float, model_choices: float,
                       f"choices, so there is no distance left to close and the "
                       f"fraction has no denominator")
     return (ngram_choices - model_choices) / (ngram_choices - 1.0), None
+
+
+# The three fields the gate below writes for itself. They are the ANSWER to the
+# eligibility question rather than a reading of the run, so no caller declares
+# them and no caller sets them: a payload that wrote its own holdout_eligible
+# could disagree with the gate that suppressed it.
+GATE_FIELDS = ("holdout_eligible", "ineligible_reason", "claims_withheld")
+
+
+def _leaf_paths(node, prefix: tuple = ()):
+    """Every leaf path of a payload, as tuples of key names.
+
+    A LIST IS A LEAF. A list of comparisons is one claim the run makes, not one
+    claim per element, and nothing here needs to null the third element of a
+    list while keeping the second.
+    """
+    if isinstance(node, dict) and node:
+        for k, v in node.items():
+            yield from _leaf_paths(v, prefix + (str(k),))
+    else:
+        yield prefix
+
+
+def _declared(path: tuple, data) -> bool:
+    """Whether one leaf path is declared a measurement.
+
+    `*` matches exactly ONE segment, so "arms.*.mean" covers every arm without
+    naming them. A pattern never matches a PREFIX of a path: declaring
+    "baseline" would not silently adopt whatever a later change adds inside it,
+    and that is the direction this has to fail in.
+    """
+    for pattern in data:
+        segs = pattern.split(".")
+        if len(segs) == len(path) and all(s in ("*", p)
+                                          for s, p in zip(segs, path)):
+            return True
+    return False
+
+
+def _null_claims(node, data, prefix: tuple = ()):
+    """`node` with every undeclared leaf replaced by None. Builds a new object;
+    the caller's payload is not modified."""
+    if isinstance(node, dict) and node:
+        return {k: _null_claims(v, data, prefix + (str(k),))
+                for k, v in node.items()}
+    return node if _declared(prefix, data) else None
+
+
+def claims_in(payload: dict, data) -> list[str]:
+    """The claim-bearing paths of `payload`, DERIVED by walking `payload`.
+
+    The set is computed from the object that is about to be published, not
+    typed out beside it. A caller declares what it MEASURED; everything else in
+    the structure is an assertion built on the holdout, including a field added
+    to the payload next year by someone who never read this module. A list of
+    fields to null would have to be edited in step with the payload and would
+    fail open when it was not; this fails closed, and the cost is that a new
+    measurement has to be declared before it survives.
+    """
+    return sorted(".".join(p) for p in _leaf_paths(payload)
+                  if p and p[0] not in GATE_FIELDS and not _declared(p, data))
+
+
+def withhold_claims(payload: dict, ineligible: str | None, data) -> dict:
+    """Null every claim in `payload` when the holdout cannot carry one.
+
+    ELIGIBILITY GATES THE WHOLE VERDICT SURFACE, NOT ONE FIELD. This is the
+    third time the same failure has been found: a run that has already printed
+    why it cannot be trusted goes on to publish the ordinary affirmative
+    result. First closed_fraction was published on an ineligible corpus; then
+    closed_fraction alone was nulled and everything beside it survived.
+    Measured on the bytes before this function existed, with training stubbed
+    so only the analysis ran and a corpus one document of which holds 99% of
+    it, exp_steps_vs_quality printed
+
+        NOT ELIGIBLE for a baseline comparison: this corpus cannot support the
+        requested split: no whole-document split of it gets near the request
+
+    and, at the end of the same run,
+
+        VERDICT: longer training measurably helps
+
+    while the result file carried that verdict plus two comparisons marked
+    beats_noise true, and runs.jsonl recorded
+    {"verdict": "longer training measurably helps", ...} with no eligibility
+    field anywhere on the row. Every one of those is an affirmative claim about
+    unseen text, made about a holdout the same run had just called unusable.
+
+    WHAT SURVIVES, AND WHY IT IS NOT A LOOPHOLE. The measurements do. A per-seed
+    validation loss is the number the model scored on the text that was actually
+    held back; it is what happened, and recording it is how a later reader can
+    re-derive anything if the split is ever shown to be sound after all. What
+    ineligibility destroys is the INTERPRETATION -- that those numbers say
+    anything about text the model has not seen -- so every difference between
+    arms, every comparison against noise and every verdict string goes, and the
+    readings stay beside the sentence that says why they cannot be read. A
+    caller that declares a comparison as a measurement is lying to this
+    function; nothing here can stop it, and the declaration is in its file
+    where a reader can check it.
+
+    Returns a new payload. The original is not modified.
+    """
+    withheld = claims_in(payload, data)
+    if ineligible:
+        out = _null_claims(payload, data)
+    else:
+        out = dict(payload)
+    out["holdout_eligible"] = ineligible is None
+    out["ineligible_reason"] = ineligible
+    out["claims_withheld"] = [] if ineligible is None else withheld
+    return out
 
 
 def compare(train: str, val: str, vocab_size: int,

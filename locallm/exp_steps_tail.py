@@ -39,6 +39,28 @@ ARCH = dict(n_layer=4, n_head=4, n_embd=256, block_size=128)
 BATCH, DROPOUT = 32, 0.1
 CHARS_PER_STEP = BATCH * ARCH["block_size"]
 
+# WHAT THIS EXPERIMENT MEASURED, as opposed to what it CONCLUDED. The same
+# declaration exp_steps_vs_quality.py carries and for the same reason: every
+# leaf of the payload not named here is a claim built on the holdout, and
+# baselines.withhold_claims nulls it when the holdout cannot carry one. A field
+# added below and never declared is withheld by default.
+#
+# The per-arm train/val readings stay on an ineligible run -- including the
+# gap, which is one model's val loss minus its own train loss and is measured,
+# not argued. What goes is every comparison BETWEEN arms (val_change,
+# gap_growth and the two booleans read off them), the verdict, and
+# closed_fraction. corpus_crossings is arithmetic on the step count and the
+# corpus length and does not touch the holdout at all.
+PAYLOAD_DATA = frozenset({
+    "prereg", "device", "partial", "wall_s",
+    "baseline.*.nats_per_char", "baseline.*.bits_per_char", "baseline.*.choices",
+    "arms.*.seeds_val", "arms.*.seeds_train", "arms.*.seeds_gap",
+    "arms.*.mean_val", "arms.*.spread_val", "arms.*.mean_train",
+    "arms.*.mean_gap", "arms.*.spread_gap", "arms.*.choices",
+    "arms.*.corpus_crossings", "arms.*.closed_fraction_reason",
+})
+RECORD_DATA = frozenset({"wall_s"})
+
 
 def train_one(corpus, tok, device, steps: int, seed: int) -> dict:
     """One run, mirroring train.py's loop exactly. Returns train and val."""
@@ -95,6 +117,62 @@ def summarise(rows: list[dict], steps: int, corpus_chars: int,
     }
 
 
+def compare_arms(summary: dict, arms: list[str]) -> list[dict]:
+    """Consecutive arms, on val and on the train/val gap. All claims."""
+    out = []
+    for a, b in zip(arms, arms[1:]):
+        gap = summary[a]["mean_val"] - summary[b]["mean_val"]   # +ve = b better
+        noise = max(summary[a]["spread_val"], summary[b]["spread_val"])
+        gap_growth = summary[b]["mean_gap"] - summary[a]["mean_gap"]
+        gap_noise = max(summary[a]["spread_gap"], summary[b]["spread_gap"])
+        out.append({
+            "from_steps": int(a), "to_steps": int(b),
+            "val_change": gap, "val_noise": noise,
+            "still_improving": bool(gap > noise),
+            "turned_up": bool(-gap > noise),
+            "gap_growth": gap_growth, "gap_noise": gap_noise,
+            "memorising": bool(gap_growth > gap_noise),
+        })
+    return out
+
+
+def verdict_of(comparisons: list[dict]) -> str:
+    if any(c["turned_up"] for c in comparisons):
+        return "TAIL FOUND — more training measurably made it worse on unseen text"
+    if any(c["memorising"] for c in comparisons):
+        return ("no turn-up yet, but the train/val gap is widening beyond noise — "
+                "memorising is detectable before it is costly")
+    if all(c["still_improving"] for c in comparisons):
+        return "still improving at every arm — no tail within the range tested"
+    return "flattened — gains fell inside seed noise, but nothing got worse"
+
+
+def payload_of(base: dict, summary: dict, device: str, wall_s: float,
+               ineligible: str | None, *, partial: bool,
+               comparisons: list[dict] | None = None,
+               verdict: str | None = None) -> dict:
+    """The result file, with every claim in it gated on the holdout.
+
+    Both the after-every-arm write and the final one come through here, so a
+    partial file cannot carry a claim the final one would have withheld. The
+    partial one simply has no comparisons and no verdict yet: those keys are
+    absent rather than null, because "not computed yet" and "withheld" are
+    different facts and the reader of a partial file deserves the first one.
+
+    Every claim surface of this experiment reads the returned object -- the
+    file, the run log record and the terminal -- so none of them can print what
+    another withheld. Before this, an ineligible holdout nulled closed_fraction
+    and left the verdict, the val comparisons and the memorising call standing.
+    """
+    payload = {"prereg": PREREG["experiment"], "device": device,
+               "partial": partial, "baseline": base, "arms": summary,
+               "wall_s": wall_s}
+    if not partial:
+        payload["comparisons"] = comparisons
+        payload["verdict"] = verdict
+    return baselines.withhold_claims(payload, ineligible, PAYLOAD_DATA)
+
+
 def main() -> None:
     enable_fast_math()
     device = pick_device()
@@ -122,8 +200,10 @@ def main() -> None:
                                                doc_aligned=corpus.grouped)
     if ineligible:
         print(f"  NOT ELIGIBLE for a baseline comparison: {ineligible}\n"
-              f"  closed_fraction will be recorded as null for every arm; the "
-              f"train/val readings below stand on their own.\n", flush=True)
+              f"  Every claim this run would make rests on that holdout, so the "
+              f"verdict, the arm-to-arm comparisons and closed_fraction will all "
+              f"be withheld. The train/val readings below are readings, and they "
+              f"stay.\n", flush=True)
 
     summary: dict[str, dict] = {}
     wall0 = time.time()
@@ -143,60 +223,40 @@ def main() -> None:
               flush=True)
         # Written after every arm, not at the end. See module docstring.
         OUT.write_text(json.dumps(
-            {"prereg": PREREG["experiment"], "device": device, "baseline": base,
-             "holdout_eligible": ineligible is None,
-             "ineligible_reason": ineligible,
-             "partial": True, "arms": summary,
-             "wall_s": time.time() - wall0}, indent=2), encoding="utf-8")
+            payload_of(base, summary, device, time.time() - wall0, ineligible,
+                       partial=True), indent=2), encoding="utf-8")
 
     arms = [str(s) for s in STEPS_ARMS]
-    comparisons = []
-    for a, b in zip(arms, arms[1:]):
-        gap = summary[a]["mean_val"] - summary[b]["mean_val"]   # +ve = b better
-        noise = max(summary[a]["spread_val"], summary[b]["spread_val"])
-        gap_growth = summary[b]["mean_gap"] - summary[a]["mean_gap"]
-        gap_noise = max(summary[a]["spread_gap"], summary[b]["spread_gap"])
-        comparisons.append({
-            "from_steps": int(a), "to_steps": int(b),
-            "val_change": gap, "val_noise": noise,
-            "still_improving": bool(gap > noise),
-            "turned_up": bool(-gap > noise),
-            "gap_growth": gap_growth, "gap_noise": gap_noise,
-            "memorising": bool(gap_growth > gap_noise),
-        })
-
-    if any(c["turned_up"] for c in comparisons):
-        verdict = "TAIL FOUND — more training measurably made it worse on unseen text"
-    elif any(c["memorising"] for c in comparisons):
-        verdict = ("no turn-up yet, but the train/val gap is widening beyond noise — "
-                   "memorising is detectable before it is costly")
-    elif all(c["still_improving"] for c in comparisons):
-        verdict = "still improving at every arm — no tail within the range tested"
-    else:
-        verdict = "flattened — gains fell inside seed noise, but nothing got worse"
-
-    payload = {"prereg": PREREG["experiment"], "device": device, "partial": False,
-               "baseline": base, "holdout_eligible": ineligible is None,
-               "ineligible_reason": ineligible,
-               "arms": summary, "comparisons": comparisons,
-               "verdict": verdict, "wall_s": time.time() - wall0}
+    comparisons = compare_arms(summary, arms)
+    payload = payload_of(base, summary, device, time.time() - wall0, ineligible,
+                         partial=False, comparisons=comparisons,
+                         verdict=verdict_of(comparisons))
     OUT.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     # Every arm here is scored on the SAME holdout and the verdict is a
     # comparison of val losses, so which holdout it was is part of the result,
     # not decoration; and every arm's timing is a device number. Both fields
     # are read off the Corpus that actually trained, never re-derived.
+    #
+    # The metrics dict goes through the same gate as the payload: a run log row
+    # that carried the verdict of a run whose result file withheld it would be
+    # the same claim, published somewhere the reader trusts more.
     runlog.record("experiment", kind_detail="steps_tail", device=device,
                   data_device=corpus.data_device,
                   corpus=runlog.corpus_fingerprint(text),
                   split_fingerprint=runlog.split_fingerprint(
                       corpus.val_frac, corpus.seed, corpus.val_text),
-                  metrics={"verdict": verdict, "wall_s": payload["wall_s"]})
+                  metrics=baselines.withhold_claims(
+                      {"verdict": payload["verdict"],
+                       "wall_s": payload["wall_s"]},
+                      ineligible, RECORD_DATA))
 
+    # PRINTED FROM THE GATED PAYLOAD, never from the local variables above, so
+    # the terminal cannot state what the file withheld.
     print("=" * 78)
     print(f"{'steps':>8} {'crossings':>10} {'train':>8} {'val':>8} {'gap':>8} "
           f"{'spread':>8} {'vs table':>9}")
     for k in arms:
-        s = summary[k]
+        s = payload["arms"][k]
         vs = (f"{s['closed_fraction']*100:>8.0f}%"
               if s["closed_fraction"] is not None else f"{'n/a':>9}")
         print(f"{k:>8} {s['corpus_crossings']:>9.1f}x {s['mean_train']:>8.4f} "
@@ -205,7 +265,7 @@ def main() -> None:
     if ineligible:
         print(f"  vs table: n/a -- {ineligible}")
     print()
-    for c in comparisons:
+    for c in payload["comparisons"] or []:
         if c["turned_up"]:
             mark = "WORSE — tail found"
         elif c["still_improving"]:
@@ -216,7 +276,14 @@ def main() -> None:
               f"(noise {c['val_noise']:.4f})   gap {c['gap_growth']:+.4f} "
               f"(noise {c['gap_noise']:.4f})   {mark}"
               f"{'  MEMORISING' if c['memorising'] else ''}")
-    print(f"\nVERDICT: {verdict}")
+    if payload["verdict"] is None:
+        print(f"\nVERDICT WITHHELD: {payload['ineligible_reason']}")
+        print(f"  {len(payload['claims_withheld'])} claim-bearing field(s) "
+              f"withheld: {', '.join(payload['claims_withheld'])}")
+        print("  The table above is what this run measured. Nothing in this "
+              "result says what it means.")
+    else:
+        print(f"\nVERDICT: {payload['verdict']}")
     print(f"wall {payload['wall_s']/60:.1f} min -> {OUT.name}")
 
 
