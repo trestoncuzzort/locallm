@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import multiprocessing as mp
 import re
 import sys
@@ -55,7 +56,24 @@ EVAL_BATCHES = 40
 USE_AMP = True
 
 
-_BAR = re.compile(r">=\s*([0-9]*\.?[0-9]+)")
+# THE BAR IS A COMPLETE NUMERIC TOKEN, and the pattern says so at both ends.
+# The previous one, r">=\s*([0-9]*\.?[0-9]+)", was a PREFIX match: it read the
+# longest plain decimal it could and ignored whatever followed, so it could not
+# tell 0.020 from 0.020junk and read the exponent of 5e-1 as if it were not
+# there. Measured, before: "gap >= 5e-1" -> 5.0 (a bar 10x too high),
+# "gap >= 2E2" -> 2.0, "gap >= 0.020junk" -> 0.020, "gap >= -0.020" -> refused
+# outright, "gap >= 0x10" -> 0.0, "gap >= 1_000" -> 1.0, "gap >= 0.02e" ->
+# 0.020, "gap >= 2e400" -> 2.0.
+#
+#   [+-]?                     an explicit sign, PARSED rather than dropped
+#   digits with an optional fraction, or a leading-dot fraction
+#   an optional exponent, WITH its digits
+#   (?![0-9A-Za-z_]|\.[0-9])  and nothing may follow that could have belonged
+#                             to the number. A sentence-ending "." is fine: a
+#                             period not followed by a digit is punctuation.
+_BAR = re.compile(
+    r">=\s*([+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?)"
+    r"(?![0-9A-Za-z_]|\.[0-9])")
 
 
 def success_bar(prereg: dict) -> float:
@@ -72,14 +90,40 @@ def success_bar(prereg: dict) -> float:
     a second field would be a second place for the two to disagree. If it
     cannot be read, the experiment stops: a confirmatory run that does not know
     its own bar has nothing to confirm.
+
+    PARSING PROSE MEANS REFUSING PROSE IT CANNOT READ. The failure this guards
+    is not an exception, it is a WRONG NUMBER THAT RUNS: the previous pattern
+    read "gap >= 5e-1" as 5.0 and "gap >= 0.020junk" as 0.020, and either would
+    have printed "bar = ..." and a PASS/FAIL verdict against a bar the
+    preregistration never set. So the token must be a complete numeric literal
+    with nothing of the number left over, and anything else raises.
+
+    ONE bar, too. If the prose carries two different ">= <number>" tokens --
+    "n >= 5 seeds and gap >= 0.020" -- the old pattern took the first and read
+    the bar as 5.0. There is no rule that makes one of them the right one, so
+    this refuses and says which two it found. Repeats of the SAME number are
+    fine: they cannot be ambiguous.
     """
     primary = prereg["success_bar"]["primary"]
-    m = _BAR.search(primary)
-    if not m:
+    found = _BAR.findall(primary)
+    if not found:
         raise ValueError(
             f"cannot read a numeric bar out of this preregistration's "
-            f"success_bar.primary: {primary!r}. It must contain '>= <number>'.")
-    return float(m.group(1))
+            f"success_bar.primary: {primary!r}. It must contain '>= <number>' "
+            f"where <number> is a complete decimal literal (5, 0.020, .5, "
+            f"-0.02, 5e-1) with nothing attached to it.")
+    values = sorted({float(f) for f in found})
+    if len(values) > 1:
+        raise ValueError(
+            f"this preregistration's success_bar.primary names more than one "
+            f"bar ({', '.join(repr(v) for v in values)}): {primary!r}. Nothing "
+            f"here decides which is THE bar, so it must say one.")
+    bar = values[0]
+    if not math.isfinite(bar):
+        raise ValueError(
+            f"this preregistration's success_bar.primary reads as {bar}, which "
+            f"is not a number an experiment can be judged against: {primary!r}")
+    return bar
 
 
 def fixed_eval_batches(corpus: Corpus, batch_size: int, block_size: int, n: int):
