@@ -27,6 +27,7 @@ import hashlib
 import json
 import platform
 import sys
+from collections import Counter
 from datetime import datetime
 from pathlib import Path
 
@@ -158,9 +159,21 @@ def review(rows: list[dict]) -> None:
                   f"({cfg.get('n_layer')}L{cfg.get('n_head')}H{cfg.get('n_embd')}D, "
                   f"{cfg.get('steps')} steps, {best_r.get('device')}, "
                   f"{best_r.get('ts','')[:16]})")
-        untrusted = [r for r in train
-                     if _g(r, "leakage", "verdict", default="") not in ("CLEAN", "")]
-        print(f"runs whose val loss is NOT trustworthy: {len(untrusted)} of {len(train)}")
+        # ONLY A RECORDED "CLEAN" COUNTS AS TRUSTWORTHY. The empty string used
+        # to be allowlisted here beside "CLEAN", which meant a run whose scan
+        # CRASHED (train.py wrote {} and the verdict came back "") was reported
+        # as trustworthy, and so was a row from a version that never scanned at
+        # all. Absence of a verdict is not evidence of a clean split; it is
+        # absence of evidence, and this digest exists for someone who did not
+        # watch any of it happen and cannot tell the two apart. The reasons are
+        # named rather than summed, so "2 of 3" does not hide what the 2 were.
+        reasons = Counter(_g(r, "leakage", "verdict", default="") or "not recorded"
+                          for r in train)
+        untrusted = sum(n for v, n in reasons.items() if v != "CLEAN")
+        detail = ", ".join(f"{v} {n}" for v, n in sorted(reasons.items())
+                           if v != "CLEAN")
+        print(f"runs whose val loss is NOT trustworthy: {untrusted} of {len(train)}"
+              + (f"   ({detail})" if detail else ""))
 
     print("\nWhat this digest does NOT establish: that any two runs above are")
     print("comparable. Check the corpus fingerprint and the config before")

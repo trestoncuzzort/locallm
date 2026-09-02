@@ -87,15 +87,25 @@ def make_optimizer(model, lr: float):
 
 def _leak_of(text: str) -> dict:
     """Leakage verdict for the split this run actually trained on, so a val loss
-    is never recorded without the context that says whether it means anything."""
+    is never recorded without the context that says whether it means anything.
+
+    A CRASH IS A VERDICT, and it is not a good one. This used to return {} on
+    any exception, which wrote a row with no verdict in it at all; runlog's
+    digest then read the missing verdict as "nothing to report" and filed the
+    run beside the ones that were actually scanned and found clean. A scan that
+    died tells you nothing about the split, so it must say exactly that and be
+    counted with the runs whose val loss cannot be defended.
+    """
     try:
         from leakage import scan
         from data import group_split
         tr, va = group_split(text)
         rep = scan(tr, va)
         return {"verdict": rep.verdict, "content_frac": rep.shingle_frac}
-    except Exception:                            # noqa: BLE001
-        return {}
+    except Exception as e:                       # noqa: BLE001
+        print(f"[leakage] the scan failed ({type(e).__name__}: {e}), so this "
+              f"run's val loss is UNVERIFIED. Judge it on train loss.")
+        return {"verdict": "SCAN_FAILED", "error": f"{type(e).__name__}: {e}"}
 
 
 def auto_lr(n_embd: int) -> float:
