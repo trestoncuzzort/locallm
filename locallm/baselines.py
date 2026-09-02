@@ -91,6 +91,17 @@ def ngram_nats(train: str, val: str, vocab_size: int,
     one pass, and on the 20MB corpus it builds in 1.8s into ~11k cells. That cost
     is why this can run on every claim-bearing run instead of being opt-in.
 
+    The context table is FOLDED OUT OF the n-gram table rather than counted from
+    the string a second time, and that is a correctness point before it is a
+    speed one. Counting (k-1)-grams over the string walks one position further
+    than counting k-grams does, so the FINAL (k-1)-gram gets counted as a
+    context that never had a following character. Any context equal to that one
+    then divides by a denominator one too large and its conditional
+    distribution sums to less than 1: measured on an 8,708-character corpus,
+    0.99953 at order 2, 0.99762 at order 3 and 0.99160 at order 4. Summing the
+    k-gram counts instead makes sum_c (n + 1) / (d + V) equal (d + V) / (d + V)
+    by construction, at every order, for every context.
+
     An unseen context falls back to add-1 over the whole alphabet, which is the
     same floor `uniform_nats` reports — a context the model has never seen is a
     context this baseline cannot help with, and pretending otherwise would
@@ -101,8 +112,16 @@ def ngram_nats(train: str, val: str, vocab_size: int,
         return uniform_nats(vocab_size)
 
     # counts[ctx][nxt] via two flat Counters: the full n-gram, and its context.
+    # The context table is the n-gram table with the last character dropped, so
+    # the two can never disagree about how many positions were counted. See the
+    # docstring: counting it from the string instead walked one position further
+    # and left the last context with a successor it never had.
     full = Counter(zip(*(train[i:] for i in range(k))))
-    ctx = Counter(zip(*(train[i:] for i in range(k - 1)))) if k > 1 else None
+    ctx = None
+    if k > 1:
+        ctx = Counter()
+        for gram, n in full.items():
+            ctx[gram[:-1]] += n
 
     hist = tuple(train[-(k - 1):]) if k > 1 else ()
     s = 0.0
