@@ -21,12 +21,41 @@ No scipy on this machine, so the t distribution is implemented in stats_core.py
 (extracted from this file 2026-08-31, behavior-preserving, output byte-identical;
 one implementation, imported by everything that reports a p-value). Checked
 against known values in main().
+
+THREE THINGS THIS FILE USED TO GET WRONG, and what it does instead
+------------------------------------------------------------------
+1. POOLING ACROSS VERIFIERS. Rows were grouped by MODEL alone. The base arm
+   'llama3:8b-instruct-q4_K_M' holds 10 rows banked before the verifier was
+   pinned (verifier absent entirely, replicate counter 1..10) and 40 banked
+   after it (CPython 3.11.9, replicate counter restarted at 1..40). Averaging
+   them produced one "base mean" over two different instruments, and the gap it
+   hid is 7.6 pp -- larger than every effect this file reports. Every arm is now
+   partitioned by provenance.verifier_key(), the same key ruler_noise.py pools
+   on; the base arm reports the pinned 40 as the reference and prints the
+   pre-pin 10 separately under an explicit NOT-POOLABLE line. Because the
+   replicate counter restarts per key, a run-order or drift statistic is only
+   meaningful WITHIN one key, and there is deliberately none across keys here.
+2. A METRIC LABEL THAT WAS TRUE OF ONLY TWO OF THE THREE ARMS. The header said
+   "greedy-free run-level pass@1" over the whole report. It is true of the two
+   compared arms, whose rows carry greedy=null and five sampled draws. The base
+   arm's rows carry a greedy draw plus four sampled ones, and its banked
+   aggregate INCLUDES the greedy draw. Both constructions are now computed for
+   every arm and printed side by side, and the label on the banked aggregate is
+   derived by comparing it against both -- checked, not asserted.
+3. AN UNMEASURED TASK SCORED AS ZERO. The per-task view enumerated tasks from
+   the trained arm only, so a task present in just the null arm was invisible;
+   and a task whose `sampled` list was empty was averaged in as 0.0, which is
+   the score of a task that was measured and failed everywhere. Tasks now come
+   from the UNION of both arms, an entry with no sampled draws contributes
+   nothing, a task with no measurement in either arm is excluded, and the
+   excluded count is printed rather than absorbed.
 """
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
+from provenance import UNPINNED, is_pinned, verifier_key
 from stats_core import mean, paired, sd, t_crit, t_sf, welch
 
 HERE = Path(__file__).resolve().parent
@@ -34,9 +63,17 @@ NOISE = HERE / "data" / "ruler_noise.jsonl"
 TRAINED, NULL = "llama3-forged", "llama3-forged-null"
 BASE = "llama3:8b-instruct-q4_K_M"
 MDE_PP = 2.98          # preregistered minimum detectable effect
+# Banked aggregates are rounded to 4 decimal places, so recomputing one can
+# differ by up to 5e-5 (measured worst case across every retained row: 4.84e-5).
+# The two constructions themselves differ by 5.0e-2 on the base arm, so this
+# window tells them apart by a factor of 500 and cannot mislabel either.
+_TOL = 1e-4
 
 
 def load() -> dict[str, list[dict]]:
+    """Rows grouped by model. Grouping by model is NOT a pooling decision --
+    partition() below supplies the key that is, and every statistic in main()
+    is computed inside one of its groups."""
     out: dict[str, list[dict]] = {}
     with open(NOISE, encoding="utf-8") as fh:
         for line in fh:
@@ -48,8 +85,125 @@ def load() -> dict[str, list[dict]]:
 
 
 def rate(row: dict) -> float:
+    """The aggregate AS BANKED. What construction that is depends on the row --
+    see stored_construction(); it is greedy-free for the two compared arms and
+    greedy-anchored for the base arm."""
     agg = row["aggregate"]
     return agg["pass@1"] if isinstance(agg, dict) else float(agg)
+
+
+def entries(r: dict) -> list[dict]:
+    """per_task is a LIST of {tid, greedy, sampled} in the banked rows, but the
+    earliest ones stored a mapping. Both shapes, one accessor."""
+    pt = r["per_task"]
+    return pt if isinstance(pt, list) else [dict(v, tid=k) for k, v in pt.items()]
+
+
+def partition(rows: list[dict]) -> dict[tuple, list[dict]]:
+    """Split one arm into the groups whose rows may legitimately be averaged."""
+    out: dict[tuple, list[dict]] = {}
+    for r in rows:
+        out.setdefault(verifier_key(r), []).append(r)
+    return out
+
+
+def greedy_free_rate(row: dict) -> float | None:
+    """Run-level pass@1 over the SAMPLED draws only. None when nothing in the
+    row was sampled -- an unmeasured row has no rate, it does not have 0.0."""
+    vals = [sum(e["sampled"]) / len(e["sampled"])
+            for e in entries(row) if e.get("sampled")]
+    return mean(vals) if vals else None
+
+
+def greedy_anchored_rate(row: dict) -> float | None:
+    """Run-level pass@1 counting the temp-0 greedy draw as one more draw, which
+    is what eval.py banked before the greedy anchor was dropped."""
+    vals = []
+    for e in entries(row):
+        s = list(e.get("sampled") or [])
+        if e.get("greedy") is not None:
+            s = [float(bool(e["greedy"]))] + s
+        if s:
+            vals.append(sum(s) / len(s))
+    return mean(vals) if vals else None
+
+
+def stored_construction(rows: list[dict]) -> str:
+    """Which of the two the banked aggregate actually equals, decided by
+    recomputing both and comparing -- so the label cannot drift off the data."""
+    if not rows:
+        return "no rows"
+    free = all(v is not None and abs(rate(r) - v) <= _TOL
+               for r, v in ((r, greedy_free_rate(r)) for r in rows))
+    anch = all(v is not None and abs(rate(r) - v) <= _TOL
+               for r, v in ((r, greedy_anchored_rate(r)) for r in rows))
+    if free and not anch:
+        return "greedy-free"
+    if anch and not free:
+        return "greedy-ANCHORED"
+    if free and anch:
+        return "greedy-free (no greedy draw was banked)"
+    return "UNRECOGNISED (matches neither construction)"
+
+
+def per_task_mean(rows: list[dict], tid: str) -> float | None:
+    """Mean sampled rate for one task across an arm's rows.
+
+    An entry with no sampled draws is NOT measured, so it contributes nothing.
+    Scoring it 0.0 states that the model was asked and failed every time, which
+    is a different claim from the one the data supports. None means the arm
+    never measured this task at all.
+    """
+    vals = []
+    for r in rows:
+        for e in entries(r):
+            if e.get("tid") != tid:
+                continue
+            s = e.get("sampled") or []
+            if s:
+                vals.append(sum(s) / len(s))
+    return mean(vals) if vals else None
+
+
+def _msd(v: list[float]) -> str:
+    """mean and sd, with sd left blank at n=1 rather than dividing by zero."""
+    return (f"mean {mean(v):.4f}   sd {sd(v):.4f}" if len(v) > 1
+            else f"mean {mean(v):.4f}   sd n/a (n=1)")
+
+
+def arm_block(label: str, rows: list[dict]) -> list[str]:
+    """One arm's rates under both constructions, plus what was banked."""
+    free = [v for v in (greedy_free_rate(r) for r in rows) if v is not None]
+    anch = [v for v in (greedy_anchored_rate(r) for r in rows) if v is not None]
+    st = [rate(r) for r in rows]
+    out = [f"    {label}  n={len(rows)}"]
+    out.append(f"      stored aggregate  {_msd(st)}"
+               f"   [{stored_construction(rows)}]")
+    if free:
+        out.append(f"      greedy-free       {_msd(free)}")
+    if anch:
+        out.append(f"      greedy-anchored   {_msd(anch)}")
+    return out
+
+
+def single_key(name: str, rows: list[dict]) -> list[dict]:
+    """The rows of an arm that must be one instrument. Refuses to average two.
+
+    The preregistered comparison is between two checkpoints scored on ONE
+    instrument. If an arm ever spans two verifier keys, the honest answer is
+    not to pick one silently -- it is to stop and say so.
+    """
+    groups = partition(rows)
+    if len(groups) > 1:
+        print(f"\n  !! NOT-POOLABLE: arm {name} spans {len(groups)} verifier "
+              f"keys and cannot be averaged into one number:")
+        for k, v in sorted(groups.items(), key=lambda kv: str(kv[0])):
+            print(f"       {k[0]}/{k[1]}  n={len(v)}  "
+                  f"stored mean {mean([rate(r) for r in v]):.4f}")
+        raise SystemExit(
+            f"refusing to report a preregistered comparison over pooled "
+            f"verifiers ({name})")
+    return rows
 
 
 def main() -> int:
@@ -59,23 +213,46 @@ def main() -> int:
     assert abs(2 * t_sf(2.0, 30) - 0.0546) < 0.001, 2 * t_sf(2.0, 30)
 
     by = load()
-    tr = [rate(r) for r in by.get(TRAINED, [])]
-    nu = [rate(r) for r in by.get(NULL, [])]
-    ba = [rate(r) for r in by.get(BASE, [])]
+    tr_rows = single_key(TRAINED, by.get(TRAINED, []))
+    nu_rows = single_key(NULL, by.get(NULL, []))
+    tr = [rate(r) for r in tr_rows]
+    nu = [rate(r) for r in nu_rows]
 
     print("=" * 66)
     print("  RUN 1 RE-SCORE - the preregistered comparison")
     print("=" * 66)
-    print(f"  metric   : greedy-free run-level pass@1")
+    print(f"  metric   : run-level pass@1 -- compared arms: "
+          f"{stored_construction(tr_rows + nu_rows)}")
     print(f"  arms     : trained={len(tr)}  null={len(nu)}   (prereg: 40 each)")
     if len(tr) != 40 or len(nu) != 40:
         print("  !! N does not match the preregistration; reporting anyway.")
 
     print(f"\n  trained  mean {mean(tr):.4f}   sd {sd(tr):.4f}")
     print(f"  null     mean {mean(nu):.4f}   sd {sd(nu):.4f}")
-    if ba:
-        print(f"  base     mean {mean(ba):.4f}   sd {sd(ba):.4f}   "
-              f"(n={len(ba)}, reference only)")
+
+    ba_groups = partition(by.get(BASE, []))
+    if ba_groups:
+        pinned = {k: v for k, v in ba_groups.items() if is_pinned(k)}
+        other = {k: v for k, v in ba_groups.items() if not is_pinned(k)}
+        print("\n  base     (reference only; never enters the comparison)")
+        if len(pinned) == 1:
+            (k, v), = pinned.items()
+            for ln in arm_block(f"reference, verifier {k[0]}/{k[1]}", v):
+                print(ln)
+        else:
+            for k, v in sorted(pinned.items(), key=lambda kv: str(kv[0])):
+                for ln in arm_block(f"verifier {k[0]}/{k[1]}", v):
+                    print(ln)
+            if len(pinned) > 1:
+                print("    !! more than one pinned verifier; no single "
+                      "reference named.")
+        for k, v in sorted(other.items(), key=lambda kv: str(kv[0])):
+            print(f"    NOT-POOLABLE with the reference above -- these rows "
+                  f"were banked before the verifier was pinned ({UNPINNED}),")
+            print(f"    their replicate counter restarts at 1, and no "
+                  f"run-order statistic spans the two groups:")
+            for ln in arm_block(f"pre-pin, verifier {k[0]}/{k[1]}", v):
+                print(ln)
 
     w = welch(tr, nu)
     pp = w["diff"] * 100
@@ -88,27 +265,14 @@ def main() -> int:
     print(f"    at alpha .05 -> "
           f"{'SIGNIFICANT' if w['p'] < 0.05 else 'not significant'}")
 
-    # Secondary: pair by task. Same frozen tasks in both arms.
-    # per_task is a LIST of {tid, greedy, sampled}, not a mapping.
-    def entries(r):
-        pt = r["per_task"]
-        return pt if isinstance(pt, list) else [
-            dict(v, tid=k) for k, v in pt.items()]
-
-    tasks = sorted({e["tid"] for r in by.get(TRAINED, []) for e in entries(r)})
-
-    def per_task_mean(rows, tid):
-        vals = []
-        for r in rows:
-            for e in entries(r):
-                if e.get("tid") != tid:
-                    continue
-                s = e.get("sampled") or []
-                vals.append(sum(s) / len(s) if s else 0.0)
-        return mean(vals) if vals else None
-    ta = [per_task_mean(by[TRAINED], t) for t in tasks]
-    tb = [per_task_mean(by[NULL], t) for t in tasks]
+    # Secondary: pair by task. Both arms see the same frozen task set, so the
+    # task list is their UNION -- taking it from one arm makes a task the other
+    # arm alone measured disappear instead of being reported as unpaired.
+    tasks = sorted({e["tid"] for r in tr_rows + nu_rows for e in entries(r)})
+    ta = [per_task_mean(tr_rows, t) for t in tasks]
+    tb = [per_task_mean(nu_rows, t) for t in tasks]
     keep = [(x, y) for x, y in zip(ta, tb) if x is not None and y is not None]
+    dropped = [t for t, x, y in zip(tasks, ta, tb) if x is None or y is None]
     if len(keep) > 2:
         p = paired([x for x, _ in keep], [y for _, y in keep])
         print(f"\n  SECONDARY - paired by task (n={len(keep)} tasks)")
@@ -116,6 +280,9 @@ def main() -> int:
         print(f"    95% CI       [{p['ci'][0]*100:+.2f}, "
               f"{p['ci'][1]*100:+.2f}] pp")
         print(f"    t = {p['t']:.3f}   df = {p['df']}   p = {p['p']:.4f}")
+        print(f"    excluded {len(dropped)} of {len(tasks)} tasks as unmeasured "
+              f"in at least one arm"
+              + (f": {', '.join(dropped)}" if dropped else ""))
 
     print("\n  WHAT THIS CANNOT SHOW: one checkpoint per arm. Zero training-seed")
     print("  variance by construction, so this cannot support a claim about DPO")
