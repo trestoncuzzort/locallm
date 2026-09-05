@@ -15,9 +15,11 @@ re-measured 2026-08-31 in the Wave-1 hole-closing pass):
       so this is not MALFORMED — see the zero-query section below)
   Error number 19, solver reason canceled/
       resource-limits on any attempt line        -> TIMEOUT  (rlimit verdict)
-  Error number 19 otherwise                      -> REFUTED  (a could-not-
-      prove door, NOT positive evidence of falsity — see the error-19
-      section below, which measures what this row actually knows)
+  Error number 19 otherwise                      -> UNPROVED (the solver
+      answered `unknown`, never `sat`: a failure to prove, not a
+      countermodel. Demoted from REFUTED 2026-09-05 — see the error-19
+      section below for the measurement and for the certificate protocol
+      that is this column's way back to REFUTED)
   Error number 168 (syntax) / 72 (resolution)    -> MALFORMED
   Error number 129 (missing input file)          -> TOOL_ERROR
   any other Error number                         -> MALFORMED (the typechecker
@@ -30,8 +32,8 @@ classification comes from the NDJSON diagnostics `--message_format json`
 puts on stderr — one object per line, {"msg":[...],"level","range",
 "number","ctx"} — never from the exit code beyond "0 = clean". On failing
 runs even the progress lines land on stderr, so parsing skips non-JSON
-lines. A timeout and a refutation share number 19 and are split by message
-text, exactly as measured.
+lines. A budget timeout and a could-not-prove share number 19 and are split
+by message text, exactly as measured.
 
 Measured traps this adapter owns:
   * `assume val` verifies at exit 0 UNDER --report_assumes error (measured
@@ -108,7 +110,10 @@ Measured traps this adapter owns:
     count exactly — abs 4, factorial 7, max 7, fib 11, gcd 16, sum_upto 33,
     count_matches 35, all_nonneg 45, contains 45, seq_max 81,
     linear_search 125 — every real still VERIFIED and every twin REFUTED
-    under flake_check. Only exit 0 is read this way; failing twins do log
+    under flake_check (the twin row read REFUTED then; since 2026-09-05 it
+    reads UNPROVED — the error-19 section below. The A/B compared the two
+    exit-0 evidence channels, which that demotion does not touch).
+    Only exit 0 is read this way; failing twins do log
     partial unsat statuses (measured: linear_search_twin 81 unsat plus 4
     unknown at exit 1), so "every status unsat" would be a wrong and
     needless extra rule that buys nothing at exit 0.
@@ -140,11 +145,11 @@ Measured traps this adapter owns:
   * A missing input file is number 129 at exit 1 — TOOL_ERROR, never
     MALFORMED.
 
-ERROR 19 IS A COULD-NOT-PROVE, AND THIS ADAPTER STILL SELLS IT AS REFUTED.
-Recorded here 2026-09-05 because it was measured, not because it is fixed.
+ERROR 19 IS A COULD-NOT-PROVE, AND SINCE 2026-09-05 THIS ROW SAYS SO.
 The question asked was whether error 19's message text splits a DEFINITE
-failure from an undecided-but-true spec, so the row could be narrowed. It
-does not. Every failing run of the eleven committed twins, plus a probe
+failure from an undecided-but-true spec, so the row could keep REFUTED for
+the definite half. It does not. Every failing run of the eleven committed
+twins, plus a probe
 whose spec is TRUE and merely undecidable at this fuel — spec_fun
 zero_rec(n) = if n <= 0 then 0 else zero_rec(n-1), requires x >= 0, body
 r := 0, ensures r == zero_rec x — produced the SAME shape:
@@ -166,17 +171,30 @@ r := 0, ensures r == zero_rec x — produced the SAME shape:
     `could not prove` appears in all twelve inside F*'s fixed advisory
     Note.
 
-So no text rule separates them: any rule that demotes zero_rec demotes
-genuine refutations with it, and the "Assertion failed without an unknown
-qualifier" shape does not occur at all in this corpus. The honest repair is
-not a classifier, it is the certificate protocol the other six columns
-already run (WITNESS-2026-09-02-refuted-purge.md, and the dafny door closed
-the same day): the twin lowering restates the measured witness as a ground
-theorem and REFUTED is minted only when the kernel accepts it.
-lower_fstar.py takes `witness` and does not use it yet, so fstar is the one
-column whose REFUTED is still a give-up signal. That is a lowering design
-item, not an adapter tweak, and it is left open here rather than papered
-over with a text rule the measurement refutes.
+So no text rule separates them: any rule that keeps zero_rec out of REFUTED
+keeps the genuine refutations out with it, and the "Assertion failed without
+an unknown qualifier" shape does not occur at all in this corpus. F*'s own
+manual says the same thing about the string this row was reading (Proof-
+Oriented Programming in F*, "Understanding how F* uses Z3" > "Query
+Statistics", fstar-lang.org/tutorial/book/under_the_hood/uth_smt.html):
+"since first-order logic is undecidable, when Z3 fails to find a proof, it
+reports 'unknown' rather than claiming that the theory is satisfiable."
+
+So the row now reports what is actually known: UNPROVED, ok=False, not
+counted, with the reason in `error`. The way back to REFUTED is not a
+classifier, it is the certificate protocol the other six columns already
+run (WITNESS-2026-09-02-refuted-purge.md, and the dafny door closed the same
+day): the twin lowering restates the measured witness as a ground theorem
+and REFUTED is minted only when the kernel accepts it. lower_fstar.py takes
+`witness` and does not use it yet, so fstar is the one column with no way to
+mint a REFUTED at all. That is a lowering design item, not an adapter tweak.
+
+The consequence is intended, and is a finding rather than a regression to
+chase: all eleven committed twins on F* now score UNPROVED, so no F* cell
+counts, and run_par.py / run_all.py mark the fstar column and end in
+DISAGREEMENT at exit 1 until lower_fstar.py emits the certificate. A column
+that cannot yet earn its verdict reading DISAGREEMENT is the honest state —
+the green it used to show was bought with a word the measurement refutes.
 
 Budget is --z3rlimit (deterministic solver resource units — the same
 doctrine as Dafny's and Verus's rlimit rows); --z3seed and --z3version are
@@ -381,7 +399,17 @@ def verify(path: Path, budget: int = DEFAULT_RLIMIT) -> Result:
         # a run the budget muddied is never counted as a refutation
         outcome = Outcome.TIMEOUT
     elif 19 in nums:
-        outcome = Outcome.REFUTED
+        # The budget is intact and the goal did not close. Measured across
+        # all twelve error-19 runs (the error-19 section above): the solver
+        # answers `unknown because (incomplete quantifiers)` and never
+        # `sat`, on a TRUE-but-undecidable spec exactly as on a false one,
+        # so this door knows "not proved" and nothing more. REFUTED is
+        # minted from a certificate the kernel accepts, and this column has
+        # no certificate yet.
+        outcome = Outcome.UNPROVED
+        err = ("F* error 19 with an `unknown` solver answer — could not "
+               "prove; not a refutation (no certificate protocol on this "
+               "column yet)")
     elif nums & {168, 72}:
         outcome = Outcome.MALFORMED
     elif 129 in nums:
