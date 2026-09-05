@@ -131,6 +131,20 @@ def main() -> int:
 
     # Lowering + writes: sequential, entirely before any dispatch below, so
     # out/*.{suffix} has a single writer for the whole time it is produced.
+    # ONE ARTIFACT, ONE WRITER. `<stem>_twin.<suffix>` is a filename another
+    # task file can claim: with a.json and a_twin.json in tasks/, both name
+    # out/a_twin.<suffix>. Measured 2026-09-05 with two copies of abs.json
+    # saved as zzW2_a.json and zzW2_a_twin.json —
+    # this driver lowers every task before it dispatches any verification, so
+    # the second task's REAL lowering landed on the first task's twin path
+    # before a kernel read either. Every kernel then verified a correct
+    # program where the broken one should have been and the zzW2_a row came
+    # back `verified / verified` on dafny, lean and F*, with out/zzW2_a.dfy
+    # and out/zzW2_a_twin.dfy hashing the same 9fe1e7e8….
+    # A collision is a defect in the task SET, and the person who named the
+    # files is the one who can fix it, so it is refused and named here rather
+    # than worked around with per-task directories or a rename.
+    written: dict[Path, str] = {}     # artifact path -> the stem that wrote it
     pending, wits, emitted = [], {}, []
     for bname, lower, suffix in present:
         for stem, task in loaded:
@@ -177,9 +191,22 @@ def main() -> int:
             # abs.dfy 9147e4af… on Windows vs 9fe1e7e8… everywhere else,
             # equal after CRLF->LF). One newline choice, every host.
             real = harness.OUT / f"{stem}.{suffix}"
-            real.write_text(real_src, encoding="utf-8", newline="\n")
             twin = harness.OUT / f"{stem}_twin.{suffix}"
+            clash = next((p for p in (real, twin) if p in written), None)
+            if clash is not None:
+                # NEITHER file is written. What is already on disk is what an
+                # earlier task's verdict will be measured on, and this task
+                # has no artifact of its own to be measured on.
+                rows[stem][bname] = ("path-collision", "path-collision",
+                                     True, "")
+                all_ok = False
+                print(f"  {stem} x {bname}: PATH-COLLISION — "
+                      f"out/{clash.name} is also written by "
+                      f"{written[clash]}  <-- FINDING")
+                continue
+            real.write_text(real_src, encoding="utf-8", newline="\n")
             twin.write_text(twin_src, encoding="utf-8", newline="\n")
+            written[real] = written[twin] = stem
             emitted += [real, twin]     # only what THIS run wrote; see below
             pending.append((bname, stem, suffix, op))
             wits[stem] = w
