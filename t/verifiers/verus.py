@@ -162,12 +162,31 @@ _VERUS_WHY = missing("verus", "T_VERUS_BIN", ['verus'], [".local/verus/**/verus"
 DEFAULT_RLIMIT = 10
 WALL_S = 120
 
-# Prefix-matched ban families: assume, assume_specification, admit, external,
+# Ban families: assume, assume_specification, admit, external,
 # external_body, external_fn_specification, external_type_specification, and
 # any future *_specification aspect spelled with these stems. Left \b is
 # sound: the live constructs sit after '::', '(', '[', or whitespace, all
 # non-word chars.
-BANNED = re.compile(r"\b(?:assume|admit|external)\w*")
+#
+# The right \w* is now (?:_\w+)?\b. \w* swallowed every identifier that
+# merely STARTS with a stem — `assumed`, `admitted`, `externals` — and a ban
+# hit DECIDES the outcome VACUOUS whatever the kernel said, so such a name
+# turned a real proof into a wrong label. Measured on the sibling adapters
+# 2026-09-05 (dafny `assumed`: 1 verified, 0 errors, VACUOUS; fstar
+# `admitted`: 4 solver unsat, VACUOUS); verus is not installed on the box
+# this edit was made on, so this row is a BY-READING change, unexecuted.
+# (?:_\w+)? keeps every construct the comment above names, because each is
+# the stem plus an underscore-separated tail, and it keeps the open-ended
+# coverage of a future `external_*`/`assume_*` aspect. lower_verus.py tests
+# every declared task identifier against KEYWORD_RE before emitting
+# (ident_guard.py), so an identifier that does land inside the family — a
+# name like `external_len` — is an ABSTAIN, never a false VACUOUS.
+#
+# verus has no separate SYNTAX_RE: its cheat constructs are attribute
+# spellings (#[verifier::external_body]) whose banned word is the keyword
+# row, and the surrounding punctuation carries no extra information.
+KEYWORD_RE = re.compile(r"\b(?:assume|admit|external)(?:_\w+)?\b")
+BANNED = KEYWORD_RE
 
 # requires-false: scan from `requires` up to the next clause keyword or
 # block/statement delimiter for a bare `false` token. Stops at '{', so a

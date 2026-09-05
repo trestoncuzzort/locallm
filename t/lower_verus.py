@@ -57,6 +57,7 @@ if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 
 import harness                                   # noqa: E402
+import ident_guard                               # noqa: E402
 from verifiers import verus as verus_backend     # noqa: E402
 
 BIN_OPS = {"==": "==", "!=": "!=", "<": "<", "<=": "<=", ">": ">", ">=": ">=",
@@ -812,6 +813,12 @@ def _certificate(task: dict, twin_body: list, w: dict) -> str | None:
 # appends the refutation certificate block (see the section above).
 def lower(task: dict, body: list, witness: dict | None = None) -> str:
     global _SUFFIX_INT
+    # A DECLARED NAME the verus adapter's cheat scan reads as a
+    # construct turns its VACUOUS verdict into a wrong label on a real
+    # proof (ident_guard.py, measured 2026-09-05). The pattern is the
+    # adapter's own KEYWORD_RE, so the two cannot drift; a hit ABSTAINs
+    # here instead of being emitted and mislabelled there.
+    ident_guard.check("verus", verus_backend.KEYWORD_RE, task, body)
     if task.get("t", 0) == 0:
         # v0 used to emit bare literals to keep its output byte-identical to
         # an earlier baseline. That is unsound as an emission rule: Verus

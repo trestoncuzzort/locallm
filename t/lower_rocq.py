@@ -63,6 +63,7 @@ if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 
 import harness                                 # noqa: E402
+import ident_guard                             # noqa: E402
 import interp                                  # noqa: E402
 from verifiers import rocq as rocq_backend     # noqa: E402
 
@@ -1814,6 +1815,12 @@ def _v0_cert(task: dict, body: list, witness: dict):
 # sites pass it; when a certificate can ground it, the twin file carries
 # t_refutation_certificate instead of an unprovable spec theorem.
 def lower(task: dict, body: list, witness: dict | None = None) -> str:
+    # A DECLARED NAME the rocq adapter's cheat scan reads as a
+    # construct turns its VACUOUS verdict into a wrong label on a real
+    # proof (ident_guard.py, measured 2026-09-05). The pattern is the
+    # adapter's own KEYWORD_RE, so the two cannot drift; a hit ABSTAINs
+    # here instead of being emitted and mislabelled there.
+    ident_guard.check("rocq", rocq_backend.KEYWORD_RE, task, body)
     if task.get("t") == 0:
         return lower_v0(task, body, witness=witness)
     return lower_v1(task, body, witness=witness)
