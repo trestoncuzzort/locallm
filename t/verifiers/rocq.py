@@ -110,31 +110,26 @@ CLOSED = "Closed under the global context"
 
 # Case-sensitive: Coq vernacular keywords are; lowercase `context` is Ltac.
 #
-# Two rows, because they are two different claims. KEYWORD_RE matches single
-# bare words, which a task identifier CAN spell: a param named `admit` or
-# `Context` would score this file VACUOUS whatever the kernel said, and
-# VACUOUS means "accepted for the wrong reason" — a wrong label on a real
-# proof. Measured on the sibling adapters 2026-09-05 (dafny `assumed`,
-# fstar `admitted`/`magicNumber`, lean `trustCompiler`, each a false
-# VACUOUS); rocq is not installed on the box this edit was made on, so the
-# rocq row is a BY-READING change, unexecuted. The rows were already
-# \b-bounded, so the matched language is unchanged; what changed is
-# upstream: lower_rocq.py tests every declared task identifier against
-# KEYWORD_RE before emitting (ident_guard.py) and ABSTAINs, so a keyword hit
-# here can no longer have come from a name.
-#
-# SYNTAX_RE holds the two multi-word vernacular commands, which no single
-# identifier can match; they never needed the guard and are kept out of it
-# so the guard refuses the smallest set it can.
-KEYWORD_RE = re.compile(
+# One pattern, unchanged. What changed 2026-09-05 is upstream: a task
+# identifier CAN spell one of these words — a param named `admit` or
+# `Context` scores this file VACUOUS whatever the kernel said, and VACUOUS
+# means "accepted for the wrong reason", a wrong label on a real proof.
+# Measured on the sibling adapters 2026-09-05 (dafny `assumed`: "1 verified,
+# 0 errors" at exit 0; fstar `admitted` and `magicNumber`: 4 solver-logged
+# unsat at exit 0; lean `trustCompiler`: exit_code -1, nothing ran — each a
+# false VACUOUS); rocq is not installed on the box this edit was made on, so
+# this row is a BY-READING change, unexecuted. lower_rocq.py now tests every
+# DECLARED task identifier against THIS pattern before emitting anything
+# (ident_guard.py) and ABSTAINs on a match, so a hit here can only have come
+# from a construct. The multi-word vernacular rows no identifier can match
+# cost the guard nothing: it simply never refuses on them.
+BANNED = re.compile(
     r"\bAdmitted\b|\badmit\b|\bAdmit\b|\bgive_up\b"
     r"|\bAxioms?\b|\bParameters?\b|\bConjectures?\b"
     r"|\bHypothes[ie]s\b|\bVariables?\b|\bContext\b"
-    r"|\bbypass_check\b")
-SYNTAX_RE = re.compile(
-    r"\bDeclare\s+ML\s+Module\b"
+    r"|\bDeclare\s+ML\s+Module\b"
+    r"|\bbypass_check\b"
     r"|\bUnset\s+(?:Universe|Guard|Positivity)\s+Checking\b")
-BANNED = re.compile(KEYWORD_RE.pattern + "|" + SYNTAX_RE.pattern)
 
 THM = re.compile(
     r"\b(?:Theorem|Lemma|Corollary|Fact|Remark|Proposition|Property)"

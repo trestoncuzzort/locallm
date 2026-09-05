@@ -39,18 +39,15 @@ from .discover import find, missing
 AGDA = find("T_AGDA", ['agda'], [".local/agda/**/agda", ".cabal/bin/agda"])
 _AGDA_WHY = missing("agda", "T_AGDA", ['agda'], [".local/agda/**/agda", ".cabal/bin/agda"])
 WALL_S = 180
-# Two rows, because they are two different claims. KEYWORD_RE is the bare
-# word, which an identifier could spell; SYNTAX_RE is pragma punctuation no
-# identifier can begin. The keyword row was already \b-bounded, so the
-# matched language is unchanged. Agda has no lowering in this tree
-# (there is no lower_agda.py), so nothing imports KEYWORD_RE yet; it is
-# split here so the two rows read as what they are and so a future lowering
-# has the same door the other six use (ident_guard.py). agda is not
-# installed on the box this edit was made on: BY-READING, unexecuted.
-KEYWORD_RE = re.compile(r"\bpostulate\b", re.IGNORECASE)
-SYNTAX_RE = re.compile(r"\{-#\s*TERMINATING", re.IGNORECASE)
-BANNED = re.compile(KEYWORD_RE.pattern + "|" + SYNTAX_RE.pattern,
-                    re.IGNORECASE)
+# One pattern, unchanged. `postulate` is a bare word a task identifier could
+# spell, and a hit here DECIDES the outcome VACUOUS whatever agda said; the
+# other six adapters answer that by having their lowering test every
+# DECLARED task identifier against this same pattern and ABSTAIN on a match
+# (ident_guard.py). Agda has no lowering in this tree (there is no
+# lower_agda.py), so nothing calls that door for agda yet, and this file is
+# left as the door's future caller would find it. agda is not installed on
+# the box this note was written on: BY-READING, unexecuted.
+BANNED = re.compile(r"\bpostulate\b|\{-#\s*TERMINATING", re.IGNORECASE)
 MALFORMED_MARKS = ("[ParseError]", "[ModuleNameDoesntMatchFileName]",
                    "[ScopeError", "[NotInScope")
 VACUOUS_MARKS = ("[SafeFlag",)

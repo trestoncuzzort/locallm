@@ -1242,10 +1242,11 @@ class Lower:
 def lower(task: dict, body: list, witness: dict | None = None) -> str:
     # A DECLARED NAME the lean adapter's cheat scan reads as a
     # construct turns its VACUOUS verdict into a wrong label on a real
-    # proof (ident_guard.py, measured 2026-09-05). The pattern is the
-    # adapter's own KEYWORD_RE, so the two cannot drift; a hit ABSTAINs
-    # here instead of being emitted and mislabelled there.
-    ident_guard.check("lean", lean_backend.KEYWORD_RE, task, body)
+    # proof (ident_guard.py, measured 2026-09-05). The pattern tested is
+    # the adapter's own WHOLE ban scan, so the two cannot drift; any
+    # match, substring included, ABSTAINs here instead of being emitted
+    # and mislabelled there.
+    ident_guard.check("lean", lean_backend.BANNED, task, body)
     lw = Lower(task, body)
     src = lw.lower()
     if witness is not None:

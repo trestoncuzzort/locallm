@@ -162,31 +162,27 @@ _VERUS_WHY = missing("verus", "T_VERUS_BIN", ['verus'], [".local/verus/**/verus"
 DEFAULT_RLIMIT = 10
 WALL_S = 120
 
-# Ban families: assume, assume_specification, admit, external,
+# Prefix-matched ban families: assume, assume_specification, admit, external,
 # external_body, external_fn_specification, external_type_specification, and
 # any future *_specification aspect spelled with these stems. Left \b is
 # sound: the live constructs sit after '::', '(', '[', or whitespace, all
 # non-word chars.
 #
-# The right \w* is now (?:_\w+)?\b. \w* swallowed every identifier that
-# merely STARTS with a stem — `assumed`, `admitted`, `externals` — and a ban
-# hit DECIDES the outcome VACUOUS whatever the kernel said, so such a name
-# turned a real proof into a wrong label. Measured on the sibling adapters
-# 2026-09-05 (dafny `assumed`: 1 verified, 0 errors, VACUOUS; fstar
-# `admitted`: 4 solver unsat, VACUOUS); verus is not installed on the box
-# this edit was made on, so this row is a BY-READING change, unexecuted.
-# (?:_\w+)? keeps every construct the comment above names, because each is
-# the stem plus an underscore-separated tail, and it keeps the open-ended
-# coverage of a future `external_*`/`assume_*` aspect. lower_verus.py tests
-# every declared task identifier against KEYWORD_RE before emitting
-# (ident_guard.py), so an identifier that does land inside the family — a
-# name like `external_len` — is an ABSTAIN, never a false VACUOUS.
-#
-# verus has no separate SYNTAX_RE: its cheat constructs are attribute
-# spellings (#[verifier::external_body]) whose banned word is the keyword
-# row, and the surrounding punctuation carries no extra information.
-KEYWORD_RE = re.compile(r"\b(?:assume|admit|external)(?:_\w+)?\b")
-BANNED = KEYWORD_RE
+# The trailing \w* stays. Narrowing it to (?:_\w+)?\b was tried and reverted
+# 2026-09-05 together with the F* split it copied, where the narrowed rows
+# were measured to lose coverage the unbounded ones had. What \w* cannot
+# tell is a construct from a task's own name — `assumed`, `admitted`,
+# `externals` are all hits — and a hit DECIDES the outcome VACUOUS whatever
+# verus said. Measured on the sibling adapters 2026-09-05 (dafny `assumed`:
+# "1 verified, 0 errors" at exit 0, scored VACUOUS; fstar `admitted`: 4
+# solver-logged unsat at exit 0, scored VACUOUS); verus is not installed on
+# the box this edit was made on, so this row is a BY-READING change,
+# unexecuted. Fixed upstream, not here: lower_verus.py tests every DECLARED
+# task identifier against THIS pattern before emitting anything
+# (ident_guard.py) and ABSTAINs on a match, so a hit here can only have come
+# from a construct. A task naming a parameter `assumed` is then reported
+# unmeasured instead of mislabelled.
+BANNED = re.compile(r"\b(?:assume|admit|external)\w*")
 
 # requires-false: scan from `requires` up to the next clause keyword or
 # block/statement delimiter for a bare `false` token. Stops at '{', so a

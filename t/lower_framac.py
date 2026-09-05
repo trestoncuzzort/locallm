@@ -810,10 +810,11 @@ def certificate(task: dict, twin_body: list, w: dict,
 def lower(task: dict, body: list, witness: dict | None = None) -> str:
     # A DECLARED NAME the framac adapter's cheat scan reads as a
     # construct turns its VACUOUS verdict into a wrong label on a real
-    # proof (ident_guard.py, measured 2026-09-05). The pattern is the
-    # adapter's own KEYWORD_RE, so the two cannot drift; a hit ABSTAINs
-    # here instead of being emitted and mislabelled there.
-    ident_guard.check("framac", framac_backend.KEYWORD_RE, task, body)
+    # proof (ident_guard.py, measured 2026-09-05). The pattern tested is
+    # the adapter's own WHOLE ban scan, so the two cannot drift; any
+    # match, substring included, ABSTAINs here instead of being emitted
+    # and mislabelled there.
+    ident_guard.check("framac", framac_backend.BANNED, task, body)
     name, ret = task["name"], task["returns"][0]["name"]
     rett = task["returns"][0]["type"]
     env = {p["name"]: p["type"] for p in task["params"]}
