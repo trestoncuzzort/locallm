@@ -357,8 +357,15 @@ def _ty(e, env, funs, ver, errs, bound):
         errs.append(f"{op} takes one argument")
     if op not in UNARY and op not in NARY and len(args) != 2:
         errs.append(f"{op} takes two arguments")
-    if op in NARY and len(args) < 2:
-        errs.append(f"{op} needs at least two arguments")
+    # SYNTAX.md's grammar is `{"op": Op, "args": [Expr+]}` and SPEC.md says
+    # and/or are n-ary: one operand is legal, and a singleton `and` lowers,
+    # verifies and refutes like its operand (measured 2026-09-05 on dafny,
+    # abs.json with each postcondition wrapped). This check used to demand
+    # two, which was harmless while only the generator read it (it never
+    # emits a singleton) and became a false refusal the day harness.load
+    # started calling check_wf on every task.
+    if op in NARY and len(args) < 1:
+        errs.append(f"{op} needs at least one argument")
     ts = [_ty(a, env, funs, ver, errs, bound) for a in args]
     if op == "len":
         if ts[0] != "seq":
