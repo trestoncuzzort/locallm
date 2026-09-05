@@ -21,9 +21,17 @@ Campos, "MutDafny: A Mutation-Based Approach to Assess Dafny Specifications",
 arXiv:2511.15403 \[cs.SE], accepted at the 48th IEEE/ACM International
 Conference on Software Engineering, ICSE 2026) is a Dafny plugin that mutates
 the implementation AST between the parser and the verifier and classifies each
-mutant Alive, Killed, Invalid or Timed Out, which is the same taxonomy t reached
-independently and from the same starting point: a mutant that still verifies is
-a hint that the specification is weak. **IronSpec** (Eli Goldweber, Weixin Yu,
+mutant Alive, Killed, Invalid or Timed Out, which is a closely analogous
+partition to the one t reached independently and from the same starting point:
+a mutant that still verifies is a hint that the specification is weak. Not the
+same taxonomy, though — t splits the Killed-like half four ways: REFUTED (the
+kernel accepted a certificate restating the measured witness), UNPROVED (it
+could not prove the mutant wrong, which is not the same claim), MALFORMED (the
+mutant never reached the prover) and TIMEOUT (the budget ran out), with
+TOOL_ERROR and VACUOUS beside them. Only REFUTED counts, and the split earns
+its keep: a could-not-prove read as a kill is exactly the error the dafny door
+(2026-09-02) and the F\* demotion (2026-09-05) each had to correct.
+**IronSpec** (Eli Goldweber, Weixin Yu,
 Seyed Armin Vakil Ghahani and Manos Kapritsos, "IronSpec: Increasing the
 Reliability of Formal Specifications", 18th USENIX Symposium on Operating
 Systems Design and Implementation, OSDI '24, USENIX Association, pages 875-891)
@@ -39,7 +47,19 @@ construction rather than by detection. A twin is accepted only when the bounded
 interpreter produces a MEASURED witness, an input satisfying `requires` on which
 the real body and the twin differ, and the ladder prefers a witness that
 falsifies `ensures`. An equivalent mutant has no such witness by definition, so
-it is never accepted and never has to be discarded afterwards. The second
+it is never accepted and never has to be discarded afterwards — exactly, for
+the VALUE witnesses. The annotation mutations rest on a different argument and
+are stated separately: an INVARIANT-DROP twin computes the same value as the
+real body by construction. `sum_upto`'s twin deletes one `invariant` and
+changes no statement: `out/sum_upto_twin.dfy` differs from `out/sum_upto.dfy`
+in that one annotation line and in the certificate lemma the twin lowering
+appends, in nothing executable. So on that rung there is no value witness to
+have, and what the ladder measures instead is a PROOF witness — a loop state
+satisfying `requires` and the surviving invariants that falsifies `ensures`
+with the guard false, or breaks a surviving invariant in one iteration
+(SPEC.md, "The twins")
+— which makes such a twin not an equivalent program but an under-annotated one
+that a sound kernel must fail to prove. The second
 difference is the table: t runs the same task and the same twin through seven
 kernels, where MutDafny is single-kernel.
 
@@ -65,7 +85,15 @@ it is refused here in advance (ROADMAP.md, "The far field").
   **and** the twin is REFUTED: one witness for "the spec is provable," one for
   "the spec has teeth." Since 2026-09-02 the twin's REFUTED means the kernel
   accepted a certificate lemma restating the measured witness, not a bare
-  failing exit. A twin that still verifies is a vacuous spec and the task is
+  failing exit — in the six columns that carry the certificate. F\* does not
+  carry it yet: `lower_fstar.py` receives the witness and does not restate it,
+  so since 2026-09-05 its adapter reports an unprovable twin as UNPROVED,
+  which does not count, instead of REFUTED (`verifiers/fstar.py`, the error-19
+  section: F\* answers `unknown`, never `sat`, on a true-but-undecidable spec
+  exactly as on a false one). The F\* column therefore reads
+  `verified / unproved` on every task and the run ends in DISAGREEMENT until
+  that lowering lands, which is the honest reading and not a regression.
+  A twin that still verifies is a vacuous spec and the task is
   refused. Where the ladder could only find a witness showing that real and twin
   compute different values, without falsifying `ensures`, the twin is tagged
   `+nonrefuting`: it is reported and it does not count, because a kernel
