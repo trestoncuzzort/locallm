@@ -4,17 +4,20 @@ Verdict mapping (F* 2026.08.30 / bundled Z3 4.13.3, measured 2026-08-31 on
 the training box in the install audit, re-relied-on here; tactic-admit rows
 re-measured 2026-08-31 in the Wave-1 hole-closing pass):
   exit 0 + success line + >=1 solver-logged unsat -> VERIFIED (ban scan clean)
-  banned token in SOURCE (admit/assume/magic/expect_failure families,
-      option pragmas, warn_error — substring, raw + NFKC)  -> VACUOUS
+  banned token in SOURCE (admit/assume/magic/expect_failure/warn_error as
+      \b-bounded words, option pragmas as syntax; raw + NFKC) -> VACUOUS
   diagnostic number 296 at ANY level             -> VACUOUS  (a tactic
       admitted a goal — tadmit/admit_all/tadmit_t land here)
   Error number 335                               -> VACUOUS  (admit()/assume
       term/unsafe_coerce/admit_smt_queries/lax — all measured as 335)
-  exit 0 + success line + ZERO solver-logged unsat -> MALFORMED (zero
-      discharged obligations is not a proof)
+  exit 0 + success line + ZERO solver-logged unsat -> UNPROVED (zero
+      discharged obligations is not a proof; the file parsed and resolved,
+      so this is not MALFORMED — see the zero-query section below)
   Error number 19, solver reason canceled/
       resource-limits on any attempt line        -> TIMEOUT  (rlimit verdict)
-  Error number 19 otherwise                      -> REFUTED
+  Error number 19 otherwise                      -> REFUTED  (a could-not-
+      prove door, NOT positive evidence of falsity — see the error-19
+      section below, which measures what this row actually knows)
   Error number 168 (syntax) / 72 (resolution)    -> MALFORMED
   Error number 129 (missing input file)          -> TOOL_ERROR
   any other Error number                         -> MALFORMED (the typechecker
@@ -60,7 +63,7 @@ Measured traps this adapter owns:
   * POSITIVE OBLIGATION EVIDENCE comes from a channel the source cannot
     write into (Wave-2 hole, closed 2026-08-31). VERIFIED requires at least
     one goal the SOLVER answered unsat: an empty module, a comments-only
-    file, or any run that discharged zero obligations is MALFORMED even at
+    file, or any run that discharged zero obligations is UNPROVED even at
     exit 0 with the success line — file-accepted is not proof-discharged.
     The evidence is --log_queries, which makes F* write the SMT2 it actually
     sent to Z3 into queries-<Module>.smt2 in the run's own scratch cwd and
@@ -137,6 +140,44 @@ Measured traps this adapter owns:
   * A missing input file is number 129 at exit 1 — TOOL_ERROR, never
     MALFORMED.
 
+ERROR 19 IS A COULD-NOT-PROVE, AND THIS ADAPTER STILL SELLS IT AS REFUTED.
+Recorded here 2026-09-05 because it was measured, not because it is fixed.
+The question asked was whether error 19's message text splits a DEFINITE
+failure from an undecided-but-true spec, so the row could be narrowed. It
+does not. Every failing run of the eleven committed twins, plus a probe
+whose spec is TRUE and merely undecidable at this fuel — spec_fun
+zero_rec(n) = if n <= 0 then 0 else zero_rec(n-1), requires x >= 0, body
+r := 0, ensures r == zero_rec x — produced the SAME shape:
+
+  * number 19, exit 1, exactly four `unknown because (incomplete
+    quantifiers) (rlimit=50; fuel=...; ifuel=...)` attempt lines, in all
+    twelve runs; no run produced `canceled` or `resource limits reached`,
+    so the TIMEOUT row above never fires for them;
+  * the query log agrees and adds nothing: every failing run logs k unsat
+    plus exactly 4 `unknown because (incomplete quantifiers)` STATUS
+    lines and NO `sat`. Z3 never returns a countermodel here, so there is
+    no per-goal channel to read either;
+  * the message head is `Subtyping check failed` on ten of the twelve
+    (including the true zero_rec probe, whose head
+    `Subtyping check failed Expected type _: Prims.int{_ == zero_rec x}` is
+    the same clause shape as the factorial/fib/gcd/count_matches twins) and
+    `Assertion failed` on linear_search_twin, which carries the unknown
+    qualifier too. `Failed to prove:` appears in all twelve, and
+    `could not prove` appears in all twelve inside F*'s fixed advisory
+    Note.
+
+So no text rule separates them: any rule that demotes zero_rec demotes
+genuine refutations with it, and the "Assertion failed without an unknown
+qualifier" shape does not occur at all in this corpus. The honest repair is
+not a classifier, it is the certificate protocol the other six columns
+already run (WITNESS-2026-09-02-refuted-purge.md, and the dafny door closed
+the same day): the twin lowering restates the measured witness as a ground
+theorem and REFUTED is minted only when the kernel accepts it.
+lower_fstar.py takes `witness` and does not use it yet, so fstar is the one
+column whose REFUTED is still a give-up signal. That is a lowering design
+item, not an adapter tweak, and it is left open here rather than papered
+over with a text rule the measurement refutes.
+
 Budget is --z3rlimit (deterministic solver resource units — the same
 doctrine as Dafny's and Verus's rlimit rows); --z3seed and --z3version are
 pinned. Two identical failing runs at the pinned seed were measured
@@ -174,13 +215,36 @@ Z3_VERSION = "4.13.3"      # the bundled default among the three shipped; pinned
 Z3_SEED = 42
 WALL_S = 120               # hang backstop only, never the verdict
 
-# Substring families, deliberately unbounded (no \b): tadmit, admit_all,
-# tadmit_t, _admit, admit_, expect_lax_failure and every embedding are hits.
-# The pragma rows exist because a file pragma can demote diagnostic 296 out
-# of existence (measured) and the honest lowering emits no pragmas at all.
-BANNED = re.compile(
-    r"admit|assume|magic|expect_(?:lax_)?failure"
-    r"|#\s*(?:set|push|pop|reset)-options|#\s*restart-solver|warn_error")
+# Two rows, because they are two different claims.
+#
+# SYNTAX_RE matches pragma punctuation no F* identifier can spell, so a hit
+# is a construct by construction. It exists because a file pragma can demote
+# diagnostic 296 out of existence (measured) and the honest lowering emits
+# no pragmas at all.
+#
+# KEYWORD_RE matches bare words. It used to match them as SUBSTRINGS, with
+# no \b at all, so tadmit/admit_all/tadmit_t/_admit/admit_ were hits — and
+# so was every identifier embedding a family name. Measured 2026-09-05 on
+# abs.json with its int parameter renamed: `admitted` and `magicNumber` each
+# lowered to F* that typechecked at exit 0 with 4 solver-logged unsat, and
+# this scan returned VACUOUS, a wrong label on a real proof. The rows are
+# \b-bounded now, which gives back exactly the tactic-admit spellings whose
+# family name is an infix, and those are carried by the two layers that were
+# measured to carry them independently (module docstring, layers 2 and 3):
+# diagnostic 296 at any level is VACUOUS on sight, and --warn_error @296
+# promotes it to a hard error. Re-measured 2026-09-05 with the \b rows in
+# place: `assert _ by (tadmit ())` and `by (admit_all ())` both still score
+# VACUOUS through 296, `admit ()` through \badmit\b and Error 335,
+# `assume val` through \bassume\b, `[@@expect_failure]` through
+# \bexpect_failure\b (the bracket and @ are non-word, so \b holds).
+# lower_fstar.py tests every declared task identifier against KEYWORD_RE
+# before emitting (ident_guard.py), so a keyword hit here can no longer have
+# come from a name.
+SYNTAX_RE = re.compile(
+    r"#\s*(?:set|push|pop|reset)-options|#\s*restart-solver")
+KEYWORD_RE = re.compile(
+    r"\b(?:admit|assume|magic|expect_(?:lax_)?failure|warn_error)\b")
+BANNED = re.compile(KEYWORD_RE.pattern + "|" + SYNTAX_RE.pattern)
 _MODULE = re.compile(r"^\s*module\s+([A-Za-z0-9_.']+)", re.MULTILINE)
 _OK_LINE = "All verification conditions discharged successfully"
 # Forgeable (Q5/Q6/Q10 print it): reported for cross-checking, never gating.
@@ -272,6 +336,7 @@ def verify(path: Path, budget: int = DEFAULT_RLIMIT) -> Result:
     nums = {n for n, _ in errs}
     queries = len(_QUERY.findall(p.stdout)) + len(_QUERY.findall(p.stderr))
 
+    err = ""
     if banned:
         outcome = Outcome.VACUOUS
     elif admitted:
@@ -287,7 +352,26 @@ def verify(path: Path, budget: int = DEFAULT_RLIMIT) -> Result:
             # proof. Counted from the query log, never from stdout: Q5/Q6/Q10
             # print their own "Query-stats" rows and scored VERIFIED under the
             # stdout counter.
-            outcome = Outcome.MALFORMED
+            #
+            # The cell does not count, and did not before; the LABEL was
+            # wrong. MALFORMED is defined as "does not parse/resolve"
+            # (verifiers/__init__.py), and this file did all three: it
+            # parsed, it resolved, and F* accepted it. Measured 2026-09-05,
+            # the t task `params [x:int] returns [r:int] ensures [r == r]
+            # body [r := x]`: exit 0, the success line present, 0 query logs
+            # written, and the old row called it MALFORMED — a lowering bug
+            # reported where there is none. boundary_probe.py:107-110
+            # already records this shape as a normalization proof that
+            # issues no SMT query. UNPROVED is the honest neighbour in the
+            # frozen taxonomy: ok=False, not counted, and not a claim about
+            # the syntax. It is still not the exact state — "accepted with
+            # nothing to discharge" is neither a give-up nor a budget
+            # verdict — and a dedicated Outcome is a later design question;
+            # the enum is frozen this slice, so the error text carries the
+            # distinction a reader needs.
+            outcome = Outcome.UNPROVED
+            err = ("accepted with zero recorded SMT queries — not counted "
+                   "as proof evidence")
         else:
             outcome = Outcome.VERIFIED
     elif 335 in nums:
@@ -305,11 +389,12 @@ def verify(path: Path, budget: int = DEFAULT_RLIMIT) -> Result:
         outcome = Outcome.MALFORMED
     else:
         outcome = Outcome.TOOL_ERROR
+    if not err and outcome == Outcome.TOOL_ERROR:
+        err = (p.stderr + p.stdout)[-400:]
     return Result("fstar", version(), src_hash, outcome,
                   ok=outcome == Outcome.VERIFIED, exit_code=p.returncode,
                   wall_ms=wall, budget=bud,
-                  error=("" if outcome != Outcome.TOOL_ERROR
-                         else (p.stderr + p.stdout)[-400:]),
+                  error=err,
                   extras={"errors": [(n, msg[:200]) for n, msg in errs[:5]],
                           "banned_tokens": banned[:5],
                           "tactic_admitted": admitted,
