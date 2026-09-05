@@ -112,6 +112,18 @@ machine-wide) are recorded in WITNESS-2026-09-02-dafny-door.md. The
 measurements in this file, including the REFUTES-TRUE 1 line and the
 Reproduce expectation below, stand as measured at the time of this run.
 
+Note, added 2026-09-05: the fstar half of the bold sentence above was
+measured wrong. "Comes through its typing and solver channel and the
+sweep measures it clean" was true of the eleven committed twins only
+because none of them was a true spec: on a true-but-undecidable spec
+(zero_rec, seven_rec) F* produces the same error 19 with the same
+`unknown because (incomplete quantifiers)` answer and no countermodel,
+and the adapter read it as REFUTED. Since 2026-09-05 error 19 reads
+UNPROVED (verifiers/fstar.py, the error-19 section), the fstar column
+does not count, and the suite ends in DISAGREEMENT until lower_fstar.py
+restates the witness as the certificate the other six columns carry.
+The measurements above stand as measured at the time of this run.
+
 ## What exit 1 means now
 
 The suite exits 1 for exactly the six framac invariant-drop twin timeouts:
