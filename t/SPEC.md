@@ -137,6 +137,18 @@ Scope rule (v0 had it implicitly): `requires` sees params; `ensures` sees
 params and returns; body expressions see params, returns, and locals declared
 above them; invariants see all of those.
 
+**Distinct names (normative).** Every declared name, whether parameter,
+return, local, bound variable or spec function, is distinct from every other
+name in scope; a task that reuses a name is not a t task. The rule is stated
+here rather than left to each lowering because the targets do not agree on
+what a reused name means, so the same task would lower into different
+theorems on different kernels. The harness refuses a task that breaks this
+rule, with the reason
+named, and it refuses the same way a task that omits a required field or
+gives a field the wrong type. All three checks run before any lowering runs,
+so a malformed task never reaches a kernel and can never produce a verdict
+that reads like a measurement.
+
 ### Gate 2 — loops + invariants
 
 New Stmt forms:
@@ -255,7 +267,9 @@ accepted only when `t/interp.py` produces one of:
 
 - a value witness — an input satisfying `requires` on which the real body and
   the twin return different values, or on which the twin is undefined where
-  the real body has a value (the value-changing operators); or
+  the real body has a value (the value-changing operators); a witness that
+  also falsifies `ensures` is preferred, for the reason given under
+  `+nonrefuting` below; or
 - a proof witness — a loop state satisfying `requires` and the SURVIVING
   invariants that either falsifies `ensures` with the guard false (exit
   entailment) or breaks a surviving invariant in one iteration (preservation).
@@ -264,7 +278,9 @@ accepted only when `t/interp.py` produces one of:
 
 The operators, tried in this fixed order, with sites inside an operator
 enumerated in pre-order (statement, then into `if` branches and `while`
-bodies), first candidate with a witness winning:
+bodies). A proof witness on rung 1 wins as soon as one is found. On the value
+rungs the first candidate whose witness falsifies `ensures` wins, and a
+merely-differing candidate is taken only as the fallback described below:
 
 1. **INVARIANT-DROP** (v1) — one invariant of one loop is deleted. An
    annotation mutation. Twin REFUTED means that invariant is load-bearing:
@@ -288,15 +304,42 @@ shows was vacuous — no twin that was already distinct moved.
 
 No witness on any rung and the task is REFUSED, with the reason named:
 `no-witness` (every mutation computes what the real body computes),
-`no-input` (nothing in the bounded domain satisfies `requires` — a vacuous
-precondition), `real-undefined` (the real body returns no value), or
-`no-operator` (nothing to mutate). An unmeasurable twin is reported as such,
-never passed off as a flip.
+`no-input` (no enumerated point of the bounded domain satisfied `requires`),
+`real-undefined` (the real body returns no value), `candidate-budget` (the
+ladder reached its candidate budget, 400 candidates per task, with no witness
+in hand), or `no-operator` (nothing to mutate). An unmeasurable twin is
+reported as such, never passed off as a flip.
 
-A task counts ONLY when the real lowering is VERIFIED and the twin is REFUTED
-by the actual kernel — both measured, never predicted. Twin VERIFIED now says
-one specific thing, because the twin is known to be broken: the spec is
-vacuous, or the dropped invariant's obligation is one the kernel re-derives.
+`no-input` is a coverage limit of the search and NOT a proof of vacuity. The
+domain is bounded and enumerated: at most 2048 points per task, taken in
+shell order over ladders derived from the task's own content, the literals it
+compares against first, then a fixed integer ladder out to the 32-bit
+boundaries, and sequences of length at most 5 over an eight-value alphabet. A
+bounded search is sound for FALSITY and never for TRUTH, which is
+`t/interp.py`'s own stated doctrine, so an empty result carries exactly one
+claim: no point this search enumerated satisfies `requires`. The precondition
+may still be satisfiable outside the enumerated domain. Only a kernel can
+settle that, and t does not ask this instrument a question it cannot answer.
+
+**A twin accepted on a non-refuting witness does not count.** On the value
+rungs the ladder prefers a candidate whose witness falsifies `ensures`,
+because only that entails that a sound kernel must refute. A witness showing
+merely that real and twin compute different values leaves a loose `ensures`
+satisfied by both, and a kernel verifying such a twin is correct rather than
+broken. When no value rung offers a refuting candidate, the harness takes the
+merely-differing one and tags the operator `+nonrefuting`. Such a twin is
+REPORTED, never COUNTED: the tag travels with the cell wherever the cell is
+published, and it is the visible record of a spec too loose for its own twin
+to break.
+
+A task counts ONLY when the real lowering is VERIFIED, the twin is REFUTED by
+the actual kernel, and the twin's operator carries no `+nonrefuting` tag. All
+three are measured, never predicted, and a tagged twin fails the third, so the
+task does not count whatever the kernel returned. For an untagged twin, twin
+VERIFIED now says one specific thing, because the twin is known to be broken:
+the spec is vacuous, or the dropped invariant's obligation is one the kernel
+re-derives. For a `+nonrefuting` twin it says nothing about the spec's teeth,
+which is the whole reason the tag exists.
 
 ## What v1 does not claim
 
