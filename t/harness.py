@@ -70,17 +70,35 @@ def load(path: Path) -> dict:
     parameters, a return named after a parameter, and a task with no
     `requires` all loaded and COUNTED as flips.
 
-    EVERY refusal leaves by SpecError, including the two that used to leave
-    by traceback before the wrapper below could name a cause. Measured
-    2026-09-05: a file holding `not json` killed both drivers with
-    json.JSONDecodeError, and the file `[]` — valid JSON, not a task — with
-    `AttributeError: 'list' object has no attribute 'get'` on the version
-    check. A driver that catches SpecError caught neither, so one such file
-    in tasks/ cost the whole run."""
+    Every refusal the read and the parse can name leaves by SpecError,
+    including the four that used to leave by traceback before the wrapper
+    below could name a cause. Measured 2026-09-05: a file holding `not json`
+    killed both drivers with json.JSONDecodeError; the file `[]` — valid
+    JSON, not a task — with `AttributeError: 'list' object has no attribute
+    'get'` on the version check; a UTF-16 file, which is what a Windows
+    shell's `>` writes by default, with `UnicodeDecodeError: 'utf-8' codec
+    can't decode byte 0xff in position 0` raised by read_text before json
+    saw a character; and an otherwise-valid task carrying a 4301-digit
+    integer literal with `ValueError: Exceeds the limit (4300 digits) for
+    integer string conversion` raised by json's own scanner. A driver that
+    catches SpecError caught none of the four, so one such file in tasks/
+    cost the whole run. The limit, measured the same day: JSON nested deeply
+    enough to exhaust the interpreter's recursion limit (5000 levels) raises
+    RecursionError, which is not a ValueError and is not caught here."""
     try:
         task = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as e:
         raise SpecError(f"{path.name}: not JSON ({e})") from e
+    except (ValueError, OSError) as e:
+        # What is left once the path is named but the bytes are not a t task
+        # anyone can read: a decode failure (UnicodeDecodeError), json's
+        # int-string conversion limit (a plain ValueError out of the
+        # scanner), and a path that will not open (OSError).
+        # UnicodeDecodeError and JSONDecodeError are both ValueError
+        # subclasses, so the narrower clause above keeps its own message and
+        # this one names the exception type for everything else.
+        raise SpecError(f"{path.name}: not a readable t task "
+                        f"({type(e).__name__}: {e})") from e
     if not isinstance(task, dict):
         raise SpecError(f"{path.name}: not a t task — the top-level value is "
                         f"a {type(task).__name__} and a task is an object")
