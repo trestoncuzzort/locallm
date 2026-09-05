@@ -630,4 +630,13 @@ def run_all(argv: list[str], lower, backend, suffix: str) -> int:
         except SpecError as e:
             print(f"  {w}: REFUSED — {e}")
             ok = False
+        except NotImplementedError as e:
+            # The lowering declined the task — an identifier its adapter's
+            # cheat scan would misread (ident_guard.py), or a construct it
+            # cannot express. The cross-kernel runners record this as an
+            # ABSTAIN cell; measured 2026-09-05, this path let it out as a
+            # traceback, and `abs`, named after such a task on the same
+            # command line, was never lowered.
+            print(f"  {w}: ABSTAIN — {e}")
+            ok = False
     return 0 if ok else 1
