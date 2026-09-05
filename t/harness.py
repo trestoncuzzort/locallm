@@ -54,11 +54,37 @@ OUT = HERE / "out"
 KNOWN_VERSIONS = (0, 1)
 
 
+class SpecError(ValueError):
+    """This file is not a t task. Raised instead of letting a
+    SPEC-nonconforming task through: everything downstream — the twin
+    ladder, the seven lowerings, the flip rule — reads a task assuming
+    SPEC.md holds of it, and a kernel verdict on something t does not
+    define measures nothing."""
+
+
 def load(path: Path) -> dict:
+    """The only door into a task. A file that reaches the kernels has been
+    through fuzz_lower.check_wf, so the well-formedness rules the fuzzer
+    has always enforced on GENERATED tasks are the same ones a committed
+    task must pass. Measured 2026-09-05 on the pre-fix bytes: duplicate
+    parameters, a return named after a parameter, and a task with no
+    `requires` all loaded and COUNTED as flips."""
     task = json.loads(path.read_text(encoding="utf-8"))
-    assert task.get("t") in KNOWN_VERSIONS, (
-        f"{path.name}: not a t task I know (t={task.get('t')!r}, "
-        f"known: {KNOWN_VERSIONS})")
+    if task.get("t") not in KNOWN_VERSIONS:
+        raise SpecError(f"{path.name}: not a t task I know "
+                        f"(t={task.get('t')!r}, known: {KNOWN_VERSIONS})")
+    # Deferred: fuzz_lower imports this module, so importing it at module
+    # level is a cycle (the same one interp.py records).
+    from fuzz_lower import check_wf                  # noqa: PLC0415
+    try:
+        errs = check_wf(task)
+    except Exception as e:                           # noqa: BLE001
+        # A shape check_wf reads without checking. Still a refusal that
+        # names its cause, never a bare KeyError out of a loader.
+        raise SpecError(f"{path.name}: not a well-formed t task "
+                        f"({type(e).__name__}: {e})") from e
+    if errs:
+        raise SpecError(f"{path.name}: {errs[0]}")
     return task
 
 
@@ -429,18 +455,56 @@ def make_twin(body: list, task: dict | None = None
     return None, None
 
 
+_NO_INPUT = ("the bounded search enumerated {n} and found none satisfying "
+             "`requires`, so there is nothing to measure. That is the "
+             "COVERAGE of the search and not a proof that no input "
+             "satisfies `requires`: the domain is a ladder capped at "
+             "interp.MAX_POINTS points in shell order, and a bounded "
+             "search is sound for falsity, never for truth (interp.py).")
+
 REFUSALS = {
     "no-operator": "no `if` and no invariant — nothing to mutate, so the "
                    "twin is undefined",
     "no-witness": "every mutation on the ladder computes what the real body "
                   "computes, on the whole bounded domain — nothing to measure",
-    "no-input": "no input in the bounded domain satisfies `requires` — a "
-                "vacuous precondition, so there is nothing to measure",
+    "no-input": _NO_INPUT.format(
+        n=f"the domain, at most {interp.MAX_POINTS} points "
+          f"(interp.MAX_POINTS),"),
     "real-undefined": "the real body returns no value on any input that "
                       "satisfies `requires` — nothing for a twin to differ "
                       "from",
     "candidate-budget": f"no witness within {MAX_CANDIDATES} candidates",
 }
+
+
+def refusal(reason: str, task: dict | None = None) -> str:
+    """The refusal sentence, with the domain the search ACTUALLY
+    enumerated counted where the refusal is about coverage. Re-walking
+    the ladder costs nothing next to a kernel run and evaluates no body.
+    run_all.py and run_par.py read REFUSALS directly and get the same
+    sentence with the cap in place of the count."""
+    if reason == "no-input" and task is not None:
+        n = sum(1 for _ in interp.domain(task, _scope(task)))
+        return _NO_INPUT.format(n=f"{n} points of the domain")
+    return REFUSALS[reason]
+
+
+def _refuting(op: str, w: dict | None) -> bool:
+    """Does the accepted witness ENTAIL that a sound kernel must refute the
+    twin? Only then is a REFUTED twin the flip SPEC.md defines. twin_for
+    tags the fallback it takes when NO candidate on the ladder falsifies
+    `ensures` (+nonrefuting, witness `_ens` False): that twin computes a
+    different value, but a kernel refuting it is refuting it for a reason
+    the measurement did not predict, and counting that as a flip credits
+    the discipline with a detection it did not make. INVARIANT-DROP's
+    witness carries no `_ens` — interp.invariant_witness returns only exit
+    entailment or preservation states, each of which a sound kernel must
+    refute."""
+    if not w or op.endswith("+nonrefuting"):
+        return False
+    if w.get("_kind") in ("exit", "preservation"):
+        return True
+    return w.get("_ens") is True
 
 
 def witness(w: dict | None) -> str:
@@ -465,7 +529,7 @@ def run_task(task_path: Path, lower, backend, suffix: str) -> bool:
 
     twin_body, op, w = twin_cached(task)
     if twin_body is None:
-        print(f"  {name}: REFUSED — {REFUSALS[op]}")
+        print(f"  {name}: REFUSED — {refusal(op, task)}")
         return False
 
     real = OUT / f"{name}.{suffix}"
@@ -480,14 +544,24 @@ def run_task(task_path: Path, lower, backend, suffix: str) -> bool:
     if not (agree_r and agree_t):
         print(f"  {name}: REFUSED — verdicts flaked across runs")
         return False
-    flip = (r_real.outcome == Outcome.VERIFIED
-            and r_twin.outcome == Outcome.REFUTED)
-    tag = (f"COUNTS  (real VERIFIED, {op} twin REFUTED, witness {witness(w)})"
-           if flip else
-           f"REFUSED (real {r_real.outcome}, {op} twin {r_twin.outcome}"
-           + (f" — vacuous spec: the twin is broken on {witness(w)} and the "
-              f"kernel accepted it anyway)"
-              if r_twin.outcome == Outcome.VERIFIED else ")"))
+    refuted = (r_real.outcome == Outcome.VERIFIED
+               and r_twin.outcome == Outcome.REFUTED)
+    flip = refuted and _refuting(op, w)
+    if flip:
+        tag = (f"COUNTS  (real VERIFIED, {op} twin REFUTED, "
+               f"witness {witness(w)})")
+    elif refuted:
+        # The kernel refuted a twin the witness does not convict. Whatever
+        # it found, the measurement did not predict it, so it is not this
+        # discipline's flip.
+        tag = (f"REFUSED (real {r_real.outcome}, {op} twin REFUTED — "
+               f"witness does not falsify ensures; refuted for another "
+               f"reason, not counted)")
+    else:
+        tag = (f"REFUSED (real {r_real.outcome}, {op} twin {r_twin.outcome}"
+               + (f" — vacuous spec: the twin is broken on {witness(w)} and "
+                  f"the kernel accepted it anyway)"
+                  if r_twin.outcome == Outcome.VERIFIED else ")"))
     print(f"  {name}: {tag}")
     return flip
 
