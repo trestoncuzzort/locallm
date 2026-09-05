@@ -90,10 +90,13 @@ suite does not generate:
      taxonomy violation ROADMAP.md 10.1 names — the obligation the lowering
      emitted is strictly STRONGER than the one SPEC.md states, so this can
      only cost a proof, never buy one.
-  5. The fstar adapter scores MALFORMED whenever its query log holds no
-     `unsat`, so a task F*'s own normaliser closes without calling Z3 is a
-     non-verdict: `ensures r == x` for `assign r := x` measured MALFORMED,
-     while MALFORMED is defined as "does not parse/resolve".
+  5. Until 2026-09-05 the fstar adapter scored MALFORMED whenever its query
+     log held no `unsat`, so a task F*'s own normaliser closes without
+     calling Z3 was a non-verdict wearing the wrong name: `ensures r == x`
+     for `assign r := x` measured MALFORMED, while MALFORMED is defined as
+     "does not parse/resolve". It now scores UNPROVED with an error naming
+     the zero-query acceptance — still a non-verdict, still not counted,
+     and (below) still INCOMPLETE rather than DECISIVE here.
   6. TRIGGERS. `s[j]` inside a `forall` is the SMT trigger; `s[(j - 0)]` and
      `s[(j * 1)]` are not trigger candidates, so the same quantifier loses
      its instantiation. Verus makes it a hard error ("Could not automatically

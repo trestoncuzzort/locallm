@@ -104,10 +104,12 @@ Backends section:
     automatically infer triggers". The bp_*_qtrig* probes carry the same range
     question with `at(s, i)` as a trigger, and both columns then answer it
     correctly, so the gap is notation, not model.
-  * fstar scores bp_c_true MALFORMED: F* closes `= x` against
+  * fstar scored bp_c_true MALFORMED until 2026-09-05, and scores it UNPROVED
+    ("accepted with zero recorded SMT queries") since: F* closes `= x` against
     `(x >= 0 ==> r == x) /\\ (x < 0 ==> r == x)` by normalization with NO SMT
     query, and verifiers/fstar.py requires `discharged > 0` for VERIFIED. Fail
-    closed, so not unsoundness, but an honest proof scored as a non-answer.
+    closed, so not unsoundness, but an honest proof scored as a non-answer —
+    now under the label that says so.
 
 Own output directory, never t/out/: the suite's drivers own those filenames
 (run_par.py's _live_conflict records the cost of a second writer). Pass --out.
