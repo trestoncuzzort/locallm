@@ -546,55 +546,60 @@ def run_task(task_path: Path, lower, backend, suffix: str,
     t.verifiers module. The twin call passes the measured witness so
     a lowering may use it; the real call never does.
 
-    The FILE'S STEM is the identity, here as in run_all.py and run_par.py:
-    `name` is a field of the file whose conformance is the thing in
-    question, and two files may carry the same one.
+    THE IDENTITY IS THE TASK NAME. `task["name"]` is an Id by SPEC.md's
+    grammar and the name every lowering embeds as the module, crate or unit
+    of what it emits, so out/<name>.<suffix> and out/<name>_twin.<suffix>
+    name the artifact the way the source inside it names itself. The file's
+    STEM was tried as the identity and is not one: any legal filename can be
+    a stem, and measured 2026-09-05 one reached the kernels as a filename —
+    abs.json copied to zzW2_abs.v1.json emitted out/zzW2_abs.v1.fst carrying
+    `module Abs`, which F* refuses BY NAME (Error 141, "Expected module
+    zzW2_abs.v1", exit 1, while the same bytes named Abs.fst verify).
 
-    ONE ARTIFACT, ONE WRITER. `written` maps an out/ path to the stem that
+    ONE ARTIFACT, ONE WRITER. `written` maps an out/ path to the NAME that
     wrote it, for a whole run; a caller measuring one task can leave it
-    None and gets a fresh empty map, which nothing can collide with.
-    `<stem>_twin.<suffix>` is a filename another task FILE can claim —
-    a.json and a_twin.json both name out/a_twin.<suffix> — and stem
-    identity is what put that within reach. Measured 2026-09-05 on the
-    pre-fix bytes, with abs.json copied to zzW2_a.json and max.json to
-    zzW2_a_twin.json: `lower_dafny.py zzW2_a zzW2_a_twin` printed COUNTS
-    for both and exited 0, while out/zzW2_a_twin.dfy ended the run holding
-    max's REAL lowering — a correct program standing where the twin zzW2_a
-    was measured against belongs, and the only artifact a reader has.
-    run_all.py and run_par.py refuse that shape as a PATH-COLLISION cell;
-    this is the single-kernel path's half of the same rule. No rename and
-    no per-task directory: a collision is a defect in the task SET, and the
-    author who named the files is the one who can fix it."""
+    None and gets a fresh empty map, which nothing can collide with. Two
+    task files holding the same `name`, or names `x` and `x_twin` (both
+    Ids), claim the same two paths. Measured 2026-09-05 before this map
+    existed, on a pair of task files that claimed one twin path:
+    `lower_dafny.py` printed COUNTS for both and exited 0, while the first
+    task's twin artifact ended the run holding the second task's REAL
+    lowering — a correct program standing where the broken one belongs, and
+    the only artifact a reader has. run_all.py and run_par.py refuse that
+    shape as a PATH-COLLISION cell; this is the single-kernel path's half of
+    the same rule. No rename and no per-task directory: a collision is a
+    defect in the task SET, and the author who named the tasks is the one
+    who can fix it."""
     task = load(task_path)
-    stem = task_path.stem
+    name = task["name"]
     written = {} if written is None else written
     OUT.mkdir(exist_ok=True)
 
     twin_body, op, w = twin_cached(task)
     if twin_body is None:
-        print(f"  {stem}: REFUSED — {refusal(op, task)}")
+        print(f"  {name}: REFUSED — {refusal(op, task)}")
         return False
 
-    real = OUT / f"{stem}.{suffix}"
-    twin = OUT / f"{stem}_twin.{suffix}"
+    real = OUT / f"{name}.{suffix}"
+    twin = OUT / f"{name}_twin.{suffix}"
     clash = next((p for p in (real, twin) if p in written), None)
     if clash is not None:
         # NEITHER file is written. What is on disk is what an earlier task's
         # verdict was measured on, and this task has no artifact of its own
         # to be measured on.
-        print(f"  {stem}: PATH-COLLISION — out/{clash.name} is also "
+        print(f"  {name}: PATH-COLLISION — out/{clash.name} is also "
               f"written by {written[clash]}")
         return False
     real.write_text(lower(task, task["body"]), encoding="utf-8",
                     newline="\n")
     twin.write_text(lower(task, twin_body, witness=w), encoding="utf-8",
                     newline="\n")
-    written[real] = written[twin] = stem
+    written[real] = written[twin] = name
 
     r_real, agree_r = flake_check(backend.verify, real)
     r_twin, agree_t = flake_check(backend.verify, twin)
     if not (agree_r and agree_t):
-        print(f"  {stem}: REFUSED — verdicts flaked across runs")
+        print(f"  {name}: REFUSED — verdicts flaked across runs")
         return False
     refuted = (r_real.outcome == Outcome.VERIFIED
                and r_twin.outcome == Outcome.REFUTED)
@@ -631,7 +636,7 @@ def run_task(task_path: Path, lower, backend, suffix: str,
                f"the spec's teeth)")
     else:
         tag = f"REFUSED (real {r_real.outcome}, {op} twin {r_twin.outcome})"
-    print(f"  {stem}: {tag}")
+    print(f"  {name}: {tag}")
     return flip
 
 
@@ -652,11 +657,13 @@ def run_all(argv: list[str], lower, backend, suffix: str) -> int:
     second task to claim an out/ path is refused instead of overwriting the
     first task's measured twin with its own real source (the measurement is
     under run_task; run_all.py and run_par.py hold the same map for the
-    cross-kernel matrix)."""
+    cross-kernel matrix). The argv names below are FILE stems, because that
+    is what a command line can name; the artifacts they produce are named
+    after the TASK each file holds."""
     want = argv or sorted(p.stem for p in (HERE / "tasks").glob("*.json"))
     print(f"t -> {backend.version()}")
     ok = True
-    written: dict[Path, str] = {}     # artifact path -> the stem that wrote it
+    written: dict[Path, str] = {}     # artifact path -> the name that wrote it
     for w in want:
         try:
             ok = run_task(HERE / "tasks" / f"{w}.json",
