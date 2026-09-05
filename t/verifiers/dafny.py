@@ -236,31 +236,31 @@ WALL_S = 120               # hang backstop only, never the verdict
 # obligation (measured per docstring). Honest lower_dafny.py output contains
 # no attributes, no @-forms, no strings, no comments, and none of these words.
 #
-# Two rows, because they are two different claims. SYNTAX_RE matches
-# punctuation no Dafny identifier can spell, so a hit is a construct by
-# construction; it stays exactly as measured, and it is load-bearing —
-# `dafny audit` does NOT report {:verify false}. KEYWORD_RE matches bare
-# words, which an identifier CAN spell, so every row is \b-bounded on both
-# sides and `\bassume\w*` is gone: measured 2026-09-05, abs.json with its
-# parameter renamed `assumed` lowered to valid Dafny, dafny answered "1
-# verified, 0 errors" at exit 0, and this scan returned VACUOUS — a wrong
-# label on a real proof. The dropped \w* tail cost nothing: the only
-# assume-family spellings this file names are the `assume` statement and
-# the {:assume_concurrent} attribute, and the attribute is a SYNTAX_RE hit.
-# lower_dafny.py tests every declared task identifier against KEYWORD_RE
-# before emitting (ident_guard.py), so a keyword hit here can no longer
-# have come from a name.
-SYNTAX_RE = re.compile(
+# One pattern, the substring/boundary shape it has always had — including
+# the attribute row, which is load-bearing because `dafny audit` does NOT
+# report {:verify false}, and `\bassume\w*`, which covers the `assume`
+# statement, `assume {:axiom}` and {:assume_concurrent} in a single row.
+# Splitting it into a \b-bounded keyword row plus a punctuation row was
+# tried and reverted 2026-09-05 alongside its F* sibling, where the bounded
+# rows were measured to lose coverage the unbounded ones had.
+#
+# What this scan cannot tell is a construct from a task's own name, and a
+# hit DECIDES the outcome VACUOUS whatever dafny said. Measured 2026-09-05,
+# abs.json with its parameter renamed `assumed` lowered to valid Dafny,
+# dafny answered "1 verified, 0 errors" at exit 0, and this scan returned
+# VACUOUS — a wrong label on a real proof. Fixed upstream, not here:
+# lower_dafny.py tests every DECLARED task identifier against THIS pattern
+# before emitting anything (ident_guard.py) and ABSTAINs on a match, so a
+# hit here can only have come from a construct. A task naming a parameter
+# `assumed` is then reported unmeasured instead of measured — the honest
+# label, and the name is the task's to change.
+BANNED_RE = re.compile(
     r"\{\s*:\s*\w+"                 # every {:attr} pragma ({:axiom}, {:verify false}, {:extern}, {:only}, ...)
-    r"|@\s*[A-Za-z_]\w*",           # every 4.10+ @Attribute form (@Axiom, @Verify(false), ...)
-    re.IGNORECASE)
-KEYWORD_RE = re.compile(
-    r"\binclude\b"                  # imports source this scan never sees (e6: exit 0, "2 verified")
-    r"|\bassume\b"                  # the assume statement, incl. assume {:axiom}
+    r"|@\s*[A-Za-z_]\w*"            # every 4.10+ @Attribute form (@Axiom, @Verify(false), ...)
+    r"|\binclude\b"                 # imports source this scan never sees (e6: exit 0, "2 verified")
+    r"|\bassume\w*"                 # assume statement, assume {:axiom}, {:assume_concurrent}
     r"|\b(?:axiom|opaque|reveal|extern)\b",
     re.IGNORECASE)
-BANNED_RE = re.compile(SYNTAX_RE.pattern + "|" + KEYWORD_RE.pattern,
-                       re.IGNORECASE)
 
 # Dafny 4.11.0's own tally line, printed exactly once per run (measured):
 #   "Dafny program verifier finished with 1 verified, 0 errors"

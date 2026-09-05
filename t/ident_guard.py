@@ -16,21 +16,34 @@ VACUOUS means "accepted, but for the wrong reason" (verifiers/__init__.py).
 A file the kernel verified for the RIGHT reason must never carry it, so
 those four cells are wrong labels, not conservative ones.
 
-The fix has two halves and this file is the second. First half: each
-adapter's ban pattern is split into the rows a bare identifier could match
-(KEYWORD_RE) and the rows it could not — pragma/attribute punctuation, or a
-multi-token construct (SYNTAX_RE) — and every keyword row is given \\b
-boundaries so it stops swallowing longer identifiers. Second half, here:
-before a lowering emits anything, every identifier the task DECLARES is
-tested against ITS OWN adapter's KEYWORD_RE, imported from
-verifiers.<kernel> so the two cannot drift, and a hit is an ABSTAIN
-(NotImplementedError, which the drivers record as a cell that declined to
-run). Together they make the ban decision honest again: a keyword hit in
-emitted source can now only have come from a construct.
+The fix is ONE half, and this file is it. Before a lowering emits anything,
+every identifier the task DECLARES is tested against ITS OWN adapter's WHOLE
+ban pattern, imported from verifiers.<kernel> so the two cannot drift, and a
+hit is an ABSTAIN (NotImplementedError, which the drivers record as a cell
+that declined to run). A hit in emitted source can then only have come from
+a construct, which is what the ban scan always meant it to mean.
 
-Renaming the identifier instead was considered and refused: it would change
-every emitted byte for every task, and the emitted artifacts are the
-verdict basis. ABSTAIN reports the task as unmeasured, which is what it is.
+The other half was tried and reverted 2026-09-05. It split each adapter's
+pattern into the rows a bare identifier could match and the rows it could
+not, and gave every word row \\b boundaries. Two gate rounds measured what
+that cost F*: `\\badmit\\b` does not see `admitted` inside
+`[@@FStar.Attributes.admitted]`, so a false lemma carrying that attribute
+scored VERIFIED with ok=True; an added attribute regex was then walked past
+by `[@@ (* ] *) FStar.Attributes.admitted]`, VERIFIED ok=True again, because
+F* reads the comment as whitespace and a regex reads the `]` inside it as
+the attribute's end. A regex over a language with comments and strings does
+not win that race, so the patterns are the ones they always were and the
+guard alone carries the fix.
+
+The cost is stated plainly because it is real: the guard refuses on ANY
+match, and several of those patterns are substring scans, so a task whose
+own name merely EMBEDS a family word — `admitted`, `magicNumber`,
+`assumed`, `externals` — ABSTAINs. Such a task is reported unmeasured, and
+it is: the alternative is not "measured", it is being mislabelled VACUOUS
+(and counted as a cheat) by a scan that cannot see the difference. Renaming
+the identifier for the task was considered and refused: it would change
+every emitted byte for every task, and the emitted artifacts are the verdict
+basis. The name is the task author's to change.
 """
 from __future__ import annotations
 
@@ -71,15 +84,25 @@ def declared_names(task: dict, body: list | None = None) -> list[str]:
     return sorted(out)
 
 
-def check(kernel: str, keyword_re, task: dict, body: list | None = None
+def check(kernel: str, ban_re, task: dict, body: list | None = None
           ) -> None:
-    """Raise NotImplementedError if a declared name matches the kernel
-    adapter's KEYWORD_RE. `keyword_re` is the compiled pattern imported from
-    verifiers.<kernel>: one source, so the guard cannot drift from the scan
-    it is protecting. Sorted order, so the named identifier is the same on
-    every run and platform."""
+    """Raise NotImplementedError if a declared name matches ANY row of the
+    kernel adapter's ban pattern. `ban_re` is that adapter's own compiled
+    BANNED/BANNED_RE, imported from verifiers.<kernel>: one source, so the
+    guard cannot drift from the scan it is protecting, and no second pattern
+    to keep in step.
+
+    ANY match, including a substring: several of those patterns are
+    deliberately unbounded, so `admitted` matches F*'s `admit` row and
+    `assumed` matches Dafny's `assume\\w*`. Refusing those names is the
+    intended cost — the scan would otherwise call a real proof VACUOUS (see
+    the module docstring). Rows no identifier can spell — pragma
+    punctuation, multi-word vernacular — simply never fire here.
+
+    Sorted order, so the named identifier is the same on every run and
+    platform."""
     for name in declared_names(task, body):
-        m = keyword_re.search(name)
+        m = ban_re.search(name)
         if m:
             raise NotImplementedError(
                 f"identifier {name!r} collides with the {kernel} adapter's "

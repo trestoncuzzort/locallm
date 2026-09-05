@@ -815,10 +815,11 @@ def lower(task: dict, body: list, witness: dict | None = None) -> str:
     global _SUFFIX_INT
     # A DECLARED NAME the verus adapter's cheat scan reads as a
     # construct turns its VACUOUS verdict into a wrong label on a real
-    # proof (ident_guard.py, measured 2026-09-05). The pattern is the
-    # adapter's own KEYWORD_RE, so the two cannot drift; a hit ABSTAINs
-    # here instead of being emitted and mislabelled there.
-    ident_guard.check("verus", verus_backend.KEYWORD_RE, task, body)
+    # proof (ident_guard.py, measured 2026-09-05). The pattern tested is
+    # the adapter's own WHOLE ban scan, so the two cannot drift; any
+    # match, substring included, ABSTAINs here instead of being emitted
+    # and mislabelled there.
+    ident_guard.check("verus", verus_backend.BANNED, task, body)
     if task.get("t", 0) == 0:
         # v0 used to emit bare literals to keep its output byte-identical to
         # an earlier baseline. That is unsound as an emission rule: Verus

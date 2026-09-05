@@ -214,27 +214,23 @@ PAR = 4
 # `requires \false` kept although smoke tests subsume it — the regex is the
 # second line and costs nothing.
 #
-# Two rows, because they are two different claims. KEYWORD_RE matches single
-# bare words, which a task identifier CAN spell: a param named `axiom` or
-# `admit` would score this file VACUOUS whatever WP said, and VACUOUS means
-# "accepted for the wrong reason" — a wrong label on a real proof. Measured
-# on the sibling adapters 2026-09-05 (dafny `assumed`, fstar
-# `admitted`/`magicNumber`, lean `trustCompiler`, each a false VACUOUS);
-# frama-c is not installed on the box this edit was made on, so this row is
-# a BY-READING change, unexecuted. The rows were already \b-bounded, so the
-# matched language is unchanged; what changed is upstream: lower_framac.py
-# tests every declared task identifier against KEYWORD_RE before emitting
-# (ident_guard.py) and ABSTAINs, so a keyword hit here can no longer have
-# come from a name.
-#
-# SYNTAX_RE holds the two-token `requires \false` construct, which no single
-# identifier can match (the backslash is not an identifier character), so it
-# is kept out of the guard.
-KEYWORD_RE = re.compile(
-    r"\badmit\b|\bassumes\b|\baxiomatic\b|\baxiom\b", re.IGNORECASE)
-SYNTAX_RE = re.compile(r"requires\s+\\false", re.IGNORECASE)
-BANNED = re.compile(KEYWORD_RE.pattern + "|" + SYNTAX_RE.pattern,
-                    re.IGNORECASE)
+# One pattern, unchanged. What changed 2026-09-05 is upstream: the word rows
+# are bare words a task identifier CAN spell — a param named `axiom` or
+# `admit` scores this file VACUOUS whatever WP said, and VACUOUS means
+# "accepted for the wrong reason", a wrong label on a real proof. Measured
+# on the sibling adapters 2026-09-05 (dafny `assumed`: "1 verified, 0
+# errors" at exit 0; fstar `admitted` and `magicNumber`: 4 solver-logged
+# unsat at exit 0; lean `trustCompiler`: exit_code -1, nothing ran — each a
+# false VACUOUS); frama-c is not installed on the box this edit was made on,
+# so this row is a BY-READING change, unexecuted. lower_framac.py now tests
+# every DECLARED task identifier against THIS pattern before emitting
+# anything (ident_guard.py) and ABSTAINs on a match, so a hit here can only
+# have come from a construct. The `requires \false` row no identifier can
+# match (the backslash is not an identifier character) costs the guard
+# nothing: it never refuses on it.
+BANNED = re.compile(
+    r"\badmit\b|\bassumes\b|\baxiomatic\b|\baxiom\b|requires\s+\\false",
+    re.IGNORECASE)
 
 # Cyrillic/Greek confusables folded to ASCII before the raw fallback scan
 # (homoglyph_axiom.c: frama-c rejects the homoglyph identifier -> MALFORMED

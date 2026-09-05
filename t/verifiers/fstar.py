@@ -4,8 +4,8 @@ Verdict mapping (F* 2026.08.30 / bundled Z3 4.13.3, measured 2026-08-31 on
 the training box in the install audit, re-relied-on here; tactic-admit rows
 re-measured 2026-08-31 in the Wave-1 hole-closing pass):
   exit 0 + success line + >=1 solver-logged unsat -> VERIFIED (ban scan clean)
-  banned token in SOURCE (admit/assume/magic/expect_failure/warn_error as
-      \b-bounded words, option pragmas as syntax; raw + NFKC) -> VACUOUS
+  banned token in SOURCE (admit/assume/magic/expect_failure families,
+      option pragmas, warn_error — substring, raw + NFKC)  -> VACUOUS
   diagnostic number 296 at ANY level             -> VACUOUS  (a tactic
       admitted a goal — tadmit/admit_all/tadmit_t land here)
   Error number 335                               -> VACUOUS  (admit()/assume
@@ -215,46 +215,37 @@ Z3_VERSION = "4.13.3"      # the bundled default among the three shipped; pinned
 Z3_SEED = 42
 WALL_S = 120               # hang backstop only, never the verdict
 
-# Two rows, because they are two different claims.
+# Substring families, deliberately unbounded (no \b): tadmit, admit_all,
+# tadmit_t, _admit, admit_, expect_lax_failure and every embedding are hits.
+# The pragma rows exist because a file pragma can demote diagnostic 296 out
+# of existence (measured) and the honest lowering emits no pragmas at all.
 #
-# SYNTAX_RE matches pragma punctuation no F* identifier can spell, so a hit
-# is a construct by construction. It exists because a file pragma can demote
-# diagnostic 296 out of existence (measured) and the honest lowering emits
-# no pragmas at all.
+# Unbounded is the point, and it was briefly given up. A \b-bounded keyword
+# row plus a separate syntax row was tried and reverted 2026-09-05:
+# `\badmit\b` does not see `admitted` inside `[@@FStar.Attributes.admitted]`,
+# and that attribute emits neither 296 nor 335, so an attributed
+# `let bad (x:int) : Lemma (x < x) = ()` beside one true lemma scored
+# VERIFIED with ok=True (measured, the review gate's probe) where the
+# substring scan scores VACUOUS. An added attribute regex was then walked
+# past by `[@@ (* ] *) FStar.Attributes.admitted]`, also measured VERIFIED
+# ok=True: F* reads the comment as whitespace, a regex reads the `]` inside
+# it as the end of the attribute. That race has no last move — a regex over
+# a language with comments and strings will always lose it — so the scan
+# does not enter it, and stays the substring scan it was.
 #
-# KEYWORD_RE matches bare words. It used to match them as SUBSTRINGS, with
-# no \b at all, so tadmit/admit_all/tadmit_t/_admit/admit_ were hits — and
-# so was every identifier embedding a family name. Measured 2026-09-05 on
-# abs.json with its int parameter renamed: `admitted` and `magicNumber` each
-# lowered to F* that typechecked at exit 0 with 4 solver-logged unsat, and
-# this scan returned VACUOUS, a wrong label on a real proof. The rows are
-# \b-bounded now, which gives back exactly the tactic-admit spellings whose
-# family name is an infix, and those are carried by the two layers that were
-# measured to carry them independently (module docstring, layers 2 and 3):
-# diagnostic 296 at any level is VACUOUS on sight, and --warn_error @296
-# promotes it to a hard error. Re-measured 2026-09-05 with the \b rows in
-# place: `assert _ by (tadmit ())` and `by (admit_all ())` both still score
-# VACUOUS through 296, `admit ()` through \badmit\b and Error 335,
-# `assume val` through \bassume\b, `[@@expect_failure]` through
-# \bexpect_failure\b (the bracket and @ are non-word, so \b holds).
-# lower_fstar.py tests every declared task identifier against KEYWORD_RE
-# before emitting (ident_guard.py), so a keyword hit here can no longer have
-# come from a name.
-#
-# The attribute row: the substring ban used to catch `admitted` inside
-# `[@@FStar.Attributes.admitted]`; \badmit\b does not, and that attribute
-# emits neither 296 nor 335. Measured 2026-09-05 (the review gate's probe): an
-# attributed `let bad (x:int) : Lemma (x < x) = ()` beside one true lemma
-# scored VERIFIED with ok=True under the \b rows alone, VACUOUS under the old
-# substring ban. Inside `[@@ ... ]` a family word is a construct, never a
-# task identifier (no identifier begins with `[@@`), so the substring match
-# is correct there and lives in SYNTAX_RE, where the guard does not look.
-SYNTAX_RE = re.compile(
-    r"#\s*(?:set|push|pop|reset)-options|#\s*restart-solver"
-    r"|\[@@[^\]]*(?:admit|assume|magic|lax)")
-KEYWORD_RE = re.compile(
-    r"\b(?:admit|assume|magic|expect_(?:lax_)?failure|warn_error)\b")
-BANNED = re.compile(KEYWORD_RE.pattern + "|" + SYNTAX_RE.pattern)
+# What a substring scan genuinely cannot tell is a construct from a task's
+# own name. Measured 2026-09-05 on abs.json with its int parameter renamed:
+# `admitted` and `magicNumber` each lowered to F* that typechecked at exit 0
+# with 4 solver-logged unsat, and this scan returned VACUOUS — a wrong label
+# on a real proof. Fixed upstream, not here: lower_fstar.py tests every
+# DECLARED task identifier against THIS pattern before emitting anything
+# (ident_guard.py) and ABSTAINs on a match, so a hit in emitted source can
+# only have come from a construct. The cost is that a task naming a
+# parameter `admitted` is reported unmeasured instead of measured; that is
+# the honest label, and the name is the task's to change.
+BANNED = re.compile(
+    r"admit|assume|magic|expect_(?:lax_)?failure"
+    r"|#\s*(?:set|push|pop|reset)-options|#\s*restart-solver|warn_error")
 _MODULE = re.compile(r"^\s*module\s+([A-Za-z0-9_.']+)", re.MULTILINE)
 _OK_LINE = "All verification conditions discharged successfully"
 # Forgeable (Q5/Q6/Q10 print it): reported for cross-checking, never gating.
