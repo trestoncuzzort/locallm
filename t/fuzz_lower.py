@@ -325,7 +325,7 @@ def _ty(e, env, funs, ver, errs, bound):
     if "forall" in e or "exists" in e:
         q = e["forall"] if "forall" in e else e["exists"]
         v = q["var"]
-        if v in env or v in bound:
+        if v in env or v in bound or v in funs:
             errs.append(f"bound var {v} shadows a name in scope")
         for side in ("lo", "hi"):
             if _ty(q[side], env, funs, ver, errs, bound) != "int":
@@ -395,13 +395,61 @@ def _self_calls(e, name) -> bool:
     return False
 
 
+# SPEC.md:3 — "Every field is required unless marked optional". The v0
+# skeleton (SPEC.md:18-26) and the v1 additions (SPEC.md:52-58) mark only
+# `gate`, `spec_funs` and `decreases` optional, so these six are what every
+# task carries. Checked FIRST because everything below reads them: a task
+# with no `requires` used to reach the kernels through `task.get`, and one
+# with no `ensures` used to surface as a KeyError from whoever loaded it.
+REQUIRED = (("name", str), ("params", list), ("returns", list),
+            ("requires", list), ("ensures", list), ("body", list))
+
+
+def _declared(task: dict) -> list[tuple[str, str]]:
+    """(kind, name) for every name the task declares at the top level, in
+    declaration order."""
+    return ([("param", p["name"]) for p in task["params"]]
+            + [("return", r["name"]) for r in task["returns"]]
+            + [("spec_fun", f["name"])
+               for f in task.get("spec_funs", [])])
+
+
 def check_wf(task: dict) -> list[str]:
     errs: list[str] = []
+    for key, ty in REQUIRED:
+        if key not in task:
+            errs.append(f"missing required field `{key}` (SPEC.md:3 — "
+                        f"every field is required unless marked optional)")
+        elif not isinstance(task[key], ty):
+            errs.append(f"field `{key}` is not a {ty.__name__} "
+                        f"(SPEC.md:18-26)")
+    for key in ("params", "returns"):
+        decls = task.get(key)
+        for d in (decls if isinstance(decls, list) else []):
+            if not (isinstance(d, dict) and "name" in d and "type" in d):
+                errs.append(f'a {key[:-1]} is not {{"name": .., "type": ..}}'
+                            f" (SPEC.md:21-22)")
+    if errs:
+        return errs              # no point reading fields that are not there
     ver = task["t"]
     if not NAME_RE.match(task["name"]):
         errs.append("bad task name")
     if len(task["returns"]) != 1:
-        errs.append("exactly one return value (SPEC.md v0 and v1)")
+        errs.append("exactly one return value (SPEC.md:22, v0 and v1)")
+        return errs              # `ret` below is task["returns"][0]
+    # Every declared name — parameter, return, local, bound variable, spec
+    # function — is distinct from every other name in scope; a task that
+    # reuses a name is not a t task. Checked here because `penv`, `eenv` and
+    # `funs` below are DICTS: a duplicate parameter collapses into one entry
+    # and a return named after a parameter overwrites it, so neither reaches
+    # a single type check. Locals and bound variables carry the same law in
+    # _check_stmts and _ty, against the scope they are declared in.
+    seen: set[str] = set()
+    for kind, n in _declared(task):
+        if n in seen:
+            errs.append(f"{kind} {n} reuses a name already in scope "
+                        f"(SPEC.md, distinct names)")
+        seen.add(n)
     if not task["ensures"]:
         errs.append("ensures must be non-empty")
     funs = {f["name"]: f for f in task.get("spec_funs", [])}
@@ -456,7 +504,7 @@ def _check_stmts(body, env, funs, ver, errs, assignable):
             if ver == 0:
                 errs.append("local in a v0 task")
             d = s["var"]
-            if d["name"] in env:
+            if d["name"] in env or d["name"] in funs:
                 errs.append(f"local {d['name']} shadows a name in scope")
             if _ty(d["init"], env, funs, ver, errs, set()) != d["type"]:
                 errs.append(f"local {d['name']} init type mismatch")
