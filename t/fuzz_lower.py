@@ -1776,89 +1776,6 @@ def probes() -> list[dict]:
 # 6. Corpus construction.
 # ===========================================================================
 
-def _bare(task: dict) -> dict:
-    """The task as SPEC.md defines it, without this file's `_` annotations.
-    harness.twin_cached keys its cache on the task's JSON, so asking it with
-    the bare dict is what makes build_corpus's ladder and run()'s ladder the
-    SAME run instead of two."""
-    return {k: v for k, v in task.items() if not k.startswith("_")}
-
-
-def _twin(task: dict):
-    """The one twin selection in this file: harness's GROUNDED ladder, so
-    the measured witness and the operator TAG travel with the task.
-    Returns (twin_body, operator, witness).
-
-    This used to be `harness.make_twin(task["body"])` — the body-only v1
-    rule — in three places. That rule has no task to run the twin on, so it
-    cannot tell a twin whose witness falsifies `ensures` from one that
-    merely computes something else, and the tag harness.twin_for writes for
-    the second case never reached the report. Measured 2026-09-05 over
-    seeds 1-3, 657 tasks: every operator the report carried was a plain
-    `collapse-if` (448 cells) or `invariant-drop` (206), not one of them
-    tagged, while the harness's own ladder tags 32 tasks of those same
-    seeds `+nonrefuting`. SPEC.md's counting rule had nothing to read, so a
-    weak spec and a failed twin were the same number.
-
-    ONE task in the corpus is outside the interpreter's language on
-    purpose: the fz_p_nodiv probe carries `/`, which t does not have, and
-    build_corpus keeps it lowerable (`_wf_errors` blanked) precisely so
-    every lowering has to refuse the token. The ladder cannot run it — it
-    executes the body — so that probe has NO measurable operator: its
-    `_twin_op` is None and the counting rule reads nothing for it. A twin
-    file still has to exist for the lowerings to refuse, and the body-only
-    rule is used for that and nothing else.
-    """
-    try:
-        return harness.twin_cached(_bare(task))
-    except ValueError:                # interp: "t has no operator '/'"
-        twin, _op = harness.make_twin(task["body"])
-        return twin, None, None
-
-
-def _base_op(op: str | None) -> str | None:
-    """The operator inside harness's tag: `collapse-if#3+nonrefuting` is a
-    collapse-if. `#k` numbers the site and `+nonrefuting` records the
-    witness's strength; neither changes which operator ran."""
-    if op is None:
-        return None
-    return op.split("+", 1)[0].split("#", 1)[0]
-
-
-def _refresh(task: dict, twin_body, op: str | None) -> None:
-    """Record on the task the selection that was actually lowered, and drop
-    any annotation that described a different one.
-
-    `_twin_op` is an operator or nothing; when the ladder measured no twin
-    it hands back a REFUSAL reason in that slot (`no-input`,
-    `real-undefined`, `no-witness`, `candidate-budget`, `no-operator`),
-    which is kept under `_twin_refusal` where no reader will mistake it for
-    an operator.
-
-    `_twin_differs` and `_inv` are statements ABOUT the operator, so a
-    changed operator makes them stale. They are re-derived only when the
-    operator changed, which on a freshly built corpus is never (build_corpus
-    just wrote what this same cached ladder returns) and on a replay is
-    exactly the tasks whose selection moved. The re-derivation seeds its own
-    generator from the task name and operator rather than the corpus rng,
-    which is not in scope here and would not be the same stream anyway;
-    same task, same operator, same numbers, run after run."""
-    new = op if twin_body is not None else None
-    if task.get("_twin_op") == new and "_twin_refusal" in task:
-        return
-    old, base = task.get("_twin_op"), _base_op(new)
-    task["_twin_op"] = new
-    task["_twin_refusal"] = None if twin_body is not None else op
-    if old == new:
-        return
-    rng = random.Random(f"{task['name']}:{new}")
-    task["_twin_differs"] = (
-        twin_semantics(task, task["body"], twin_body, rng)
-        if base == "collapse-if" else None)
-    task["_inv"] = (invariant_load_bearing(task, rng)
-                    if base == "invariant-drop" else {"applies": False})
-
-
 def build_corpus(n: int, seed: int):
     rng = random.Random(seed)
     weights = []
@@ -1884,11 +1801,11 @@ def build_corpus(n: int, seed: int):
         if key in seen:
             continue
         seen.add(key)
-        twin, op, _w = _twin(task)
+        twin, op = harness.make_twin(task["body"])
         if twin is None:
             continue                           # no twin: SPEC.md refuses it
         task["_family"] = fam
-        task["_twin_op"] = op                  # the FULL tag, `#k` and all
+        task["_twin_op"] = op
         gt = ground_truth(task, task["body"], rng)
         if gt["verdict"] == "unknown":
             continue
@@ -1903,30 +1820,16 @@ def build_corpus(n: int, seed: int):
         task["_expect"] = gt["verdict"]
         task["_gt"] = {k: gt[k] for k in ("kind", "cex", "n_ok")
                        if gt.get(k) is not None}
-        base = _base_op(op)                    # the tag is not the operator
         task["_twin_differs"] = (twin_semantics(task, task["body"], twin, rng)
-                                 if base == "collapse-if" else None)
+                                 if op == "collapse-if" else None)
         task["_inv"] = (invariant_load_bearing(task, rng)
-                        if base == "invariant-drop" else {"applies": False})
+                        if op == "invariant-drop" else {"applies": False})
         corpus.append(task)
     for p in probes():
         p["_family"] = "probe"
         p["_wf_errors"] = check_wf(p) if p["name"] != "fz_p_nodiv" else []
-        # The probes deliberately include shapes t REFUSES — an operator t
-        # does not have, an undefined body — and the grounded ladder runs
-        # the interpreter, so it is asked only of the ones the door admits.
-        # A refused probe never reaches a lowering (run() records
-        # `wf-error` for it) and carries no operator.
-        if p["_wf_errors"] or p["name"] == "fz_p_nodiv":
-            p["_twin_op"] = None
-        else:
-            tw, op, _w = _twin(p)
-            # `_twin_op` is an operator or nothing. When the ladder finds no
-            # witness it returns a REFUSAL reason in that slot (`no-input`,
-            # `real-undefined`); storing it here would put a reason where
-            # every reader expects an operator. run() records the same fact
-            # as a `no-twin` cell.
-            p["_twin_op"] = op if tw is not None else None
+        twin, op = harness.make_twin(p["body"])
+        p["_twin_op"] = op
         corpus.append(p)
     return corpus
 
@@ -1937,19 +1840,7 @@ def build_corpus(n: int, seed: int):
 
 def _cell(bname: str, real: str, twin: str, n: int):
     backend = importlib.import_module(f"verifiers.{bname}")
-    rp = Path(real)
-    # An empty `twin` path is a REAL-ONLY cell: the ladder measured no twin
-    # for this task, and the twin slot says so. The real lowering is still
-    # worth a kernel — the definedness and vacuity probes are adversarial
-    # about the REAL file, and a lowering that totalizes an out-of-range
-    # read is visible nowhere else.
-    if not twin:
-        if n == 1:
-            a = backend.verify(rp)
-            return bname, rp.stem, a.outcome, "no-twin", True, a.wall_ms
-        a, ok = flake_check(backend.verify, rp, n)
-        return bname, rp.stem, a.outcome, "no-twin", ok, a.wall_ms
-    tp = Path(twin)
+    rp, tp = Path(real), Path(twin)
     if n == 1:
         a, b = backend.verify(rp), backend.verify(tp)
         return bname, rp.stem, a.outcome, b.outcome, True, a.wall_ms + b.wall_ms
@@ -1978,29 +1869,14 @@ def run(corpus, outdir: Path, jobs: int, n_flake: int, only=None):
             if task.get("_wf_errors"):
                 rows[name][bname] = ("wf-error", "wf-error", True, 0)
                 continue
-            # The SAME selection build_corpus recorded in `_twin_op`: the
-            # grounded ladder, cached on the bare task, so the file this
-            # lowers IS the twin the report names and the kernel's verdict
-            # is about the operator the counting rule reads.
-            twin_body, op, _w = _twin(task)
-            # THE SELECTION THAT PRODUCED THE FILE IS THE ONE THE REPORT
-            # READS. A corpus replayed with --corpus-json carries the
-            # `_twin_op` its ladder chose when it was BUILT, and the ladder
-            # changes: measured 2026-09-05, 30 of the 219 tasks in a corpus
-            # saved by the pre-grounding bytes disagree with today's
-            # selection, and 11 of them — fz_v0loose_020 among them — are
-            # saved untagged where the ladder now says `+nonrefuting`, so
-            # analyse() counted a twin this run never lowered. Written back
-            # here, before analyse() sees the task.
-            _refresh(task, twin_body, op)
+            twin_body, op = harness.make_twin(task["body"])
+            if twin_body is None:
+                rows[name][bname] = ("no-twin", "no-twin", True, 0)
+                continue
             clean = {k: v for k, v in task.items() if not k.startswith("_")}
             try:
                 rs = lower(clean, task["body"])
-                # No twin measured: the REAL file is still lowered and still
-                # verified (the twin slot of the row says `no-twin`). Only
-                # the twin is missing, and a missing twin is not a missing
-                # measurement of the lowering.
-                ts = None if twin_body is None else lower(clean, twin_body)
+                ts = lower(clean, twin_body)
             except NotImplementedError as e:
                 rows[name][bname] = ("abstain", str(e)[:120], True, 0)
                 continue
@@ -2009,13 +1885,10 @@ def run(corpus, outdir: Path, jobs: int, n_flake: int, only=None):
                                      f"{type(e).__name__}: {e}"[:120], True, 0)
                 continue
             rp = outdir / f"{name}.{sfx}"
+            tp = outdir / f"{name}_twin.{sfx}"
             rp.write_text(rs, encoding="utf-8")
-            tp = ""
-            if ts is not None:
-                tp = outdir / f"{name}_twin.{sfx}"
-                tp.write_text(ts, encoding="utf-8")
-                tp = str(tp)
-            pending.append((bname, str(rp), tp))
+            tp.write_text(ts, encoding="utf-8")
+            pending.append((bname, str(rp), str(tp)))
     t0 = time.time()
     ctx = mp_context()
     done = 0
@@ -2035,7 +1908,7 @@ def analyse(corpus, rows):
     """A cell is a finding when it contradicts another kernel on the same real
     lowering, or contradicts the reference interpreter."""
     out = {"disagreements": [], "twin_survived": [], "vs_truth": [],
-           "no_flip": [], "twin_nonrefuting": [], "twin_unmeasurable": []}
+           "no_flip": []}
     for task in corpus:
         name = task["name"]
         cells = rows.get(name, {})
@@ -2066,47 +1939,6 @@ def analyse(corpus, rows):
                      "adversarial": task.get("_adversarial", False)})
         surv = sorted(b for b, c in cells.items()
                       if c[0] == Outcome.VERIFIED and c[1] == Outcome.VERIFIED)
-        # A row whose twin the ladder could not measure is REAL-ONLY. The
-        # real lowering is still a measurement — fz_p_at_body asks whether a
-        # lowering totalizes an out-of-range read, and only the REAL file can
-        # answer that — so it is lowered and verified, and the twin slot of
-        # the cell says `no-twin`. Such a row can never be a flip, a
-        # survivor or a nonrefuting twin: there is no twin. It gets its own
-        # bucket rather than none, because a corpus drifting to unmeasurable
-        # twins would otherwise read as a clean run, which is the 2026-09-01
-        # lesson recorded under `no_flip` below.
-        blind = sorted(b for b, c in cells.items() if c[1] == "no-twin")
-        if blind:
-            out["twin_unmeasurable"].append(
-                {"task": name, "family": task.get("_family"),
-                 "reason": task.get("_twin_refusal"),
-                 "real": {b: cells[b][0] for b in blind},
-                 "adversarial": task.get("_adversarial", False)})
-            continue
-        # SPEC.md's counting rule: a twin the ladder accepted on a witness
-        # that does NOT falsify `ensures` is REPORTED, never COUNTED. Both
-        # buckets below are accusations — "the twin survived", "no flip" —
-        # and neither is true of such a twin: both programs satisfy
-        # `ensures`, so a kernel that verifies the twin is RIGHT, and a
-        # kernel that refutes it refuted for a reason the measurement did
-        # not predict. One predicate decides, harness.counts_as_flip, the
-        # same one run_all.py, run_par.py and harness.run_task ask; this
-        # file used to ask nothing, so a weak spec and a failed twin were
-        # the same number in the WS-12.3 statistic.
-        op = task.get("_twin_op")
-        if op is not None and not harness.counts_as_flip(op):
-            out["twin_nonrefuting"].append(
-                {"task": name, "family": task.get("_family"), "op": op,
-                 "twin_verified": surv,
-                 "not_refuted": {b: c[1] for b, c in cells.items()
-                                 if c[0] == Outcome.VERIFIED
-                                 and c[1] != Outcome.REFUTED},
-                 "refuted": sorted(b for b, c in cells.items()
-                                   if c[0] == Outcome.VERIFIED
-                                   and c[1] == Outcome.REFUTED),
-                 "twin_differs": task.get("_twin_differs"),
-                 "inv": task.get("_inv")})
-            continue
         if surv:
             out["twin_survived"].append(
                 {"task": name, "family": task.get("_family"),
@@ -2169,26 +2001,11 @@ def main() -> int:
     print(f"\ndisagreements: {len(res['disagreements'])}  "
           f"vs-truth: {len(res['vs_truth'])}  "
           f"twin-survived: {len(res['twin_survived'])}  "
-          f"no-flip: {len(res['no_flip'])}  "
-          f"nonrefuting: {len(res['twin_nonrefuting'])}  "
-          f"unmeasurable-twin: {len(res['twin_unmeasurable'])}")
+          f"no-flip: {len(res['no_flip'])}")
     for b in sorted(nf):
         c = {o: nf[b].count(o) for o in sorted(set(nf[b]))}
         print(f"  NO-FLIP {b}: {len(nf[b])} real-VERIFIED cells whose twin "
               f"was not REFUTED — {c}")
-    nr = {}
-    for d in res["twin_nonrefuting"]:
-        nr.setdefault(_base_op(d["op"]), []).append(d["task"])
-    for opname in sorted(nr, key=str):
-        print(f"  NONREFUTING {opname}: {len(nr[opname])} tasks whose twin "
-              f"differs but does not falsify `ensures` — reported, never "
-              f"counted (SPEC.md)")
-    um = {}
-    for d in res["twin_unmeasurable"]:
-        um.setdefault(str(d["reason"]), []).append(d["task"])
-    for why in sorted(um):
-        print(f"  UNMEASURABLE-TWIN {why}: {len(um[why])} tasks lowered and "
-              f"verified REAL-ONLY — no twin, so no flip to count")
     for d in res["disagreements"]:
         print(f"  DISAGREE {d['task']} [{d['family']}] "
               f"verified={d['verified']} refuted={d['refuted']} "
