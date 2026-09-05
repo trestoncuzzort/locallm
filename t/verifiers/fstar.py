@@ -240,8 +240,18 @@ WALL_S = 120               # hang backstop only, never the verdict
 # lower_fstar.py tests every declared task identifier against KEYWORD_RE
 # before emitting (ident_guard.py), so a keyword hit here can no longer have
 # come from a name.
+#
+# The attribute row: the substring ban used to catch `admitted` inside
+# `[@@FStar.Attributes.admitted]`; \badmit\b does not, and that attribute
+# emits neither 296 nor 335. Measured 2026-09-05 (the review gate's probe): an
+# attributed `let bad (x:int) : Lemma (x < x) = ()` beside one true lemma
+# scored VERIFIED with ok=True under the \b rows alone, VACUOUS under the old
+# substring ban. Inside `[@@ ... ]` a family word is a construct, never a
+# task identifier (no identifier begins with `[@@`), so the substring match
+# is correct there and lives in SYNTAX_RE, where the guard does not look.
 SYNTAX_RE = re.compile(
-    r"#\s*(?:set|push|pop|reset)-options|#\s*restart-solver")
+    r"#\s*(?:set|push|pop|reset)-options|#\s*restart-solver"
+    r"|\[@@[^\]]*(?:admit|assume|magic|lax)")
 KEYWORD_RE = re.compile(
     r"\b(?:admit|assume|magic|expect_(?:lax_)?failure|warn_error)\b")
 BANNED = re.compile(KEYWORD_RE.pattern + "|" + SYNTAX_RE.pattern)
