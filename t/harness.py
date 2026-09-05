@@ -540,16 +540,34 @@ def witness(w: dict | None) -> str:
     return f"{ins} -> real {w.get('_real')}, twin {w.get('_twin')}"
 
 
-def run_task(task_path: Path, lower, backend, suffix: str) -> bool:
+def run_task(task_path: Path, lower, backend, suffix: str,
+             written: dict[Path, str] | None = None) -> bool:
     """lower(task, body, witness=None) -> source text; backend is a
     t.verifiers module. The twin call passes the measured witness so
     a lowering may use it; the real call never does.
 
     The FILE'S STEM is the identity, here as in run_all.py and run_par.py:
     `name` is a field of the file whose conformance is the thing in
-    question, and two files may carry the same one."""
+    question, and two files may carry the same one.
+
+    ONE ARTIFACT, ONE WRITER. `written` maps an out/ path to the stem that
+    wrote it, for a whole run; a caller measuring one task can leave it
+    None and gets a fresh empty map, which nothing can collide with.
+    `<stem>_twin.<suffix>` is a filename another task FILE can claim —
+    a.json and a_twin.json both name out/a_twin.<suffix> — and stem
+    identity is what put that within reach. Measured 2026-09-05 on the
+    pre-fix bytes, with abs.json copied to zzW2_a.json and max.json to
+    zzW2_a_twin.json: `lower_dafny.py zzW2_a zzW2_a_twin` printed COUNTS
+    for both and exited 0, while out/zzW2_a_twin.dfy ended the run holding
+    max's REAL lowering — a correct program standing where the twin zzW2_a
+    was measured against belongs, and the only artifact a reader has.
+    run_all.py and run_par.py refuse that shape as a PATH-COLLISION cell;
+    this is the single-kernel path's half of the same rule. No rename and
+    no per-task directory: a collision is a defect in the task SET, and the
+    author who named the files is the one who can fix it."""
     task = load(task_path)
     stem = task_path.stem
+    written = {} if written is None else written
     OUT.mkdir(exist_ok=True)
 
     twin_body, op, w = twin_cached(task)
@@ -558,11 +576,20 @@ def run_task(task_path: Path, lower, backend, suffix: str) -> bool:
         return False
 
     real = OUT / f"{stem}.{suffix}"
+    twin = OUT / f"{stem}_twin.{suffix}"
+    clash = next((p for p in (real, twin) if p in written), None)
+    if clash is not None:
+        # NEITHER file is written. What is on disk is what an earlier task's
+        # verdict was measured on, and this task has no artifact of its own
+        # to be measured on.
+        print(f"  {stem}: PATH-COLLISION — out/{clash.name} is also "
+              f"written by {written[clash]}")
+        return False
     real.write_text(lower(task, task["body"]), encoding="utf-8",
                     newline="\n")
-    twin = OUT / f"{stem}_twin.{suffix}"
     twin.write_text(lower(task, twin_body, witness=w), encoding="utf-8",
                     newline="\n")
+    written[real] = written[twin] = stem
 
     r_real, agree_r = flake_check(backend.verify, real)
     r_twin, agree_t = flake_check(backend.verify, twin)
@@ -619,14 +646,21 @@ def run_all(argv: list[str], lower, backend, suffix: str) -> int:
     False, so a probe task whose twin the kernel verified printed one
     REFUSED line and `abs`, named after it on the same command line, was
     never lowered at all. The drivers' rule holds here too — one file's
-    refusal must not silence every other measurement in the run."""
+    refusal must not silence every other measurement in the run.
+
+    ONE `written` map for the whole run, threaded through run_task, so the
+    second task to claim an out/ path is refused instead of overwriting the
+    first task's measured twin with its own real source (the measurement is
+    under run_task; run_all.py and run_par.py hold the same map for the
+    cross-kernel matrix)."""
     want = argv or sorted(p.stem for p in (HERE / "tasks").glob("*.json"))
     print(f"t -> {backend.version()}")
     ok = True
+    written: dict[Path, str] = {}     # artifact path -> the stem that wrote it
     for w in want:
         try:
             ok = run_task(HERE / "tasks" / f"{w}.json",
-                          lower, backend, suffix) and ok
+                          lower, backend, suffix, written) and ok
         except SpecError as e:
             print(f"  {w}: REFUSED — {e}")
             ok = False
