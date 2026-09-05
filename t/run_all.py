@@ -110,12 +110,16 @@ def main() -> int:
     # once per backend. The rule is the lower-error rule below — one cell's
     # absence must not silence every other measurement in the run — so a
     # nonconforming task is a row of spec-error cells, loud on the console,
-    # and the run continues and exits nonzero. Keyed by STEM, not
-    # task["name"]: the name field may be the thing SPEC.md refuses.
+    # and the run continues and exits nonzero. Since 2026-09-05 harness.load
+    # also refuses a file that is not JSON at all, and one whose top-level
+    # value is not an object (`[]`): both used to walk straight past this
+    # except and end the run in a traceback.
+    # Keyed by STEM, not task["name"]: the name field may be the thing
+    # SPEC.md refuses, so the stem travels WITH the task from here on.
     loaded = []
     for tpath in tasks:
         try:
-            loaded.append(harness.load(tpath))
+            loaded.append((tpath.stem, harness.load(tpath)))
         except harness.SpecError as e:
             for bname in present_names:
                 rows[tpath.stem][bname] = ("spec-error", "spec-error", True,
@@ -125,17 +129,29 @@ def main() -> int:
 
     emitted = []            # the source files THIS run wrote, in write order
     for bname, backend, lower, suffix in present:
-        for task in loaded:
+        for stem, task in loaded:
+            # ONE IDENTITY, THE FILE'S STEM — the key `rows` was built
+            # with. This path used to write rows[task["name"]] while the
+            # refusal above wrote rows[stem]. Measured 2026-09-05: abs.json's
+            # bytes in a file whose task name is `entry` crashed the driver
+            # with KeyError: 'entry'; and in a file carrying a name another
+            # task already has, the two silently shared one row and one pair
+            # of out/ files — every `abs x <kernel>` line printed twice and
+            # the extra row came out all em-dashes.
             # The whole task, not just the body: the twin is chosen by a
             # measured witness (harness.twin_for) and the witness needs
             # params/requires/ensures to have anything to run on.
             twin_body, op, w = harness.twin_cached(task)
             if twin_body is None:
                 cell = ("no-twin", "no-twin", True, "")
-                rows[task["name"]][bname] = cell
+                rows[stem][bname] = cell
                 all_ok = False
-                print(f"  {task['name']} x {bname}: no twin — "
-                      f"{harness.REFUSALS[op]}  <-- FINDING")
+                # The count the search ACTUALLY enumerated, not the cap:
+                # harness.refusal re-walks the domain for a coverage refusal
+                # (86 points on the probe measured 2026-09-05), and the
+                # static string can only quote interp.MAX_POINTS.
+                print(f"  {stem} x {bname}: no twin — "
+                      f"{harness.refusal(op, task)}  <-- FINDING")
                 continue
             try:
                 real_src = lower(task, task["body"])
@@ -143,23 +159,23 @@ def main() -> int:
             except NotImplementedError as e:
                 # An explicit ABSTAIN from the lowering: a recorded absence.
                 cell = ("abstain", "abstain", True, "")
-                rows[task["name"]][bname] = cell
+                rows[stem][bname] = cell
                 all_ok = False
-                print(f"  {task['name']} x {bname}: ABSTAIN — {e}")
+                print(f"  {stem} x {bname}: ABSTAIN — {e}")
                 continue
             except Exception as e:                        # noqa: BLE001
                 # The lowering cannot express this task yet and did not say
                 # so on purpose. Recorded, not fatal: one cell's absence must
                 # not silence every other measurement in the run.
                 cell = ("lower-error", "lower-error", True, "")
-                rows[task["name"]][bname] = cell
+                rows[stem][bname] = cell
                 all_ok = False
-                print(f"  {task['name']} x {bname}: LOWER-ERROR — "
+                print(f"  {stem} x {bname}: LOWER-ERROR — "
                       f"{type(e).__name__}: {e}")
                 continue
-            real = harness.OUT / f"{task['name']}.{suffix}"
+            real = harness.OUT / f"{stem}.{suffix}"
             real.write_text(real_src, encoding="utf-8", newline="\n")
-            twin = harness.OUT / f"{task['name']}_twin.{suffix}"
+            twin = harness.OUT / f"{stem}_twin.{suffix}"
             twin.write_text(twin_src, encoding="utf-8", newline="\n")
             emitted += [real, twin]
             r_real, a1 = flake_check(backend.verify, real)
@@ -171,10 +187,11 @@ def main() -> int:
             # reason its witness does not name; counting that as the flip
             # credits the instrument with a measurement it did not make. The
             # tag rides in the cell so the table says so too, not just the
-            # console line that scrolls past.
-            note = "+nonrefuting" if op.endswith("+nonrefuting") else ""
+            # console line that scrolls past. The rule is one function,
+            # harness.counts_as_flip, asked here and in harness.run_task.
+            note = "" if harness.counts_as_flip(op) else "+nonrefuting"
             cell = (r_real.outcome, r_twin.outcome, a1 and a2, note)
-            rows[task["name"]][bname] = cell
+            rows[stem][bname] = cell
             flip = cell[:3] == (Outcome.VERIFIED, Outcome.REFUTED, True)
             good = flip and not note
             all_ok &= good
@@ -183,7 +200,7 @@ def main() -> int:
                 mark += (" — refuted, but the twin's witness does not falsify "
                          "`ensures`, so this is not the flip and is not "
                          "counted")
-            print(f"  {task['name']} x {bname} [{op}]: "
+            print(f"  {stem} x {bname} [{op}]: "
                   f"real={cell[0]} twin={cell[1]}" + mark
                   + f"   (twin witness: {harness.witness(w)})")
 
@@ -191,13 +208,15 @@ def main() -> int:
     lines = [f"# t cross-kernel agreement — "
              f"{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%MZ')}",
              "",
-             # WHICH MACHINE PRODUCED THIS. The committed table read "Kernels
-             # present: 7 of 7" with the tool versions and no host on it; the
-             # same command on a three-kernel box regenerates "3 of 7", and a
-             # reader had no way to tell a different machine from a
-             # regression. OS, release and node name only — no user, no path.
-             f"Produced on: {platform.system()} {platform.release()} "
-             f"(node {platform.node()})",
+             # WHICH KIND OF MACHINE PRODUCED THIS. The committed table read
+             # "Kernels present: 7 of 7" with the tool versions and no host
+             # on it; the same command on a three-kernel box regenerates
+             # "3 of 7", and a reader had no way to tell a different platform
+             # from a regression. OS and release only — no user, no path, and
+             # since 2026-09-05 no node name either: a workstation nickname
+             # is a machine's, not a measurement's, and nothing downstream
+             # reads it.
+             f"Produced on: {platform.system()} {platform.release()}",
              "",
              "Cell = real outcome / twin outcome. Agreement means "
              "`verified / refuted` in every present column."]

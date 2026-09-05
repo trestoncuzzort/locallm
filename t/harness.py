@@ -68,8 +68,22 @@ def load(path: Path) -> dict:
     has always enforced on GENERATED tasks are the same ones a committed
     task must pass. Measured 2026-09-05 on the pre-fix bytes: duplicate
     parameters, a return named after a parameter, and a task with no
-    `requires` all loaded and COUNTED as flips."""
-    task = json.loads(path.read_text(encoding="utf-8"))
+    `requires` all loaded and COUNTED as flips.
+
+    EVERY refusal leaves by SpecError, including the two that used to leave
+    by traceback before the wrapper below could name a cause. Measured
+    2026-09-05: a file holding `not json` killed both drivers with
+    json.JSONDecodeError, and the file `[]` — valid JSON, not a task — with
+    `AttributeError: 'list' object has no attribute 'get'` on the version
+    check. A driver that catches SpecError caught neither, so one such file
+    in tasks/ cost the whole run."""
+    try:
+        task = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as e:
+        raise SpecError(f"{path.name}: not JSON ({e})") from e
+    if not isinstance(task, dict):
+        raise SpecError(f"{path.name}: not a t task — the top-level value is "
+                        f"a {type(task).__name__} and a task is an object")
     if task.get("t") not in KNOWN_VERSIONS:
         raise SpecError(f"{path.name}: not a t task I know "
                         f"(t={task.get('t')!r}, known: {KNOWN_VERSIONS})")
@@ -481,30 +495,37 @@ def refusal(reason: str, task: dict | None = None) -> str:
     """The refusal sentence, with the domain the search ACTUALLY
     enumerated counted where the refusal is about coverage. Re-walking
     the ladder costs nothing next to a kernel run and evaluates no body.
-    run_all.py and run_par.py read REFUSALS directly and get the same
-    sentence with the cap in place of the count."""
+    run_all.py and run_par.py call this too; REFUSALS keeps the cap
+    sentence for a caller with no task to count."""
     if reason == "no-input" and task is not None:
         n = sum(1 for _ in interp.domain(task, _scope(task)))
         return _NO_INPUT.format(n=f"{n} points of the domain")
     return REFUSALS[reason]
 
 
-def _refuting(op: str, w: dict | None) -> bool:
-    """Does the accepted witness ENTAIL that a sound kernel must refute the
-    twin? Only then is a REFUTED twin the flip SPEC.md defines. twin_for
-    tags the fallback it takes when NO candidate on the ladder falsifies
-    `ensures` (+nonrefuting, witness `_ens` False): that twin computes a
-    different value, but a kernel refuting it is refuting it for a reason
-    the measurement did not predict, and counting that as a flip credits
-    the discipline with a detection it did not make. INVARIANT-DROP's
-    witness carries no `_ens` — interp.invariant_witness returns only exit
-    entailment or preservation states, each of which a sound kernel must
-    refute."""
-    if not w or op.endswith("+nonrefuting"):
-        return False
-    if w.get("_kind") in ("exit", "preservation"):
-        return True
-    return w.get("_ens") is True
+def counts_as_flip(op: str) -> bool:
+    """Does a REFUTED twin under this operator COUNT as the flip SPEC.md
+    defines? ONE rule, one implementation: run_task, run_all.py and
+    run_par.py all ask here.
+
+    The TAG is the whole answer, because twin_for is the one place that
+    decides. It returns a candidate only on a witness that entails a sound
+    kernel must refute — one falsifying `ensures`, or, for INVARIANT-DROP,
+    a loop state the surviving invariants no longer cover (interp returns
+    only exit-entailment and preservation states) — and it marks
+    `+nonrefuting` the fallback it takes when NO rung of the ladder
+    falsifies `ensures`. Such a twin computes a different value, but a
+    kernel refuting it is refuting it for a reason the measurement did not
+    predict, and counting that as a flip credits the discipline with a
+    detection it did not make.
+
+    This used to re-derive that verdict from the witness's `_kind`/`_ens`
+    while both drivers read the tag, which is one rule with two
+    implementations and two ways to drift. Measured 2026-09-05: the two
+    agreed on every twin of the 11 committed tasks and on all 1029 twins of
+    five 200-task fuzz corpora (seeds 1-5, 43 of them tagged), so the tag is
+    kept and the derivation is a comment."""
+    return not op.endswith("+nonrefuting")
 
 
 def witness(w: dict | None) -> str:
@@ -522,31 +543,35 @@ def witness(w: dict | None) -> str:
 def run_task(task_path: Path, lower, backend, suffix: str) -> bool:
     """lower(task, body, witness=None) -> source text; backend is a
     t.verifiers module. The twin call passes the measured witness so
-    a lowering may use it; the real call never does."""
+    a lowering may use it; the real call never does.
+
+    The FILE'S STEM is the identity, here as in run_all.py and run_par.py:
+    `name` is a field of the file whose conformance is the thing in
+    question, and two files may carry the same one."""
     task = load(task_path)
-    name = task["name"]
+    stem = task_path.stem
     OUT.mkdir(exist_ok=True)
 
     twin_body, op, w = twin_cached(task)
     if twin_body is None:
-        print(f"  {name}: REFUSED — {refusal(op, task)}")
+        print(f"  {stem}: REFUSED — {refusal(op, task)}")
         return False
 
-    real = OUT / f"{name}.{suffix}"
+    real = OUT / f"{stem}.{suffix}"
     real.write_text(lower(task, task["body"]), encoding="utf-8",
                     newline="\n")
-    twin = OUT / f"{name}_twin.{suffix}"
+    twin = OUT / f"{stem}_twin.{suffix}"
     twin.write_text(lower(task, twin_body, witness=w), encoding="utf-8",
                     newline="\n")
 
     r_real, agree_r = flake_check(backend.verify, real)
     r_twin, agree_t = flake_check(backend.verify, twin)
     if not (agree_r and agree_t):
-        print(f"  {name}: REFUSED — verdicts flaked across runs")
+        print(f"  {stem}: REFUSED — verdicts flaked across runs")
         return False
     refuted = (r_real.outcome == Outcome.VERIFIED
                and r_twin.outcome == Outcome.REFUTED)
-    flip = refuted and _refuting(op, w)
+    flip = refuted and counts_as_flip(op)
     if flip:
         tag = (f"COUNTS  (real VERIFIED, {op} twin REFUTED, "
                f"witness {witness(w)})")
@@ -557,18 +582,52 @@ def run_task(task_path: Path, lower, backend, suffix: str) -> bool:
         tag = (f"REFUSED (real {r_real.outcome}, {op} twin REFUTED — "
                f"witness does not falsify ensures; refuted for another "
                f"reason, not counted)")
-    else:
+    elif r_twin.outcome == Outcome.VERIFIED and counts_as_flip(op):
+        # A twin known to be broken, accepted anyway: SPEC.md's vacuous
+        # spec, or an obligation the kernel re-derives.
         tag = (f"REFUSED (real {r_real.outcome}, {op} twin {r_twin.outcome}"
-               + (f" — vacuous spec: the twin is broken on {witness(w)} and "
-                  f"the kernel accepted it anyway)"
-                  if r_twin.outcome == Outcome.VERIFIED else ")"))
-    print(f"  {name}: {tag}")
+               f" — vacuous spec: the twin is broken on {witness(w)} and "
+               f"the kernel accepted it anyway)")
+    elif r_twin.outcome == Outcome.VERIFIED:
+        # NOT AN ACCUSATION. A +nonrefuting twin breaks nothing the spec
+        # states — both programs satisfy `ensures` — so VERIFIED is the
+        # correct verdict and says nothing about the spec's teeth, which is
+        # the whole reason the tag exists (SPEC.md, "+nonrefuting").
+        # Measured 2026-09-05 on a loose task (requires 1<=x, x<=2; ensures
+        # r <= 10-x; body r := 0): the off-by-one twin r := 1 satisfies the
+        # spec too, dafny VERIFIED it, and this line called it a vacuous
+        # spec whose twin the kernel had accepted anyway. False on both
+        # counts.
+        tag = (f"REFUSED (real {r_real.outcome}, {op} twin {r_twin.outcome}"
+               f" — the twin differs on {witness(w)} but does not falsify "
+               f"`ensures`, so VERIFIED is correct and says nothing about "
+               f"the spec's teeth)")
+    else:
+        tag = f"REFUSED (real {r_real.outcome}, {op} twin {r_twin.outcome})"
+    print(f"  {stem}: {tag}")
     return flip
 
 
 def run_all(argv: list[str], lower, backend, suffix: str) -> int:
+    """Every named task (or all of tasks/) through ONE kernel — what
+    `python lower_<kernel>.py` runs.
+
+    EVERY TASK IS MEASURED, AND A REFUSED FILE IS ONE FILE. Two ways this
+    path used to lose the rest of a run, both measured 2026-09-05: a
+    nonconforming file ended it in a traceback, since nothing here caught
+    the SpecError load raises; and `all(<generator>)` stopped at the first
+    False, so a probe task whose twin the kernel verified printed one
+    REFUSED line and `abs`, named after it on the same command line, was
+    never lowered at all. The drivers' rule holds here too — one file's
+    refusal must not silence every other measurement in the run."""
     want = argv or sorted(p.stem for p in (HERE / "tasks").glob("*.json"))
     print(f"t -> {backend.version()}")
-    ok = all(run_task(HERE / "tasks" / f"{w}.json", lower, backend, suffix)
-             for w in want)
+    ok = True
+    for w in want:
+        try:
+            ok = run_task(HERE / "tasks" / f"{w}.json",
+                          lower, backend, suffix) and ok
+        except SpecError as e:
+            print(f"  {w}: REFUSED — {e}")
+            ok = False
     return 0 if ok else 1
