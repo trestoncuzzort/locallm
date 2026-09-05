@@ -102,12 +102,32 @@ def main() -> int:
               "Nothing was written: not AGREEMENT.md, not out/.")
         return 2
 
+    # LOAD EVERY TASK ONCE, HERE, BEFORE ANY LOWERING. harness.load refuses a
+    # task SPEC.md does not admit (harness.SpecError). That call used to sit
+    # inside the per-backend loop with nothing catching it, so one
+    # nonconforming file in tasks/ ended the whole run in a traceback: every
+    # other task's measurement lost, nothing written, and the load repeated
+    # once per backend. The rule is the lower-error rule below — one cell's
+    # absence must not silence every other measurement in the run — so a
+    # nonconforming task is a row of spec-error cells, loud on the console,
+    # and the run continues and exits nonzero. Keyed by STEM, not
+    # task["name"]: the name field may be the thing SPEC.md refuses.
+    loaded = []
+    for tpath in tasks:
+        try:
+            loaded.append(harness.load(tpath))
+        except harness.SpecError as e:
+            for bname in present_names:
+                rows[tpath.stem][bname] = ("spec-error", "spec-error", True,
+                                           "")
+            all_ok = False
+            print(f"  {tpath.stem}: REFUSED — {e}  <-- FINDING")
+
     # Lowering + writes: sequential, entirely before any dispatch below, so
     # out/*.{suffix} has a single writer for the whole time it is produced.
     pending, wits, emitted = [], {}, []
     for bname, lower, suffix in present:
-        for tpath in tasks:
-            task = harness.load(tpath)
+        for task in loaded:
             name = task["name"]
             # The whole task, not just the body: the twin is chosen by a
             # measured witness (harness.twin_for), and the witness needs

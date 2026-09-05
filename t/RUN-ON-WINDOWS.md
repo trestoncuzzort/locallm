@@ -80,8 +80,11 @@ dead holder (pid 4000000) is taken over, an unparseable holder refuses
 Two more things that Windows run found, both fixed the same day. A run
 with too few kernels used to write the (empty) table *before* refusing, so
 a fresh clone's first `run_all.py` replaced the committed `AGREEMENT.md`
-with an empty one; the refusal now comes first and the witness is a
-zero-kernel run after which the file's sha256 is unchanged. And
+with an empty one; the refusal now comes first, and so does the kernel
+inventory it reads, so a refused run emits nothing under `out/` either
+(measured 2026-09-05: it used to rewrite four committed `out/` files).
+The witness is a zero-kernel run after which `AGREEMENT.md` and every
+file under `out/` keep their sha256 and their mtime. And
 `Path.write_text` defaulted to `os.linesep`, so the lowered sources were
 CRLF on Windows and their hashes, the verdict basis, differed from every
 other platform's for the same text (`abs.dfy` `9147e4af…` vs `9fe1e7e8…`,
