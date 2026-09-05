@@ -925,12 +925,17 @@ VISIBLE rather than removing it, and because of what those 17 tasks are:
   answer.
 
 So the honest reading is that this statistic has been measuring the fuzzer's
-spec strength, not the kernels' twin discipline. THE OPEN DECISION, which is
-a semantics call and not a repair: SPEC.md says a twin that verifies means
-the spec is decorative and the task is REFUSED. If the harness refused every
-task with no refuting twin, these would leave the corpus entirely and
-`no_flip` would mean only what it claims to mean. That shrinks the generated
-corpus and changes what counts, so it wants a decision rather than a commit.
+spec strength, not the kernels' twin discipline. THE SEMANTICS CALL behind
+it, PROPOSED 2026-09-05 in the review that found it (the merge ratifies it):
+SPEC.md says a twin that verifies means the spec is
+decorative and the task is REFUSED. Refusing every task with no refuting
+twin would drop these from the corpus entirely, which shrinks the generated
+corpus and loses the evidence along with it. The rule taken instead is
+narrower: a `+nonrefuting` twin is REPORTED and never COUNTED. The task
+stays in the corpus and stays visible, the tag travels with the cell, and it
+cannot satisfy the counting rule, so `no_flip` and every count derived from
+it now mean only what they claim to mean. SPEC.md carries the rule; the
+harness and the two runners enforce it.
 
 ### 12.4 The Dafny-to-t lifter
 
