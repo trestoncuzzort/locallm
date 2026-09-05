@@ -127,6 +127,19 @@ def main() -> int:
             all_ok = False
             print(f"  {tpath.stem}: REFUSED — {e}  <-- FINDING")
 
+    # ONE ARTIFACT, ONE WRITER. `<stem>_twin.<suffix>` is a filename another
+    # task file can claim: with a.json and a_twin.json in tasks/, both name
+    # out/a_twin.<suffix>. Measured 2026-09-05 with two copies of abs.json
+    # saved as zzW2_a.json and zzW2_a_twin.json —
+    # this driver writes and verifies one task at a time, so the verdicts
+    # stood while the EVIDENCE did not: out/zzW2_a_twin.dfy ended the run
+    # holding zzW2_a_twin's real lowering (the same 9fe1e7e8… as
+    # out/zzW2_a.dfy), which is a file the verdict-basis line below hashes
+    # and a reader would take for the twin zzW2_a was measured against.
+    # A collision is a defect in the task SET, and the person who named the
+    # files is the one who can fix it, so it is refused and named here rather
+    # than worked around with per-task directories or a rename.
+    written: dict[Path, str] = {}     # artifact path -> the stem that wrote it
     emitted = []            # the source files THIS run wrote, in write order
     for bname, backend, lower, suffix in present:
         for stem, task in loaded:
@@ -174,9 +187,22 @@ def main() -> int:
                       f"{type(e).__name__}: {e}")
                 continue
             real = harness.OUT / f"{stem}.{suffix}"
-            real.write_text(real_src, encoding="utf-8", newline="\n")
             twin = harness.OUT / f"{stem}_twin.{suffix}"
+            clash = next((p for p in (real, twin) if p in written), None)
+            if clash is not None:
+                # NEITHER file is written. What is already on disk is what an
+                # earlier task's verdict was measured on, and this task has
+                # no artifact of its own to be measured on.
+                cell = ("path-collision", "path-collision", True, "")
+                rows[stem][bname] = cell
+                all_ok = False
+                print(f"  {stem} x {bname}: PATH-COLLISION — "
+                      f"out/{clash.name} is also written by "
+                      f"{written[clash]}  <-- FINDING")
+                continue
+            real.write_text(real_src, encoding="utf-8", newline="\n")
             twin.write_text(twin_src, encoding="utf-8", newline="\n")
+            written[real] = written[twin] = stem
             emitted += [real, twin]
             r_real, a1 = flake_check(backend.verify, real)
             r_twin, a2 = flake_check(backend.verify, twin)
