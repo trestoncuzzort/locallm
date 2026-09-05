@@ -287,7 +287,14 @@ def exec_body(body: list, env: dict, funs: dict, st: St, check_ann: bool):
 # 2. Well-formedness — SYNTAX.md grammar plus SPEC.md's scope rules.
 # ===========================================================================
 
-NAME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_]*$")
+# SYNTAX.md:86 — `Id ::= [A-Za-z][A-Za-z0-9_]*`. The anchor is `\Z`,
+# not `$`, because in Python `$` also matches just before a trailing
+# newline: an identifier ending in one passed every declaration-site
+# check. Measured 2026-09-05 on the pre-fix bytes, abs.json with its
+# parameter renamed to x-followed-by-a-newline loaded, lowered and
+# COUNTED on dafny, with the newline sitting inside the emitted
+# `method Zzw4_nl(x` signature line.
+NAME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_]*\Z")
 V0_OPS = {"+", "-", "*", "neg", "==", "!=", "<", "<=", ">", ">=",
           "and", "or", "not", "implies"}
 V1_OPS = V0_OPS | {"len", "at"}
@@ -313,6 +320,27 @@ def _missing(node, keys, what, errs, where) -> bool:
     return bool(absent)
 
 
+def _exact(node, keys, what, errs, where) -> None:
+    """Each production in SYNTAX.md:43-87 lists the keys its objects carry
+    and that list is CLOSED, so a key the production does not name is
+    refused here by name. `_missing` says what is absent; this says what has
+    no business being present.
+
+    Measured 2026-09-05 on the pre-fix bytes, each one loading through the
+    door and COUNTING on dafny: a parameter object carrying `"junk": 7`, an
+    `ensures` operator node carrying `"junk": 7`, and the two-key expression
+    `{"int": 0, "var": "x"}` in a body. The last is the one that bites. The
+    interpreter, the type check below and the dafny emitter all read `int`
+    first, while lower_dafny.subst reads `var` first, so one such object is
+    two different programs inside one file."""
+    if not isinstance(node, dict):
+        return                  # not an object at all; _missing names that
+    art = "an" if what[0] in "aeiou" else "a"
+    for k in sorted(node):
+        if k not in keys:
+            errs.append(f'{art} {what} has unexpected key "{k}" ({where})')
+
+
 def _ty(e, env, funs, ver, errs, bound):
     """Type of e in env, or None; appends to errs. env maps name -> type."""
     if not isinstance(e, dict):
@@ -326,6 +354,7 @@ def _ty(e, env, funs, ver, errs, bound):
         if type(e["int"]) is not int:
             errs.append(f"int literal payload {e['int']!r} is not an integer "
                         f"(SYNTAX.md:58)")
+        _exact(e, ("int",), "int literal", errs, "SYNTAX.md:58")
         return "int"
     if "bool" in e:
         # SYNTAX.md:59 — `true|false`, the JSON booleans. {"bool": "false"}
@@ -336,8 +365,10 @@ def _ty(e, env, funs, ver, errs, bound):
                         f"boolean (SYNTAX.md:59)")
         if ver == 0:
             errs.append("bool literal in a v0 task")
+        _exact(e, ("bool",), "bool literal", errs, "SYNTAX.md:59")
         return "bool"
     if "var" in e:
+        _exact(e, ("var",), "var expression", errs, "SYNTAX.md:60")
         if not isinstance(e["var"], str):
             errs.append(f"var {e['var']!r} is not an Id (SYNTAX.md:86)")
             return None
@@ -350,9 +381,11 @@ def _ty(e, env, funs, ver, errs, bound):
             errs.append("v1 expression form in a v0 task")
     if "ite" in e:
         c = e["ite"]
+        _exact(e, ("ite",), "ite expression", errs, "SYNTAX.md:62")
         if _missing(c, ("cond", "then", "else"), "ite", errs,
                     "SYNTAX.md:62"):
             return None
+        _exact(c, ("cond", "then", "else"), "ite", errs, "SYNTAX.md:62")
         if _ty(c["cond"], env, funs, ver, errs, bound) != "bool":
             errs.append("ite condition is not bool")
         a = _ty(c["then"], env, funs, ver, errs, bound)
@@ -363,9 +396,12 @@ def _ty(e, env, funs, ver, errs, bound):
     if "forall" in e or "exists" in e:
         kind = "forall" if "forall" in e else "exists"
         q = e[kind]
+        _exact(e, (kind,), f"{kind} expression", errs, "SYNTAX.md:63-64")
         if _missing(q, ("var", "lo", "hi", "body"), kind, errs,
                     "SYNTAX.md:63-64"):
             return "bool"
+        _exact(q, ("var", "lo", "hi", "body"), kind, errs,
+               "SYNTAX.md:63-64")
         v = q["var"]
         # SYNTAX.md:86 — a bound variable is declared here, so it is an Id
         # like every other declaration.
@@ -384,8 +420,10 @@ def _ty(e, env, funs, ver, errs, bound):
         return "bool"
     if "call" in e:
         c = e["call"]
+        _exact(e, ("call",), "call expression", errs, "SYNTAX.md:65")
         if _missing(c, ("fun", "args"), "call", errs, "SYNTAX.md:65"):
             return None
+        _exact(c, ("fun", "args"), "call", errs, "SYNTAX.md:65")
         if not isinstance(c["fun"], str):
             errs.append(f"call fun {c['fun']!r} is not an Id (SYNTAX.md:86)")
             return None
@@ -405,6 +443,7 @@ def _ty(e, env, funs, ver, errs, bound):
     if "op" not in e:
         errs.append(f"{sorted(e)!r} is not a t expression (SYNTAX.md:58-65)")
         return None
+    _exact(e, ("op", "args"), "operator expression", errs, "SYNTAX.md:61")
     op = e["op"]
     ok = V0_OPS if ver == 0 else V1_OPS
     if op not in ok:
@@ -522,6 +561,9 @@ def check_wf(task: dict) -> list[str]:
             if not (isinstance(d, dict) and "name" in d and "type" in d):
                 errs.append(f'a {key[:-1]} is not {{"name": .., "type": ..}}'
                             f" (SPEC.md:21-22)")
+            else:
+                _exact(d, ("name", "type"), key[:-1], errs,
+                       "SYNTAX.md:47-48")
     # SYNTAX.md:80-84 — a spec_fun's own five fields, checked up here
     # because `_declared` below reads `f["name"]` and the loop after it
     # reads all five.
@@ -532,6 +574,8 @@ def check_wf(task: dict) -> list[str]:
     for f in sfs:
         _missing(f, ("name", "params", "result", "decreases", "body"),
                  "spec_fun", errs, "SYNTAX.md:80-84")
+        _exact(f, ("name", "params", "result", "decreases", "body"),
+               "spec_fun", errs, "SYNTAX.md:80-84")
         if (isinstance(f, dict) and "params" in f
                 and not isinstance(f["params"], list)):
             errs.append("a spec_fun's `params` is not a list "
@@ -580,7 +624,13 @@ def check_wf(task: dict) -> list[str]:
         errs.append(f"gate {task['gate']!r} is not one of "
                     f"{' | '.join(GATES)} (SPEC.md:55)")
     funs = {f["name"]: f for f in sfs if isinstance(f["name"], str)}
-    if ver == 0 and (funs or "decreases" in task or "gate" in task):
+    # SYNTAX.md:89-90 names the FIELDS a v0 task may not carry, so the test
+    # is presence, not contents. `funs` is the built map, and an empty
+    # `spec_funs` builds an empty map: measured 2026-09-05 on the pre-fix
+    # bytes, abs.json with `"spec_funs": []` added loaded and COUNTED on
+    # dafny as a v0 task carrying a v1 field.
+    if ver == 0 and ("spec_funs" in task or "decreases" in task
+                     or "gate" in task):
         errs.append("v1 field in a v0 task")
     penv = {p["name"]: p["type"] for p in task["params"]}
     if ver == 0 and any(t != "int" for t in penv.values()):
@@ -600,6 +650,8 @@ def check_wf(task: dict) -> list[str]:
                 errs.append(f'a spec_fun {fn} parameter is not '
                             f'{{"name": .., "type": ..}} (SYNTAX.md:81)')
                 continue
+            _exact(p, ("name", "type"), f"spec_fun {fn} parameter", errs,
+                   "SYNTAX.md:81")
             n = p["name"]
             if not isinstance(n, str) or not NAME_RE.match(n):
                 errs.append(f"spec_fun {fn} parameter name {n!r} is not an "
@@ -663,6 +715,7 @@ def _check_stmts(body, env, funs, ver, errs, assignable):
         if not isinstance(s, dict):
             errs.append(f"{s!r} is not a t statement (SYNTAX.md:72-78)")
         elif "assign" in s:
+            _exact(s, ("assign",), "assign statement", errs, "SYNTAX.md:72")
             a = s["assign"]
             if not (isinstance(a, list) and len(a) == 2):
                 errs.append("an `assign` is not [name, Expr] "
@@ -681,10 +734,12 @@ def _check_stmts(body, env, funs, ver, errs, assignable):
         elif "var" in s:
             if ver == 0:
                 errs.append("local in a v0 task")
+            _exact(s, ("var",), "var statement", errs, "SYNTAX.md:74")
             d = s["var"]
             if _missing(d, ("name", "type", "init"), "var", errs,
                         "SYNTAX.md:74"):
                 continue
+            _exact(d, ("name", "type", "init"), "var", errs, "SYNTAX.md:74")
             n = d["name"]
             if not isinstance(n, str) or not NAME_RE.match(n):
                 errs.append(f"local name {n!r} is not an Id (SYNTAX.md:86)")
@@ -703,9 +758,11 @@ def _check_stmts(body, env, funs, ver, errs, assignable):
             assignable.add(n)
         elif "if" in s:
             c = s["if"]
+            _exact(s, ("if",), "if statement", errs, "SYNTAX.md:73")
             if _missing(c, ("cond", "then", "else"), "if", errs,
                         "SYNTAX.md:73"):
                 continue
+            _exact(c, ("cond", "then", "else"), "if", errs, "SYNTAX.md:73")
             if _ty(c["cond"], env, funs, ver, errs, set()) != "bool":
                 errs.append("if condition is not bool")
             _check_stmts(c["then"], dict(env), funs, ver, errs, set(assignable))
@@ -714,11 +771,15 @@ def _check_stmts(body, env, funs, ver, errs, assignable):
             if ver == 0:
                 errs.append("while in a v0 task")
             w = s["while"]
+            _exact(s, ("while",), "while statement", errs,
+                   "SYNTAX.md:75-78")
             # `decreases` is checked below rather than here so that a loop
             # missing it keeps the message it has always had.
             if _missing(w, ("cond", "invariants", "body"), "while", errs,
                         "SYNTAX.md:75-78"):
                 continue
+            _exact(w, ("cond", "invariants", "decreases", "body"), "while",
+                   errs, "SYNTAX.md:75-78")
             if _ty(w["cond"], env, funs, ver, errs, set()) != "bool":
                 errs.append("loop condition is not bool")
             if "decreases" not in w:
