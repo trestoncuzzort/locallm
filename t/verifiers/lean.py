@@ -105,12 +105,23 @@ _LEAN_WHY = missing("lean", "T_LEAN_BIN", ['lean'], [".elan/bin/lean"])
 DEFAULT_HEARTBEATS = 400_000
 WALL_S = 180
 
-BANNED = re.compile(
+# Two rows, because they are two different claims. KEYWORD_RE matches bare
+# words, which a task identifier CAN spell — measured 2026-09-05, abs.json
+# with its int parameter renamed `trustCompiler` scored VACUOUS with
+# exit_code -1, i.e. this scan refused the file before lean ever ran, and
+# VACUOUS means "accepted for the wrong reason" about a file nothing
+# accepted. The rows were already \b-bounded, so the pattern is unchanged;
+# what changed is upstream: lower_lean.py tests every declared task
+# identifier against KEYWORD_RE before emitting (ident_guard.py) and
+# ABSTAINs, so a keyword hit here can no longer have come from a name.
+# SYNTAX_RE matches the two #-commands, which no identifier can begin.
+KEYWORD_RE = re.compile(
     r"\b(?:sorry|sorryAx|admit|native_decide|ofReduceBool|ofReduceNat|"
     r"trustCompiler|axiom|macro|macro_rules|syntax|elab|elab_rules|"
     r"notation|guard_msgs|set_option|run_cmd|run_elab|initialize|"
-    r"builtin_initialize|import|variable|implemented_by|extern)\b"
-    r"|#eval\b|#exit\b")
+    r"builtin_initialize|import|variable|implemented_by|extern)\b")
+SYNTAX_RE = re.compile(r"#eval\b|#exit\b")
+BANNED = re.compile(KEYWORD_RE.pattern + "|" + SYNTAX_RE.pattern)
 AXIOM_ALLOW = {"propext", "Classical.choice", "Quot.sound"}
 # Incompleteness marks: a tactic that stopped, said nothing false. These
 # minted REFUTED until 2026-09-02; "failed" matches nearly any error text,
