@@ -146,7 +146,7 @@ def main() -> int:
             all_ok = False
             print(f"  {tpath.stem}: REFUSED — {e}  <-- FINDING")
             continue
-        loaded.append(task)
+        loaded.append((tpath.name, task))
         rows.setdefault(task["name"], {})
 
     # Lowering + writes: sequential, entirely before any dispatch below, so
@@ -163,10 +163,10 @@ def main() -> int:
     # A collision is a defect in the task SET, and the author who named the
     # tasks is the one who can fix it, so it is refused and named here rather
     # than worked around with per-task directories or a rename.
-    written: dict[Path, str] = {}     # artifact path -> the name that wrote it
+    written: dict[Path, str] = {}     # artifact path -> the task FILE that wrote it
     pending, wits, emitted = [], {}, []
     for bname, lower, suffix in present:
-        for task in loaded:
+        for fname, task in loaded:
             name = task["name"]
             # ONE IDENTITY, THE TASK NAME — the key `rows` was built with
             # at load time, and the name every lowering embeds in what it
@@ -218,13 +218,13 @@ def main() -> int:
                 rows[name][bname] = ("path-collision", "path-collision",
                                      True, "")
                 all_ok = False
-                print(f"  {name} x {bname}: PATH-COLLISION — "
+                print(f"  {name} ({fname}) x {bname}: PATH-COLLISION — "
                       f"out/{clash.name} is also written by "
                       f"{written[clash]}  <-- FINDING")
                 continue
             real.write_text(real_src, encoding="utf-8", newline="\n")
             twin.write_text(twin_src, encoding="utf-8", newline="\n")
-            written[real] = written[twin] = name
+            written[real] = written[twin] = fname
             emitted += [real, twin]     # only what THIS run wrote; see below
             pending.append((bname, name, suffix, op))
             wits[name] = w
@@ -250,6 +250,20 @@ def main() -> int:
             # harness.counts_as_flip, asked here and in harness.run_task.
             note = "" if harness.counts_as_flip(op) else "+nonrefuting"
             cell = cell3 + (note,)
+            if rows[name].get(bname, ("",))[0] == "path-collision":
+                # Two task files hold this NAME, so they share this row;
+                # the verdict is the first writer's and the cell is the
+                # second's refusal. run_all.py measures each task as it
+                # lowers and ends the row on the collision because it came
+                # second; here the pool hands verdicts back later. Same
+                # row in both: a name claimed twice has no verdict of its
+                # own. Measured 2026-09-05 with abs.json copied under a
+                # second file name: the row read `verified / refuted`
+                # under three PATH-COLLISION lines.
+                print(f"  {name} x {bname} [{op}]: real={cell[0]} "
+                      f"twin={cell[1]} — not recorded, the row is a "
+                      f"path-collision")
+                continue
             rows[name][bname] = cell
             flip = cell[:3] == (Outcome.VERIFIED, Outcome.REFUTED, True)
             good = flip and not note

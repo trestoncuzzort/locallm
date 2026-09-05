@@ -556,8 +556,8 @@ def run_task(task_path: Path, lower, backend, suffix: str,
     `module Abs`, which F* refuses BY NAME (Error 141, "Expected module
     zzW2_abs.v1", exit 1, while the same bytes named Abs.fst verify).
 
-    ONE ARTIFACT, ONE WRITER. `written` maps an out/ path to the NAME that
-    wrote it, for a whole run; a caller measuring one task can leave it
+    ONE ARTIFACT, ONE WRITER. `written` maps an out/ path to the task FILE
+    that wrote it, for a whole run; a caller measuring one task can leave it
     None and gets a fresh empty map, which nothing can collide with. Two
     task files holding the same `name`, or names `x` and `x_twin` (both
     Ids), claim the same two paths. Measured 2026-09-05 before this map
@@ -587,14 +587,14 @@ def run_task(task_path: Path, lower, backend, suffix: str,
         # NEITHER file is written. What is on disk is what an earlier task's
         # verdict was measured on, and this task has no artifact of its own
         # to be measured on.
-        print(f"  {name}: PATH-COLLISION — out/{clash.name} is also "
-              f"written by {written[clash]}")
+        print(f"  {name} ({task_path.name}): PATH-COLLISION — out/{clash.name} "
+              f"is also written by {written[clash]}")
         return False
     real.write_text(lower(task, task["body"]), encoding="utf-8",
                     newline="\n")
     twin.write_text(lower(task, twin_body, witness=w), encoding="utf-8",
                     newline="\n")
-    written[real] = written[twin] = name
+    written[real] = written[twin] = task_path.name
 
     r_real, agree_r = flake_check(backend.verify, real)
     r_twin, agree_t = flake_check(backend.verify, twin)
@@ -663,7 +663,7 @@ def run_all(argv: list[str], lower, backend, suffix: str) -> int:
     want = argv or sorted(p.stem for p in (HERE / "tasks").glob("*.json"))
     print(f"t -> {backend.version()}")
     ok = True
-    written: dict[Path, str] = {}     # artifact path -> the name that wrote it
+    written: dict[Path, str] = {}     # artifact path -> the task FILE that wrote it
     for w in want:
         try:
             ok = run_task(HERE / "tasks" / f"{w}.json",

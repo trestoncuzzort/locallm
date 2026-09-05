@@ -144,7 +144,7 @@ def main() -> int:
             all_ok = False
             print(f"  {tpath.stem}: REFUSED — {e}  <-- FINDING")
             continue
-        loaded.append(task)
+        loaded.append((tpath.name, task))
         rows.setdefault(task["name"], {})
 
     # ONE ARTIFACT, ONE WRITER. Identity is the task NAME, so two task files
@@ -159,10 +159,10 @@ def main() -> int:
     # A collision is a defect in the task SET, and the author who named the
     # tasks is the one who can fix it, so it is refused and named here rather
     # than worked around with per-task directories or a rename.
-    written: dict[Path, str] = {}     # artifact path -> the name that wrote it
+    written: dict[Path, str] = {}     # artifact path -> the task FILE that wrote it
     emitted = []            # the source files THIS run wrote, in write order
     for bname, backend, lower, suffix in present:
-        for task in loaded:
+        for fname, task in loaded:
             name = task["name"]
             # ONE IDENTITY, THE TASK NAME — the key `rows` was built with
             # at load time, and the name every lowering embeds in what it
@@ -215,13 +215,13 @@ def main() -> int:
                 cell = ("path-collision", "path-collision", True, "")
                 rows[name][bname] = cell
                 all_ok = False
-                print(f"  {name} x {bname}: PATH-COLLISION — "
+                print(f"  {name} ({fname}) x {bname}: PATH-COLLISION — "
                       f"out/{clash.name} is also written by "
                       f"{written[clash]}  <-- FINDING")
                 continue
             real.write_text(real_src, encoding="utf-8", newline="\n")
             twin.write_text(twin_src, encoding="utf-8", newline="\n")
-            written[real] = written[twin] = name
+            written[real] = written[twin] = fname
             emitted += [real, twin]
             r_real, a1 = flake_check(backend.verify, real)
             r_twin, a2 = flake_check(backend.verify, twin)
