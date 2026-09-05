@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import importlib
 import os
+import platform
 import sys
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from datetime import datetime, timezone
@@ -70,6 +71,10 @@ def main() -> int:
     cols, rows, all_ok = [], {t.stem: {} for t in tasks}, True
     present = []                        # (bname, lower_fn, suffix), probed backends only
 
+    # INVENTORY FIRST, THEN THE REFUSALS, THEN LOWERING. See run_all.py for
+    # the measurement: probing is complete before any task is lowered, so the
+    # refusals below can return without a byte having been written under
+    # out/.
     for bname, lmod, suffix in BACKENDS:
         try:
             backend = importlib.import_module(f"verifiers.{bname}")
@@ -79,9 +84,27 @@ def main() -> int:
             continue
         cols.append((bname, ver))
         present.append((bname, importlib.import_module(lmod).lower, suffix))
+    present_names = [b for b, v in cols if not v.startswith("ABSENT")]
+    MIN_KERNELS = int(os.environ.get("T_MIN_KERNELS", "2"))
+    # Refuse BEFORE writing anything — out/ as well as the table; see
+    # run_all.py for both measurements behind it.
+    if len(present_names) < MIN_KERNELS:
+        print(f"\nREFUSED: {len(present_names)} kernel(s) available, "
+              f"{MIN_KERNELS} required. Agreement across fewer than two "
+              f"kernels is not agreement — it is one opinion, or none. "
+              f"Nothing was written: not AGREEMENT.md, not out/.")
+        for b, v in cols:
+            if v.startswith("ABSENT"):
+                print(f"  {b}: {v}")
+        return 2
+    if not tasks:
+        print("\nREFUSED: no tasks in t/tasks/ — nothing was verified. "
+              "Nothing was written: not AGREEMENT.md, not out/.")
+        return 2
+
     # Lowering + writes: sequential, entirely before any dispatch below, so
     # out/*.{suffix} has a single writer for the whole time it is produced.
-    pending, wits = [], {}
+    pending, wits, emitted = [], {}, []
     for bname, lower, suffix in present:
         for tpath in tasks:
             task = harness.load(tpath)
@@ -92,7 +115,7 @@ def main() -> int:
             # the ladder search happens once per task, not once per backend.
             twin_body, op, w = harness.twin_cached(task)
             if twin_body is None:
-                rows[name][bname] = ("no-twin", "no-twin", True)
+                rows[name][bname] = ("no-twin", "no-twin", True, "")
                 all_ok = False
                 print(f"  {name} x {bname}: no twin — "
                       f"{harness.REFUSALS[op]}  <-- FINDING")
@@ -101,12 +124,12 @@ def main() -> int:
                 real_src = lower(task, task["body"])
                 twin_src = lower(task, twin_body, witness=w)
             except NotImplementedError as e:
-                rows[name][bname] = ("abstain", "abstain", True)
+                rows[name][bname] = ("abstain", "abstain", True, "")
                 all_ok = False
                 print(f"  {name} x {bname}: ABSTAIN — {e}")
                 continue
             except Exception as e:                          # noqa: BLE001
-                rows[name][bname] = ("lower-error", "lower-error", True)
+                rows[name][bname] = ("lower-error", "lower-error", True, "")
                 all_ok = False
                 print(f"  {name} x {bname}: LOWER-ERROR — {type(e).__name__}: {e}")
                 continue
@@ -116,8 +139,11 @@ def main() -> int:
             # every other platform's for the same text (measured 2026-09-02:
             # abs.dfy 9147e4af… on Windows vs 9fe1e7e8… everywhere else,
             # equal after CRLF->LF). One newline choice, every host.
-            (harness.OUT / f"{name}.{suffix}").write_text(real_src, encoding="utf-8", newline="\n")
-            (harness.OUT / f"{name}_twin.{suffix}").write_text(twin_src, encoding="utf-8", newline="\n")
+            real = harness.OUT / f"{name}.{suffix}"
+            real.write_text(real_src, encoding="utf-8", newline="\n")
+            twin = harness.OUT / f"{name}_twin.{suffix}"
+            twin.write_text(twin_src, encoding="utf-8", newline="\n")
+            emitted += [real, twin]     # only what THIS run wrote; see below
             pending.append((bname, name, suffix, op))
             wits[name] = w
     n_cells = len(tasks) * len(BACKENDS)          # matrix size, independent of what lowered
@@ -130,36 +156,49 @@ def main() -> int:
     with ProcessPoolExecutor(max_workers=jobs, mp_context=ctx) as ex:
         futs = {ex.submit(_run_cell, b, n, s, o): (b, n, o) for b, n, s, o in pending}
         for fut in as_completed(futs):
-            name, bname, op, cell = fut.result()
+            name, bname, op, cell3 = fut.result()
+            # A +nonrefuting TWIN IS NOT COUNTABLE. When no rung of the ladder
+            # falsifies `ensures`, harness.twin_for falls back to a twin that
+            # merely computes something different and records the weakness in
+            # the operator tag. A kernel may still REFUTE such a twin, for a
+            # reason its witness does not name; counting that as the flip
+            # credits the instrument with a measurement it did not make. The
+            # tag rides in the cell so the table says so too, not just the
+            # console line that scrolls past.
+            note = "+nonrefuting" if op.endswith("+nonrefuting") else ""
+            cell = cell3 + (note,)
             rows[name][bname] = cell
-            good = cell == (Outcome.VERIFIED, Outcome.REFUTED, True)
+            flip = cell[:3] == (Outcome.VERIFIED, Outcome.REFUTED, True)
+            good = flip and not note
             all_ok &= good
+            mark = "" if good else "  <-- FINDING"
+            if flip and note:
+                mark += (" — refuted, but the twin's witness does not falsify "
+                         "`ensures`, so this is not the flip and is not "
+                         "counted")
             print(f"  {name} x {bname} [{op}]: real={cell[0]} twin={cell[1]}"
-                  + ("" if good else "  <-- FINDING")
+                  + mark
                   + f"   (twin witness: {harness.witness(wits.get(name))})")
-    present_names = [b for b, v in cols if not v.startswith("ABSENT")]
-    MIN_KERNELS = int(os.environ.get("T_MIN_KERNELS", "2"))
-    # Refuse BEFORE writing; see run_all.py for the measurement behind it.
-    if len(present_names) < MIN_KERNELS:
-        print(f"\nREFUSED: {len(present_names)} kernel(s) available, "
-              f"{MIN_KERNELS} required. Agreement across fewer than two "
-              f"kernels is not agreement — it is one opinion, or none. "
-              f"AGREEMENT.md not written.")
-        for b, v in cols:
-            if v.startswith("ABSENT"):
-                print(f"  {b}: {v}")
-        return 2
-    if not tasks:
-        print("\nREFUSED: no tasks in t/tasks/ — nothing was verified. "
-              "AGREEMENT.md not written.")
-        return 2
 
+    tagged = any(c[3] for cells in rows.values() for c in cells.values())
     lines = [f"# t cross-kernel agreement — "
              f"{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%MZ')}",
              "",
+             # WHICH MACHINE PRODUCED THIS. The committed table read "Kernels
+             # present: 7 of 7" with the tool versions and no host on it; the
+             # same command on a three-kernel box regenerates "3 of 7", and a
+             # reader had no way to tell a different machine from a
+             # regression. OS, release and node name only — no user, no path.
+             f"Produced on: {platform.system()} {platform.release()} "
+             f"(node {platform.node()})",
+             "",
              "Cell = real outcome / twin outcome. Agreement means "
-             "`verified / refuted` in every present column.",
-             ""]
+             "`verified / refuted` in every present column."]
+    if tagged:
+        lines.append("A cell tagged `(+nonrefuting)` is NOT counted: that "
+                     "twin differs from the real body but does not falsify "
+                     "`ensures`, so a REFUTED verdict on it is not the flip.")
+    lines.append("")
     header = "| task | " + " | ".join(b for b, _ in cols) + " |"
     lines += [header, "|" + "---|" * (len(cols) + 1)]
     for tname, cells in rows.items():
@@ -167,14 +206,26 @@ def main() -> int:
         for bname, _ in cols:
             c = cells.get(bname)
             row.append("—" if c is None else
-                       f"{c[0]} / {c[1]}" + ("" if c[2] else " (FLAKED)"))
+                       f"{c[0]} / {c[1]}"
+                       + (f" ({c[3]})" if c[3] else "")
+                       + ("" if c[2] else " (FLAKED)"))
         lines.append("| " + " | ".join(row) + " |")
     lines += ["", f"Kernels present: {len(present_names)} of {len(cols)} "
               f"({', '.join(present_names) if present_names else 'NONE'})"]
     lines += ["", "Backends:"] + [f"- {b}: {v}" for b, v in cols]
-    lines += ["", f"Verdict basis: every source file hashed; e.g. "
-              f"`abs.dfy` {sha256_file(harness.OUT / 'abs.dfy')[:16]}…, "
-              f"`abs.rs` {sha256_file(harness.OUT / 'abs.rs')[:16]}…"]
+    # HASH WHAT THIS RUN WROTE. The basis line named `abs.rs` unconditionally
+    # — verus's lowering. On a box without verus nothing writes that file, so
+    # the line either crashed on a clean out/ (FileNotFoundError, measured
+    # 2026-09-05) or hashed a committed leftover from another machine and
+    # presented it as this run's basis. `emitted` holds only the files this
+    # run produced, in write order, so the example is always one of them.
+    if emitted:
+        lines += ["", "Verdict basis: every source file hashed; e.g. "
+                  + ", ".join(f"`{p.name}` {sha256_file(p)[:16]}…"
+                              for p in emitted[:2])]
+    else:
+        lines += ["", "Verdict basis: none — no lowering was emitted, so "
+                  "there is no source file to hash."]
     (HERE / "AGREEMENT.md").write_text("\n".join(lines) + "\n",
                                        encoding="utf-8", newline="\n")
     print(f"\n{len(present_names)} kernels, {len(tasks)} tasks: "
