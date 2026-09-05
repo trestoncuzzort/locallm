@@ -50,6 +50,7 @@ HERE = Path(__file__).resolve().parent
 if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 
+import ident_guard                                  # noqa: E402
 import interp                                       # noqa: E402
 from verifiers import Outcome, flake_check          # noqa: E402
 from verifiers import dafny as dafny_backend        # noqa: E402
@@ -717,6 +718,12 @@ def _certificate(task: dict, twin_body: list, w: dict) -> str | None:
 def lower(task: dict, body: list, witness: dict | None = None) -> str:
     if CERT_NAME in _collect_names(task):
         raise ValueError(f"task mentions the protocol name {CERT_NAME!r}")
+    # A DECLARED NAME the dafny adapter's cheat scan reads as a
+    # construct turns its VACUOUS verdict into a wrong label on a real
+    # proof (ident_guard.py, measured 2026-09-05). The pattern is the
+    # adapter's own KEYWORD_RE, so the two cannot drift; a hit ABSTAINs
+    # here instead of being emitted and mislabelled there.
+    ident_guard.check("dafny", dafny_backend.KEYWORD_RE, task, body)
     self_name = task["name"]
     method = self_name.capitalize()
     ctx = _Ctx(task, method)

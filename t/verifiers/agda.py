@@ -39,7 +39,18 @@ from .discover import find, missing
 AGDA = find("T_AGDA", ['agda'], [".local/agda/**/agda", ".cabal/bin/agda"])
 _AGDA_WHY = missing("agda", "T_AGDA", ['agda'], [".local/agda/**/agda", ".cabal/bin/agda"])
 WALL_S = 180
-BANNED = re.compile(r"\bpostulate\b|\{-#\s*TERMINATING", re.IGNORECASE)
+# Two rows, because they are two different claims. KEYWORD_RE is the bare
+# word, which an identifier could spell; SYNTAX_RE is pragma punctuation no
+# identifier can begin. The keyword row was already \b-bounded, so the
+# matched language is unchanged. Agda has no lowering in this tree
+# (there is no lower_agda.py), so nothing imports KEYWORD_RE yet; it is
+# split here so the two rows read as what they are and so a future lowering
+# has the same door the other six use (ident_guard.py). agda is not
+# installed on the box this edit was made on: BY-READING, unexecuted.
+KEYWORD_RE = re.compile(r"\bpostulate\b", re.IGNORECASE)
+SYNTAX_RE = re.compile(r"\{-#\s*TERMINATING", re.IGNORECASE)
+BANNED = re.compile(KEYWORD_RE.pattern + "|" + SYNTAX_RE.pattern,
+                    re.IGNORECASE)
 MALFORMED_MARKS = ("[ParseError]", "[ModuleNameDoesntMatchFileName]",
                    "[ScopeError", "[NotInScope")
 VACUOUS_MARKS = ("[SafeFlag",)

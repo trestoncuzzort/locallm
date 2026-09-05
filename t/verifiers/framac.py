@@ -213,9 +213,28 @@ PAR = 4
 # assumed globally with no emitted goal (see module docstring, measured);
 # `requires \false` kept although smoke tests subsume it — the regex is the
 # second line and costs nothing.
-BANNED = re.compile(
-    r"\badmit\b|\bassumes\b|\baxiomatic\b|\baxiom\b|requires\s+\\false",
-    re.IGNORECASE)
+#
+# Two rows, because they are two different claims. KEYWORD_RE matches single
+# bare words, which a task identifier CAN spell: a param named `axiom` or
+# `admit` would score this file VACUOUS whatever WP said, and VACUOUS means
+# "accepted for the wrong reason" — a wrong label on a real proof. Measured
+# on the sibling adapters 2026-09-05 (dafny `assumed`, fstar
+# `admitted`/`magicNumber`, lean `trustCompiler`, each a false VACUOUS);
+# frama-c is not installed on the box this edit was made on, so this row is
+# a BY-READING change, unexecuted. The rows were already \b-bounded, so the
+# matched language is unchanged; what changed is upstream: lower_framac.py
+# tests every declared task identifier against KEYWORD_RE before emitting
+# (ident_guard.py) and ABSTAINs, so a keyword hit here can no longer have
+# come from a name.
+#
+# SYNTAX_RE holds the two-token `requires \false` construct, which no single
+# identifier can match (the backslash is not an identifier character), so it
+# is kept out of the guard.
+KEYWORD_RE = re.compile(
+    r"\badmit\b|\bassumes\b|\baxiomatic\b|\baxiom\b", re.IGNORECASE)
+SYNTAX_RE = re.compile(r"requires\s+\\false", re.IGNORECASE)
+BANNED = re.compile(KEYWORD_RE.pattern + "|" + SYNTAX_RE.pattern,
+                    re.IGNORECASE)
 
 # Cyrillic/Greek confusables folded to ASCII before the raw fallback scan
 # (homoglyph_axiom.c: frama-c rejects the homoglyph identifier -> MALFORMED

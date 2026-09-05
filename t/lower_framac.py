@@ -79,6 +79,7 @@ if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 
 import harness                                   # noqa: E402
+import ident_guard                               # noqa: E402
 from verifiers import framac as framac_backend   # noqa: E402
 
 ARITH = {"+": "+", "-": "-", "*": "*"}
@@ -807,6 +808,12 @@ def certificate(task: dict, twin_body: list, w: dict,
 # sites pass it; when it is certifiable, the emitted file carries the
 # refutation certificate (see the section above).
 def lower(task: dict, body: list, witness: dict | None = None) -> str:
+    # A DECLARED NAME the framac adapter's cheat scan reads as a
+    # construct turns its VACUOUS verdict into a wrong label on a real
+    # proof (ident_guard.py, measured 2026-09-05). The pattern is the
+    # adapter's own KEYWORD_RE, so the two cannot drift; a hit ABSTAINs
+    # here instead of being emitted and mislabelled there.
+    ident_guard.check("framac", framac_backend.KEYWORD_RE, task, body)
     name, ret = task["name"], task["returns"][0]["name"]
     rett = task["returns"][0]["type"]
     env = {p["name"]: p["type"] for p in task["params"]}

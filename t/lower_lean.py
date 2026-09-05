@@ -99,6 +99,7 @@ if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 
 import harness                                 # noqa: E402
+import ident_guard                             # noqa: E402
 import interp                                  # noqa: E402
 from verifiers import lean as lean_backend     # noqa: E402
 
@@ -1239,6 +1240,12 @@ class Lower:
 # lowering never receives one. When present and certificatable it adds the
 # t_refutation_certificate theorem, the only door to a lean REFUTED.
 def lower(task: dict, body: list, witness: dict | None = None) -> str:
+    # A DECLARED NAME the lean adapter's cheat scan reads as a
+    # construct turns its VACUOUS verdict into a wrong label on a real
+    # proof (ident_guard.py, measured 2026-09-05). The pattern is the
+    # adapter's own KEYWORD_RE, so the two cannot drift; a hit ABSTAINs
+    # here instead of being emitted and mislabelled there.
+    ident_guard.check("lean", lean_backend.KEYWORD_RE, task, body)
     lw = Lower(task, body)
     src = lw.lower()
     if witness is not None:

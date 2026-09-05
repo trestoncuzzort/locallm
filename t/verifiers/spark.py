@@ -228,14 +228,33 @@ WALL_S = 180
 # Import_Function/Import_Procedure variants; pragma Interface is the Ada 83
 # synonym. GNATprove-comma catches pragma Annotate AND Annotate => (...) for
 # the justify/skip families without caring which syntax carried it.
-BANNED = re.compile(
+#
+# Two rows, because they are two different claims. KEYWORD_RE is the one row
+# a single identifier could match, and the scan is IGNORECASE while
+# lower_spark.py capitalizes every t name, so a t param named `import` emits
+# `Import` and would score the file VACUOUS whatever gnatprove said —
+# "accepted for the wrong reason" about a real proof. Measured on the
+# sibling adapters 2026-09-05 (dafny `assumed`, fstar
+# `admitted`/`magicNumber`, lean `trustCompiler`, each a false VACUOUS);
+# gnatprove is not installed on the box this edit was made on, so this row
+# is a BY-READING change, unexecuted. The row's language is unchanged —
+# Import(?:_\w+)? was already the shape that names constructs without
+# swallowing arbitrary identifiers — and what changed is upstream:
+# lower_spark.py tests every declared task identifier against KEYWORD_RE
+# before emitting (ident_guard.py) and ABSTAINs.
+#
+# SYNTAX_RE holds the multi-token pragma/aspect constructs, which no single
+# identifier can match, so they are kept out of the guard.
+KEYWORD_RE = re.compile(r"\bImport(?:_\w+)?\b", re.IGNORECASE)
+SYNTAX_RE = re.compile(
     r"pragma\s+Assume\b"
     r"|SPARK_Mode\s*(?:=>|\()\s*Off\b"
-    r"|\bImport(?:_\w+)?\b"
     r"|pragma\s+Interface(?:_Name)?\b"
     r"|GNATprove\s*,\s*(?:False_Positive|Intentional|Skip_Proof"
     r"|Skip_Flow_And_Proof)\b",
     re.IGNORECASE)
+BANNED = re.compile(SYNTAX_RE.pattern + "|" + KEYWORD_RE.pattern,
+                    re.IGNORECASE)
 
 # Confusable-to-ASCII fold for the ban scan (probe p11: Cyrillic А in
 # "pragma Аssume"). NFKC first (fullwidth/compatibility forms), then the

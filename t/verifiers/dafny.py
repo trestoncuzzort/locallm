@@ -235,13 +235,32 @@ WALL_S = 120               # hang backstop only, never the verdict
 # Source tokens that can admit an unproved fact or skip/outsource an
 # obligation (measured per docstring). Honest lower_dafny.py output contains
 # no attributes, no @-forms, no strings, no comments, and none of these words.
-BANNED_RE = re.compile(
+#
+# Two rows, because they are two different claims. SYNTAX_RE matches
+# punctuation no Dafny identifier can spell, so a hit is a construct by
+# construction; it stays exactly as measured, and it is load-bearing —
+# `dafny audit` does NOT report {:verify false}. KEYWORD_RE matches bare
+# words, which an identifier CAN spell, so every row is \b-bounded on both
+# sides and `\bassume\w*` is gone: measured 2026-09-05, abs.json with its
+# parameter renamed `assumed` lowered to valid Dafny, dafny answered "1
+# verified, 0 errors" at exit 0, and this scan returned VACUOUS — a wrong
+# label on a real proof. The dropped \w* tail cost nothing: the only
+# assume-family spellings this file names are the `assume` statement and
+# the {:assume_concurrent} attribute, and the attribute is a SYNTAX_RE hit.
+# lower_dafny.py tests every declared task identifier against KEYWORD_RE
+# before emitting (ident_guard.py), so a keyword hit here can no longer
+# have come from a name.
+SYNTAX_RE = re.compile(
     r"\{\s*:\s*\w+"                 # every {:attr} pragma ({:axiom}, {:verify false}, {:extern}, {:only}, ...)
-    r"|@\s*[A-Za-z_]\w*"            # every 4.10+ @Attribute form (@Axiom, @Verify(false), ...)
-    r"|\binclude\b"                 # imports source this scan never sees (e6: exit 0, "2 verified")
-    r"|\bassume\w*"                 # assume statement, assume {:axiom}, {:assume_concurrent}
+    r"|@\s*[A-Za-z_]\w*",           # every 4.10+ @Attribute form (@Axiom, @Verify(false), ...)
+    re.IGNORECASE)
+KEYWORD_RE = re.compile(
+    r"\binclude\b"                  # imports source this scan never sees (e6: exit 0, "2 verified")
+    r"|\bassume\b"                  # the assume statement, incl. assume {:axiom}
     r"|\b(?:axiom|opaque|reveal|extern)\b",
     re.IGNORECASE)
+BANNED_RE = re.compile(SYNTAX_RE.pattern + "|" + KEYWORD_RE.pattern,
+                       re.IGNORECASE)
 
 # Dafny 4.11.0's own tally line, printed exactly once per run (measured):
 #   "Dafny program verifier finished with 1 verified, 0 errors"
@@ -523,6 +542,35 @@ def _check_certificate(path: Path, budget: int, banned: list,
     return accepted, detail
 
 
+# "<file>(<line>,<col>): Warning: <text>", measured on 4.11.0.
+_WARNING_LINE = re.compile(r"^.*?\(\d+,\d+\): Warning: (.*)$", re.MULTILINE)
+
+
+def _warning_text(out: str) -> str:
+    """The first warning's own words, for the verified-but-warned cell.
+
+    That cell used to report `diag[-200:]`, a tail slice of the whole
+    diagnostic block, which starts mid-word and cuts the warning's name off
+    the front. Measured 2026-09-05, two different warning classes, both
+    "1 verified, 0 errors" at exit 2:
+      bodyless method  -> "yless method. Add the {:axiom} attribute to it
+                           or the enclosing method to suppress this warning"
+      missing trigger  -> "ee the section on quantifier instantiation rules
+                           in the reference manual."
+    Neither text names its class, so a reader cannot tell a prover's
+    brittleness caution from a bodyless declaration, and the two need
+    different responses. The warning line itself names the class in its
+    first clause, so that is what is reported; the tail slice stays as the
+    fallback for a warning that does not carry the measured line shape.
+    """
+    m = _WARNING_LINE.search(out)
+    if m:
+        return m.group(1).strip()[:200]
+    warn = next((l for l in out.splitlines() if "Warning:" in l), None)
+    return warn.strip()[:200] if warn else out.split(
+        "\nResults for ", 1)[0][-200:]
+
+
 def verify(path: Path, budget: int = DEFAULT_RLIMIT) -> Result:
     if not DAFNY:
         raise SystemExit(_DAFNY_WHY)
@@ -591,7 +639,7 @@ def verify(path: Path, budget: int = DEFAULT_RLIMIT) -> Result:
         if fin is not None and n_verified >= 1 and n_errors == 0:
             outcome = Outcome.VACUOUS if vac else Outcome.UNPROVED
             if not vac:
-                err = "verified but warned, not counted: " + diag[-200:]
+                err = "verified but warned, not counted: " + _warning_text(out)
         else:
             outcome = Outcome.MALFORMED
     elif cert_present:
