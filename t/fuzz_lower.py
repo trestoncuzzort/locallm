@@ -297,15 +297,50 @@ BOOLR = {"==", "!=", "<", "<=", ">", ">=", "and", "or", "not", "implies"}
 INTR = {"+", "-", "*", "neg", "len"}
 
 
+def _missing(node, keys, what, errs, where) -> bool:
+    """True — with the reason named — when `node` is not an object carrying
+    every key the grammar gives a `what`. A KeyError out of check_wf is a
+    refusal nobody can read: harness.load turns it into `not a well-formed t
+    task (KeyError: 'else')`, which names the key that is absent but not the
+    construct it is absent from. This names both."""
+    art = "an" if what[0] in "aeiou" else "a"
+    if not isinstance(node, dict):
+        errs.append(f"{art} `{what}` is not an object ({where})")
+        return True
+    absent = [k for k in keys if k not in node]
+    for k in absent:
+        errs.append(f"{art} `{what}` is missing `{k}` ({where})")
+    return bool(absent)
+
+
 def _ty(e, env, funs, ver, errs, bound):
     """Type of e in env, or None; appends to errs. env maps name -> type."""
+    if not isinstance(e, dict):
+        errs.append(f"{e!r} is not a t expression (SYNTAX.md:58-65)")
+        return None
     if "int" in e:
+        # SYNTAX.md:58 — the payload is an INTEGER. `type(..) is int` rather
+        # than isinstance, because in Python every bool IS an int: {"int":
+        # true} passed an isinstance check and then behaved as the literal 1
+        # in every lowering that read it.
+        if type(e["int"]) is not int:
+            errs.append(f"int literal payload {e['int']!r} is not an integer "
+                        f"(SYNTAX.md:58)")
         return "int"
     if "bool" in e:
+        # SYNTAX.md:59 — `true|false`, the JSON booleans. {"bool": "false"}
+        # is a string, and a string is not a truth value in any of the seven
+        # target syntaxes; it typed as bool here and lowered as one.
+        if type(e["bool"]) is not bool:
+            errs.append(f"bool literal payload {e['bool']!r} is not a JSON "
+                        f"boolean (SYNTAX.md:59)")
         if ver == 0:
             errs.append("bool literal in a v0 task")
         return "bool"
     if "var" in e:
+        if not isinstance(e["var"], str):
+            errs.append(f"var {e['var']!r} is not an Id (SYNTAX.md:86)")
+            return None
         t = env.get(e["var"])
         if t is None:
             errs.append(f"unbound var {e['var']}")
@@ -315,6 +350,9 @@ def _ty(e, env, funs, ver, errs, bound):
             errs.append("v1 expression form in a v0 task")
     if "ite" in e:
         c = e["ite"]
+        if _missing(c, ("cond", "then", "else"), "ite", errs,
+                    "SYNTAX.md:62"):
+            return None
         if _ty(c["cond"], env, funs, ver, errs, bound) != "bool":
             errs.append("ite condition is not bool")
         a = _ty(c["then"], env, funs, ver, errs, bound)
@@ -323,8 +361,17 @@ def _ty(e, env, funs, ver, errs, bound):
             errs.append(f"ite branches differ: {a} vs {b}")
         return a
     if "forall" in e or "exists" in e:
-        q = e["forall"] if "forall" in e else e["exists"]
+        kind = "forall" if "forall" in e else "exists"
+        q = e[kind]
+        if _missing(q, ("var", "lo", "hi", "body"), kind, errs,
+                    "SYNTAX.md:63-64"):
+            return "bool"
         v = q["var"]
+        # SYNTAX.md:86 — a bound variable is declared here, so it is an Id
+        # like every other declaration.
+        if not isinstance(v, str) or not NAME_RE.match(v):
+            errs.append(f"bound var {v!r} is not an Id (SYNTAX.md:86)")
+            return "bool"
         if v in env or v in bound or v in funs:
             errs.append(f"bound var {v} shadows a name in scope")
         for side in ("lo", "hi"):
@@ -337,6 +384,14 @@ def _ty(e, env, funs, ver, errs, bound):
         return "bool"
     if "call" in e:
         c = e["call"]
+        if _missing(c, ("fun", "args"), "call", errs, "SYNTAX.md:65"):
+            return None
+        if not isinstance(c["fun"], str):
+            errs.append(f"call fun {c['fun']!r} is not an Id (SYNTAX.md:86)")
+            return None
+        if not isinstance(c["args"], list):
+            errs.append("a `call`'s `args` is not a list (SYNTAX.md:65)")
+            return None
         f = funs.get(c["fun"])
         if f is None:
             errs.append(f"call of unknown fun {c['fun']}")
@@ -347,12 +402,18 @@ def _ty(e, env, funs, ver, errs, bound):
             if _ty(a, env, funs, ver, errs, bound) != p["type"]:
                 errs.append(f"argument type mismatch calling {c['fun']}")
         return f["result"]
+    if "op" not in e:
+        errs.append(f"{sorted(e)!r} is not a t expression (SYNTAX.md:58-65)")
+        return None
     op = e["op"]
     ok = V0_OPS if ver == 0 else V1_OPS
     if op not in ok:
         errs.append(f"operator {op!r} not in v{ver}")
         return None
     args = e.get("args", [])
+    if not isinstance(args, list):
+        errs.append(f"the `args` of {op!r} is not a list (SYNTAX.md:61)")
+        return None
     if op in UNARY and len(args) != 1:
         errs.append(f"{op} takes one argument")
     if op not in UNARY and op not in NARY and len(args) != 2:
@@ -411,6 +472,17 @@ def _self_calls(e, name) -> bool:
 REQUIRED = (("name", str), ("params", list), ("returns", list),
             ("requires", list), ("ensures", list), ("body", list))
 
+# SYNTAX.md:46-54 lists the whole top-level vocabulary and it is CLOSED: a
+# key t does not define is a task saying something the format gives no
+# meaning to, and every reader downstream ignores it in silence. Keys that
+# begin with `_` are excluded because they are not task fields at all —
+# they are this harness's own annotations (`_family`, `_expect`, `_gt`,
+# `_wf_errors`), hung on in-memory tasks by build_corpus, boundary_probe,
+# metamorphic and surface, which then call check_wf on the annotated dict.
+TOP_KEYS = frozenset({"t", "name", "params", "returns", "requires",
+                      "ensures", "body", "gate", "spec_funs", "decreases"})
+GATES = ("quantifiers", "loops", "recursion")
+
 
 def _declared(task: dict) -> list[tuple[str, str]]:
     """(kind, name) for every name the task declares at the top level, in
@@ -423,6 +495,16 @@ def _declared(task: dict) -> list[tuple[str, str]]:
 
 def check_wf(task: dict) -> list[str]:
     errs: list[str] = []
+    # SYNTAX.md:46 — `"t": 0|1`, the INTEGER 0 or 1. `type(..) is int` and
+    # not isinstance: `isinstance(True, int)` is true in Python, so {"t":
+    # true} and {"t": 1.0} both compared equal to 1 and were read as v1
+    # tasks by everything below, including harness.load's version check.
+    if "t" not in task:
+        errs.append("missing required field `t` (SPEC.md:3 — every field is "
+                    "required unless marked optional)")
+    elif type(task["t"]) is not int or task["t"] not in (0, 1):
+        errs.append(f"field `t` is {task['t']!r}, not the integer 0 or 1 "
+                    f"(SYNTAX.md:46)")
     for key, ty in REQUIRED:
         if key not in task:
             errs.append(f"missing required field `{key}` (SPEC.md:3 — "
@@ -430,17 +512,36 @@ def check_wf(task: dict) -> list[str]:
         elif not isinstance(task[key], ty):
             errs.append(f"field `{key}` is not a {ty.__name__} "
                         f"(SPEC.md:18-26)")
+    for key in sorted(task):
+        if key not in TOP_KEYS and not key.startswith("_"):
+            errs.append(f"unknown top-level field `{key}` (SYNTAX.md:46-54 "
+                        f"lists every field a task has)")
     for key in ("params", "returns"):
         decls = task.get(key)
         for d in (decls if isinstance(decls, list) else []):
             if not (isinstance(d, dict) and "name" in d and "type" in d):
                 errs.append(f'a {key[:-1]} is not {{"name": .., "type": ..}}'
                             f" (SPEC.md:21-22)")
+    # SYNTAX.md:80-84 — a spec_fun's own five fields, checked up here
+    # because `_declared` below reads `f["name"]` and the loop after it
+    # reads all five.
+    sfs = task.get("spec_funs", [])
+    if not isinstance(sfs, list):
+        errs.append("field `spec_funs` is not a list (SPEC.md:56)")
+        sfs = []
+    for f in sfs:
+        _missing(f, ("name", "params", "result", "decreases", "body"),
+                 "spec_fun", errs, "SYNTAX.md:80-84")
+        if (isinstance(f, dict) and "params" in f
+                and not isinstance(f["params"], list)):
+            errs.append("a spec_fun's `params` is not a list "
+                        "(SYNTAX.md:81)")
     if errs:
         return errs              # no point reading fields that are not there
     ver = task["t"]
     if not NAME_RE.match(task["name"]):
-        errs.append("bad task name")
+        errs.append(f"task name {task['name']!r} is not an Id "
+                    f"(SYNTAX.md:86)")
     if len(task["returns"]) != 1:
         errs.append("exactly one return value (SPEC.md:22, v0 and v1)")
         return errs              # `ret` below is task["returns"][0]
@@ -453,26 +554,75 @@ def check_wf(task: dict) -> list[str]:
     # _check_stmts and _ty, against the scope they are declared in.
     seen: set[str] = set()
     for kind, n in _declared(task):
+        # SYNTAX.md:86 — `Id ::= [A-Za-z][A-Za-z0-9_]*` binds at EVERY
+        # declaration site, not just the task name. NAME_RE has been in this
+        # file since the first fuzzer and was read exactly once, against
+        # `task["name"]`, so a parameter called `1x` or `x-y` reached the
+        # lowerings and became whatever seven surface syntaxes made of it.
+        if not isinstance(n, str) or not NAME_RE.match(n):
+            errs.append(f"{kind} name {n!r} is not an Id (SYNTAX.md:86)")
+            continue
         if n in seen:
             errs.append(f"{kind} {n} reuses a name already in scope "
                         f"(SPEC.md, distinct names)")
         seen.add(n)
     if not task["ensures"]:
         errs.append("ensures must be non-empty")
-    funs = {f["name"]: f for f in task.get("spec_funs", [])}
+    # SYNTAX.md:54 — `"body": [Stmt+]`. An empty body assigns the return
+    # nothing, and "every path ends in assign" reads as vacuously true to
+    # anything that walks the list.
+    if not task["body"]:
+        errs.append("body must be non-empty (SYNTAX.md:54, [Stmt+])")
+    # SPEC.md:55 — the three gate names are an enum. The field is
+    # informational, which is exactly why nothing downstream would have
+    # noticed a typo in it.
+    if "gate" in task and task["gate"] not in GATES:
+        errs.append(f"gate {task['gate']!r} is not one of "
+                    f"{' | '.join(GATES)} (SPEC.md:55)")
+    funs = {f["name"]: f for f in sfs if isinstance(f["name"], str)}
     if ver == 0 and (funs or "decreases" in task or "gate" in task):
         errs.append("v1 field in a v0 task")
     penv = {p["name"]: p["type"] for p in task["params"]}
     if ver == 0 and any(t != "int" for t in penv.values()):
         errs.append("v0 has int only")
-    for i, f in enumerate(task.get("spec_funs", [])):
-        fenv = {p["name"]: p["type"] for p in f["params"]}
-        earlier = {g["name"]: g for g in task["spec_funs"][:i]}
-        earlier[f["name"]] = f              # self-recursion is allowed
+    for i, f in enumerate(sfs):
+        fn = f["name"]
+        if not isinstance(fn, str):
+            continue                        # the Id error above names it
+        # SYNTAX.md:81 — a spec_fun parameter is {"name": Id, "type":
+        # "int"|"seq"}, and SPEC.md's distinct-names rule reaches inside it.
+        # This dict is why: `f2(y, y)` collapsed into ONE entry, so the
+        # second parameter was never type-checked and the lowerings each
+        # made their own sense of the repeat.
+        fenv, fseen = {}, set()
+        for p in f["params"]:
+            if not (isinstance(p, dict) and "name" in p and "type" in p):
+                errs.append(f'a spec_fun {fn} parameter is not '
+                            f'{{"name": .., "type": ..}} (SYNTAX.md:81)')
+                continue
+            n = p["name"]
+            if not isinstance(n, str) or not NAME_RE.match(n):
+                errs.append(f"spec_fun {fn} parameter name {n!r} is not an "
+                            f"Id (SYNTAX.md:86)")
+                continue
+            if p["type"] not in ("int", "seq"):
+                errs.append(f"spec_fun {fn} parameter {n} has type "
+                            f"{p['type']!r}, not int or seq (SYNTAX.md:81)")
+            if n in fseen:
+                errs.append(f"spec_fun {fn} parameter {n} reuses a name "
+                            f"already in scope (SPEC.md, distinct names)")
+            fseen.add(n)
+            fenv[n] = p["type"]
+        if f["result"] not in ("int", "bool"):
+            errs.append(f"spec_fun {fn} result is {f['result']!r}, not int "
+                        f"or bool (SYNTAX.md:82)")
+        earlier = {g["name"]: g for g in sfs[:i]
+                   if isinstance(g["name"], str)}
+        earlier[fn] = f                     # self-recursion is allowed
         if _ty(f["decreases"], fenv, earlier, ver, errs, set()) != "int":
-            errs.append(f"spec_fun {f['name']} decreases is not int")
+            errs.append(f"spec_fun {fn} decreases is not int")
         if _ty(f["body"], fenv, earlier, ver, errs, set()) != f["result"]:
-            errs.append(f"spec_fun {f['name']} body type != result")
+            errs.append(f"spec_fun {fn} body type != result")
     for e in task.get("requires", []):
         if _ty(e, penv, funs, ver, errs, set()) != "bool":
             errs.append("requires clause is not bool")
@@ -487,8 +637,14 @@ def check_wf(task: dict) -> list[str]:
     selfrec = _self_calls(task["body"], task["name"])
     if selfrec and "decreases" not in task:
         errs.append("self-recursive body without a task decreases")
-    if not selfrec and "decreases" in task:
-        errs.append("task decreases without a self-call")
+    # The converse was an error here until 2026-09-05 and is not one. It
+    # read SYNTAX.md:53's "required iff body self-calls" as a refusal, but
+    # SPEC.md is the normative page (SYNTAX.md:3) and it states the rule in
+    # one direction only: SPEC.md:57 marks `decreases` optional, SPEC.md:238
+    # puts the requirement on a body that DOES self-call. A task carrying a
+    # measure it does not need states a true fact about a body with no
+    # recursion; the loader admitted the shape before check_wf ran on every
+    # task, and refusing it here made it a spec error overnight.
     bfuns = dict(funs)
     if selfrec:
         bfuns[task["name"]] = {"params": task["params"],
@@ -499,9 +655,24 @@ def check_wf(task: dict) -> list[str]:
 
 
 def _check_stmts(body, env, funs, ver, errs, assignable):
+    if not isinstance(body, list):
+        errs.append(f"{body!r} is not a list of statements "
+                    f"(SYNTAX.md:72-78)")
+        return
     for s in body:
-        if "assign" in s:
-            n, e = s["assign"]
+        if not isinstance(s, dict):
+            errs.append(f"{s!r} is not a t statement (SYNTAX.md:72-78)")
+        elif "assign" in s:
+            a = s["assign"]
+            if not (isinstance(a, list) and len(a) == 2):
+                errs.append("an `assign` is not [name, Expr] "
+                            "(SYNTAX.md:72)")
+                continue
+            n, e = a
+            if not isinstance(n, str):
+                errs.append(f"assign target {n!r} is not an Id "
+                            f"(SYNTAX.md:86)")
+                continue
             if n not in assignable:
                 errs.append(f"assign to {n}, not a return or local")
             t = _ty(e, env, funs, ver, errs, set())
@@ -511,14 +682,30 @@ def _check_stmts(body, env, funs, ver, errs, assignable):
             if ver == 0:
                 errs.append("local in a v0 task")
             d = s["var"]
-            if d["name"] in env or d["name"] in funs:
-                errs.append(f"local {d['name']} shadows a name in scope")
+            if _missing(d, ("name", "type", "init"), "var", errs,
+                        "SYNTAX.md:74"):
+                continue
+            n = d["name"]
+            if not isinstance(n, str) or not NAME_RE.match(n):
+                errs.append(f"local name {n!r} is not an Id (SYNTAX.md:86)")
+                continue
+            # SYNTAX.md:74 — a local is int or bool. `seq` is a parameter
+            # type (SYNTAX.md:56) and a seq-typed local would need a
+            # seq-valued expression to initialize it, which t does not have.
+            if d["type"] not in ("int", "bool"):
+                errs.append(f"local {n} has type {d['type']!r}, not int or "
+                            f"bool (SYNTAX.md:74)")
+            if n in env or n in funs:
+                errs.append(f"local {n} shadows a name in scope")
             if _ty(d["init"], env, funs, ver, errs, set()) != d["type"]:
-                errs.append(f"local {d['name']} init type mismatch")
-            env[d["name"]] = d["type"]
-            assignable.add(d["name"])
+                errs.append(f"local {n} init type mismatch")
+            env[n] = d["type"]
+            assignable.add(n)
         elif "if" in s:
             c = s["if"]
+            if _missing(c, ("cond", "then", "else"), "if", errs,
+                        "SYNTAX.md:73"):
+                continue
             if _ty(c["cond"], env, funs, ver, errs, set()) != "bool":
                 errs.append("if condition is not bool")
             _check_stmts(c["then"], dict(env), funs, ver, errs, set(assignable))
@@ -527,15 +714,30 @@ def _check_stmts(body, env, funs, ver, errs, assignable):
             if ver == 0:
                 errs.append("while in a v0 task")
             w = s["while"]
+            # `decreases` is checked below rather than here so that a loop
+            # missing it keeps the message it has always had.
+            if _missing(w, ("cond", "invariants", "body"), "while", errs,
+                        "SYNTAX.md:75-78"):
+                continue
             if _ty(w["cond"], env, funs, ver, errs, set()) != "bool":
                 errs.append("loop condition is not bool")
             if "decreases" not in w:
                 errs.append("loop without decreases (SPEC.md gate 2)")
             elif _ty(w["decreases"], env, funs, ver, errs, set()) != "int":
                 errs.append("loop decreases is not int")
-            for inv in w.get("invariants", []):
+            invs = w["invariants"]
+            if not isinstance(invs, list):
+                errs.append("a `while`'s `invariants` is not a list "
+                            "(SYNTAX.md:76)")
+                invs = []
+            for inv in invs:
                 if _ty(inv, env, funs, ver, errs, set()) != "bool":
                     errs.append("loop invariant is not bool")
+            # SYNTAX.md:78 — `"body": [Stmt+]`. A loop whose body is empty
+            # cannot decrease its own measure, so it does not terminate.
+            if isinstance(w["body"], list) and not w["body"]:
+                errs.append("while body must be non-empty "
+                            "(SYNTAX.md:78, [Stmt+])")
             _check_stmts(w["body"], dict(env), funs, ver, errs, set(assignable))
         else:
             errs.append(f"t has no statement {sorted(s)!r}")
