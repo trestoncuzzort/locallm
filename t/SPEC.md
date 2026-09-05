@@ -96,7 +96,15 @@ spark (the `at` wrapper's own precondition, checked by the kernel inside
 the contract) and fstar (the index refinement on `Seq.index`) all reject
 the real lowering: dafny and fstar score the probe REFUTED through their
 well-formedness and typing channels, verus, spark, lean and rocq score it
-UNPROVED. framac is the known gap and verified the probe: WP's
+UNPROVED. (Note, added 2026-09-05: the fstar half of that sentence was
+measured wrong. That REFUTED came through error number 19 — the adapter's
+only REFUTED site on the day, once the rlimit case above it is excluded —
+which is the solver answering `unknown` with no countermodel. Since
+2026-09-05 error 19 reads UNPROVED (verifiers/fstar.py, the error-19
+section), on today's adapter this probe's fstar cell reads UNPROVED with
+the other four. The sentence stands as written for the run that produced
+it.)
+framac is the known gap and verified the probe: WP's
 logic is total, an out-of-range `s[i]` denotes an unconstrained value, and
 an undefined requires quietly becomes a constraint on that value.
 lower_framac.py discharges definedness for executable positions and for
@@ -193,7 +201,13 @@ loop encodings under a contract stating only invariants plus the negated
 guard, which is the havoc-everything theorem: lean and rocq scored both
 probes UNPROVED, spark scored both TIMEOUT, and fstar scored both REFUTED,
 its solver rejecting the havoc-everything obligation the old lowering had
-emitted in place of the task's theorem. All four were fixed the same day
+emitted in place of the task's theorem. (Note, added 2026-09-05: the fstar
+half of that sentence was measured wrong. That REFUTED came through error
+number 19 — the adapter's only REFUTED site on the day — which is the solver
+answering `unknown` with no countermodel. Since 2026-09-05 error 19 reads
+UNPROVED (verifiers/fstar.py, the error-19 section), both probes' fstar cells
+read UNPROVED. The sentence stands as written for the run that produced
+it.) All four were fixed the same day
 (each loop helper now threads exactly the assigned set, or carries one
 frame equality per preserved variable); with the fixes all seven kernels
 verify both probes, flake-checked, and the artifacts emitted

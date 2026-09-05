@@ -933,9 +933,14 @@ twin would drop these from the corpus entirely, which shrinks the generated
 corpus and loses the evidence along with it. The rule taken instead is
 narrower: a `+nonrefuting` twin is REPORTED and never COUNTED. The task
 stays in the corpus and stays visible, the tag travels with the cell, and it
-cannot satisfy the counting rule, so `no_flip` and every count derived from
-it now mean only what they claim to mean. SPEC.md carries the rule; the
-harness and the two runners enforce it.
+cannot satisfy the counting rule. SPEC.md carries the rule, and harness.py,
+run_all.py and run_par.py enforce it, so the cells those three produce mean
+what they claim. The fuzz report does not read it: fuzz_lower.py still picks
+its own twin (harness.make_twin over the body alone, no witness ladder and
+no tag) and buckets every real VERIFIED whose twin came back anything but
+REFUTED as `no_flip`, so that count still mixes a twin the ladder could not
+ground with one a kernel failed to refute. Teaching the fuzz report the same
+counting rule is an open design item.
 
 ### 12.4 The Dafny-to-t lifter
 

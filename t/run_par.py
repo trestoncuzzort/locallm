@@ -280,7 +280,7 @@ def main() -> int:
                      "twin differs from the real body but does not falsify "
                      "`ensures`, so a REFUTED verdict on it is not the flip.")
     lines.append("")
-    header = "| task | " + " | ".join(b for b, _ in cols) + " |"
+    header = "| file | " + " | ".join(b for b, _ in cols) + " |"
     lines += [header, "|" + "---|" * (len(cols) + 1)]
     for tkey, cells in rows.items():
         # Labelled by the input file, and by the task name too where the two

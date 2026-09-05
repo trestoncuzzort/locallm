@@ -2,12 +2,12 @@
 """run_all.py — every t task through every available kernel; agreement is the
 instrument.
 
-Writes t/AGREEMENT.md: one row per task, one column per backend, each cell the
-(real, twin) outcome pair. Full agreement means every kernel VERIFIED the real
-lowering and REFUTED the twin. A DISAGREEMENT is not an error in this script's
-eyes — it is a finding, the cross-verifier analogue of the paper's
-interpreter-pin discovery, and it is written into the table and exits nonzero
-so it cannot pass silently.
+Writes t/AGREEMENT.md: one row per task file, one column per backend, each
+cell the (real, twin) outcome pair. Full agreement means every kernel
+VERIFIED the real lowering and REFUTED the twin. A DISAGREEMENT is not an
+error in this script's eyes — it is a finding, the cross-verifier analogue
+of the paper's interpreter-pin discovery, and it is written into the table
+and exits nonzero so it cannot pass silently.
 
 Backends are probed, not assumed: a kernel that is not installed on this
 machine is listed as absent, never faked.
@@ -264,7 +264,7 @@ def main() -> int:
                      "twin differs from the real body but does not falsify "
                      "`ensures`, so a REFUTED verdict on it is not the flip.")
     lines.append("")
-    header = "| task | " + " | ".join(b for b, _ in cols) + " |"
+    header = "| file | " + " | ".join(b for b, _ in cols) + " |"
     lines += [header, "|" + "---|" * (len(cols) + 1)]
     for tkey, cells in rows.items():
         # Labelled by the input file, and by the task name too where the two
