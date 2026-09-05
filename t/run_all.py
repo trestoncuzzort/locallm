@@ -45,11 +45,12 @@ BACKENDS = [
 
 def main() -> int:
     tasks = sorted((HERE / "tasks").glob("*.json"))
-    # `rows` is filled at LOAD time below, not here: a task that loaded is
-    # keyed by its `name`, and a file the door refused by its stem, which is
-    # all such a file has. Building it here from stems made the STEM the
-    # identity of the whole run.
-    cols, rows, all_ok = [], {}, True
+    # THE ROW KEY IS THE INPUT FILE'S STEM, so `rows` is built here: the
+    # files are all known by now and no two of them share a stem. The load
+    # loop below says why the task NAME does not key the row.
+    rows: dict[str, dict] = {t.stem: {} for t in tasks}
+    labels: dict[str, str] = {}     # row key -> table label, where they differ
+    cols, all_ok = [], True
     present = []            # (bname, backend, lower, suffix), probed only
 
     # INVENTORY FIRST, THEN THE REFUSALS, THEN LOWERING. Which kernels answer
@@ -118,22 +119,17 @@ def main() -> int:
     # also refuses a file that is not JSON at all, and one whose top-level
     # value is not an object (`[]`): both used to walk straight past this
     # except and end the run in a traceback.
-    # THE ROW KEY IS THE TASK NAME, AND `rows` IS BUILT HERE BECAUSE OF IT.
-    # A task's identity is `name`: SPEC.md makes it an Id, and every lowering
-    # embeds it as the module, crate or unit name of what it emits. A FILE
-    # name is not an Id — `abs.v1.json`, or a name with a space, is a legal
-    # file — so keying the run on the stem handed one to the kernels as a
-    # filename: measured 2026-09-05, abs.json copied to zzW2_abs.v1.json
-    # emitted out/zzW2_abs.v1.fst carrying `module Abs`, and F* refuses that
-    # file by name (Error 141, "Expected module zzW2_abs.v1", exit 1, while
-    # the same bytes named Abs.fst verify), and verifiers/verus.py hands the
-    # path to verus with no --crate-name, so rustc derives THAT name from the
-    # filename too. Building `rows` from t.stem up front was the
-    # other half of that, and the KeyError it was meant to avoid — a file
-    # whose task name is not its stem — is closed by keying the row with the
-    # name the task actually loaded with. A file the DOOR refused has no
-    # trustworthy name, so its row is keyed by its stem: the only thing such
-    # a file has.
+    # TWO IDENTITIES, TWO THINGS. The ARTIFACT is named by the task's
+    # `name`, because the kernels read the emitted file BY NAME: measured
+    # 2026-09-05, abs.json copied to zzW2_abs.v1.json emitted
+    # out/zzW2_abs.v1.fst carrying `module Abs`, and F* refuses that file by
+    # name (Error 141, exit 1, while the same bytes named Abs.fst verify).
+    # The ROW is keyed by the INPUT FILE's stem, loaded or refused, because a
+    # stem is unique and a name is not: a file the door refused has no
+    # trustworthy name at all, and two files may carry one name. Measured
+    # 2026-09-05, a refused zzDRV_a.json and a valid task named zzDRV_a
+    # shared a row, the valid task's verdicts overwrote the spec-error cells,
+    # and the table showed only successes while the run exited DISAGREEMENT.
     loaded = []
     for tpath in tasks:
         try:
@@ -144,8 +140,9 @@ def main() -> int:
             all_ok = False
             print(f"  {tpath.stem}: REFUSED — {e}  <-- FINDING")
             continue
-        loaded.append((tpath.name, task))
-        rows.setdefault(task["name"], {})
+        loaded.append((tpath.name, tpath.stem, task))
+        if task["name"] != tpath.stem:
+            labels[tpath.stem] = f"{tpath.stem} ({task['name']})"
 
     # ONE ARTIFACT, ONE WRITER. Identity is the task NAME, so two task files
     # holding the same `name` — or names `x` and `x_twin`, both Ids — claim
@@ -162,21 +159,18 @@ def main() -> int:
     written: dict[Path, str] = {}     # artifact path -> the task FILE that wrote it
     emitted = []            # the source files THIS run wrote, in write order
     for bname, backend, lower, suffix in present:
-        for fname, task in loaded:
+        for fname, stem, task in loaded:
             name = task["name"]
-            # ONE IDENTITY, THE TASK NAME — the key `rows` was built with
-            # at load time, and the name every lowering embeds in what it
-            # emits. The file's stem was tried here and is not an identity:
-            # a stem can be any legal filename, and the kernels read the
-            # emitted file BY NAME (measured 2026-09-05 — see the load loop
-            # above, and harness.run_task).
+            # `name` names the ARTIFACT — every lowering embeds it in what
+            # it emits, and the kernels read that file by name. `stem` keys
+            # the ROW. See the load loop above.
             # The whole task, not just the body: the twin is chosen by a
             # measured witness (harness.twin_for) and the witness needs
             # params/requires/ensures to have anything to run on.
             twin_body, op, w = harness.twin_cached(task)
             if twin_body is None:
                 cell = ("no-twin", "no-twin", True, "")
-                rows[name][bname] = cell
+                rows[stem][bname] = cell
                 all_ok = False
                 # The count the search ACTUALLY enumerated, not the cap:
                 # harness.refusal re-walks the domain for a coverage refusal
@@ -191,7 +185,7 @@ def main() -> int:
             except NotImplementedError as e:
                 # An explicit ABSTAIN from the lowering: a recorded absence.
                 cell = ("abstain", "abstain", True, "")
-                rows[name][bname] = cell
+                rows[stem][bname] = cell
                 all_ok = False
                 print(f"  {name} x {bname}: ABSTAIN — {e}")
                 continue
@@ -200,7 +194,7 @@ def main() -> int:
                 # so on purpose. Recorded, not fatal: one cell's absence must
                 # not silence every other measurement in the run.
                 cell = ("lower-error", "lower-error", True, "")
-                rows[name][bname] = cell
+                rows[stem][bname] = cell
                 all_ok = False
                 print(f"  {name} x {bname}: LOWER-ERROR — "
                       f"{type(e).__name__}: {e}")
@@ -213,7 +207,7 @@ def main() -> int:
                 # earlier task's verdict was measured on, and this task has
                 # no artifact of its own to be measured on.
                 cell = ("path-collision", "path-collision", True, "")
-                rows[name][bname] = cell
+                rows[stem][bname] = cell
                 all_ok = False
                 print(f"  {name} ({fname}) x {bname}: PATH-COLLISION — "
                       f"out/{clash.name} is also written by "
@@ -236,7 +230,7 @@ def main() -> int:
             # harness.counts_as_flip, asked here and in harness.run_task.
             note = "" if harness.counts_as_flip(op) else "+nonrefuting"
             cell = (r_real.outcome, r_twin.outcome, a1 and a2, note)
-            rows[name][bname] = cell
+            rows[stem][bname] = cell
             flip = cell[:3] == (Outcome.VERIFIED, Outcome.REFUTED, True)
             good = flip and not note
             all_ok &= good
@@ -272,8 +266,10 @@ def main() -> int:
     lines.append("")
     header = "| task | " + " | ".join(b for b, _ in cols) + " |"
     lines += [header, "|" + "---|" * (len(cols) + 1)]
-    for tname, cells in rows.items():
-        row = [tname]
+    for tkey, cells in rows.items():
+        # Labelled by the input file, and by the task name too where the two
+        # differ, so a reader can connect the row to out/<name>.*.
+        row = [labels.get(tkey, tkey)]
         for bname, _ in cols:
             c = cells.get(bname)
             row.append("—" if c is None else
