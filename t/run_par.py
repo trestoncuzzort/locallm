@@ -44,17 +44,17 @@ BACKENDS = [
 ]
 
 
-def _run_cell(bname: str, stem: str, suffix: str, op: str):
+def _run_cell(bname: str, name: str, suffix: str, op: str):
     # Re-imported per call: correct under spawn (fresh interpreter, no
     # inherited module object); a sys.modules hit under fork, used below.
-    # `stem` is the task FILE's stem, which is what named the two sources
-    # the lowering pass wrote and what keys the row this cell belongs to.
+    # `name` is the TASK name, which is what named the two sources the
+    # lowering pass wrote and what keys the row this cell belongs to.
     backend = importlib.import_module(f"verifiers.{bname}")
-    real = harness.OUT / f"{stem}.{suffix}"
-    twin = harness.OUT / f"{stem}_twin.{suffix}"
+    real = harness.OUT / f"{name}.{suffix}"
+    twin = harness.OUT / f"{name}_twin.{suffix}"
     r_real, a1 = flake_check(backend.verify, real)
     r_twin, a2 = flake_check(backend.verify, twin)
-    return stem, bname, op, (r_real.outcome, r_twin.outcome, a1 and a2)
+    return name, bname, op, (r_real.outcome, r_twin.outcome, a1 and a2)
 
 
 def main() -> int:
@@ -70,7 +70,11 @@ def main() -> int:
     ap.add_argument("--jobs", type=int, default=None)
     jobs_arg = ap.parse_args().jobs
     tasks = sorted((HERE / "tasks").glob("*.json"))
-    cols, rows, all_ok = [], {t.stem: {} for t in tasks}, True
+    # `rows` is filled at LOAD time below, not here: a task that loaded is
+    # keyed by its `name`, and a file the door refused by its stem, which is
+    # all such a file has. Building it here from stems made the STEM the
+    # identity of the whole run.
+    cols, rows, all_ok = [], {}, True
     present = []                        # (bname, lower_fn, suffix), probed backends only
 
     # INVENTORY FIRST, THEN THE REFUSALS, THEN LOWERING. See run_all.py for
@@ -116,73 +120,87 @@ def main() -> int:
     # also refuses a file that is not JSON at all, and one whose top-level
     # value is not an object (`[]`): both used to walk straight past this
     # except and end the run in a traceback.
-    # Keyed by STEM, not task["name"]: the name field may be the thing
-    # SPEC.md refuses, so the stem travels WITH the task from here on.
+    # THE ROW KEY IS THE TASK NAME, AND `rows` IS BUILT HERE BECAUSE OF IT.
+    # A task's identity is `name`: SPEC.md makes it an Id, and every lowering
+    # embeds it as the module, crate or unit name of what it emits. A FILE
+    # name is not an Id — `abs.v1.json`, or a name with a space, is a legal
+    # file — so keying the run on the stem handed one to the kernels as a
+    # filename: measured 2026-09-05, abs.json copied to zzW2_abs.v1.json
+    # emitted out/zzW2_abs.v1.fst carrying `module Abs`, and F* refuses that
+    # file by name (Error 141, "Expected module zzW2_abs.v1", exit 1, while
+    # the same bytes named Abs.fst verify), and verifiers/verus.py hands the
+    # path to verus with no --crate-name, so rustc derives THAT name from the
+    # filename too. Building `rows` from t.stem up front was the
+    # other half of that, and the KeyError it was meant to avoid — a file
+    # whose task name is not its stem — is closed by keying the row with the
+    # name the task actually loaded with. A file the DOOR refused has no
+    # trustworthy name, so its row is keyed by its stem: the only thing such
+    # a file has.
     loaded = []
     for tpath in tasks:
         try:
-            loaded.append((tpath.stem, harness.load(tpath)))
+            task = harness.load(tpath)
         except harness.SpecError as e:
-            for bname in present_names:
-                rows[tpath.stem][bname] = ("spec-error", "spec-error", True,
-                                           "")
+            rows[tpath.stem] = {b: ("spec-error", "spec-error", True, "")
+                                for b in present_names}
             all_ok = False
             print(f"  {tpath.stem}: REFUSED — {e}  <-- FINDING")
+            continue
+        loaded.append(task)
+        rows.setdefault(task["name"], {})
 
     # Lowering + writes: sequential, entirely before any dispatch below, so
     # out/*.{suffix} has a single writer for the whole time it is produced.
-    # ONE ARTIFACT, ONE WRITER. `<stem>_twin.<suffix>` is a filename another
-    # task file can claim: with a.json and a_twin.json in tasks/, both name
-    # out/a_twin.<suffix>. Measured 2026-09-05 with two copies of abs.json
-    # saved as zzW2_a.json and zzW2_a_twin.json —
-    # this driver lowers every task before it dispatches any verification, so
-    # the second task's REAL lowering landed on the first task's twin path
-    # before a kernel read either. Every kernel then verified a correct
-    # program where the broken one should have been and the zzW2_a row came
-    # back `verified / verified` on dafny, lean and F*, with out/zzW2_a.dfy
-    # and out/zzW2_a_twin.dfy hashing the same 9fe1e7e8….
-    # A collision is a defect in the task SET, and the person who named the
-    # files is the one who can fix it, so it is refused and named here rather
+    # ONE ARTIFACT, ONE WRITER. Identity is the task NAME, so two task files
+    # holding the same `name` — or names `x` and `x_twin`, both Ids — claim
+    # one out/<name>.<sfx> and one out/<name>_twin.<sfx>.
+    # This driver lowers every task before it dispatches any verification, so
+    # without this map the second writer's REAL source landed on the first
+    # task's twin path before a kernel read either: measured 2026-09-05 with
+    # two task files claiming one twin path, the first row came back
+    # `verified / verified` on dafny, lean and F*, its two artifacts hashing
+    # the same 9fe1e7e8….
+    # A collision is a defect in the task SET, and the author who named the
+    # tasks is the one who can fix it, so it is refused and named here rather
     # than worked around with per-task directories or a rename.
-    written: dict[Path, str] = {}     # artifact path -> the stem that wrote it
+    written: dict[Path, str] = {}     # artifact path -> the name that wrote it
     pending, wits, emitted = [], {}, []
     for bname, lower, suffix in present:
-        for stem, task in loaded:
-            # ONE IDENTITY, THE FILE'S STEM — the key `rows` was built
-            # with. This path used to write rows[task["name"]] while the
-            # refusal above wrote rows[stem]. Measured 2026-09-05: abs.json's
-            # bytes in a file whose task name is `entry` crashed the driver
-            # with KeyError: 'entry'; and in a file carrying a name another
-            # task already has, the two silently shared one row and one pair
-            # of out/ files — every `abs x <kernel>` line printed twice and
-            # the extra row came out all em-dashes.
+        for task in loaded:
+            name = task["name"]
+            # ONE IDENTITY, THE TASK NAME — the key `rows` was built with
+            # at load time, and the name every lowering embeds in what it
+            # emits. The file's stem was tried here and is not an identity:
+            # a stem can be any legal filename, and the kernels read the
+            # emitted file BY NAME (measured 2026-09-05 — see the load loop
+            # above, and harness.run_task).
             # The whole task, not just the body: the twin is chosen by a
             # measured witness (harness.twin_for), and the witness needs
             # params/requires/ensures to have anything to run on. Cached, so
             # the ladder search happens once per task, not once per backend.
             twin_body, op, w = harness.twin_cached(task)
             if twin_body is None:
-                rows[stem][bname] = ("no-twin", "no-twin", True, "")
+                rows[name][bname] = ("no-twin", "no-twin", True, "")
                 all_ok = False
                 # The count the search ACTUALLY enumerated, not the cap:
                 # harness.refusal re-walks the domain for a coverage refusal
                 # (86 points on the probe measured 2026-09-05), and the
                 # static string can only quote interp.MAX_POINTS.
-                print(f"  {stem} x {bname}: no twin — "
+                print(f"  {name} x {bname}: no twin — "
                       f"{harness.refusal(op, task)}  <-- FINDING")
                 continue
             try:
                 real_src = lower(task, task["body"])
                 twin_src = lower(task, twin_body, witness=w)
             except NotImplementedError as e:
-                rows[stem][bname] = ("abstain", "abstain", True, "")
+                rows[name][bname] = ("abstain", "abstain", True, "")
                 all_ok = False
-                print(f"  {stem} x {bname}: ABSTAIN — {e}")
+                print(f"  {name} x {bname}: ABSTAIN — {e}")
                 continue
             except Exception as e:                          # noqa: BLE001
-                rows[stem][bname] = ("lower-error", "lower-error", True, "")
+                rows[name][bname] = ("lower-error", "lower-error", True, "")
                 all_ok = False
-                print(f"  {stem} x {bname}: LOWER-ERROR — {type(e).__name__}: {e}")
+                print(f"  {name} x {bname}: LOWER-ERROR — {type(e).__name__}: {e}")
                 continue
             # newline="\n": the lowering's bytes are the verdict basis, hashed
             # into AGREEMENT.md. Path.write_text defaults to os.linesep, so a
@@ -190,26 +208,26 @@ def main() -> int:
             # every other platform's for the same text (measured 2026-09-02:
             # abs.dfy 9147e4af… on Windows vs 9fe1e7e8… everywhere else,
             # equal after CRLF->LF). One newline choice, every host.
-            real = harness.OUT / f"{stem}.{suffix}"
-            twin = harness.OUT / f"{stem}_twin.{suffix}"
+            real = harness.OUT / f"{name}.{suffix}"
+            twin = harness.OUT / f"{name}_twin.{suffix}"
             clash = next((p for p in (real, twin) if p in written), None)
             if clash is not None:
                 # NEITHER file is written. What is already on disk is what an
                 # earlier task's verdict will be measured on, and this task
                 # has no artifact of its own to be measured on.
-                rows[stem][bname] = ("path-collision", "path-collision",
+                rows[name][bname] = ("path-collision", "path-collision",
                                      True, "")
                 all_ok = False
-                print(f"  {stem} x {bname}: PATH-COLLISION — "
+                print(f"  {name} x {bname}: PATH-COLLISION — "
                       f"out/{clash.name} is also written by "
                       f"{written[clash]}  <-- FINDING")
                 continue
             real.write_text(real_src, encoding="utf-8", newline="\n")
             twin.write_text(twin_src, encoding="utf-8", newline="\n")
-            written[real] = written[twin] = stem
+            written[real] = written[twin] = name
             emitted += [real, twin]     # only what THIS run wrote; see below
-            pending.append((bname, stem, suffix, op))
-            wits[stem] = w
+            pending.append((bname, name, suffix, op))
+            wits[name] = w
     n_cells = len(tasks) * len(BACKENDS)          # matrix size, independent of what lowered
     jobs = jobs_arg or max(1, min(n_cells, os.cpu_count() or 1))
     # Platform-selected: fork where it exists, spawn on Windows. The spawn
@@ -220,7 +238,7 @@ def main() -> int:
     with ProcessPoolExecutor(max_workers=jobs, mp_context=ctx) as ex:
         futs = {ex.submit(_run_cell, b, n, s, o): (b, n, o) for b, n, s, o in pending}
         for fut in as_completed(futs):
-            stem, bname, op, cell3 = fut.result()
+            name, bname, op, cell3 = fut.result()
             # A +nonrefuting TWIN IS NOT COUNTABLE. When no rung of the ladder
             # falsifies `ensures`, harness.twin_for falls back to a twin that
             # merely computes something different and records the weakness in
@@ -232,7 +250,7 @@ def main() -> int:
             # harness.counts_as_flip, asked here and in harness.run_task.
             note = "" if harness.counts_as_flip(op) else "+nonrefuting"
             cell = cell3 + (note,)
-            rows[stem][bname] = cell
+            rows[name][bname] = cell
             flip = cell[:3] == (Outcome.VERIFIED, Outcome.REFUTED, True)
             good = flip and not note
             all_ok &= good
@@ -241,9 +259,9 @@ def main() -> int:
                 mark += (" — refuted, but the twin's witness does not falsify "
                          "`ensures`, so this is not the flip and is not "
                          "counted")
-            print(f"  {stem} x {bname} [{op}]: real={cell[0]} twin={cell[1]}"
+            print(f"  {name} x {bname} [{op}]: real={cell[0]} twin={cell[1]}"
                   + mark
-                  + f"   (twin witness: {harness.witness(wits.get(stem))})")
+                  + f"   (twin witness: {harness.witness(wits.get(name))})")
 
     tagged = any(c[3] for cells in rows.values() for c in cells.values())
     lines = [f"# t cross-kernel agreement — "
