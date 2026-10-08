@@ -2,7 +2,7 @@
 
 The first time a pretrained locallm has answered the 232 held-out problems.
 Predictions were registered in
-[t/PREDICT-2026-09-19-round7.md](../t/PREDICT-2026-09-19-round7.md) while the
+[t/PREDICT-2026-09-19-round7.md](https://github.com/trestoncuzzort/dawnr/blob/main/t/PREDICT-2026-09-19-round7.md) while the
 kernels were still running and before either `kernels.md` existed.
 
 ## The table

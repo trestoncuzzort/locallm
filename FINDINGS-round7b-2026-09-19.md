@@ -1,7 +1,7 @@
 # Round 7b: three arms, and the one that helped cost nothing
 
 Three excuses for round 7's score, each turned into an arm and registered with
-its falsifier in [`t/PREDICT-2026-09-19-round7b.md`](../t/PREDICT-2026-09-19-round7b.md)
+its falsifier in [`t/PREDICT-2026-09-19-round7b.md`](https://github.com/trestoncuzzort/dawnr/blob/main/t/PREDICT-2026-09-19-round7b.md)
 before any arm generated an answer. `t/out/score-r7b.md` has the full table,
 graded with `evaluator_stable: true` and no file hash moving on either machine.
 

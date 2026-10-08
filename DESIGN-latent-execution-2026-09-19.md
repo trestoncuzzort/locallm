@@ -7,7 +7,7 @@ by itself and not a claim that the experiment has run.
 Question: does token-conditioned latent prediction combine with concrete
 execution supervision to improve the owned core's unaided program synthesis?
 Sources and method limitations are in
-[the research audit](../internal/RESEARCH-ANGLES-2026-09-19.md).
+[the research audit](https://github.com/trestoncuzzort/dawnr/blob/main/internal/RESEARCH-ANGLES-2026-09-19.md).
 
 ## Four treatments
 

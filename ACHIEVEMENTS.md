@@ -1,6 +1,6 @@
 # locallm: the technical record
 
-The version of [the README's achievements section](../README.md) with the
+The version of [the README's achievements section](https://github.com/trestoncuzzort/dawnr/blob/main/README.md) with the
 settings, the identities and the caveats. Every row of this page is a number a
 script in this repository produced; where a measurement has a confound or a
 narrow scope, it says so in the same paragraph rather than in a footnote.
@@ -16,9 +16,9 @@ parameters, character tokenizer, trained from random weights on a 77 KB
 corpus); 198 of 232 for `locallm-r5`. The matched Phi-4-mini row is 12 of 232
 and the prompted Qwen3.8-27B-FP8 row is 116.
 
-Scored by [`t/score_heldout.py`](../t/score_heldout.py) over
+Scored by [`t/score_heldout.py`](https://github.com/trestoncuzzort/dawnr/blob/main/t/score_heldout.py) over
 `t/out/loop/split-v3.json`'s 232 held-out problems; full table
-[`t/out/score-r6.md`](../t/out/score-r6.md).
+[`t/out/score-r6.md`](https://github.com/trestoncuzzort/dawnr/blob/main/t/out/score-r6.md).
 
 **Caveats.** Phi has never seen t, so its 12 measures unfamiliarity as much as
 capability; that applies equally to every prompted row and the README says so.
@@ -35,8 +35,8 @@ r5), **1 of 1** (r7), **2 of 2** (r7b greedy, r8, r9), **3 of 3** (r7b headed2,
 the arm that ties Phi, and r9 seed 42), **1 of 2** (r9 seed 7) and **5 of 6**
 (r10, regraded 2026-09-21). The comparable rates are Phi 3 of 6, the untrained
 1.5B 3 of 13, the prompted 27B 12 of 81, DeepSeek-Prover-V2-7B 6 of 10. The
-earlier rates are columns of [`../t/out/score-r8.md`](../t/out/score-r8.md); r9
-and r10 are in [`../SCOREBOARD.md`](../SCOREBOARD.md). Until round 9 this
+earlier rates are columns of [`../t/out/score-r8.md`](https://github.com/trestoncuzzort/dawnr/blob/main/t/out/score-r8.md); r9
+and r10 are in [`../SCOREBOARD.md`](https://github.com/trestoncuzzort/dawnr/blob/main/SCOREBOARD.md). Until round 9 this
 section read "every locallm answer", which r9 seed 7 and r10 ended.
 
 **Caveats.** The denominators are 1 and 2. This is not evidence of a high
@@ -153,15 +153,15 @@ is all that was measured: completions from all six arms remain repetitive.
 Not achievements of the model, but of the apparatus, and they are what the
 newer numbers rest on.
 
-- [`t/composition_reference.py`](../t/composition_reference.py): a closed-form
+- [`t/composition_reference.py`](https://github.com/trestoncuzzort/dawnr/blob/main/t/composition_reference.py): a closed-form
   oracle that never imports the interpreter and never walks an AST, so
   agreement with a traced run is a cross-check between implementations.
-- [`t/score_synthesis.py`](../t/score_synthesis.py): scores a candidate by
+- [`t/score_synthesis.py`](https://github.com/trestoncuzzort/dawnr/blob/main/t/score_synthesis.py): scores a candidate by
   reassembling the frozen task header with the model's body, so no answer can
   alter the contract it is scored against; counts malformed, ill-formed,
   undefined, over-budget, timed-out and over-length answers as failures. 11
   tests, one per outcome.
-- [`t/audit_collapsible.py`](../t/audit_collapsible.py): asks whether a
+- [`t/audit_collapsible.py`](https://github.com/trestoncuzzort/dawnr/blob/main/t/audit_collapsible.py): asks whether a
   proper sub-sequence of a held-out task's own stages already passes its tests.
   This found that **38 of 38** correct answers across a twelve-arm study sat on
   such tasks, which reinterpreted that study's entire result.
@@ -178,7 +178,7 @@ No second party has reviewed them.
 ## What is not on this page
 
 No locallm model has beaten Phi-4-mini. The best is **3** clean answers of 232
-against Phi's 3 ([`../t/out/score-r8.md`](../t/out/score-r8.md)), which is a tie
+against Phi's 3 ([`../t/out/score-r8.md`](https://github.com/trestoncuzzort/dawnr/blob/main/t/out/score-r8.md)), which is a tie
 and not a win, and the plan to change that is WS-22 in
-[`ROADMAP.md`](../ROADMAP.md). This page said "the best is 2" until 2026-09-20,
+[`ROADMAP.md`](https://github.com/trestoncuzzort/dawnr/blob/main/ROADMAP.md). This page said "the best is 2" until 2026-09-20,
 two rounds after it stopped being true.

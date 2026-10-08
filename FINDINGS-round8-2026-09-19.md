@@ -1,7 +1,7 @@
 # Round 8: locallm matches Phi, and the thing that did it was a header
 
 Predictions were registered in
-[`t/PREDICT-2026-09-19-round8.md`](../t/PREDICT-2026-09-19-round8.md) before the
+[`t/PREDICT-2026-09-19-round8.md`](https://github.com/trestoncuzzort/dawnr/blob/main/t/PREDICT-2026-09-19-round8.md) before the
 corpus was built. `t/out/score-r8.md` is the table, graded with
 `evaluator_stable: true` on a Phi baseline regraded the same day.
 

@@ -61,7 +61,7 @@ real model with no copy in the repository.**
 Three things follow, and two of them are uncomfortable.
 
 * The best from-scratch arm whose weights exist here is **round 4**:
-  [`SCOREBOARD.md`](../SCOREBOARD.md) gives it 209 well-formed answers of 232, 2
+  [`SCOREBOARD.md`](https://github.com/trestoncuzzort/dawnr/blob/main/SCOREBOARD.md) gives it 209 well-formed answers of 232, 2
   that pass their tests, 2 clean, 1 surviving the specification check.
 * **The best row on the scoreboard is not shippable from this tree.** Round 8
   with signature-headed training — 3 clean, the row that ties Phi-4-mini — is a
@@ -438,7 +438,7 @@ that is what it writes, whatever it is asked:
 
 Well-formed `t`, with a specification and a body that agree — and the wrong
 problem: it was asked for a sum and answered with star numbers. That is exactly
-the result [`SCOREBOARD.md`](../SCOREBOARD.md) reports (209 well-formed, 2
+the result [`SCOREBOARD.md`](https://github.com/trestoncuzzort/dawnr/blob/main/SCOREBOARD.md) reports (209 well-formed, 2
 correct) arriving on a stranger's laptop with no machine-learning software on it.
 
 Asked anything outside its world it does not degrade gracefully:

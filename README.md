@@ -1,464 +1,82 @@
 # locallm
 
-**A local learning model: a small model that learns whatever your machine writes —
-trained from scratch, on your own hardware, from your own data.**
+**A transformer trainer that builds language models from random weights on your own hardware.** No pretrained
+weights, no API, no account; the data and the model stay on the machine. It covers the whole path: tokenizer,
+training on one GPU or four, checkpoints that resume exactly, cached and quantized inference, a desktop studio for
+people who have never trained a model, and a research record in which every experiment was registered before it ran.
 
-No pretrained weights. No API. No account. Nothing leaves your computer.
+locallm is the model layer of [dawnr](https://github.com/trestoncuzzort/dawnr). Its outputs were graded by
+[t-proof-engine](https://github.com/trestoncuzzort/t-proof-engine), which checks a program in seven independent
+provers. It was built by one person between July and October 2026 and was split out of dawnr with its history.
 
-The name is not short for "local language model." It is a **local learning model**:
-point it at the text-shaped data your life actually produces — notes, code, machine
-logs, query dumps, sensor exports — and it learns the structure of *that*, where the
-data lives. It is built like a language model because a transformer is
-the simplest honest machine for the job, but conversation is not the product. Learning
-your data, measurably and verifiably, is.
+## What is in it
 
-You can optionally **download plain text to train on** (`get_corpus.py`), never weights.
-The model is always built from random numbers on your machine; what you download is
-something to read, not something that already knows how to write.
+| Area | Files | What it does |
+|---|---|---|
+| Model | [`model.py`](model.py) | GPT baseline (learned positions, LayerNorm, GELU) and a modern core (rotary positions, RMSNorm, SwiGLU, activation checkpointing) at about 30M, 91M and 312M parameters ([`CORE-2026-09-19.md`](CORE-2026-09-19.md)) |
+| Data | [`data.py`](data.py), [`token_shards.py`](token_shards.py), [`make_corpus.py`](make_corpus.py) | character vocabulary or a byte-level BPE tokenizer learned from the training text; token shards so a multi-billion-token corpus streams instead of loading |
+| Training | [`train.py`](train.py), [`train_distributed.py`](train_distributed.py), [`cloud_train.py`](cloud_train.py) | single-GPU training; four-GPU BF16 training with gradient accumulation; the same command on a rented GPU. Resume restores optimizer state and every RNG and refuses a changed schedule, tokenizer or dataset ([`DISTRIBUTED-2026-09-19.md`](DISTRIBUTED-2026-09-19.md)) |
+| Inference | [`generate.py`](generate.py), [`plain_generate.py`](plain_generate.py), [`quant_int8.py`](quant_int8.py) | KV-cache decoding; a generator that runs on the Python standard library alone (no torch, no numpy); per-row symmetric int8 weight quantization (Krishnamoorthi 2018, arXiv:1806.08342) |
+| Studio | [`studio.py`](studio.py), [`start_studio.py`](start_studio.py), [`check_my_computer.py`](check_my_computer.py) | a Tk desktop app: pick your files, pick a size, train, try the model; a hardware check that times the machine before it promises minutes ([`GUIDE.md`](GUIDE.md)) |
+| Experiments | `exp_*.py`, `run_*_study.py`, `summarize_*.py`, `measure_capacity.py` | the scripts behind every number below; each writes a machine-readable result file next to it |
 
-The model starts as random numbers. By default, the vocabulary contains the characters
-in the data you give it. The core training presets can instead learn a byte-level BPE
-tokenizer from the training text. You watch it learn.
+## Measured results
 
-```
-python studio.py
-```
+Every row is a number a script in this repository recorded; the record links to the file.
 
-**What it has done so far:** a 92M model trained this way drew level with
-Microsoft's Phi-4-mini, 41 times larger, on 232 held-out program-synthesis
-problems where every answer had to be proved by seven independent proof
-systems. The eight results with their settings and hashes are in
-[`ACHIEVEMENTS.md`](ACHIEVEMENTS.md); the scoreboard is
-[`../SCOREBOARD.md`](../SCOREBOARD.md) and what is not claimed is
-[`../LIMITS.md`](../LIMITS.md). That is one application of this trainer, not
-what it is for; the rest of this page is the tool.
+| Measurement | Result | Record |
+|---|---|---|
+| Pretraining from random weights | a 92.9M-parameter model on 3.70 billion English tokens: 56,457 steps on one rented H100, resumed once from its own checkpoint; final validation loss 2.180 | [`dawnr-r12-core-results-2026-09-30.json`](dawnr-r12-core-results-2026-09-30.json) |
+| Continued pretraining on code | 15,000 steps on a 16 GB desktop GPU with activation checkpointing; validation loss from 1.758 (step 1,000) to 1.137 (best, step 13,500) | same file |
+| Modern core against the GPT baseline | held-out loss 24.6%, 26.6% and 28.7% lower across three matched seeds, at about 18% more time per training segment | [`FINDINGS-source-pretraining-2026-09-19.md`](FINDINGS-source-pretraining-2026-09-19.md) |
+| KV-cache decoding | 100 of 100 replies byte-identical to uncached decoding; a 1,200-token round in 304.6 s against 2,144.5 s (7x) | [`FINDINGS-kv-cache-2026-09-19.md`](FINDINGS-kv-cache-2026-09-19.md) |
+| int8 weights | 4x smaller (43.5 MB to 11.0 MB) and 205 of 205 generated tokens identical to float32; 33% slower per token on the pure-Python path | [`bench-int8-results-2026-09-27.json`](bench-int8-results-2026-09-27.json) |
+| How long to train | longer helps until about 80,000 steps and is flat after (32 runs, 500 to 160,000 steps) | [`FINDINGS-how-long-to-train.md`](FINDINGS-how-long-to-train.md) |
 
-## Core training presets
+## What did not work, and how it was caught
 
-The CLI now supports rotary positions, RMSNorm, SwiGLU, activation checkpointing, and
-approximately 30M, 91M, and 312M parameter presets at an 8192-token vocabulary. Each size
-completed real optimizer steps on the lab GPUs at context 2048. This establishes that
-the larger owned models run; better learned answers remain to be measured.
+The record keeps its failures beside its results, because each one changed what was measured next.
 
-```sh
-python train.py --data corpus.txt --out out/core-medium \
-  --preset core-medium --tokenizer bpe --vocab-size 8192 \
-  --batch-size 1 --steps 2000 --lr 0.0003
-```
+- **A withdrawn headline.** This project once claimed that a 92M locallm model tied Microsoft's Phi-4-mini on 232
+  held-out program-synthesis problems, each answer proved by seven provers. A decontamination audit on 2026-09-21
+  found that 32 of the held-out problems had a same-task source in the training data, and 22 of locallm's 23 clean
+  answers were on them. On the other 200 it produced no correct, proved answer, so the claim was withdrawn
+  ([`ACHIEVEMENTS.md`](ACHIEVEMENTS.md) section 2). After a 400-step fine-tune, the 92.9M core above writes 45
+  well-formed answers to 100 fresh dev problems and passes the tests on none.
+- **A transfer that did not happen.** A pre-registered factorial (12 arms, 3 seeds) showed the model learned the
+  extra latent/execution supervision but did not carry it to held-out tasks
+  ([`FINDINGS-factorial-2026-09-19.md`](FINDINGS-factorial-2026-09-19.md)).
+- **A wrong prediction about caching.** The cache was predicted to be 1.5x faster at 128 new tokens and was not. It
+  pays only on long outputs, which a later measurement at the real output length showed (the 7x row above).
 
-Install `requirements-training.txt` for BPE. Existing character checkpoints and commands
-remain supported. In the matched probe, the modern core was slower (11.16 versus
-5.87 ms/step); checkpointing reduced its peak allocated memory about 51% while costing
-more computation. Read [the measured core report](CORE-2026-09-19.md) for exact shapes,
-raw observations, reproducible checks, and the limits of those numbers. The GUI keeps
-its existing simple presets; these new scale presets are exposed through the CLI.
+## How the work was run
 
-> ## 🚧 Work in progress
->
-> **This is an early, actively developed project, not a finished product.** It trains real
-> models today and the results below are real, but interfaces will change, features are
-> missing, and the limits section further down is not modesty. It is accurate.
->
-> **Setup is one script.** Run `INSTALL.bat` (Windows) and it builds a private Python
-> environment beside these files, installs the PyTorch build that matches your graphics
-> card, and puts a shortcut on your Desktop. The one-click bootstrapper built for the
-> old standalone repository is archived at `releases-archive/v0.1.0/Install_locallm.exe`.
->
-> **One requirement is not gone yet: you still need Python installed** (3.10 or newer,
-> and not the very newest, see below). The installer checks, and tells you exactly what
-> to get if it is missing. Bundling the Python runtime so that step disappears too is
-> still the goal. See [Roadmap](#roadmap).
-
----
-
-## One project, two scales
-
-This folder lives inside **srlm-forge**, and that is not packaging — it is the point.
-They were always one project; the split into two repositories was an accident of
-history, now repaired.
-
-The repository root asks: *when a model is trained and a benchmark says it improved,
-how much of that number is real?* It asks at 8-billion-parameter scale, with an
-execution-verified training pipeline, and the answer became a paper ("Automated
-Oracles Are Not Enough") whose main finding is that the measuring instrument, not the
-model, produced roughly half the gain.
-
-This folder is the same question at a scale you can hold in your hand. Every defense
-the research arm had to invent — preregistered bars, leakage gates, noise floors,
-machine-checked claims, an append-only run ledger — exists here too, wrapped around a
-model small enough that a full training run costs under a minute and every claim can be
-re-derived on a laptop. The forge is where the method is stress-tested against a real
-benchmark. locallm is where anyone can run the method themselves.
-
-## What this actually is
-
-A small, readable, from-scratch GPT and a GUI so you don't need a terminal to use it.
-
-| File | What it is |
-|---|---|
-| `model.py` | The transformer. Decoder-only GPT, written out in full: attention, MLP, blocks, weight tying, GPT-2 scaled init. ~460 lines. |
-| `data.py` | A character-level tokenizer built from *your* corpus, plus batching. No external tokenizer, nothing downloaded. |
-| `train.py` | The training loop. Random init → your weights. Cosine schedule, warmup, gradient clipping, bf16 autocast where it is measured to help (CUDA and Apple-silicon GPUs). |
-| `generate.py` | Sample from a model you trained. |
-| `checkpoint.py` | Loads a saved model back off disk and samples from it. One implementation, shared by `generate.py` and the GUI so they cannot drift apart. |
-| `make_corpus.py` | Point it at a folder; it builds `corpus.txt` from your files. Accepts any file whose **content** is text, refuses binaries by their bytes, and warns when your vocabulary gets expensive. The reading is not its own: every path a file of yours travels, the window, the drop target and the command line alike, goes through one checked reader in `ingest.py`, which either decodes your file and tells you which encoding worked (`utf-8`, `utf-16 (BOM)`, `cp1252`) or refuses it and says why in a sentence you can act on. A file saved in an older Cyrillic, Greek, Chinese or other non-Latin encoding, which used to arrive as `cp1252` mojibake, is refused with a sentence asking for UTF-8 (unless the optional `charset-normalizer` package is installed and names its encoding); Big5 and wrong Latin code pages such as Polish `cp1250` still get through. It never hands back half-decoded text, because `errors="ignore"` is specified to "ignore the malformed data and continue without further notice" (docs.python.org/3/library/codecs.html) and the notice is the part you needed. Three graphical call sites used to do exactly that; [`../CORRECTIONS.md`](../CORRECTIONS.md) has what it cost. |
-| `get_corpus.py` | Downloads text worth training a small model on: simple stories, or public-domain books. Text only; weights are never downloaded. Together with `setup_training.py`, one of the two files here that open a network connection of their own -- `install.py` also reaches the network, but only ever through `pip` as a subprocess. |
-| `home.py` | The front page: pick your text, pick a size, train, try it. Four numbered cards and one button, because the first screen has to make sense to someone who has never heard of a proof kernel. Every setting `studio.py` has is still here, behind *More settings*. Drag and drop works when `tkinterdnd2` happens to be installed and the Choose button works when it is not. |
-| `look.py` | One place for how the window looks: the two palettes, the spacing scale, the native-first font lists, the four verdict marks, and the plain sentences that go with a corpus check or a training step. Imported by both surfaces so they cannot drift. Needs no torch, so the window can size itself on a machine that has none. |
-| `plain_generate.py` | Reads a checkpoint and samples from it in the standard library alone, no torch and no numpy. Slow, and for one thing only: a machine that has the model but not the 2.5 GB needed to have trained it. `SHIPPING.md` has the timings. |
-| `studio.py` | The GUI. Pick a size and a practice length from presets, train, watch how many characters it is still choosing between, and write something with it. Advanced settings hold every original knob. |
-| `leakage.py` | Finds training text hiding in your validation set, and says so. |
-| `baselines.py` | Scores a lookup table on the same held-out text as your model, so "it learned" is a comparison, not a feeling. |
-| `bench_device.py` | Times a real training step on your hardware — CPU, CUDA, or Apple-silicon — and tells you what it can handle. |
-| `install.py` | Sets the app up on your computer: builds a private Python environment beside these files, installs the PyTorch build that matches your graphics card, and puts a shortcut on your Desktop. Run it through `INSTALL.bat`. It uses only the standard library, so it works on a computer where nothing is installed yet, and it asks PyTorch which Python versions it supports rather than guessing. |
-| `setup_training.py` | A newer, more careful path to the same goal: `python3 setup_training.py` builds a virtual environment inside this folder and installs PyTorch with [uv](https://docs.astral.sh/uv/guides/integration/pytorch/), which asks your NVIDIA driver its version and picks the matching build itself. uv is fetched from a pinned release and checked against a sha256 written into this file before anything is extracted -- never piped into a shell. Asks before downloading anything, and `--offline` refuses cleanly instead of hanging. Where uv has no build for this computer, falls back to picking a PyTorch wheel index from the driver version directly, in the standard library alone. |
-| `check_my_computer.py` | Run this first. Checks Python, Tk, memory, disk and graphics card, times a real training step, and says in plain words what you can train and how long it takes. Writes the file the studio reads to show real minutes instead of "not timed yet". |
-| `test_detectors.py` | Tests for the leakage detector. `python test_detectors.py`, no framework. |
-| `runlog.py` | Append only record of every run. `python runlog.py` to see them all. |
-| `start_studio.py` | Double click entry point: rebuilds the corpus from your files, opens the studio. |
-| `exp_lr_width.py` | A preregistered experiment harness (see below). |
-| `verify_claims.py` | Checks this README's factual claims against the repo. `python verify_claims.py`, exits non-zero if any has drifted. |
-
-Dependencies: **PyTorch and Tk.** That's it. Tk ships with Python.
-
-## Install
-
-**Windows.** Run `INSTALL.bat` in this folder. It builds a private environment, picks
-the right PyTorch for your machine, checks the result, and adds a Desktop shortcut
-called **Train My AI**. It needs no administrator rights and writes nothing outside
-this folder and the shortcut. (The one-click bootstrapper from the standalone-repo era
-is preserved at `releases-archive/v0.1.0/Install_locallm.exe`; it downloaded from a
-release that no longer exists, so use `INSTALL.bat` directly now.)
-
-**Mac and Linux.** `pip install torch`, then `python studio.py`. Apple-silicon Macs
-train on the GPU automatically — no CUDA, no configuration; the device is picked in
-one place (`train.pick_device`) and the studio, the CLI, and the benchmark all use it.
-
-**What "picks the right PyTorch" means.** The installer asks `nvidia-smi` whether you
-have an NVIDIA card and installs the CUDA build if you do and the processor-only build
-if you don't. Both train; the CPU one is slower (there is a measured table in
-[Roadmap](#roadmap)).
-
-**About your Python version.** PyTorch does not publish a build for the newest Python
-for some months after it comes out, so the newest Python is usually the one version
-that cannot work. The installer does not guess at this: it looks at every Python on
-your computer, asks PyTorch's own package index which of them it supports, and uses
-the newest that works. If none do, it says so and tells you what to install rather
-than failing part-way through with a wall of red text.
-
-Undoing all of it is deleting the folder and the shortcut.
+Each experiment has a registration written before it ran (`PREREG-*.md`, `PREDICT-*.md`), naming the number that
+would falsify it. The outcome is in `FINDINGS-*.md`, including the predictions that failed. Result files carry the
+settings, seeds and hashes needed to rerun them.
 
 ## Quick start
 
-Put **any text files you have** in `training_data/`: `.txt`, `.md`, `.py`, but also
-`.csv`, `.jsonl`, `.log`, `.tsv`, `.yaml`, `.sql`, or files with no extension at all,
-then run `python start_studio.py`. It rebuilds the corpus and opens the studio.
-
-Files are accepted on **content, not extension**: anything whose bytes are text gets
-in, anything binary is refused and says so. That is deliberate, and it is the local
-learning model idea in one rule: the point is to learn the data you actually have, not
-the three file types this project happened to guess. Machine logs, sensor exports and
-query dumps are all just structure to a character-level model — a model trained on
-your logs learns your logs' grammar, and that has nothing to do with chat.
-
-A worked example of exactly that: a corpus of 1,947 Dafny files (a formal verification
-language — dense, non-prose, structure everywhere) trains the default model to
-recognizable Dafny in under a minute on an Apple-silicon GPU, and the leakage scanner
-correctly flags that boilerplate test headers straddle the train/validation split
-rather than letting the val loss pass unqualified. The tooling telling you *that* is
-the product working as designed.
-
-On Windows, double click `Train My AI.bat` instead, or make a desktop shortcut to it, and
-you never need a terminal at all.
-
-**Run `Check My Computer` first.** It takes about a minute, checks that everything it
-needs is installed, times a real training step on your hardware, and tells you what you
-can train and how long it will take, measured here, not copied from someone else's
-machine. Until you do, the studio will not guess at times; it will say so.
-
-Have no text of your own, or want output that actually reads like English?
-`python get_corpus.py stories` downloads simple short stories written for exactly this
-size of model. On a 3M-parameter model that is the difference between word salad and
-*"Once upon a time, there was a little boy named Timmy."*
-
-The longer form, if you want the pieces separately:
-
-```bash
-pip install torch                       # CUDA build if you have an NVIDIA GPU
-python make_corpus.py --src ./my_notes  # or --src . --ext .py to train on code
-python studio.py                        # or: python train.py --data corpus.txt
+```sh
+pip install -r requirements-training.txt          # torch + tokenizers
+python train.py --data corpus.txt --out out/small --preset core-small \
+  --tokenizer bpe --vocab-size 8192 --batch-size 1 --steps 2000 --lr 0.0003
+python generate.py --out out/small --prompt "The " --tokens 200
+python plain_generate.py --out out/small --prompt "The "   # the same model with nothing installed
+python start_studio.py                                     # the desktop studio
 ```
 
-Then in the GUI: pick a **size** → pick how long it should **practise** → **Start training**
-→ **Write something**. Four choices, all of them presets or sliders; there is nothing to type
-except the words you want the model to continue. Every original knob is still there under
-**Show advanced settings**, which is shut by default.
+Tests: `python -m pytest test_model_core.py test_kv_cache.py test_bpe.py` (the full list CI runs is in
+[`.github/workflows/tests.yml`](.github/workflows/tests.yml)).
 
-Checkpoints are plain `ckpt.pt` + `tokenizer.json` in your output folder. They're yours.
-Training stops on its own once the held-out text has not improved by more than
-run-to-run noise (0.005, from `FINDINGS-how-long-to-train.md`) for 5 checks in a row, and
-the folder keeps the weights from the best check, not the last; the log and the
-checkpoint's `training` entry say which step and why it stopped. `train.py --no-early-stop`
-runs every step; `--min-delta` and `--patience` change the rule.
-`generate.py --out <folder>` reads them back.
+## Where it connects to dawnr
 
-## What makes it different
-
-Most small-model repos show you a loss curve going down and let you feel good about it.
-This one is built to stop you fooling yourself — because its sibling project spent
-months learning, at 8B scale, exactly how measurement lies:
-
-- **It refuses to hand you a fake number.** Before training, it checks whether your
-  validation text also appears in your training text. If it does, val loss is measuring
-  memorisation rather than generalisation, and the tool tells you so instead of letting
-  you believe the number. Splitting is by whole document, after de-duplication, so
-  repeated material cannot land on both sides.
-- **The learning rate follows your architecture.** A fixed `3e-4` is a GPT-2-scale constant
-  (width 768 to 1600) and is badly wrong at the widths this trains. `auto_lr(n_embd)` scales
-  with width, and the GUI retargets it when you change the model but never overwrites a
-  value you typed yourself.
-- **Experiments are preregistered.** `prereg_lr_width.json` fixes the success bar, the arm
-  selection rule, and the interpretation of a null result *before* the run. `exp_lr_width.py`
-  then reports PASS or FAIL against it. Writing the bar first is the whole point.
-- **Evaluation can't disturb training.** Eval batches come from a dedicated
-  `torch.Generator`, never the global RNG, so every arm sees byte-identical batches.
-- **Multiple seeds, and ranges reported.** One run is an anecdote.
-- **Looking at the model cannot change it.** Evaluation draws its batches from a
-  dedicated generator, so how often you evaluate has no effect on what gets trained.
-  That sounds obvious and was not true here until it was measured: sharing one random
-  stream between training and evaluation moved final train loss by 0.031 purely by
-  changing the eval interval. It is now identical to six decimal places regardless.
-- **Every run is recorded.** `runs.jsonl` gets one append only line per training run,
-  experiment, benchmark and leakage scan: configuration, device, wall clock, final
-  losses, a fingerprint of the corpus, and the leakage verdict sitting next to the
-  val loss it qualifies. `python runlog.py` prints the history, `--review` prints a
-  digest for someone who did not watch it happen. A result file that the next run
-  overwrites cannot show you a trend.
-- **This README is machine-checked.** `python verify_claims.py` re-derives every
-  factual claim below from the repo itself and exits non-zero if one has drifted: that
-  the listed files exist, that `model.py` really is ~460 lines, that the dependency
-  claim holds (against the interpreter's own stdlib list, not a hand-written one), that
-  nothing imports a network module, and that **every number in the worked result below
-  matches `exp_lr_width_result.json` to the digit**: means, ranges, gap, overlap and
-  verdict. Its limits are stated in its own docstring: it cannot check the roadmap, it
-  cannot check hardware timings on your machine, and it is a fixed list of checks rather
-  than a general fact-checker, so a newly added sentence is not caught automatically.
-- **The detector is itself tested, against a copy of its own old bug.**
-  `test_detectors.py` keeps the previous, broken fingerprinter in the file on purpose and
-  runs every test against both: the current one must pass and the broken one must fail. A
-  test that both pass is not testing anything. Test inputs are drawn randomly rather than
-  hand picked, because the original bug was a stride of 10 and every offset a person
-  reaches for by hand (0, 100, 500, 1000) is a multiple of 10 and passes on the broken
-  code.
-
-### A worked result
-
-The first experiment run through this harness, on an RTX 4080 (4 layers, 4 heads, width 256,
-block 128, batch 32, 2000 steps):
-
-```
-control   lr 3.0e-04   mean 0.1495   range [0.1471, 0.1507]
-treatment lr 3.0e-03   mean 0.1056   range [0.1016, 0.1099]
-gap +0.0439   bar 0.020   ranges overlap: no
-PREREGISTERED VERDICT: PASS
-```
-
-Five seeds per arm, bar written down first. The hardcoded default was leaving **0.04 train
-loss** on the table, more than any architecture change was worth. That is why the learning
-rate scales with width now.
-
-Reproduce it: `python exp_lr_width.py` (about 2.5 minutes on a 4080, running 4 arms
-concurrently; pass `--workers 1` to run them one at a time).
-
-There is also a one minute profile, `python exp_lr_width.py --profile fast` (measured 59s),
-at 800 steps with a 4 point sweep. It is deliberately **a separate experiment, not a cheaper
-version of this one**, because the effect size changes with step count: measured across
-400/800/1200/2000 steps the gap decays about 9x, so a shorter run reports a *larger* number
-for the same underlying phenomenon. The fast profile licenses the claim "reaches lower train
-loss faster" and nothing more. To stop the two being confused later, the profile, step count,
-grid size and claim are written into the result file's own verdict string rather than kept in
-a filename or someone's memory:
-
-```
-PASS [fast profile: 800 steps, 4-LR grid, 5 seeds] - claim: reaches lower train loss
-FASTER; NOT the canonical effect size
-```
-
-These numbers moved once since first publication, and the reason is worth stating: the
-document splitter's `seed` argument was silently unused, so fixing it changed which
-documents land in training. The verdict did not change, the margin did.
-
-## Honest limits
-
-Read this part before you expect too much.
-
-- **A small model trained on one person's data produces mediocre output.** This is not
-  ChatGPT and it is not close. That is compute and data scale, not a bug to engineer
-  around. What it learns is the *structure* of your data; what it cannot do is converse.
-- **The character tokenizer is still the default in `train.py`**, and it is less
-  efficient per token than BPE. A BPE tokenizer trained on your own corpus is
-  available with `--tokenizer bpe` and is the default in `train_distributed.py`;
-  measured on this project's corpus it cuts the same text into about 40% as many
-  chunks (0.39 tokens per character, `tokenizer-results-2026-09-19.json`). Whichever you pick is fingerprinted into the checkpoint, so a resume
-  cannot silently change it.
-- **A tiny corpus, or one dominated by a single huge document, cannot be split cleanly.**
-  Whole-document splitting cannot hit a 10% target when there are only three documents.
-  The scanner reports the validation fraction it actually achieved and warns you when the
-  document sizes, not your setting, are in charge.
-- **The leakage scan is an exact substring scanner, not a near duplicate scanner,**
-  and the difference is bigger than it sounds. Measured recall on this project's own
-  documents: verbatim copies 100%, reformatted 90%, every identifier renamed **0%**,
-  renamed plus edited **0%**. Renaming identifiers costs it almost nothing; replacing
-  the string literals is what destroys detection. So a CLEAN verdict means nobody
-  copied and pasted. It does not mean your validation set is independent. The tool
-  says this in its own output rather than leaving you to find out.
-- No gradient accumulation. Resume and multi-GPU now exist:
-  `train_distributed.py` runs one process per GPU under torchrun with exact
-  step-boundary resume, and a checkpoint carries the optimizer, the
-  learning-rate horizon, the tokenizer identity and every rank's RNG state, so
-  changing any of those on resume is refused rather than absorbed.
-- Large architectures will run out of VRAM rather than warning you first.
-- **You currently need Python and a terminal to install and start it.** The GUI itself
-  needs neither once it is running, but getting there does. That is the single biggest
-  barrier to "anyone can use this", and it is item 1 on the roadmap.
-
-## Roadmap
-
-In order. The training core gets sharpened before anything expands.
-
-**1. Setup with no terminal and no Python. PARTLY DONE.**
-`install.py`/`INSTALL.bat` handle the environment, the right PyTorch build, and the
-Desktop shortcut today, with no administrator rights. The remaining piece is the Python
-runtime itself: bundling it so the requirement disappears. Bundling a runtime is easy,
-but PyTorch with CUDA is roughly 2.5 GB, which no amount of packaging polish makes
-friendly. The plan: a CPU-capable default with the GPU build as an opt-in, and the
-runtime bundled so the user never sees it.
-
-The version trap the installer already solves is worth naming, because it is the one
-that bites hardest: PyTorch publishes no wheels for the newest Python for some months
-after release, so a user who installs Python today gets the one version that cannot
-work, and the failure is an unreadable resolver error. The installer asks the package
-index which versions are supported instead of carrying a hardcoded list that would go
-stale.
-
-That plan rests on CPU training being tolerable, which is a measurable claim, so it was
-measured rather than assumed. Run `python bench_device.py` to get the same table for your
-own machine. On an RTX 4080 with a Ryzen 7000 series CPU, for a full 2000 step run:
-
-| size | params | CPU | GPU | GPU speedup |
-|---|---|---|---|---|
-| small (2L, 128 wide) | 0.41M | 63s | 8s | 7.5x |
-| default (4L, 256 wide) | 3.18M | 5.4 min | 14s | 23.8x |
-| large (6L, 512 wide) | 18.96M | 56.9 min | 40s | 84.9x |
-
-And on an Apple M5 Pro (unified memory, MPS backend), same protocol:
-
-| size | params | CPU | GPU (MPS) | GPU speedup |
-|---|---|---|---|---|
-| small (2L, 128 wide) | 0.41M | 38s | 11s | 3.4x |
-| default (4L, 256 wide) | 3.19M | 3.8 min | 42s | 5.4x |
-| large (6L, 512 wide) | 18.98M | 28.6 min | 5.2 min | 5.5x |
-
-So a CPU only install is genuinely fine at the small size, usable at the default, and
-impractical above it — and an ordinary Apple-silicon laptop with no NVIDIA card at all
-trains every size this ships. That is the shape the installer should follow: detect the
-hardware, pick a size the machine can actually finish, and say which it chose.
-
-**2. Leakage scan and group aware splitting. DONE.**
-Shipped in `leakage.py`, and wired into the GUI and the training loop. Measured on this
-project's own corpus: the old positional split put 82.6% of validation content inside
-training. Splitting by document drops that to 1.5%. The effect on the numbers is the
-point: under the contaminated split, val loss came out *lower* than train loss, which is
-backwards. With a clean split there is an honest gap.
-
-Those two figures were first published as 70.1% and 0.0%, measured with a detector that
-was itself broken. It sampled fingerprints at a fixed stride, so it only compared two
-copies of a passage when both happened to start on the same stride phase: a document
-copied verbatim into training was caught at 1 byte offset out of 10. Fingerprints are now
-selected by content (winnowing), which is phase invariant, catches that case at 10 offsets
-out of 10, and is cheaper than the sampler it replaced.
-
-**3. Noise floor by default.**
-Multiple seeds on every comparison, mean plus or minus 3 sigma, with test retest variance
-reported separately from between configuration variance, so the tool can say "that
-improvement is inside noise, it isn't real" instead of letting you believe it.
-
-**4. Training that resumes and keeps going.**
-Resume from a checkpoint and train for as long as you want, rather than a fixed step count.
-
-**5. Learning that is verified, not just scored.**
-The research arm of this repository (the root) trains against executed tests and studies
-what verified feedback is actually worth; its newest tooling generates verified pairs
-from Dafny, a language whose compiler proves code correct. As that machinery matures,
-the goal is for what it learns about honest verification to flow back into what this
-trainer reports about your model. One method, two scales — see
-[One project, two scales](#one-project-two-scales).
-
-Further out: an assistant layer that can reason and act on your machine. That is a separate
-track, built against whatever local model is strongest, because a small from-scratch model
-cannot do that job and pretending otherwise would be dishonest. If a model trained here
-ever becomes good enough, it earns its way in on measured results.
-
-## Why a program like this is useful
-
-### Immunity to "Enshittification" and API Decay
-
-Every hosted AI service follows the same arc. It launches good and cheap, because it is
-buying users. Then the free tier shrinks. Then the model behind the endpoint is quietly
-swapped for a smaller one, and the thing you built and tuned against changes underneath
-you without a version bump. Then the API you depend on is deprecated, rate limited,
-moved behind a higher tier, or switched off. Your work was never yours. It was rented,
-and the landlord kept the keys.
-
-A model you trained yourself cannot be degraded by someone else's quarterly targets.
-The weights are a file on your disk. The tokenizer is a file on your disk. The training
-code is a few hundred readable lines you can open right now. Nothing phones home,
-nothing needs an account, nothing expires, and no terms of service update can reach
-backwards and take it away. Run it in ten years on a disconnected laptop and it behaves
-exactly as it does today, because every part of it is already in your hands.
-
-That is the whole point. Not that a small model trained on your own data will beat a
-frontier model. It will not, and this README says so plainly above. The point is
-that it is *yours*, permanently, and that you can see and change every part of how it
-works.
-
-### The goal
-
-Make training your own model something an ordinary person can actually do — and make
-the numbers it reports mean something.
-
-Not "download someone else's weights and run them locally", which is already a solved
-problem with good tools. This is the other thing: start from random numbers, learn from
-data you chose, on hardware you own, and watch it happen — with tooling that tells you
-when a result is real and when it is an artifact of how it was measured. Understanding
-how the thing works should not require a research group, a cloud account, or a credit
-card.
-
-The direction of travel is a single installer, no terminal, no Python, no configuration
-files. Point it at a folder of your own data and press train. See the
-[Roadmap](#roadmap) for where that stands.
-
-### Free for everyone
-
-There is no account, no telemetry, no usage limit, no paid version holding the good
-features, and nothing about it that stops working if this project goes quiet. ("Free"
-here is about those things, not about the licence: see License below.) It runs on hardware
-people already have, including without a GPU.
-
-## Why from scratch
-
-Because "download someone's weights and run them locally" is a solved problem with good
-tools already. This is the other thing: a model that has read **only** what you gave it,
-that started as random numbers on your machine, and whose every line you can read.
-
-It is small. It is yours. It is honest about what it is.
+`continue_from_checkpoint.py`, `heldout_gate.py` and `chat_data.py` pass training data through dawnr's held-out
+filter (`t/loop_filter.py`) before a model sees it, the gate that caught the contamination above; `t_tool.py` and
+`app.py` call dawnr's `t/` pipeline. They run from a [dawnr](https://github.com/trestoncuzzort/dawnr) checkout,
+where their tests pass. Links of the form `github.com/trestoncuzzort/dawnr/...` in the documents point at the
+pipeline files they cite.
 
 ## License
 
-Research use only, see [LICENSE](LICENSE) and the repository root [LICENSE](../LICENSE). locallm was MIT until 2026-09-15; a copy obtained under MIT before then keeps it. Copyright (c) 2026 Treston Malachi Cuzzort.
-
-This section said "use it, change it, ship it, sell it" until 2026-09-20, two
-sentences after saying research use only. That line was true under MIT and was
-left behind when the licence changed on 2026-09-15. Research and education are
-covered; anything else needs written permission, which is what the root
-[`LICENSE`](../LICENSE) says.
+Research Use License; see [`LICENSE`](LICENSE).

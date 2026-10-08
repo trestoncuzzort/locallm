@@ -41,7 +41,7 @@ reproduced all 29 artifacts with four versus eight workers. Version 2 has the
 fixture reproducibility check and the measured revision comparison; a second
 full version-2 build was not run as part of this report.
 
-Separately, [the supervised dataset gate](../t/loop_dataset.py) now requires
+Separately, [the supervised dataset gate](https://github.com/trestoncuzzort/dawnr/blob/main/t/loop_dataset.py) now requires
 seven distinct named clean kernels and explicit spec agreement with positive
 valid-draw count, matching current task hash, problem ID, and pool. It checks
 evidence before deduplication. Imported pairs must also match the current
@@ -54,8 +54,8 @@ to zero**. All 210 lack fresh hash-bound spec evidence. This is a corrected
 evidence requirement, **not a measured quality regression**. Eval acceptance
 similarly changes from 31 programs across 16 problems to zero. The audit creates
 no pairs or negatives and changes no historical datasets. New supervised rounds
-must obtain that missing evidence first. Seven [dataset-gate tests](../t/test_loop_dataset.py)
-and six [spec-check tests](../t/test_spec_check.py) passed: **13 total**.
+must obtain that missing evidence first. Seven [dataset-gate tests](https://github.com/trestoncuzzort/dawnr/blob/main/t/test_loop_dataset.py)
+and six [spec-check tests](https://github.com/trestoncuzzort/dawnr/blob/main/t/test_spec_check.py) passed: **13 total**.
 
 The source corpus is plain-text pretraining data. This report makes no claim
 about model quality or a completed training run; the matched architecture

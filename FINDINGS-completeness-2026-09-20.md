@@ -6,7 +6,7 @@
 > did not: weakness is rare and wrongness dominates, but it is not zero.
 
 Predictions registered in
-[`t/PREDICT-2026-09-20-completeness.md`](../t/PREDICT-2026-09-20-completeness.md)
+[`t/PREDICT-2026-09-20-completeness.md`](https://github.com/trestoncuzzort/dawnr/blob/main/t/PREDICT-2026-09-20-completeness.md)
 before the measurement. **Two of three are falsified and the third is
 unscoreable**, and the falsification is worth more than the hypothesis was.
 
