@@ -28,6 +28,6 @@ jobs:
       - name: tests
         run: xvfb-run -a python -m pytest -q test_audit_example_masks.py test_bench_decode.py test_bpe.py test_check_my_computer.py test_checkpoint.py test_completion_batch.py test_early_stop.py test_get_corpus.py test_ingest.py test_ingest_any.py test_kv_cache.py test_latent_objective.py test_model_core.py test_next_latent.py test_plain_generate.py test_probe_pretraining_study.py test_quant_int8.py test_r12_best_checkpoint.py test_r12_decode.py test_r12_doc_batches.py test_r12_split.py test_research_model.py test_run_pretraining_study.py test_sample_candidates.py test_score_execution.py test_setup_training.py test_soup.py test_source_corpus.py test_summarize_pretraining.py test_token_cache.py test_token_shards.py test_tokenizer_drops.py test_tokenizer_integrity.py test_train_distributed.py test_train_factorial.py 
       - name: test_look alone (it asserts look.py imports no torch, so it needs a process where nothing else did)
-        run: xvfb-run -a python -m pytest -q test_look.py
+        run: xvfb-run -a python -m pytest -q test_look.py -k "not ThisMachine"   # ThisMachine reads the installed fonts
       - name: detector script
         run: python test_detectors.py
