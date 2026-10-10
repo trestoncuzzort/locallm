@@ -150,6 +150,44 @@ class FactorialTests(unittest.TestCase):
         with self.assertRaises(AssertionError):
             run(self.dataset, self.init, out, "combined", "--resume")
 
+    def test_resume_refuses_a_different_batch_size(self):
+        out = Path(self.directory.name) / "changed-batch"
+        run(self.dataset, self.init, out, "baseline", "--dry-run", "2")
+        with self.assertRaisesRegex(AssertionError, "batch_size changed"):
+            run(self.dataset, self.init, out, "baseline", "--resume", "--batch-size", "8")
+
+    def test_resume_refuses_changed_data_with_an_unchanged_manifest(self):
+        out = Path(self.directory.name) / "changed-data"
+        run(self.dataset, self.init, out, "baseline", "--dry-run", "2")
+        path = self.dataset / "train.jsonl"
+        rows = [json.loads(line) for line in path.read_text().splitlines()]
+        rows[0]["completion"] = "  r := 0;\n}\n"
+        path.write_text("".join(json.dumps(row, sort_keys=True) + "\n" for row in rows))
+        with self.assertRaisesRegex(AssertionError, "train_jsonl_sha256 changed"):
+            run(self.dataset, self.init, out, "baseline", "--resume")
+
+    def test_resume_refuses_changed_schedule_and_optimizer_settings(self):
+        out = Path(self.directory.name) / "changed-trajectory"
+        run(self.dataset, self.init, out, "baseline", "--dry-run", "2")
+        checkpoint_bytes = (out / "state.pt").read_bytes()
+        for flag, value, key in (("--updates", "6", "updates"), ("--warmup", "9", "warmup"),
+                                 ("--lr", "0.001", "lr"), ("--dropout", "0.1", "dropout"),
+                                 ("--grad-clip", "0.5", "grad_clip"), ("--block-size", "256", "block_size")):
+            with self.subTest(flag=flag):
+                with self.assertRaisesRegex(AssertionError, key + " changed"):
+                    run(self.dataset, self.init, out, "baseline", "--resume", flag, value)
+                self.assertEqual((out / "state.pt").read_bytes(), checkpoint_bytes)
+
+    def test_resume_does_not_guess_missing_identity(self):
+        out = Path(self.directory.name) / "old-identity"
+        run(self.dataset, self.init, out, "baseline", "--dry-run", "2")
+        state_path = out / "state.pt"
+        state = torch.load(state_path, map_location="cpu", weights_only=False)
+        del state["identities"]["grad_clip"]
+        torch.save(state, state_path)
+        with self.assertRaisesRegex(AssertionError, "missing grad_clip"):
+            run(self.dataset, self.init, out, "baseline", "--resume")
+
     def test_the_export_is_core_only_and_loads_for_inference(self):
         _, out = self.arm("combined")
         exported = torch.load(out / "ckpt.pt", map_location="cpu", weights_only=True)

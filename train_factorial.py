@@ -34,6 +34,23 @@ SCHEMA = 1
 ARMS = {"baseline": (False, False), "latent": (True, False),
         "execution": (False, True), "combined": (True, True)}
 
+# These values determine the data, order, encoding or optimizer trajectory.
+# Paths and reporting/stopping controls may change without redefining the run.
+RESUME_KEYS = ("arm", "seed", "dataset_files", "init_ckpt_sha256", "example_order_sha256",
+               "batch_size", "block_size", "updates", "lr", "warmup", "dropout", "grad_clip",
+               "tokenizer_file_sha256", "tokenizer_fingerprint", "train_jsonl_sha256")
+
+
+def validate_resume_identity(checkpoint: dict, identity: dict) -> None:
+    previous = checkpoint.get("identities")
+    if not isinstance(previous, dict):
+        raise ValueError("cannot resume: checkpoint is missing its identities")
+    for key in RESUME_KEYS:
+        if key not in previous:
+            raise ValueError(f"cannot resume: checkpoint is missing {key}; the old value is unknown")
+        if previous[key] != identity[key]:
+            raise ValueError(f"cannot resume: {key} changed since this run started")
+
 
 def file_sha256(path):
     value = sha256()
@@ -171,14 +188,15 @@ def main():
     args.out.mkdir(parents=True, exist_ok=True)
     tokenizer_source = Path(args.init) / "tokenizer.json"
     tokenizer = load_tokenizer(tokenizer_source)
-    rows = [json.loads(line) for line in
-            (args.dataset / "train.jsonl").read_text().splitlines() if line]
+    train_bytes = (args.dataset / "train.jsonl").read_bytes()
+    rows = [json.loads(line) for line in train_bytes.decode("utf-8").splitlines() if line]
     examples, dropped = encode_dataset(rows, tokenizer, args.block_size)
     per_epoch = batches_per_epoch(len(examples), args.batch_size)
     manifest = json.loads((args.dataset / "manifest.json").read_text())
     identities = {"arm": args.arm, "seed": args.seed, "updates": args.updates,
                   "batch_size": args.batch_size, "block_size": args.block_size,
                   "lr": args.lr, "warmup": args.warmup, "dropout": args.dropout,
+                  "grad_clip": args.grad_clip, "train_jsonl_sha256": sha256(train_bytes).hexdigest(),
                   "dataset_files": manifest["files"], "dataset_seed": manifest["seed"],
                   "init": str(args.init), "init_ckpt_sha256": file_sha256(args.init / "ckpt.pt"),
                   "tokenizer_file_sha256": file_sha256(tokenizer_source),
@@ -204,9 +222,7 @@ def main():
     start = 0
     if args.resume and state_path.exists():
         state = torch.load(state_path, map_location=device, weights_only=False)
-        for key in ("arm", "seed", "dataset_files", "init_ckpt_sha256", "example_order_sha256"):
-            if state["identities"][key] != identities[key]:
-                raise ValueError(f"cannot resume: {key} changed since this run started")
+        validate_resume_identity(state, identities)
         model.load_state_dict(state["wrapper"])
         optimizer.load_state_dict(state["optimizer"])
         torch.set_rng_state(state["rng"]["cpu"])
