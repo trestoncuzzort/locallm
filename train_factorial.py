@@ -81,8 +81,19 @@ def encode_dataset(rows, tokenizer, block_size):
     return examples, dropped
 
 
+def batches_per_epoch(example_count: int, batch_size: int) -> int:
+    """The full batches the generator can yield; training requires at least one."""
+    if batch_size <= 0:
+        raise ValueError("batch_size must be positive")
+    if example_count < batch_size:
+        raise ValueError(f"{example_count} examples cannot form a full batch of {batch_size}; "
+                         "reduce batch_size or provide more examples")
+    return example_count // batch_size
+
+
 def batches(examples, *, batch_size, seed, epoch):
     """Order depends on the seed and the epoch only, never on the arm."""
+    batches_per_epoch(len(examples), batch_size)
     order = list(range(len(examples)))
     random.Random((seed << 20) + epoch).shuffle(order)
     for start in range(0, len(order) - batch_size + 1, batch_size):
@@ -153,6 +164,8 @@ def main():
     parser.add_argument("--dry-run", type=int, default=0,
                         help="stop after N updates without writing an inference export")
     args = parser.parse_args()
+    if args.batch_size <= 0:
+        parser.error("--batch-size must be positive")
 
     device = args.device or core_train.pick_device()
     args.out.mkdir(parents=True, exist_ok=True)
@@ -161,6 +174,7 @@ def main():
     rows = [json.loads(line) for line in
             (args.dataset / "train.jsonl").read_text().splitlines() if line]
     examples, dropped = encode_dataset(rows, tokenizer, args.block_size)
+    per_epoch = batches_per_epoch(len(examples), args.batch_size)
     manifest = json.loads((args.dataset / "manifest.json").read_text())
     identities = {"arm": args.arm, "seed": args.seed, "updates": args.updates,
                   "batch_size": args.batch_size, "block_size": args.block_size,
@@ -212,7 +226,6 @@ def main():
     try:
         # Resume re-enters the same epoch at the same offset, so the batch a
         # resumed arm sees next is the one an uninterrupted arm would have seen.
-        per_epoch = max(len(examples) // args.batch_size, 1)
         epoch, skip = divmod(start, per_epoch)
         stream = batches(examples, batch_size=args.batch_size, seed=args.seed, epoch=epoch)
         for _ in range(skip):

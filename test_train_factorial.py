@@ -6,6 +6,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 import torch
 
@@ -57,6 +58,29 @@ def run(dataset, init, out, arm, *extra):
     return json.loads((Path(out) / "run.json").read_text())
 
 
+class BatchBoundaryTests(unittest.TestCase):
+    def test_insufficient_examples_are_rejected(self):
+        for n, batch_size in ((0, 1), (1, 2), (3, 4)):
+            with self.subTest(n=n, batch_size=batch_size):
+                with self.assertRaisesRegex(ValueError, "full batch"):
+                    list(factorial.batches(list(range(n)), batch_size=batch_size, seed=7, epoch=0))
+
+    def test_nonpositive_batch_size_is_rejected(self):
+        for batch_size in (0, -1):
+            with self.assertRaisesRegex(ValueError, "positive"):
+                list(factorial.batches([0, 1], batch_size=batch_size, seed=7, epoch=0))
+
+    def test_full_batch_count_and_deterministic_order(self):
+        for n in range(1, 17):
+            for b in range(1, n + 1):
+                batches = list(factorial.batches(list(range(n)), batch_size=b, seed=7, epoch=3))
+                self.assertEqual(len(batches), n // b)
+                self.assertTrue(all(len(batch) == b for batch in batches))
+                self.assertEqual(batches, list(factorial.batches(list(range(n)), batch_size=b, seed=7, epoch=3)))
+                flattened = [item for batch in batches for item in batch]
+                self.assertEqual(len(set(flattened)), len(flattened))
+
+
 class FactorialTests(unittest.TestCase):
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
@@ -70,6 +94,15 @@ class FactorialTests(unittest.TestCase):
     def arm(self, name, *extra):
         out = Path(self.directory.name) / name
         return run(self.dataset, self.init, out, name, *extra), out
+
+    def test_insufficient_examples_fail_before_model_construction(self):
+        argv = ["train_factorial.py", "--dataset", str(self.dataset), "--init", str(self.init),
+                "--out", str(Path(self.directory.name) / "too-small"), "--arm", "baseline",
+                "--seed", "7", "--batch-size", "100", "--block-size", "128", "--device", "cpu"]
+        with patch.object(sys, "argv", argv), patch.object(factorial, "build") as build:
+            with self.assertRaisesRegex(ValueError, "full batch"):
+                factorial.main()
+            build.assert_not_called()
 
     def test_every_arm_sees_the_same_examples_in_the_same_order(self):
         orders, answers = set(), set()
